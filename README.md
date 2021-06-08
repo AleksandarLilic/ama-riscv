@@ -2,7 +2,7 @@
 
 **Description:**
 
-Verilog hardware implementation of RISC-V (RV32I) ISA
+Verilog implementation of RISC-V (RV32I) ISA
 
 Project is a part of Advanced Microprocessor Architectures MS course
 
