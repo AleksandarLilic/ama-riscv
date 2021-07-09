@@ -35,6 +35,11 @@ module ama_riscv_reg_file_tb();
 
 //-----------------------------------------------------------------------------
 // Signals
+parameter   PORT_A = 1'b0,
+            PORT_B = 1'b1;
+
+parameter   TEST_ZERO   = 1'b0,
+            TEST_VALUES = 1'b1;
 
 // DUT I/O 
 reg         clk = 0;
@@ -46,12 +51,13 @@ reg  [ 4:0] addr_b;
 reg  [ 4:0] addr_d;
 reg  [31:0] data_d;
 // outputs
-reg  [31:0] data_a;
-reg  [31:0] data_b;
+wire [31:0] data_a;
+wire [31:0] data_b;
 
 // Testbench variables
 reg         done;
 integer     i;
+integer     errors;
 reg [`REG_DATA_WIDTH-1:0]       test_values[`REG_NUM-1:0];
 reg [`REG_DATA_WIDTH-1:0] received_values_a[`REG_NUM-1:0];
 reg [`REG_DATA_WIDTH-1:0] received_values_b[`REG_NUM-1:0];
@@ -79,9 +85,9 @@ always #(`CLK_PERIOD/2) clk = ~clk;
 //-----------------------------------------------------------------------------
 // Tasks
 task write_to_reg_file;
-    input                       write_enable;
-    input [`REG_ADDR_WIDTH-1:0] write_addr;
-    input [`REG_DATA_WIDTH-1:0] write_data;
+    input                        write_enable;
+    input  [`REG_ADDR_WIDTH-1:0] write_addr;
+    input  [`REG_DATA_WIDTH-1:0] write_data;
     
     begin
         we     <= write_enable; 
@@ -94,18 +100,20 @@ task write_to_reg_file;
 endtask
 
 task read_from_reg_file;
-    input                       port;   // A = 0, B = 1
-    input [`REG_ADDR_WIDTH-1:0] read_addr;
-    input [`REG_DATA_WIDTH-1:0] read_data;
+    input                        port;   // A = 0, B = 1
+    input  [`REG_ADDR_WIDTH-1:0] read_addr;
+    output [`REG_DATA_WIDTH-1:0] read_data;
     
     begin
         if (!port) /*port A*/ begin
-            addr_a    <= read_addr;
-            read_data <= data_a; 
+            addr_a    <= read_addr; 
+            #1;
+            read_data <= data_a;
         end 
         else /*port B*/ begin
             addr_b    <= read_addr;
-            read_data <= data_b; 
+            #1;
+            read_data <= data_b;
         end
     end
 endtask
@@ -115,18 +123,26 @@ task compare_data;
     
     if(!compare_type) /*zeros*/ begin
         for (i = 0; i < `REG_NUM; i = i + 1) begin
-            if (received_values_a[i] != 'h0)
-                $display("Failure on port A read: data not zero. Expected value: 0, Received value: %d", received_values_a[i]);
-            if (received_values_b[i] != 'h0)
-                $display("Failure on port B read: data not zero. Expected value: 0, Received value: %d", received_values_b[i]);
+            if (received_values_a[i] != 'h0) begin
+                $display("*ERROR: Port A read: data not zero. Expected value: 0, Received value: %d", received_values_a[i]);
+                errors = errors + 1;
+            end
+            if (received_values_b[i] != 'h0) begin
+                $display("*ERROR: Port B read: data not zero. Expected value: 0, Received value: %d", received_values_b[i]);
+                 errors = errors + 1;
+            end
         end
     end
     else /*test_values*/ begin
         for (i = 0; i < `REG_NUM; i = i + 1) begin
-            if (received_values_a[i] != test_values[i])
-                $display("Failure on port A read: data not zero. Expected value: %d, Received value: %d", test_values[i], received_values_a[i]);
-            if (received_values_b[i] != test_values[i])
-                $display("Failure on port B read: data not zero. Expected value: %d, Received value: %d", test_values[i], received_values_b[i]);
+            if (received_values_a[i] != test_values[i]) begin
+                $display("*ERROR: Port A read: data not zero. Expected value: %d, Received value: %d", test_values[i], received_values_a[i]);
+                 errors = errors + 1;
+            end
+            if (received_values_b[i] != test_values[i]) begin
+                $display("*ERROR: Port B read: data not zero. Expected value: %d, Received value: %d", test_values[i], received_values_b[i]);
+                 errors = errors + 1;
+            end
         end
     end
     
@@ -163,25 +179,27 @@ initial begin
         received_values_b[i] <= i;
     end
     
-    done <= 0;
+    done   <= 0;
+    errors <= 0;
 end
 
 //-----------------------------------------------------------------------------
 // Test
 
 initial begin
+    
     reset(4'd3);
     
     //-----------------------------------------------------------------------------
     // Test 1: reg file empty on reset?
     for (i = 0; i < `REG_NUM; i = i + 1) begin
-        read_from_reg_file(0,i,received_values_a[i]);
+        read_from_reg_file(PORT_A, i, received_values_a[i]);
         //#1;
-        read_from_reg_file(1,i,received_values_b[i]);
+        read_from_reg_file(PORT_B, i, received_values_b[i]);
         @(posedge clk); #1;
     end
     
-    compare_data(0);
+    compare_data(TEST_ZERO);
 
     /* fork
         begin
@@ -254,7 +272,10 @@ initial begin
     join */
 
     repeat (20) @(posedge clk);
-    $display("Test Successful");
+    $display("\n----------------------- Simulation results -----------------------");
+    $display("Test ran to completion");
+    $display("Errors: %0d", errors);
+    $display("----------------- End of the simulation results ------------------\n");
     $finish();
 end
 
