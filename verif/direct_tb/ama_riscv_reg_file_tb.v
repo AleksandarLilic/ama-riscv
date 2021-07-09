@@ -5,17 +5,17 @@
 // Date created:    2021-07-09
 // Author:          Aleksandar Lilic
 // Description:     Test covers following scenarios:
-//                      - Empty on reset (x1-x31)?
-//                      - Sync write (x1-x31)
-//                      - Sync write to x0
-//                      - Async read on port A (x1-x31)
-//                      - Async read on port A from x0
-//                      - Async read on port B (x1-x31)
-//                      - Async read on port B from x0
-//                      - Concurrent async read on port A and B
-//                      - Sync write followed by async read in the same cycle
-//                      - Sync write when we = 0
-//                      - Async read when we = 0
+//                      1.  Empty on reset (x1-x31)?
+//                      2.  Sync write (x1-x31)
+//                      3.  Sync write to x0
+//                      4.  Async read on port A (x1-x31)
+//                      5.  Async read on port A from x0
+//                      6.  Async read on port B (x1-x31)
+//                      7.  Async read on port B from x0
+//                      8.  Concurrent async read on port A and B
+//                      9.  Sync write followed by async read in the same cycle
+//                      10. Sync write when we = 0
+//                      11. Async read when we = 0
 //
 // Version history:
 //      2021-07-09  AL  0.1.0 - Initial
@@ -40,6 +40,8 @@ parameter   PORT_A = 1'b0,
 
 parameter   TEST_ZERO   = 1'b0,
             TEST_VALUES = 1'b1;
+
+parameter   WRITE_ENABLE = 1'b1;
 
 // DUT I/O 
 reg         clk = 0;
@@ -107,45 +109,70 @@ task read_from_reg_file;
     begin
         if (!port) /*port A*/ begin
             addr_a    <= read_addr; 
-            #1;
             read_data <= data_a;
         end 
         else /*port B*/ begin
             addr_b    <= read_addr;
-            #1;
             read_data <= data_b;
         end
     end
 endtask
 
 task compare_data;
-    input compare_type; // 0 = compare with zeros, 1 = compare with test_values
+    input [`REG_ADDR_WIDTH-1:0] read_addr;
+    input [`REG_DATA_WIDTH-1:0] read_data;
+    input [`REG_DATA_WIDTH-1:0] expected_data;
     
-    if(!compare_type) /*zeros*/ begin
-        for (i = 0; i < `REG_NUM; i = i + 1) begin
-            if (received_values_a[i] != 'h0) begin
-                $display("*ERROR: Port A read: data not zero. Expected value: 0, Received value: %d", received_values_a[i]);
-                errors = errors + 1;
-            end
-            if (received_values_b[i] != 'h0) begin
-                $display("*ERROR: Port B read: data not zero. Expected value: 0, Received value: %d", received_values_b[i]);
-                 errors = errors + 1;
-            end
-        end
-    end
-    else /*test_values*/ begin
-        for (i = 0; i < `REG_NUM; i = i + 1) begin
-            if (received_values_a[i] != test_values[i]) begin
-                $display("*ERROR: Port A read: data not zero. Expected value: %d, Received value: %d", test_values[i], received_values_a[i]);
-                 errors = errors + 1;
-            end
-            if (received_values_b[i] != test_values[i]) begin
-                $display("*ERROR: Port B read: data not zero. Expected value: %d, Received value: %d", test_values[i], received_values_b[i]);
-                 errors = errors + 1;
-            end
+    begin
+        if (read_data != expected_data) begin
+            $display("*ERROR @ %0t. Register accessed: %0d, Expected value: %0d, Received value: %0d", $time, read_addr, expected_data, read_data);
+            errors = errors + 1;
         end
     end
     
+endtask
+
+task compare_data_dut_direct;
+    input [`REG_ADDR_WIDTH-1:0] read_addr;
+    input [`REG_DATA_WIDTH-1:0] expected_data;
+    
+    begin    
+        case (read_addr)
+            5'd0:    compare_data(read_addr, DUT_ama_riscv_reg_file_i.x0_zero, expected_data);
+            5'd1:    compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r1,  expected_data);
+            5'd2:    compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r2,  expected_data);
+            5'd3:    compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r3,  expected_data);
+            5'd4:    compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r4,  expected_data);
+            5'd5:    compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r5,  expected_data);
+            5'd6:    compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r6,  expected_data);
+            5'd7:    compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r7,  expected_data);
+            5'd8:    compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r8,  expected_data);
+            5'd9:    compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r9,  expected_data);
+            5'd10:   compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r10, expected_data);
+            5'd11:   compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r11, expected_data);
+            5'd12:   compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r12, expected_data);
+            5'd13:   compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r13, expected_data);
+            5'd14:   compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r14, expected_data);
+            5'd15:   compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r15, expected_data);
+            5'd16:   compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r16, expected_data);
+            5'd17:   compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r17, expected_data);
+            5'd18:   compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r18, expected_data);
+            5'd19:   compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r19, expected_data);
+            5'd20:   compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r20, expected_data);
+            5'd21:   compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r21, expected_data);
+            5'd22:   compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r22, expected_data);
+            5'd23:   compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r23, expected_data);
+            5'd24:   compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r24, expected_data);
+            5'd25:   compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r25, expected_data);
+            5'd26:   compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r26, expected_data);
+            5'd27:   compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r27, expected_data);
+            5'd28:   compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r28, expected_data);
+            5'd29:   compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r29, expected_data);
+            5'd30:   compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r30, expected_data);
+            5'd31:   compare_data(read_addr, DUT_ama_riscv_reg_file_i.reg_r31, expected_data);
+            default: $display("Something's amiss");
+        endcase
+    end    
 endtask
 
 task reset;
@@ -168,6 +195,7 @@ initial begin
     //Prints %t scaled in ns (-9), with 2 precision digits, with the " ns" string
     $timeformat(-9, 2, " ns", 20);
     
+    // move generate to separate task to be called later for new numbers
     // Generate the random test data to write to the reg file
     for (i = 0; i < `REG_NUM; i = i + 1) begin
         test_values[i] <= $random;
@@ -185,21 +213,50 @@ end
 
 //-----------------------------------------------------------------------------
 // Test
-
 initial begin
-    
+    $display("\n-------------------------- Test started --------------------------\n");
     reset(4'd3);
     
     //-----------------------------------------------------------------------------
-    // Test 1: reg file empty on reset?
+    // Test 1: Empty on reset (x1-x31)?
     for (i = 0; i < `REG_NUM; i = i + 1) begin
         read_from_reg_file(PORT_A, i, received_values_a[i]);
-        //#1;
         read_from_reg_file(PORT_B, i, received_values_b[i]);
         @(posedge clk); #1;
     end
     
-    compare_data(TEST_ZERO);
+    $display("Test  1: Checking data from port A ...");
+    for (i = 0; i < `REG_NUM; i = i + 1) begin
+        compare_data(i, received_values_a[i], 'h0);
+    end
+    $display("Test  1: Checking data from port A done");
+    
+    $display("Test  1: Checking data from port B ...");
+    for (i = 0; i < `REG_NUM; i = i + 1) begin
+        compare_data(i, received_values_b[i], 'h0);
+    end
+    $display("Test  1: Checking data from port B done");
+    
+    //-----------------------------------------------------------------------------
+    // Test 2: Sync write (x1-x31)
+    for (i = 1; i < `REG_NUM; i = i + 1) begin
+        write_to_reg_file (WRITE_ENABLE, i, test_values[i]);
+        @(posedge clk); #1;
+    end
+    
+    $display("Test  2: Checking data inside the DUT ...");
+    for (i = 1; i < `REG_NUM; i = i + 1) begin
+        compare_data_dut_direct(i, test_values[i]);
+    end
+    $display("Test  2: Checking data inside the DUT done");
+    
+    //-----------------------------------------------------------------------------
+    // Test 3: Sync write to x0
+    write_to_reg_file(WRITE_ENABLE, 0, test_values[0]);
+    $display("Test  3: Checking data inside the DUT reg x0 ...");
+    compare_data_dut_direct        (0,            'h0);
+    $display("Test  3: Checking data inside the DUT reg x0 done");
+    
 
     /* fork
         begin
@@ -273,7 +330,7 @@ initial begin
 
     repeat (20) @(posedge clk);
     $display("\n----------------------- Simulation results -----------------------");
-    $display("Test ran to completion");
+    $display("Tests ran to completion");
     $display("Errors: %0d", errors);
     $display("----------------- End of the simulation results ------------------\n");
     $finish();
