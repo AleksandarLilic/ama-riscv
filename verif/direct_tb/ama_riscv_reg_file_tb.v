@@ -5,21 +5,21 @@
 // Date created:    2021-07-09
 // Author:          Aleksandar Lilic
 // Description:     Test covers following scenarios:
-//                      1.  Empty on reset (x1-x31)?
+//                      1.  Empty on reset (x0-x31)?
 //                      2.  Sync write (x1-x31)
-//                      3.  Sync write to x0
+//                      3.  Sync write (x0)
 //                      4.  Async read on port A (x1-x31)
-//                      5.  Async read on port A from x0
+//                      5.  Async read on port A (x0)
 //                      6.  Async read on port B (x1-x31)
-//                      7.  Async read on port B from x0
+//                      7.  Async read on port B (x0)
 //                      8.  Concurrent async read on port A and B
 //                      9.  Sync write followed by async read in the same cycle
-//                      10. Sync write when we = 0
-//                      11. Async read when we = 0
+//                      10. Sync write when we = 0 (x1-x31)
+//                      11. Sync write when we = 0 (x0)
 //
 // Version history:
 //      2021-07-09  AL  0.1.0 - Initial
-//      
+//      2021-07-09  AL  1.0.0 - Sign-off
 //-----------------------------------------------------------------------------
 
 `timescale 1ns/1ps
@@ -61,6 +61,7 @@ reg         done;
 integer     i;
 integer     errors;
 reg [`REG_DATA_WIDTH-1:0]       test_values[`REG_NUM-1:0];
+reg [`REG_DATA_WIDTH-1:0]  test_values_hold[`REG_NUM-1:0];
 reg [`REG_DATA_WIDTH-1:0] received_values_a[`REG_NUM-1:0];
 reg [`REG_DATA_WIDTH-1:0] received_values_b[`REG_NUM-1:0];
 
@@ -108,12 +109,12 @@ task read_from_reg_file;
     
     begin
         if (!port) /*port A*/ begin
-            addr_a    <= read_addr; 
-            read_data <= data_a;
+            addr_a    <= read_addr; #1;
+            read_data <= data_a;    #1;
         end 
         else /*port B*/ begin
-            addr_b    <= read_addr;
-            read_data <= data_b;
+            addr_b    <= read_addr; #1;
+            read_data <= data_b;    #1;
         end
     end
 endtask
@@ -125,7 +126,7 @@ task compare_data;
     
     begin
         if (read_data != expected_data) begin
-            $display("*ERROR @ %0t. Register accessed: %0d, Expected value: %0d, Received value: %0d", $time, read_addr, expected_data, read_data);
+            $display("*ERROR @ %0t. Register accessed: %2d, Expected value: %0d, Received value: %0d", $time, read_addr, expected_data, read_data);
             errors = errors + 1;
         end
     end
@@ -189,23 +190,28 @@ task reset;
     end
 endtask
 
+task generate_random_values_array;
+    for (i = 0; i < `REG_NUM; i = i + 1) begin
+        test_values[i] <= $random;
+    end
+endtask
+    
+
+task initialize_receive_arrays;
+    for (i = 0; i < `REG_NUM; i = i + 1) begin
+        received_values_a[i] <= i;
+        received_values_b[i] <= i;
+    end
+endtask
+
 //-----------------------------------------------------------------------------
 // Config
 initial begin
     //Prints %t scaled in ns (-9), with 2 precision digits, with the " ns" string
     $timeformat(-9, 2, " ns", 20);
     
-    // move generate to separate task to be called later for new numbers
-    // Generate the random test data to write to the reg file
-    for (i = 0; i < `REG_NUM; i = i + 1) begin
-        test_values[i] <= $random;
-    end
-    
-    // Initialize received data array, pattern 0 to 31
-    for (i = 0; i < `REG_NUM; i = i + 1) begin
-        received_values_a[i] <= i;
-        received_values_b[i] <= i;
-    end
+    generate_random_values_array();    
+    initialize_receive_arrays();
     
     done   <= 0;
     errors <= 0;
@@ -214,121 +220,138 @@ end
 //-----------------------------------------------------------------------------
 // Test
 initial begin
-    $display("\n-------------------------- Test started --------------------------\n");
+    $display("\n------------------------ Testing started -------------------------\n\n");
     reset(4'd3);
     
     //-----------------------------------------------------------------------------
-    // Test 1: Empty on reset (x1-x31)?
+    // Test 1: Empty on reset (x0-x31)?
+    $display("Test  1: Checking data inside the DUT ...");
     for (i = 0; i < `REG_NUM; i = i + 1) begin
-        read_from_reg_file(PORT_A, i, received_values_a[i]);
-        read_from_reg_file(PORT_B, i, received_values_b[i]);
-        @(posedge clk); #1;
+        compare_data_dut_direct(i, 'h0);
     end
-    
-    $display("Test  1: Checking data from port A ...");
-    for (i = 0; i < `REG_NUM; i = i + 1) begin
-        compare_data(i, received_values_a[i], 'h0);
-    end
-    $display("Test  1: Checking data from port A done");
-    
-    $display("Test  1: Checking data from port B ...");
-    for (i = 0; i < `REG_NUM; i = i + 1) begin
-        compare_data(i, received_values_b[i], 'h0);
-    end
-    $display("Test  1: Checking data from port B done");
+    $display("Test  1: Checking data inside the DUT done\n");
+    @(posedge clk); #1;
     
     //-----------------------------------------------------------------------------
     // Test 2: Sync write (x1-x31)
+    $display("Test  2: Writing data to regs x1-x31 ...");
     for (i = 1; i < `REG_NUM; i = i + 1) begin
         write_to_reg_file (WRITE_ENABLE, i, test_values[i]);
-        @(posedge clk); #1;
-    end
-    
-    $display("Test  2: Checking data inside the DUT ...");
-    for (i = 1; i < `REG_NUM; i = i + 1) begin
         compare_data_dut_direct(i, test_values[i]);
     end
-    $display("Test  2: Checking data inside the DUT done");
+    $display("Test  2: Checking data inside the DUT done\n");
+    @(posedge clk); #1;
     
     //-----------------------------------------------------------------------------
     // Test 3: Sync write to x0
+    $display("Test  3: Writing data to (x0) ...");
     write_to_reg_file(WRITE_ENABLE, 0, test_values[0]);
-    $display("Test  3: Checking data inside the DUT reg x0 ...");
     compare_data_dut_direct        (0,            'h0);
-    $display("Test  3: Checking data inside the DUT reg x0 done");
+    $display("Test  3: Checking data inside the DUT (x0) done\n");
+    @(posedge clk); #1;
     
-
-    /* fork
-        begin
-            for (i = 0; i < 10; i = i + 1) begin
-                // Wait until the DUT_uart_core_i transmitter is ready
-                while (data_in_ready == 1'b0) 
-                    @(posedge clk); #1;
-
-                // Send a character to the DUT_uart_core_i transmitter to transmit over the serial line
-                payload         = 8'h11 + i;
-                data_in         = payload;
-                data_in_valid   = 1'b1;
-                @(posedge clk); #1;
-                data_in_valid   = 1'b0;
-                
-                // Wait until the DUT_uart_core_j receiver indicates that is has valid data
-                while (data_out_valid == 1'b0) 
-                    @(posedge clk); #1;
-                
-                $display("Status val-%0d @ time t=%0t: DUT_uart_core_j got data: %h, expected: %h", i, $time, data_out, payload); 
-                
-                // Check that the data is correct
-                if (data_out !== payload) begin
-                    $display("Failure 1-%0d @ time t=%0t: DUT_uart_core_j got data: %h, but expected: %h", i, $time, data_out, payload);
-                end                
-                
-                // Consume data
-                data_out_ready = 1'b1;
-                @(posedge clk); #1;
-                data_out_ready = 1'b0;
-                @(posedge clk); #1;
-                
-                // Check if no longer valid
-                if (data_out_valid == 1'b1) begin
-                    $display("Failure r/v-%0d @ time t=%0t: DUT_uart_core_j didn't clear data_out_valid when data_out_ready was asserted", i, $time);
-                end
-            end
-
-            // Data should not change though
-            repeat (10) @(posedge clk); #1;
-            if (data_out !== payload) begin
-                $display("Failure 2 @ time t=%0t: DUT_uart_core_j got correct data, but it didn't hold data_out until data_out_ready was asserted", $time);
-            end
-
-            // DUT_uart_core_i transmitter should be idle FPGA_SERIAL_TX line should be idle
-            if (FPGA_SERIAL_TX !== 1'b1) begin
-                $display("Failure 3 @ time t=%0t: FPGA_SERIAL_TX was not high when the DUT_uart_core_i transmitter should be idle", $time);
-            end
-
-            // If data_out_ready is asserted to the DUT_uart_core_j receiver, it should pull its data_out_valid signal low
-            data_out_ready = 1'b1;
-            @(posedge clk); #1;
-            data_out_ready = 1'b0;
-            @(posedge clk); #1;
-            
-            if (data_out_valid == 1'b1) begin
-                $display("Failure 4 @ time t=%0t: DUT_uart_core_j didn't clear data_out_valid when data_out_ready was asserted", $time);
-            end
-            done = 1;
-        end
-        
-        // Catch time-out:
-        begin
-            repeat (`SIM_TIME) @(posedge clk);
-            if (!done) begin
-                $display("Failure: timing out");
-                $finish();
-            end
-        end
-    join */
-
-    repeat (20) @(posedge clk);
+    //-----------------------------------------------------------------------------
+    // Test 4: Async read on port A (x1-x31)
+    $display("Test  4: Getting data from async read on port A (x1-x31) ...");
+    for (i = 1; i < `REG_NUM; i = i + 1) begin
+        read_from_reg_file(PORT_A, i, received_values_a[i]);
+        compare_data(i, received_values_a[i], test_values[i]);
+        #1;
+    end
+    $display("Test  4: Checking data from async read on port A (x1-x31) done\n");
+    
+    
+    //-----------------------------------------------------------------------------
+    // Test 5: Async read on port A from x0
+    $display("Test  5: Getting data from async read on port A (x0) ...");
+    read_from_reg_file(PORT_A, 0, received_values_a[0]);
+    compare_data(0, received_values_a[0], 'h0);
+    $display("Test  5: Checking data from async read on port A (x0) done\n");
+    @(posedge clk); #1;
+    
+    //-----------------------------------------------------------------------------
+    // Test 6: Async read on port B (x1-x31)
+    $display("Test  6: Getting data from async read on port B (x1-x31) ...");
+    for (i = 1; i < `REG_NUM; i = i + 1) begin
+        read_from_reg_file(PORT_B, i, received_values_b[i]);
+        compare_data(i, received_values_b[i], test_values[i]);
+        #1;
+    end
+    @(posedge clk); #1;
+    
+    //-----------------------------------------------------------------------------
+    // Test 7: Async read on port B from x0
+    $display("Test  7: Getting data from async read on port B (x0) ...");
+    read_from_reg_file(PORT_B, 0, received_values_b[0]);
+    compare_data(0, received_values_b[0], 'h0);
+    $display("Test  7: Checking data from async read on port B (x0) done\n");
+    @(posedge clk); #1;
+    
+    //-----------------------------------------------------------------------------
+    // Initialize (clear) receive arrays to default values
+    initialize_receive_arrays();
+    
+    //-----------------------------------------------------------------------------
+    // Test 8: Concurrent async read on port A and B
+    $display("Test  8: Getting data from ports A & B for regs (x1-x31) ...");
+    for (i = 1; i < `REG_NUM; i = i + 1) begin
+        read_from_reg_file(PORT_A, i, received_values_a[i]);
+        compare_data(i, received_values_a[i], test_values[i]);
+        read_from_reg_file(PORT_B, i, received_values_b[i]);
+        compare_data(i, received_values_b[i], test_values[i]);
+        #1;
+    end    
+    $display("Test  8: Checking data from ports A & B for regs (x1-x31) done\n");
+    @(posedge clk); #1;
+    
+    //-----------------------------------------------------------------------------
+    // Generate new values
+    generate_random_values_array(); 
+    @(posedge clk); #1;
+    
+    //-----------------------------------------------------------------------------
+    // Test 9: Sync write followed by async read in the same cycle
+    $display("Test  9: Sync write followed by async read in the same cycle from ports A & B (x1-x31) ...");
+    for (i = 1; i < `REG_NUM; i = i + 1) begin
+        write_to_reg_file (WRITE_ENABLE, i, test_values[i]);
+        #1
+        read_from_reg_file(PORT_A, i, received_values_a[i]);
+        compare_data(i, received_values_a[i], test_values[i]);
+        #1
+        read_from_reg_file(PORT_B, i, received_values_b[i]);
+        compare_data(i, received_values_b[i], test_values[i]);
+    end
+    $display("Test  9: Checking data for sync write followed by async read in the same cycle from ports A & B (x1-x31) done\n");
+    
+    //-----------------------------------------------------------------------------
+    // Keep old values for reference
+    for (i = 1; i < `REG_NUM; i = i + 1) begin
+        test_values_hold[i] = test_values[i];
+    end
+    // Generate new values
+    generate_random_values_array(); 
+    @(posedge clk); #1;    
+    
+    //-----------------------------------------------------------------------------
+    // Test 10: Sync write when we = 0 (x1-x31)
+    $display("Test 10: Writing data when we = 0 (x1-x31) ...");
+    for (i = 1; i < `REG_NUM; i = i + 1) begin
+        write_to_reg_file (!WRITE_ENABLE, i, test_values[i]);
+        compare_data_dut_direct(i, test_values_hold[i]);
+    end
+    $display("Test 10: Checking data inside the DUT done\n");
+    @(posedge clk); #1;
+    
+    //-----------------------------------------------------------------------------
+    // Test 11: Sync write when we = 0 (x0)
+    $display("Test 11: Writing data when we = 0 (x0) ...");
+    write_to_reg_file (!WRITE_ENABLE, 0, test_values[0]);
+    compare_data_dut_direct(0, 'h0);
+    $display("Test 11: Checking data inside the DUT done\n");
+    @(posedge clk); #1;
+    
+    //-----------------------------------------------------------------------------
+    repeat (1) @(posedge clk);
     $display("\n----------------------- Simulation results -----------------------");
     $display("Tests ran to completion");
     $display("Errors: %0d", errors);
