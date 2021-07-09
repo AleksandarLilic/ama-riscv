@@ -22,8 +22,8 @@ module ama_riscv_reg_file (
     input   wire [ 4:0] addr_d,
     input   wire [31:0] data_d,
     // outputs
-    output  wire [31:0] data_a,
-    output  wire [31:0] data_b
+    output  reg  [31:0] data_a,
+    output  reg  [31:0] data_b
 );
 
 //-----------------------------------------------------------------------------
@@ -208,38 +208,38 @@ always @ (*) begin
     
     // port B
     case (addr_b)
-        5'd1:    addr_b = reg_r1;
-        5'd2:    addr_b = reg_r2;
-        5'd3:    addr_b = reg_r3;
-        5'd4:    addr_b = reg_r4;
-        5'd5:    addr_b = reg_r5;
-        5'd6:    addr_b = reg_r6;
-        5'd7:    addr_b = reg_r7;
-        5'd8:    addr_b = reg_r8;
-        5'd9:    addr_b = reg_r9;
-        5'd10:   addr_b = reg_r10;
-        5'd11:   addr_b = reg_r11;
-        5'd12:   addr_b = reg_r12;
-        5'd13:   addr_b = reg_r13;
-        5'd14:   addr_b = reg_r14;
-        5'd15:   addr_b = reg_r15;
-        5'd16:   addr_b = reg_r16;
-        5'd17:   addr_b = reg_r17;
-        5'd18:   addr_b = reg_r18;
-        5'd19:   addr_b = reg_r19;
-        5'd20:   addr_b = reg_r20;
-        5'd21:   addr_b = reg_r21;
-        5'd22:   addr_b = reg_r22;
-        5'd23:   addr_b = reg_r23;
-        5'd24:   addr_b = reg_r24;
-        5'd25:   addr_b = reg_r25;
-        5'd26:   addr_b = reg_r26;
-        5'd27:   addr_b = reg_r27;
-        5'd28:   addr_b = reg_r28;
-        5'd29:   addr_b = reg_r29;
-        5'd30:   addr_b = reg_r30;
-        5'd31:   addr_b = reg_r31;
-        default: addr_b = 32'h00000000;
+        5'd1:    data_b = reg_r1;
+        5'd2:    data_b = reg_r2;
+        5'd3:    data_b = reg_r3;
+        5'd4:    data_b = reg_r4;
+        5'd5:    data_b = reg_r5;
+        5'd6:    data_b = reg_r6;
+        5'd7:    data_b = reg_r7;
+        5'd8:    data_b = reg_r8;
+        5'd9:    data_b = reg_r9;
+        5'd10:   data_b = reg_r10;
+        5'd11:   data_b = reg_r11;
+        5'd12:   data_b = reg_r12;
+        5'd13:   data_b = reg_r13;
+        5'd14:   data_b = reg_r14;
+        5'd15:   data_b = reg_r15;
+        5'd16:   data_b = reg_r16;
+        5'd17:   data_b = reg_r17;
+        5'd18:   data_b = reg_r18;
+        5'd19:   data_b = reg_r19;
+        5'd20:   data_b = reg_r20;
+        5'd21:   data_b = reg_r21;
+        5'd22:   data_b = reg_r22;
+        5'd23:   data_b = reg_r23;
+        5'd24:   data_b = reg_r24;
+        5'd25:   data_b = reg_r25;
+        5'd26:   data_b = reg_r26;
+        5'd27:   data_b = reg_r27;
+        5'd28:   data_b = reg_r28;
+        5'd29:   data_b = reg_r29;
+        5'd30:   data_b = reg_r30;
+        5'd31:   data_b = reg_r31;
+        default: data_b = 32'h00000000;
     endcase
 end // asynchronous register read
 
