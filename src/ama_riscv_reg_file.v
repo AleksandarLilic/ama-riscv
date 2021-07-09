@@ -8,6 +8,7 @@
 //
 // Version history:
 //      2021-07-09  AL  0.1.0 - Initial
+//      2021-07-09  AL  0.2.0 - Add write enable
 //
 //-----------------------------------------------------------------------------
 
@@ -98,7 +99,7 @@ wire [31:0] x31_t6  = reg_r31;  // temporary
 //-----------------------------------------------------------------------------
 // synchronous register write back
 always @ (posedge clk) begin
-    if (rst_i) begin
+    if (rst) begin
         reg_r1       <= 32'h00000000;
         reg_r2       <= 32'h00000000;
         reg_r3       <= 32'h00000000;
@@ -131,7 +132,7 @@ always @ (posedge clk) begin
         reg_r30      <= 32'h00000000;
         reg_r31      <= 32'h00000000;
     end
-    else begin
+    else if (we == 1'b1) begin
         if      (addr_d == 5'd1)  reg_r1  <= data_d;
         if      (addr_d == 5'd2)  reg_r2  <= data_d;
         if      (addr_d == 5'd3)  reg_r3  <= data_d;
@@ -166,6 +167,7 @@ always @ (posedge clk) begin
     end
 end // synchronous register write back
 
+//-----------------------------------------------------------------------------
 // asynchronous register read
 always @ (*) begin
     // port A
