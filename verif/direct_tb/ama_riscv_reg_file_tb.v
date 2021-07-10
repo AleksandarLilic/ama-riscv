@@ -25,8 +25,8 @@
 `timescale 1ns/1ps
 
 `define CLK_PERIOD              8
-`define CLOCK_FREQ    125_000_000
-`define SIM_TIME     `CLOCK_FREQ*0.0009 // 900us
+//`define CLOCK_FREQ    125_000_000
+//`define SIM_TIME     `CLOCK_FREQ*0.0009 // 900us
 `define REG_DATA_WIDTH         32
 `define REG_ADDR_WIDTH          5
 `define REG_NUM                32
@@ -37,9 +37,6 @@ module ama_riscv_reg_file_tb();
 // Signals
 parameter   PORT_A = 1'b0,
             PORT_B = 1'b1;
-
-parameter   TEST_ZERO   = 1'b0,
-            TEST_VALUES = 1'b1;
 
 parameter   WRITE_ENABLE = 1'b1;
 
@@ -57,7 +54,7 @@ wire [31:0] data_a;
 wire [31:0] data_b;
 
 // Testbench variables
-reg         done;
+//reg         done;
 integer     i;
 integer     errors;
 reg [`REG_DATA_WIDTH-1:0]       test_values[`REG_NUM-1:0];
@@ -213,7 +210,7 @@ initial begin
     generate_random_values_array();    
     initialize_receive_arrays();
     
-    done   <= 0;
+    //done   <= 0;
     errors <= 0;
 end
 
@@ -277,6 +274,7 @@ initial begin
         compare_data(i, received_values_b[i], test_values[i]);
         #1;
     end
+    $display("Test  6: Checking data from async read on port B (x1-x31) done\n");
     @(posedge clk); #1;
     
     //-----------------------------------------------------------------------------
@@ -354,6 +352,11 @@ initial begin
     repeat (1) @(posedge clk);
     $display("\n----------------------- Simulation results -----------------------");
     $display("Tests ran to completion");
+    $write("Status: ");
+    if(!errors)
+        $display("Passed");
+    else
+        $display("Failed");
     $display("Errors: %0d", errors);
     $display("----------------- End of the simulation results ------------------\n");
     $finish();
