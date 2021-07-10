@@ -5,13 +5,12 @@
 // Date created:    2021-07-10
 // Author:          Aleksandar Lilic
 // Description:     Test covers following scenarios:
-//                      1.  Byte access: width = 3'b000, offset from 0 to 3
-//                      2.  Half access: width = 3'b001, offset from 0 to 3
-//                      3.  Word access: width = 3'b010, offset from 0 to 3
-//                      4.  Word access with !en
+//                      1.  Randomized: width from 0 to 7, offset from 0 to 3
+//                      2.  Word access with !en
 //
 // Version history:
 //      2021-07-10  AL  0.1.0 - Initial
+//      2021-07-10  AL  1.0.0 - Sign-off
 //-----------------------------------------------------------------------------
 
 `timescale 1ns/1ps
@@ -108,7 +107,7 @@ task check;
                         expected_mask = 4'b1100;
                     2'd3: 
                     begin
-                        $display("Unaligned access not supported");
+                        // $display("Unaligned access not supported");
                         expected_mask = 4'b0000;
                     end
                     default: 
@@ -123,7 +122,7 @@ task check;
                     2'd2,
                     2'd3:
                     begin
-                        $display("Unaligned access not supported");
+                        // $display("Unaligned access not supported");
                         expected_mask = 4'b0000;
                     end
                     default: 
@@ -132,7 +131,7 @@ task check;
                 
                 default: 
                 begin
-                    $display("Width input not valid");
+                    // $display("Width input not valid");
                     expected_mask = 4'b0000;
                 end
                 endcase
@@ -187,15 +186,15 @@ initial begin
     // Test 1: Hit specific cases
     $display("Test  1: Hit specific cases ...");
     
-    $display("Run 1: off: 2'b00, funct3: lb");
+    // $display("Run 1: off: 2'b00, funct3: lb");
     check(1'b1, 2'b00, 3'b000);
     #1;
     
-    $display("Run 2: off: 2'b11, funct3: lb");
+    // $display("Run 2: off: 2'b11, funct3: lb");
     check(1'b1, 2'b11, 3'b000);
     #1;
     
-    $display("Run 3: off: 2'b11, funct3: lh");
+    // $display("Run 3: off: 2'b11, funct3: lh");
     check(1'b1, 2'b11, 3'b001);
     #1;
     
@@ -206,12 +205,24 @@ initial begin
     // Test 2: Random hits (incl. unaligned access)
     $display("Test  2: Random hits ...");
     for (i = 1; i < `TEST_CASES; i = i + 1) begin
-        $display("Run  %2d ...", i);
-        check(test_values_en[i], test_values_off[i], test_values_wid[i]);
-        $display("Run %2d done", i);
+        // $display("Run  %2d ...", i);
+        check(1'b1, test_values_off[i], test_values_wid[i]);
+        // $display("Run %2d done", i);
         #1;
     end
     $display("Test  2: Checking random hits done\n");
+    @(posedge clk); #1;
+    
+    //-----------------------------------------------------------------------------
+    // Test 3: Random hits (incl. unaligned access), random enable
+    $display("Test  3: Random hits with random enable ...");
+    for (i = 1; i < `TEST_CASES; i = i + 1) begin
+        // $display("Run  %2d ...", i);
+        check(test_values_en[i], test_values_off[i], test_values_wid[i]);
+        // $display("Run %2d done", i);
+        #1;
+    end
+    $display("Test  3: Checking random hits with random enable done\n");
     @(posedge clk); #1;
     
     
