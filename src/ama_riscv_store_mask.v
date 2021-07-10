@@ -10,6 +10,7 @@
 //      2021-07-10  AL  0.1.0 - Initial
 //      2021-07-10  AL  1.0.0 - Release
 //      2021-07-10  AL  1.0.1 - Signal fix
+//      2021-07-10  AL  1.0.2 - Signal fix
 //
 //-----------------------------------------------------------------------------
 
@@ -41,11 +42,11 @@ assign unaligned_access = en &&
 always @ (*) begin
     if (en && !unaligned_access) begin
         case (data_width)
-            5'd0:
+            2'd0:
                 mask = mask_byte[(4-offset) +: 4]; 
-            5'd1:
+            2'd1:
                 mask = mask_half[(4-offset) +: 4];
-            5'd2:
+            2'd2:
                 mask = mask_word[3:0];
             default: 
                 mask = 4'h0;
