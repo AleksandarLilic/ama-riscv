@@ -9,6 +9,7 @@
 // Version history:
 //      2021-07-10  AL  0.1.0 - Initial
 //      2021-07-10  AL  1.0.0 - Release
+//      2021-07-10  AL  1.0.1 - Signal fix
 //
 //-----------------------------------------------------------------------------
 
@@ -23,22 +24,23 @@ module ama_riscv_store_mask (
 
 //-----------------------------------------------------------------------------
 // Signals
-wire  [7:0] mask_byte = {8'b0001_0001};
-wire  [7:0] mask_half = {8'b0011_0011};
-wire  [3:0] mask_word = {4'b1111};
-wire        unaligned_access;
+wire  [ 7:0] mask_byte = {8'b0001_0001};
+wire  [ 7:0] mask_half = {8'b0011_0011};
+wire  [ 3:0] mask_word = {4'b1111};
+wire  [ 1:0] data_width = width[1:0];
+wire         unaligned_access;
 
 //-----------------------------------------------------------------------------
 // Check unaligned access
 assign unaligned_access = en && 
-                         (((width[1:0] == 2'd1) && (offset == 2'd3)) ||
-                          ((width[1:0] == 2'd2) && (offset != 2'd0))     );
+                         (((data_width == 2'd1) && (offset == 2'd3)) ||
+                          ((data_width == 2'd2) && (offset != 2'd0))     );
 
 //-----------------------------------------------------------------------------
 // Shift mask
 always @ (*) begin
     if (en && !unaligned_access) begin
-        case (width[1:0])
+        case (data_width)
             5'd0:
                 mask = mask_byte[(4-offset) +: 4]; 
             5'd1:
