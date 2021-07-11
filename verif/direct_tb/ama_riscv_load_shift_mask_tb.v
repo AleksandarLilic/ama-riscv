@@ -10,6 +10,7 @@
 //
 // Version history:
 //      2021-07-10  AL  0.1.0 - Initial
+//      2021-07-10  AL  1.0.0 - Sign-off
 //-----------------------------------------------------------------------------
 
 `timescale 1ns/1ps
@@ -98,16 +99,16 @@ task check;
                         expected_data = sign_bit ? {{24{       1'b0 }}, task_din[ 7: 0]} : 
                                                    {{24{task_din[ 7]}}, task_din[ 7: 0]};
                     2'd1:
-                        expected_data = sign_bit ? {{24{       1'b0 }}, task_din[15: 7]} : 
-                                                   {{24{task_din[15]}}, task_din[15: 7]};
+                        expected_data = sign_bit ? {{24{       1'b0 }}, task_din[15: 8]} : 
+                                                   {{24{task_din[15]}}, task_din[15: 8]};
                     2'd2:
                         expected_data = sign_bit ? {{24{       1'b0 }}, task_din[23:16]} : 
                                                    {{24{task_din[23]}}, task_din[23:16]};
                     2'd3:
                         expected_data = sign_bit ? {{24{       1'b0 }}, task_din[31:24]} : 
                                                    {{24{task_din[31]}}, task_din[31:24]};
-                    default: 
-                        $display("Offset input not valid");
+                    // default: 
+                        // $display("Offset input not valid");
                     endcase
                 
                 2'd1:   // half
@@ -123,11 +124,11 @@ task check;
                                                    {{16{task_din[31]}}, task_din[31:16]};
                     2'd3: 
                     begin
-                        $display("Unaligned access not supported");
+                        // $display("Unaligned access not supported");
                         expected_data = task_dout_prev;
                     end
-                    default: 
-                        $display("Offset input not valid");
+                    // default: 
+                        // $display("Offset input not valid");
                     endcase
                
                 2'd2:   // word
@@ -138,16 +139,16 @@ task check;
                     2'd2,
                     2'd3:
                     begin
-                        $display("Unaligned access not supported");
+                        // $display("Unaligned access not supported");
                         expected_data = task_dout_prev;
                     end
-                    default: 
-                        $display("Offset input not valid");
+                    // default: 
+                        // $display("Offset input not valid");
                     endcase
                 
                 default: 
                 begin
-                    $display("Width input not valid");
+                    // $display("Width input not valid");
                     expected_data = task_dout_prev;
                 end
                 endcase
@@ -245,30 +246,35 @@ initial begin
     end
     $display("Test  2: Checking random hits done\n");
     @(posedge clk); #1;
-    /* 
+    
+    //-----------------------------------------------------------------------------
+    
+    generate_random_values_array();    
+    initialize_receive_arrays();
+    
     //-----------------------------------------------------------------------------
     // Test 3: Random hits (incl. unaligned access), random enable
     $display("Test  3: Random hits with random enable ...");
     for (i = 1; i < `TEST_CASES; i = i + 1) begin
         // $display("Run  %2d ...", i);
-        check(test_values_en[i], test_values_off[i], test_values_wid[i]);
+        check(test_values_en[i], test_values_off[i], test_values_wid[i], test_data[i], received_data[i-1], received_data[i]);
         // $display("Run %2d done", i);
         #1;
     end
     $display("Test  3: Checking random hits with random enable done\n");
     @(posedge clk); #1;
-     */
+    
     
     //-----------------------------------------------------------------------------
     repeat (1) @(posedge clk);
     $display("\n----------------------- Simulation results -----------------------");
     $display("Tests ran to completion");
+    $display("Errors: %0d", errors);
     $write("Status: ");
     if(!errors)
         $display("Passed");
     else
         $display("Failed");
-    $display("Errors: %0d", errors);
     $display("----------------- End of the simulation results ------------------\n");
     $finish();
 end
