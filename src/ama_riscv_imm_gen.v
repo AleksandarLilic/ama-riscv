@@ -1,11 +1,11 @@
 //-----------------------------------------------------------------------------
 // Project:         AMA-RISCV
 // Module:          Immediate Generation
-// File:            ama_riscv_ig_out_gen.v
+// File:            ama_riscv_imm_gen.v
 // Date created:    2021-07-11
 // Author:          Aleksandar Lilic
 // Description:     RISC-V ig_outediate values are less than 32-bit wide when 
-//                  stored as a part of the ig_inruction, while ig_out value can
+//                  stored as a part of the ig_instruction, while ig_out value can
 //                  also be segmented. This module puts all parts in correct
 //                  places and pads value to 32 bits
 //                  Different paddings for:
@@ -18,11 +18,12 @@
 // Version history:
 //      2021-07-11  AL  0.1.0 - Initial
 //      2021-07-12  AL  0.1.1 - Add checks and fix compares
+//      2021-07-12  AL  0.1.2 - Fix naming
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
 
-module ama_riscv_ig_out_gen (
+module ama_riscv_imm_gen (
     // inputs
     input   wire        en    ,
     input   wire [ 3:0] ig_sel,
