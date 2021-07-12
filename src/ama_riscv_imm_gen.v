@@ -5,7 +5,7 @@
 // Date created:    2021-07-11
 // Author:          Aleksandar Lilic
 // Description:     RISC-V ig_outediate values are less than 32-bit wide when 
-//                  stored as a part of the instruction, while ig_out value can
+//                  stored as a part of the ig_inruction, while ig_out value can
 //                  also be segmented. This module puts all parts in correct
 //                  places and pads value to 32 bits
 //                  Different paddings for:
@@ -17,6 +17,7 @@
 //
 // Version history:
 //      2021-07-11  AL  0.1.0 - Initial
+//      2021-07-12  AL  0.1.1 - Add checks and fix compares
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -27,32 +28,40 @@ module ama_riscv_ig_out_gen (
     input   wire [ 3:0] ig_sel,
     input   wire [31:7] ig_in ,
     // outputs
-    output  reg  [31:0] ig_out
+    output  wire [31:0] ig_out
 );
 
 //-----------------------------------------------------------------------------
 // Signals
+wire i_type = (ig_sel == `IG_I_TYPE);
+wire s_type = (ig_sel == `IG_S_TYPE);
+wire b_type = (ig_sel == `IG_B_TYPE);
+wire j_type = (ig_sel == `IG_J_TYPE);
+wire u_type = (ig_sel == `IG_U_TYPE);
 
-assign ig_out[31:20] = (IG_U_TYPE) ?      ig_in[31:20]    : 
-                     /* others */     {12{ig_in[31   ]}};       // sign ext
+//-----------------------------------------------------------------------------
+// MUXes
 
-assign ig_out[19:12] = (IG_I_TYPE || IG_S_TYPE || IG_B_TYPE) ? {8{ig_in[31   ]}} : // sign ext 
-                     /*(IG_J_TYPE || IG_U_TYPE) */                ig_in[19:12];
+assign ig_out[31:20] = (i_type) ?      ig_in[31:20]    : 
+                     /* others */  {12{ig_in[31   ]}};                      // sign ext
 
-assign ig_out[   11] = (IG_I_TYPE || IG_S_TYPE)  ? inst[31] :    // sign ext
-                       (IG_B_TYPE)               ? inst[ 7] : 
-                       (IG_J_TYPE)               ? inst[20] : 
-                     /*(IG_U_TYPE) */                  1’b0;
+assign ig_out[19:12] = (i_type || s_type || b_type) ? {8{ig_in[31   ]}} :   // sign ext 
+                     /*(j_type || u_type) */             ig_in[19:12];
 
-assign ig_out[10: 5] = (IG_U_TYPE)   ? 6’b0 : 
-                     /* others  */  inst[30:25];
+assign ig_out[   11] = (i_type || s_type)  ? ig_in[31] :                    // sign ext
+                       (b_type)            ? ig_in[ 7] : 
+                       (j_type)            ? ig_in[20] : 
+                     /*(u_type) */                1'b0;
 
-assign ig_out[ 4: 1] = (IG_I_TYPE || IG_J_TYPE) ? inst[24:21] : 
-                       (IG_S_TYPE || IG_B_TYPE) ? inst[11: 7] : 
-                     /*(IG_U_TYPE) */                    4’b0;
+assign ig_out[10: 5] = (u_type)   ? 6'b0 : 
+                     /* others  */  ig_in[30:25];
 
-assign ig_out[    0] = (IG_I_TYPE) ? inst[20] : 
-                       (IG_S_TYPE) ? inst[ 7] : 
-                     /*(IG_B_TYPE || IG_J_TYPE || IG_U_TYPE)*/ 1’b0;
+assign ig_out[ 4: 1] = (i_type || j_type) ? ig_in[24:21] : 
+                       (s_type || b_type) ? ig_in[11: 7] : 
+                     /*(u_type) */                  4'b0;
+
+assign ig_out[    0] = (i_type) ? ig_in[20] : 
+                       (s_type) ? ig_in[ 7] : 
+                     /*(b_type || j_type || u_type)*/ 1'b0;
 
 endmodule
