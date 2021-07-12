@@ -11,6 +11,7 @@
 // Version history:
 //      2021-07-11  AL  0.1.0 - Initial
 //      2021-07-11  AL  1.0.0 - Sign-off
+//      2021-07-11  AL  1.0.1 - Signal width fix, did not impact results
 //-----------------------------------------------------------------------------
 
 `timescale 1ns/1ps
@@ -52,7 +53,7 @@ integer   i;
 integer   errors;
 reg [ 4:0] test_values_op_sel [`TEST_CASES-1:0];
 reg [31:0] test_values_in_a   [`TEST_CASES-1:0];
-reg [32:0] test_values_in_b   [`TEST_CASES-1:0];
+reg [31:0] test_values_in_b   [`TEST_CASES-1:0];
 // reg [3:0] received_values    [`TEST_CASES-1:0];
 
 //-----------------------------------------------------------------------------
