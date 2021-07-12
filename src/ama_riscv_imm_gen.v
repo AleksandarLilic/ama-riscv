@@ -20,6 +20,7 @@
 //      2021-07-12  AL  0.1.1 - Add checks and fix compares
 //      2021-07-12  AL  0.1.2 - Fix naming
 //      2021-07-12  AL  0.1.3 - Fix ig_out[31:20] mux check
+//      2021-07-12  AL  0.1.4 - Fix ig_out[ 4: 1] for b and s types
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -27,7 +28,7 @@
 module ama_riscv_imm_gen (
     // inputs
     input   wire        en    ,
-    input   wire [ 3:0] ig_sel,
+    input   wire [ 3:0] ig_sel, // move en to ig_sel as 000, shorten it to 3 bits total (rtl and tb), shift others, add clk & rst to keep prev
     input   wire [31:7] ig_in ,
     // outputs
     output  wire [31:0] ig_out
@@ -59,7 +60,7 @@ assign ig_out[10: 5] = (u_type)   ? 6'b0 :
                      /* others  */  ig_in[30:25];
 
 assign ig_out[ 4: 1] = (i_type || j_type) ? ig_in[24:21] : 
-                       (s_type || b_type) ? ig_in[11: 7] : 
+                       (s_type || b_type) ? ig_in[11: 8] : 
                      /*(u_type) */                  4'b0;
 
 assign ig_out[    0] = (i_type) ? ig_in[20] : 
