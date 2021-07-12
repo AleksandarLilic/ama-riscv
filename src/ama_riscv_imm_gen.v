@@ -19,6 +19,7 @@
 //      2021-07-11  AL  0.1.0 - Initial
 //      2021-07-12  AL  0.1.1 - Add checks and fix compares
 //      2021-07-12  AL  0.1.2 - Fix naming
+//      2021-07-12  AL  0.1.3 - Fix ig_out[31:20] mux check
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -43,7 +44,7 @@ wire u_type = (ig_sel == `IG_U_TYPE);
 //-----------------------------------------------------------------------------
 // MUXes
 
-assign ig_out[31:20] = (i_type) ?      ig_in[31:20]    : 
+assign ig_out[31:20] = (u_type) ?      ig_in[31:20]    : 
                      /* others */  {12{ig_in[31   ]}};                      // sign ext
 
 assign ig_out[19:12] = (i_type || s_type || b_type) ? {8{ig_in[31   ]}} :   // sign ext 
