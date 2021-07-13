@@ -9,6 +9,7 @@
 // Version history:
 //      2021-07-11  AL  0.1.0 - Add ALU defines
 //      2021-07-11  AL  0.2.0 - Add Imm Gen defines
+//      2021-07-13  AL  0.3.0 - Add Imm Gen Disabled define, shift others
 //
 //-----------------------------------------------------------------------------
 // ALU
@@ -25,11 +26,12 @@
 `define ALU_PASS_B  4'b1111
 
 // Imm Gen
-`define IG_I_TYPE   3'b000
-`define IG_S_TYPE   3'b001
-`define IG_B_TYPE   3'b010
-`define IG_J_TYPE   3'b011
-`define IG_U_TYPE   3'b100
+`define IG_DISABLED 3'b000
+`define IG_I_TYPE   3'b001
+`define IG_S_TYPE   3'b010
+`define IG_B_TYPE   3'b011
+`define IG_J_TYPE   3'b100
+`define IG_U_TYPE   3'b101
 
 //-----------------------------------------------------------------------------
 // End of defines
