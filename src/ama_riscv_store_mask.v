@@ -11,8 +11,10 @@
 //      2021-07-10  AL  1.0.0 - Release
 //      2021-07-10  AL  1.0.1 - Signal fix
 //      2021-07-10  AL  1.0.2 - Signal fix
+//      2021-07-13  AL  1.1.0 - Add defines
 //
 //-----------------------------------------------------------------------------
+`include "ama_riscv_defines.v"
 
 module ama_riscv_store_mask (
     // inputs
@@ -25,28 +27,28 @@ module ama_riscv_store_mask (
 
 //-----------------------------------------------------------------------------
 // Signals
-wire  [ 7:0] mask_byte = {8'b0001_0001};
-wire  [ 7:0] mask_half = {8'b0011_0011};
-wire  [ 3:0] mask_word = {4'b1111};
+wire  [ 7:0] mask_byte  = {8'b0001_0001};
+wire  [ 7:0] mask_half  = {8'b0011_0011};
+wire  [ 3:0] mask_word  = {4'b1111};
 wire  [ 1:0] data_width = width[1:0];
 wire         unaligned_access;
 
 //-----------------------------------------------------------------------------
 // Check unaligned access
 assign unaligned_access = en && 
-                         (((data_width == 2'd1) && (offset == 2'd3)) ||
-                          ((data_width == 2'd2) && (offset != 2'd0))     );
+                         (((data_width == `DMEM_HALF) && (offset == `DMEM_OFF_3)) ||
+                          ((data_width == `DMEM_WORD) && (offset != `DMEM_OFF_0))     );
 
 //-----------------------------------------------------------------------------
 // Shift mask
 always @ (*) begin
     if (en && !unaligned_access) begin
         case (data_width)
-            2'd0:
+            `DMEM_BYTE:
                 mask = mask_byte[(4-offset) +: 4]; 
-            2'd1:
+            `DMEM_HALF:
                 mask = mask_half[(4-offset) +: 4];
-            2'd2:
+            `DMEM_WORD:
                 mask = mask_word[3:0];
             default: 
                 mask = 4'h0;
