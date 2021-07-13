@@ -10,8 +10,10 @@
 //      2021-07-09  AL  0.1.0 - Initial
 //      2021-07-09  AL  0.2.0 - Add write enable
 //      2021-07-09  AL  1.0.0 - Release
+//      2021-07-13  AL  1.1.0 - Add defines
 //
 //-----------------------------------------------------------------------------
+`include "ama_riscv_defines.v"
 
 module ama_riscv_reg_file (
     input   wire        clk,
@@ -134,37 +136,37 @@ always @ (posedge clk) begin
         reg_r31      <= 32'h00000000;
     end
     else if (we == 1'b1) begin
-        if      (addr_d == 5'd1)  reg_r1  <= data_d;
-        if      (addr_d == 5'd2)  reg_r2  <= data_d;
-        if      (addr_d == 5'd3)  reg_r3  <= data_d;
-        if      (addr_d == 5'd4)  reg_r4  <= data_d;
-        if      (addr_d == 5'd5)  reg_r5  <= data_d;
-        if      (addr_d == 5'd6)  reg_r6  <= data_d;
-        if      (addr_d == 5'd7)  reg_r7  <= data_d;
-        if      (addr_d == 5'd8)  reg_r8  <= data_d;
-        if      (addr_d == 5'd9)  reg_r9  <= data_d;
-        if      (addr_d == 5'd10) reg_r10 <= data_d;
-        if      (addr_d == 5'd11) reg_r11 <= data_d;
-        if      (addr_d == 5'd12) reg_r12 <= data_d;
-        if      (addr_d == 5'd13) reg_r13 <= data_d;
-        if      (addr_d == 5'd14) reg_r14 <= data_d;
-        if      (addr_d == 5'd15) reg_r15 <= data_d;
-        if      (addr_d == 5'd16) reg_r16 <= data_d;
-        if      (addr_d == 5'd17) reg_r17 <= data_d;
-        if      (addr_d == 5'd18) reg_r18 <= data_d;
-        if      (addr_d == 5'd19) reg_r19 <= data_d;
-        if      (addr_d == 5'd20) reg_r20 <= data_d;
-        if      (addr_d == 5'd21) reg_r21 <= data_d;
-        if      (addr_d == 5'd22) reg_r22 <= data_d;
-        if      (addr_d == 5'd23) reg_r23 <= data_d;
-        if      (addr_d == 5'd24) reg_r24 <= data_d;
-        if      (addr_d == 5'd25) reg_r25 <= data_d;
-        if      (addr_d == 5'd26) reg_r26 <= data_d;
-        if      (addr_d == 5'd27) reg_r27 <= data_d;
-        if      (addr_d == 5'd28) reg_r28 <= data_d;
-        if      (addr_d == 5'd29) reg_r29 <= data_d;
-        if      (addr_d == 5'd30) reg_r30 <= data_d;
-        if      (addr_d == 5'd31) reg_r31 <= data_d;
+        if      (addr_d == `RF_X1_RA  ) reg_r1  <= data_d;
+        if      (addr_d == `RF_X2_SP  ) reg_r2  <= data_d;
+        if      (addr_d == `RF_X3_GP  ) reg_r3  <= data_d;
+        if      (addr_d == `RF_X4_TP  ) reg_r4  <= data_d;
+        if      (addr_d == `RF_X5_T0  ) reg_r5  <= data_d;
+        if      (addr_d == `RF_X6_T1  ) reg_r6  <= data_d;
+        if      (addr_d == `RF_X7_T2  ) reg_r7  <= data_d;
+        if      (addr_d == `RF_X8_S0  ) reg_r8  <= data_d;
+        if      (addr_d == `RF_X9_S1  ) reg_r9  <= data_d;
+        if      (addr_d == `RF_X10_A0 ) reg_r10 <= data_d;
+        if      (addr_d == `RF_X11_A1 ) reg_r11 <= data_d;
+        if      (addr_d == `RF_X12_A2 ) reg_r12 <= data_d;
+        if      (addr_d == `RF_X13_A3 ) reg_r13 <= data_d;
+        if      (addr_d == `RF_X14_A4 ) reg_r14 <= data_d;
+        if      (addr_d == `RF_X15_A5 ) reg_r15 <= data_d;
+        if      (addr_d == `RF_X16_A6 ) reg_r16 <= data_d;
+        if      (addr_d == `RF_X17_A7 ) reg_r17 <= data_d;
+        if      (addr_d == `RF_X18_S2 ) reg_r18 <= data_d;
+        if      (addr_d == `RF_X19_S3 ) reg_r19 <= data_d;
+        if      (addr_d == `RF_X20_S4 ) reg_r20 <= data_d;
+        if      (addr_d == `RF_X21_S5 ) reg_r21 <= data_d;
+        if      (addr_d == `RF_X22_S6 ) reg_r22 <= data_d;
+        if      (addr_d == `RF_X23_S7 ) reg_r23 <= data_d;
+        if      (addr_d == `RF_X24_S8 ) reg_r24 <= data_d;
+        if      (addr_d == `RF_X25_S9 ) reg_r25 <= data_d;
+        if      (addr_d == `RF_X26_S10) reg_r26 <= data_d;
+        if      (addr_d == `RF_X27_S11) reg_r27 <= data_d;
+        if      (addr_d == `RF_X28_T3 ) reg_r28 <= data_d;
+        if      (addr_d == `RF_X29_T4 ) reg_r29 <= data_d;
+        if      (addr_d == `RF_X30_T5 ) reg_r30 <= data_d;
+        if      (addr_d == `RF_X31_T6 ) reg_r31 <= data_d;
     end
 end // synchronous register write back
 
@@ -173,74 +175,74 @@ end // synchronous register write back
 always @ (*) begin
     // port A
     case (addr_a)
-        5'd1:    data_a = reg_r1;
-        5'd2:    data_a = reg_r2;
-        5'd3:    data_a = reg_r3;
-        5'd4:    data_a = reg_r4;
-        5'd5:    data_a = reg_r5;
-        5'd6:    data_a = reg_r6;
-        5'd7:    data_a = reg_r7;
-        5'd8:    data_a = reg_r8;
-        5'd9:    data_a = reg_r9;
-        5'd10:   data_a = reg_r10;
-        5'd11:   data_a = reg_r11;
-        5'd12:   data_a = reg_r12;
-        5'd13:   data_a = reg_r13;
-        5'd14:   data_a = reg_r14;
-        5'd15:   data_a = reg_r15;
-        5'd16:   data_a = reg_r16;
-        5'd17:   data_a = reg_r17;
-        5'd18:   data_a = reg_r18;
-        5'd19:   data_a = reg_r19;
-        5'd20:   data_a = reg_r20;
-        5'd21:   data_a = reg_r21;
-        5'd22:   data_a = reg_r22;
-        5'd23:   data_a = reg_r23;
-        5'd24:   data_a = reg_r24;
-        5'd25:   data_a = reg_r25;
-        5'd26:   data_a = reg_r26;
-        5'd27:   data_a = reg_r27;
-        5'd28:   data_a = reg_r28;
-        5'd29:   data_a = reg_r29;
-        5'd30:   data_a = reg_r30;
-        5'd31:   data_a = reg_r31;
-        default: data_a = 32'h00000000;
+        `RF_X1_RA  :   data_a = reg_r1;
+        `RF_X2_SP  :   data_a = reg_r2;
+        `RF_X3_GP  :   data_a = reg_r3;
+        `RF_X4_TP  :   data_a = reg_r4;
+        `RF_X5_T0  :   data_a = reg_r5;
+        `RF_X6_T1  :   data_a = reg_r6;
+        `RF_X7_T2  :   data_a = reg_r7;
+        `RF_X8_S0  :   data_a = reg_r8;
+        `RF_X9_S1  :   data_a = reg_r9;
+        `RF_X10_A0 :   data_a = reg_r10;
+        `RF_X11_A1 :   data_a = reg_r11;
+        `RF_X12_A2 :   data_a = reg_r12;
+        `RF_X13_A3 :   data_a = reg_r13;
+        `RF_X14_A4 :   data_a = reg_r14;
+        `RF_X15_A5 :   data_a = reg_r15;
+        `RF_X16_A6 :   data_a = reg_r16;
+        `RF_X17_A7 :   data_a = reg_r17;
+        `RF_X18_S2 :   data_a = reg_r18;
+        `RF_X19_S3 :   data_a = reg_r19;
+        `RF_X20_S4 :   data_a = reg_r20;
+        `RF_X21_S5 :   data_a = reg_r21;
+        `RF_X22_S6 :   data_a = reg_r22;
+        `RF_X23_S7 :   data_a = reg_r23;
+        `RF_X24_S8 :   data_a = reg_r24;
+        `RF_X25_S9 :   data_a = reg_r25;
+        `RF_X26_S10:   data_a = reg_r26;
+        `RF_X27_S11:   data_a = reg_r27;
+        `RF_X28_T3 :   data_a = reg_r28;
+        `RF_X29_T4 :   data_a = reg_r29;
+        `RF_X30_T5 :   data_a = reg_r30;
+        `RF_X31_T6 :   data_a = reg_r31;
+        default:       data_a = 32'h00000000;
     endcase
     
     // port B
     case (addr_b)
-        5'd1:    data_b = reg_r1;
-        5'd2:    data_b = reg_r2;
-        5'd3:    data_b = reg_r3;
-        5'd4:    data_b = reg_r4;
-        5'd5:    data_b = reg_r5;
-        5'd6:    data_b = reg_r6;
-        5'd7:    data_b = reg_r7;
-        5'd8:    data_b = reg_r8;
-        5'd9:    data_b = reg_r9;
-        5'd10:   data_b = reg_r10;
-        5'd11:   data_b = reg_r11;
-        5'd12:   data_b = reg_r12;
-        5'd13:   data_b = reg_r13;
-        5'd14:   data_b = reg_r14;
-        5'd15:   data_b = reg_r15;
-        5'd16:   data_b = reg_r16;
-        5'd17:   data_b = reg_r17;
-        5'd18:   data_b = reg_r18;
-        5'd19:   data_b = reg_r19;
-        5'd20:   data_b = reg_r20;
-        5'd21:   data_b = reg_r21;
-        5'd22:   data_b = reg_r22;
-        5'd23:   data_b = reg_r23;
-        5'd24:   data_b = reg_r24;
-        5'd25:   data_b = reg_r25;
-        5'd26:   data_b = reg_r26;
-        5'd27:   data_b = reg_r27;
-        5'd28:   data_b = reg_r28;
-        5'd29:   data_b = reg_r29;
-        5'd30:   data_b = reg_r30;
-        5'd31:   data_b = reg_r31;
-        default: data_b = 32'h00000000;
+        `RF_X1_RA  :   data_b = reg_r1;
+        `RF_X2_SP  :   data_b = reg_r2;
+        `RF_X3_GP  :   data_b = reg_r3;
+        `RF_X4_TP  :   data_b = reg_r4;
+        `RF_X5_T0  :   data_b = reg_r5;
+        `RF_X6_T1  :   data_b = reg_r6;
+        `RF_X7_T2  :   data_b = reg_r7;
+        `RF_X8_S0  :   data_b = reg_r8;
+        `RF_X9_S1  :   data_b = reg_r9;
+        `RF_X10_A0 :   data_b = reg_r10;
+        `RF_X11_A1 :   data_b = reg_r11;
+        `RF_X12_A2 :   data_b = reg_r12;
+        `RF_X13_A3 :   data_b = reg_r13;
+        `RF_X14_A4 :   data_b = reg_r14;
+        `RF_X15_A5 :   data_b = reg_r15;
+        `RF_X16_A6 :   data_b = reg_r16;
+        `RF_X17_A7 :   data_b = reg_r17;
+        `RF_X18_S2 :   data_b = reg_r18;
+        `RF_X19_S3 :   data_b = reg_r19;
+        `RF_X20_S4 :   data_b = reg_r20;
+        `RF_X21_S5 :   data_b = reg_r21;
+        `RF_X22_S6 :   data_b = reg_r22;
+        `RF_X23_S7 :   data_b = reg_r23;
+        `RF_X24_S8 :   data_b = reg_r24;
+        `RF_X25_S9 :   data_b = reg_r25;
+        `RF_X26_S10:   data_b = reg_r26;
+        `RF_X27_S11:   data_b = reg_r27;
+        `RF_X28_T3 :   data_b = reg_r28;
+        `RF_X29_T4 :   data_b = reg_r29;
+        `RF_X30_T5 :   data_b = reg_r30;
+        `RF_X31_T6 :   data_b = reg_r31;
+        default:       data_b = 32'h00000000;
     endcase
 end // asynchronous register read
 
