@@ -10,8 +10,10 @@
 // Version history:
 //      2021-07-10  AL  0.1.0 - Initial
 //      2021-07-10  AL  1.0.0 - Release
+//      2021-07-13  AL  1.1.0 - Add defines
 //
 //-----------------------------------------------------------------------------
+`include "ama_riscv_defines.v"
 
 module ama_riscv_load_shift_mask (
     input   wire        clk     ,
@@ -35,28 +37,32 @@ reg   [31:0] data_out_prev;
 //-----------------------------------------------------------------------------
 // Check unaligned access
 assign unaligned_access = en && 
-                         (((data_width == 2'd1) && (offset == 2'd3)) ||
-                          ((data_width == 2'd2) && (offset != 2'd0))     );
+                         (((data_width == `DMEM_HALF) && (offset == `DMEM_OFF_3)) ||
+                          ((data_width == `DMEM_WORD) && (offset != `DMEM_OFF_0))     );
 
 //-----------------------------------------------------------------------------
 // Shift mask
 always @ (*) begin
     if (en && !unaligned_access) begin
         case (data_width)
-            2'd0: begin  // byte
+            `DMEM_BYTE: begin
                 data_out[ 7: 0] = data_in[offset*8 +:  8];
                 data_out[31: 8] = data_sign ? {24{1'b0}} : {24{data_in[offset*8 +  7]}};
             end
-            2'd1: begin  // half
+            
+            `DMEM_HALF: begin
                 data_out[15: 0] = data_in[offset*8 +: 16];
                 data_out[31:16] = data_sign ? {16{1'b0}} : {16{data_in[offset*8 + 15]}};
             end
-            2'd2: begin  // word
+            
+            `DMEM_WORD: begin
                 data_out[31: 0] = data_in[31: 0];
             end
+            
             default: begin
                 data_out[31: 0] = data_out_prev;
             end
+            
         endcase
     end
     else /* (!en || unaligned_access)*/ begin
