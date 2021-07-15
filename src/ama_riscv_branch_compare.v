@@ -12,17 +12,18 @@
 //
 // Version history:
 //      2021-07-15  AL  0.1.0 - Initial
+//      2021-07-15  AL  0.2.0 - Ports name change
 //
 //-----------------------------------------------------------------------------
 
 module ama_riscv_branch_compare (
     // inputs
-    input   wire        op_uns  ,
-    input   wire [31:0] in_a    ,
-    input   wire [31:0] in_b    ,
+    input   wire        op_uns    ,
+    input   wire [31:0] in_a      ,
+    input   wire [31:0] in_b      ,
     // outputs
-    output  wire        op_eq   ,
-    output  wire        op_lt   
+    output  wire        op_a_eq_b ,
+    output  wire        op_a_lt_b   
 );
 
 //-----------------------------------------------------------------------------
@@ -32,9 +33,9 @@ module ama_riscv_branch_compare (
 // Compare
 
 // Operands equal
-assign op_eq = (op_uns) ? (in_a == in_b) : ($signed(in_a) == $signed(in_b));
+assign op_a_eq_b = (op_uns) ? (in_a == in_b) : ($signed(in_a) == $signed(in_b));
 
 // Operand A less than operand B
-assign op_lt = (op_uns) ? (in_a <  in_b) : ($signed(in_a) <  $signed(in_b));
+assign op_a_lt_b = (op_uns) ? (in_a <  in_b) : ($signed(in_a) <  $signed(in_b));
 
 endmodule
