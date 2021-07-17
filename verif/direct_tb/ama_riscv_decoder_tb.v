@@ -9,8 +9,9 @@
 //                      2.  R-type checks direct
 //
 // Version history:
-//      2021-07-16  AL  0.1.0 - Initial - Reset and R-types (Add & Sub only)
-//      2021-07-17  AL  0.2.0 - Add file reads, finish R-types
+//      2021-07-16  AL  0.1.0 - Initial - Reset and R-type (Add & Sub only)
+//      2021-07-17  AL  0.2.0 - Add file reads, finish R-type tests
+//      2021-07-17  AL  0.3.0 - Add I-type tests
 //-----------------------------------------------------------------------------
 
 `timescale 1ns/1ps
@@ -18,8 +19,9 @@
 `define CLK_PERIOD               8
 //`define CLOCK_FREQ    125_000_000
 //`define SIM_TIME     `CLOCK_FREQ*0.0009 // 900us
-`define TEST_CASES              64
 `define R_TYPE_TESTS            11
+`define I_TYPE_TESTS             9
+`define TEST_CASES              `R_TYPE_TESTS + `I_TYPE_TESTS
 
 // MUX select signals
 // PC select
@@ -42,6 +44,14 @@
 `define WB_SEL_DMEM         2'd0  // Reg[rd] = DMEM[ALU]
 `define WB_SEL_ALU          2'd1  // Reg[rd] = ALU
 `define WB_SEL_INC4         2'd2  // Reg[rd] = PC + 4
+
+// Imm Gen
+`define IG_DISABLED 3'b000
+`define IG_I_TYPE   3'b001
+`define IG_S_TYPE   3'b010
+`define IG_B_TYPE   3'b011
+`define IG_J_TYPE   3'b100
+`define IG_U_TYPE   3'b101
 
 `define PROJECT_PATH        "C:/Users/Aleksandar/Documents/xilinx/ama-riscv/"
 
@@ -66,7 +76,6 @@ wire        clear_id   ;
 wire        clear_mem  ;
 wire [ 1:0] pc_sel     ;
 wire [ 1:0] pc_we      ;
-wire        imem_en    ;
 wire        branch_inst;
 wire        store_inst ;
 wire [ 3:0] alu_op_sel ;
@@ -86,7 +95,6 @@ reg         dut_m_clear_id   ;
 reg         dut_m_clear_mem  ;
 reg  [ 1:0] dut_m_pc_sel     ;
 reg  [ 1:0] dut_m_pc_we      ;
-reg         dut_m_imem_en    ;
 reg         dut_m_branch_inst;
 reg         dut_m_store_inst ;
 reg  [ 3:0] dut_m_alu_op_sel ;
@@ -131,7 +139,6 @@ ama_riscv_decoder DUT_ama_riscv_decoder_i (
     .clear_mem   (clear_mem   ),
     .pc_sel      (pc_sel      ),
     .pc_we       (pc_we       ),
-    .imem_en     (imem_en     ),
     .branch_inst (branch_inst ),
     .store_inst  (store_inst  ),
     .alu_op_sel  (alu_op_sel  ),
@@ -153,6 +160,7 @@ always #(`CLK_PERIOD/2) clk = ~clk;
 // Tasks
 task task_driver;
     input [31:0] inst;
+    
     begin
         inst_id = inst;
         
@@ -172,13 +180,6 @@ task task_checker;
         if (pc_we != dut_m_pc_we) begin
             $display("*ERROR @ %0t. Input inst: 'h%8h  %0s, DUT pc_we: 'b%2b, Model pc_we: 'b%2b,", 
             $time, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii], pc_we, dut_m_pc_we);
-            errors = errors + 1;
-        end
-        
-        // imem_en
-        if (imem_en != dut_m_imem_en) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s, DUT imem_en: 'b%1b, Model imem_en: 'b%1b,", 
-            $time, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii], imem_en, dut_m_imem_en);
             errors = errors + 1;
         end
         
@@ -298,6 +299,17 @@ task read_test_instructions;
     end
 endtask
 
+task randomize_instructions;
+    begin
+        
+    // detect instruction
+    //      randomize fields that given instruction can
+    //      asm text file will no longer be valid -> pass thru disassembler if inst fails
+    //      remove printing asm text when randomizing
+    end
+
+endtask
+
 task dut_m_task_reset;
     begin
         // dut_m_stall_if   
@@ -306,7 +318,6 @@ task dut_m_task_reset;
         // dut_m_clear_mem  
         dut_m_pc_sel      = `PC_SEL_START_ADDR;
         dut_m_pc_we       = 1'b1;
-        dut_m_imem_en     = 1'b1;
         dut_m_branch_inst = 1'b0;
         dut_m_store_inst  = 1'b0;
         dut_m_alu_op_sel  = 4'b0000;
@@ -328,13 +339,29 @@ task dut_m_task_decode;
             'b011_0011: begin   // R-type instruction
                 dut_m_pc_sel      = `PC_SEL_INC4;
                 dut_m_pc_we       = 1'b1;
-                dut_m_imem_en     = 1'b1;
                 dut_m_branch_inst = 1'b0;
                 dut_m_store_inst  = 1'b0;
-                dut_m_alu_op_sel  = ({inst[30],inst[14:12]});
+                dut_m_alu_op_sel  = ({inst[30], inst[14:12]});
                 dut_m_alu_a_sel   = `ALU_A_SEL_RS1;
                 dut_m_alu_b_sel   = `ALU_B_SEL_RS2;
                 dut_m_ig_sel      = `IG_DISABLED;
+                dut_m_bc_uns      = 1'b0;
+                dut_m_dmem_en     = 1'b0;
+                dut_m_load_sm_en  = 1'b0;
+                dut_m_wb_sel      = `WB_SEL_ALU;
+                dut_m_reg_we      = 1'b1;
+            end
+            
+            'b001_0011: begin   // I-type instruction
+                dut_m_pc_sel      = `PC_SEL_INC4;
+                dut_m_pc_we       = 1'b1;
+                dut_m_branch_inst = 1'b0;
+                dut_m_store_inst  = 1'b0;
+                dut_m_alu_op_sel  = (inst[13:12] == 2'b01)  ? 
+                                    {inst[30], inst[14:12]} : {1'b0, inst[14:12]};
+                dut_m_alu_a_sel   = `ALU_A_SEL_RS1;
+                dut_m_alu_b_sel   = `ALU_B_SEL_IMM;
+                dut_m_ig_sel      = `IG_I_TYPE;
                 dut_m_bc_uns      = 1'b0;
                 dut_m_dmem_en     = 1'b0;
                 dut_m_load_sm_en  = 1'b0;
@@ -400,12 +427,12 @@ end
 //-----------------------------------------------------------------------------
 // Test
 initial begin
-    $display("\n----------------------- Simulation started -----------------------\n\n");
+    $display("\n----------------------- Simulation started -----------------------\n");
     reset(4'd2);
     
     //-----------------------------------------------------------------------------
-    // Test 1: Hit specific cases
-    $display("Test  1: Hit specific cases R-type ...\n");
+    // Test 1: R-type
+    $display("\nTest  1: Hit specific cases R-type ... \n");
     
     repeat(`R_TYPE_TESTS) begin
         task_driver(test_values_inst_hex[inst_ii]);
@@ -418,22 +445,25 @@ initial begin
         inst_ii = inst_ii + 1;
     end
     
-    $display("\nTest  1: Checking specific cases R-type done\n");
+    $display("\nTest  1: Checking specific cases R-type done \n");
     
-    /*    
     //-----------------------------------------------------------------------------
-    // Test 2: Random hits (incl. invalid operations)
-    $display("Test  2: Random hits ...");
-    for (i = 0; i < `TEST_CASES; i = i + 1) begin
-        // $display("Run  %2d ...", i);
-        check(test_values_op_sel[i], test_values_in_a[i], test_values_in_b[i]);
-        // $display("Run %2d done", i);
-        #1;
-    end
-    $display("Test  2: Checking random hits done\n");
-    @(posedge clk); #1;
+    // Test 2: R-type
+    $display("\nTest  2: Hit specific cases I-type ... \n");
     
-     */
+    repeat(`I_TYPE_TESTS) begin
+        task_driver(test_values_inst_hex[inst_ii]);
+        @(posedge clk); #1;
+        ->ev_decode[0];
+        ->ev_decode[1];
+        #1;
+        $write("Run %2d done. Instruction: 'h%8h   %0s", 
+        inst_ii, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii]);
+        inst_ii = inst_ii + 1;
+    end
+    
+    $display("\nTest  2: Checking specific cases I-type done \n");
+    
     //-----------------------------------------------------------------------------
     repeat (1) @(posedge clk);
     $display("\n----------------------- Simulation results -----------------------");
