@@ -14,20 +14,21 @@
 //      2021-07-13  AL  0.5.0 - Add DMEM access defines
 //      2021-07-16  AL  0.6.0 - Add Opcode 5-bit defines
 //      2021-07-16  AL  0.7.0 - Add MUX select defines (PC, ALU_A op, ALU_B op, WB)
+//      2021-07-17  AL  0.7.1 - Fix Opcode 5-bit defines
 //
 //-----------------------------------------------------------------------------
 // Opcodes
 // Only top 5 bits of a 7-bit opcode is needed
 // All RV32I instructions have format of {OPC5,2'b11}
-`define OPC5_ARI_R_TYPE  5'b0_1100      // R-type
-`define OPC5_ARI_I_TYPE  5'b0_0100      // I-type
-`define OPC5_LOAD        5'b0_0000      // I-type
-`define OPC5_STORE       5'b0_1000      // S-type
-`define OPC5_BRANCH      5'b1_1000      // B-type
-`define OPC5_JALR        5'b1_1001      // J-type, I-format
-`define OPC5_JAL         5'b1_1011      // J-type
-`define OPC5_LUI         5'b0_1101      // U-type
-`define OPC5_AUIPC       5'b0_0101      // U-type
+`define OPC5_R_TYPE  5'b0_1100      // R-type
+`define OPC5_I_TYPE  5'b0_0100      // I-type
+`define OPC5_LOAD    5'b0_0000      // I-type
+`define OPC5_STORE   5'b0_1000      // S-type
+`define OPC5_BRANCH  5'b1_1000      // B-type
+`define OPC5_JALR    5'b1_1001      // J-type, I-format
+`define OPC5_JAL     5'b1_1011      // J-type
+`define OPC5_LUI     5'b0_1101      // U-type
+`define OPC5_AUIPC   5'b0_0101      // U-type
 
 //-----------------------------------------------------------------------------
 // MUX select signals
