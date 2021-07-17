@@ -10,6 +10,7 @@
 //      2021-07-16  AL  0.1.0 - Initial - Support for R-types
 //      2021-07-16  AL  0.1.1 - Add imem_en signal
 //      2021-07-16  AL  0.1.2 - Fix wb_sel signal
+//      2021-07-17  AL  0.1.3 - Remove imem_en signal (needed for write, tbd)
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -74,11 +75,10 @@ always @ (posedge clk) begin
         // load start address to pc
         pc_sel      <= `PC_SEL_START_ADDR;
         pc_we       <= 1'b1;
-        imem_en     <= 1'b1;
         // disable or some defaults for others
         branch_inst <= 1'b0;
         store_inst  <= 1'b0;
-        alu_op_sel  <= 4'b0000;  // decodes to add operation
+        alu_op_sel  <= 4'b0000;         // add operation
         alu_a_sel   <= `ALU_A_SEL_RS1;
         alu_b_sel   <= `ALU_B_SEL_RS2;
         ig_sel      <= `IG_DISABLED;
@@ -87,12 +87,10 @@ always @ (posedge clk) begin
         load_sm_en  <= 1'b0;
         wb_sel      <= `WB_SEL_DMEM;
         reg_we      <= 1'b0;
-        // pipeline registers? though they are reset with rst=1 regardless
     end
     else begin
         pc_sel      <= pc_sel_r      ;
         pc_we       <= pc_we_r       ;
-        imem_en     <= imem_en_r     ;
         branch_inst <= branch_inst_r ;
         store_inst  <= store_inst_r  ;
         alu_op_sel  <= alu_op_sel_r  ;
@@ -108,12 +106,26 @@ always @ (posedge clk) begin
 end
 
 //-----------------------------------------------------------------------------
+// Moving out of the reset sequence
+// pipeline registers? though they are reset with rst=1 regardless
+// imem issue with reset
+// keep all pipe regs in 'clear', remove once decoder goes out of reset
+
+/* 
+posedge clk
+    if (rst) reset_seq = 3'b111
+    else reset_seq = {reset_seq[2:1],1'b0};
+assign stall_rst_seq_id  = reset_seq[0];    // keeps it clear 1 clk after rst ends
+assign stall_rst_seq_ex  = reset_seq[1];    // keeps it clear 2 clks after rst ends
+assign stall_rst_seq_mem = reset_seq[2];    // keeps it clear 3 clks after rst ends
+ */
+ 
+//-----------------------------------------------------------------------------
 // Decoder
 always @ (*) begin
     // Defaults, cover don't care/change cases
     pc_sel_r      = pc_sel      ;
     pc_we_r       = pc_we       ;
-    imem_en_r     = imem_en     ;
     branch_inst_r = branch_inst ;
     store_inst_r  = store_inst  ;
     alu_op_sel_r  = alu_op_sel  ;
@@ -130,7 +142,6 @@ always @ (*) begin
         `OPC5_ARI_R_TYPE: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
-            imem_en_r     = 1'b1;
             branch_inst_r = 1'b0;
             store_inst_r  = 1'b0;
             alu_op_sel_r  = {funct7[5],funct3};
