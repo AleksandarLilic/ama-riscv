@@ -7,10 +7,11 @@
 // Description:     Instruction Decoder
 //
 // Version history:
-//      2021-07-16  AL  0.1.0 - Initial - Support for R-types
+//      2021-07-16  AL  0.1.0 - Initial - Support for R-type
 //      2021-07-16  AL  0.1.1 - Add imem_en signal
 //      2021-07-16  AL  0.1.2 - Fix wb_sel signal
 //      2021-07-17  AL  0.1.3 - Remove imem_en signal (needed for write, tbd)
+//      2021-07-17  AL  0.2.0 - Add support for I-type
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -139,7 +140,7 @@ always @ (*) begin
     reg_we_r      = reg_we      ;
     
     case (opc5)
-        `OPC5_ARI_R_TYPE: begin
+        `OPC5_R_TYPE: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
             branch_inst_r = 1'b0;
@@ -155,8 +156,21 @@ always @ (*) begin
             reg_we_r      = 1'b1;
         end
         
-        `OPC5_ARI_I_TYPE: begin
-            
+        `OPC5_I_TYPE: begin
+            pc_sel_r      = `PC_SEL_INC4;
+            pc_we_r       = 1'b1;
+            branch_inst_r = 1'b0;
+            store_inst_r  = 1'b0;
+            //                                       ----- shift ------- : ----- imm ----
+            alu_op_sel_r  = (funct3[1:0] == 2'b01) ? {funct7[5], funct3} : {1'b0, funct3};
+            alu_a_sel_r   = `ALU_A_SEL_RS1;
+            alu_b_sel_r   = `ALU_B_SEL_IMM;
+            ig_sel_r      = `IG_I_TYPE;
+            // bc_uns_r      = *;
+            dmem_en_r     = 1'b0;
+            load_sm_en_r  = 1'b0;
+            wb_sel_r      = `WB_SEL_ALU;
+            reg_we_r      = 1'b1;
         end
         
         `OPC5_LOAD: begin
