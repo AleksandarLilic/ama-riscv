@@ -8,6 +8,7 @@
 //
 // Version history:
 //      2021-07-16  AL  0.1.0 - Initial - Support for R-types
+//      2021-07-16  AL  0.1.1 - Add imem_en signal
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -29,6 +30,7 @@ module ama_riscv_decoder (
     // outputs
     output  reg  [ 1:0] pc_sel      ,
     output  reg  [ 1:0] pc_we       ,
+    output  reg         imem_en     ,
     output  reg         branch_inst ,
     output  reg         store_inst  ,
     output  reg  [ 3:0] alu_op_sel  ,
@@ -51,6 +53,7 @@ wire  [ 6:0] funct7 =  inst_id[31:25];
 
 reg   [ 1:0] pc_sel_r      ;
 reg   [ 1:0] pc_we_r       ;
+reg          imem_en_r     ; 
 reg          branch_inst_r ;
 reg          store_inst_r  ;
 reg   [ 3:0] alu_op_sel_r  ;
@@ -70,7 +73,10 @@ always @ (posedge clk) begin
         // load start address to pc
         pc_sel      <= `PC_SEL_START_ADDR;
         pc_we       <= 1'b1;
+        imem_en     <= 1'b1;
         // disable or some defaults for others
+        branch_inst <= 1'b0;
+        store_inst  <= 1'b0;
         alu_op_sel  <= 4'b0000;  // decodes to add operation
         alu_a_sel   <= `ALU_A_SEL_RS1;
         alu_b_sel   <= `ALU_B_SEL_RS2;
@@ -80,13 +86,14 @@ always @ (posedge clk) begin
         load_sm_en  <= 1'b0;
         wb_sel      <= `WB_SEL_DMEM;
         reg_we      <= 1'b0;
-        branch_inst <= 1'b0;
-        store_inst  <= 1'b0;
         // pipeline registers? though they are reset with rst=1 regardless
     end
     else begin
         pc_sel      <= pc_sel_r      ;
         pc_we       <= pc_we_r       ;
+        imem_en     <= imem_en_r     ;
+        branch_inst <= branch_inst_r ;
+        store_inst  <= store_inst_r  ;
         alu_op_sel  <= alu_op_sel_r  ;
         alu_a_sel   <= alu_a_sel_r   ;
         alu_b_sel   <= alu_b_sel_r   ;
@@ -96,8 +103,6 @@ always @ (posedge clk) begin
         load_sm_en  <= load_sm_en_r  ;
         wb_sel      <= wb_sel_r      ;
         reg_we      <= reg_we_r      ;
-        branch_inst <= branch_inst_r ;
-        store_inst  <= store_inst_r  ;
     end
 end
 
@@ -107,6 +112,9 @@ always @ (*) begin
     // Defaults, cover don't care/change cases
     pc_sel_r      = pc_sel      ;
     pc_we_r       = pc_we       ;
+    imem_en_r     = imem_en     ;
+    branch_inst_r = branch_inst ;
+    store_inst_r  = store_inst  ;
     alu_op_sel_r  = alu_op_sel  ;
     alu_a_sel_r   = alu_a_sel   ;
     alu_b_sel_r   = alu_b_sel   ;
@@ -116,13 +124,14 @@ always @ (*) begin
     load_sm_en_r  = load_sm_en  ;
     wb_sel_r      = wb_sel      ;
     reg_we_r      = reg_we      ;
-    branch_inst_r = branch_inst ;
-    store_inst_r  = store_inst  ;
     
     case (opc5)
         `OPC5_ARI_R_TYPE: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
+            imem_en_r     = 1'b1;
+            branch_inst_r = 1'b0;
+            store_inst_r  = 1'b0;
             alu_op_sel_r  = {funct7[5],funct3};
             alu_a_sel_r   = `ALU_A_SEL_RS1;
             alu_b_sel_r   = `ALU_B_SEL_RS2;
@@ -132,8 +141,6 @@ always @ (*) begin
             load_sm_en_r  = 1'b0;
             wb_sel_r      = `WB_SEL_DMEM;
             reg_we_r      = 1'b1;
-            branch_inst_r = 1'b0;
-            store_inst_r  = 1'b0;
         end
         
         `OPC5_ARI_I_TYPE: begin
