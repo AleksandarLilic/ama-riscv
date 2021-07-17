@@ -12,6 +12,7 @@
 //      2021-07-16  AL  0.1.0 - Initial - Reset and R-type (Add & Sub only)
 //      2021-07-17  AL  0.2.0 - Add file reads, finish R-type tests
 //      2021-07-17  AL  0.3.0 - Add I-type tests
+//      2021-07-17  AL  0.4.0 - Add Load tests
 //-----------------------------------------------------------------------------
 
 `timescale 1ns/1ps
@@ -21,7 +22,8 @@
 //`define SIM_TIME     `CLOCK_FREQ*0.0009 // 900us
 `define R_TYPE_TESTS            11
 `define I_TYPE_TESTS             9
-`define TEST_CASES              `R_TYPE_TESTS + `I_TYPE_TESTS
+`define LOAD_TESTS               5
+`define TEST_CASES              `R_TYPE_TESTS + `I_TYPE_TESTS + `LOAD_TESTS
 
 // MUX select signals
 // PC select
@@ -111,6 +113,7 @@ reg         dut_m_reg_we     ;
 integer     i;              // used for all loops
 integer     inst_ii = 0;    // used for instruction array access only
 integer     errors;
+integer     warnings;
 // file read
 integer fd;
 integer status;
@@ -345,7 +348,7 @@ task dut_m_task_decode;
                 dut_m_alu_a_sel   = `ALU_A_SEL_RS1;
                 dut_m_alu_b_sel   = `ALU_B_SEL_RS2;
                 dut_m_ig_sel      = `IG_DISABLED;
-                dut_m_bc_uns      = 1'b0;
+                // dut_m_bc_uns      = 1'b0;
                 dut_m_dmem_en     = 1'b0;
                 dut_m_load_sm_en  = 1'b0;
                 dut_m_wb_sel      = `WB_SEL_ALU;
@@ -362,11 +365,33 @@ task dut_m_task_decode;
                 dut_m_alu_a_sel   = `ALU_A_SEL_RS1;
                 dut_m_alu_b_sel   = `ALU_B_SEL_IMM;
                 dut_m_ig_sel      = `IG_I_TYPE;
-                dut_m_bc_uns      = 1'b0;
+                // dut_m_bc_uns      = 1'b0;
                 dut_m_dmem_en     = 1'b0;
                 dut_m_load_sm_en  = 1'b0;
                 dut_m_wb_sel      = `WB_SEL_ALU;
                 dut_m_reg_we      = 1'b1;
+            end
+            
+            'b000_0011: begin   // Load instruction
+                dut_m_pc_sel      = `PC_SEL_INC4;
+                dut_m_pc_we       = 1'b1;
+                dut_m_branch_inst = 1'b0;
+                dut_m_store_inst  = 1'b0;
+                dut_m_alu_op_sel  = 4'b0000;
+                dut_m_alu_a_sel   = `ALU_A_SEL_RS1;
+                dut_m_alu_b_sel   = `ALU_B_SEL_IMM;
+                dut_m_ig_sel      = `IG_I_TYPE;
+                // dut_m_bc_uns      = 1'b0;
+                dut_m_dmem_en     = 1'b1;
+                dut_m_load_sm_en  = 1'b1;
+                dut_m_wb_sel      = `WB_SEL_DMEM;
+                dut_m_reg_we      = 1'b1;
+            end
+            
+            default: begin
+                $write("*WARNING @ %0t. Instruction unsupported. Input inst: 'h%8h  %0s", 
+            $time, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii]);
+                warnings = warnings + 1;
             end
         endcase
     end                  
@@ -421,7 +446,8 @@ initial begin
     //Prints %t scaled in ns (-9), with 2 precision digits, with the " ns" string
     $timeformat(-9, 2, " ns", 20);    
     read_test_instructions();
-    errors <= 0;
+    errors  <= 0;
+    warnings <= 0;
 end
 
 //-----------------------------------------------------------------------------
@@ -448,7 +474,7 @@ initial begin
     $display("\nTest  1: Checking specific cases R-type done \n");
     
     //-----------------------------------------------------------------------------
-    // Test 2: R-type
+    // Test 2: I-type
     $display("\nTest  2: Hit specific cases I-type ... \n");
     
     repeat(`I_TYPE_TESTS) begin
@@ -465,6 +491,23 @@ initial begin
     $display("\nTest  2: Checking specific cases I-type done \n");
     
     //-----------------------------------------------------------------------------
+    // Test 3: Load
+    $display("\nTest  3: Hit specific cases Load ... \n");
+    
+    repeat(`LOAD_TESTS) begin
+        task_driver(test_values_inst_hex[inst_ii]);
+        @(posedge clk); #1;
+        ->ev_decode[0];
+        ->ev_decode[1];
+        #1;
+        $write("Run %2d done. Instruction: 'h%8h   %0s", 
+        inst_ii, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii]);
+        inst_ii = inst_ii + 1;
+    end
+    
+    $display("\nTest  3: Checking specific cases Load done \n");
+    
+    //-----------------------------------------------------------------------------
     repeat (1) @(posedge clk);
     $display("\n----------------------- Simulation results -----------------------");
     $display("Tests ran to completion");
@@ -473,7 +516,8 @@ initial begin
         $display("Passed");
     else
         $display("Failed");
-    $display("Errors: %0d", errors);
+    $display("Warnings: %2d", warnings);
+    $display("Errors:   %2d", errors);
     $display("--------------------- End of the simulation ----------------------\n");
     $finish();
 end
