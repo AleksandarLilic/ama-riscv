@@ -9,6 +9,7 @@
 // Version history:
 //      2021-07-16  AL  0.1.0 - Initial - Support for R-types
 //      2021-07-16  AL  0.1.1 - Add imem_en signal
+//      2021-07-16  AL  0.1.2 - Fix wb_sel signal
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -139,7 +140,7 @@ always @ (*) begin
             // bc_uns_r      = *;
             dmem_en_r     = 1'b0;
             load_sm_en_r  = 1'b0;
-            wb_sel_r      = `WB_SEL_DMEM;
+            wb_sel_r      = `WB_SEL_ALU;
             reg_we_r      = 1'b1;
         end
         
