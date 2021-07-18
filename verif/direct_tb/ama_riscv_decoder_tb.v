@@ -13,6 +13,7 @@
 //      2021-07-17  AL  0.2.0 - Add file reads, finish R-type tests
 //      2021-07-17  AL  0.3.0 - Add I-type tests
 //      2021-07-17  AL  0.4.0 - Add Load tests
+//      2021-07-18  AL  0.5.0 - Add Store tests
 //-----------------------------------------------------------------------------
 
 `timescale 1ns/1ps
@@ -20,10 +21,11 @@
 `define CLK_PERIOD               8
 //`define CLOCK_FREQ    125_000_000
 //`define SIM_TIME     `CLOCK_FREQ*0.0009 // 900us
-`define R_TYPE_TESTS            11
+`define R_TYPE_TESTS            10
 `define I_TYPE_TESTS             9
 `define LOAD_TESTS               5
-`define TEST_CASES              `R_TYPE_TESTS + `I_TYPE_TESTS + `LOAD_TESTS
+`define STORE_TESTS              3
+`define TEST_CASES              `R_TYPE_TESTS + `I_TYPE_TESTS + `LOAD_TESTS + `STORE_TESTS
 
 // MUX select signals
 // PC select
@@ -388,6 +390,22 @@ task dut_m_task_decode;
                 dut_m_reg_we      = 1'b1;
             end
             
+            'b010_0011: begin   // Load instruction
+                dut_m_pc_sel      = `PC_SEL_INC4;
+                dut_m_pc_we       = 1'b1;
+                dut_m_branch_inst = 1'b0;
+                dut_m_store_inst  = 1'b1;
+                dut_m_alu_op_sel  = 4'b0000;
+                dut_m_alu_a_sel   = `ALU_A_SEL_RS1;
+                dut_m_alu_b_sel   = `ALU_B_SEL_IMM;
+                dut_m_ig_sel      = `IG_S_TYPE;
+                // dut_m_bc_uns      = 1'b0;
+                dut_m_dmem_en     = 1'b1;
+                dut_m_load_sm_en  = 1'b0;
+                // dut_m_wb_sel      = `WB_SEL_DMEM;
+                dut_m_reg_we      = 1'b0;
+            end
+            
             default: begin
                 $write("*WARNING @ %0t. Instruction unsupported. Input inst: 'h%8h  %0s", 
             $time, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii]);
@@ -506,6 +524,23 @@ initial begin
     end
     
     $display("\nTest  3: Checking specific cases Load done \n");
+    
+    //-----------------------------------------------------------------------------
+    // Test 4: Store
+    $display("\nTest  4: Hit specific cases Store ... \n");
+    
+    repeat(`STORE_TESTS) begin
+        task_driver(test_values_inst_hex[inst_ii]);
+        @(posedge clk); #1;
+        ->ev_decode[0];
+        ->ev_decode[1];
+        #1;
+        $write("Run %2d done. Instruction: 'h%8h   %0s", 
+        inst_ii, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii]);
+        inst_ii = inst_ii + 1;
+    end
+    
+    $display("\nTest  4: Checking specific cases Store done \n");
     
     //-----------------------------------------------------------------------------
     repeat (1) @(posedge clk);
