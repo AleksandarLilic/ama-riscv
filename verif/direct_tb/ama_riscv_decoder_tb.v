@@ -14,6 +14,7 @@
 //      2021-07-17  AL  0.3.0 - Add I-type tests
 //      2021-07-17  AL  0.4.0 - Add Load tests
 //      2021-07-18  AL  0.5.0 - Add Store tests
+//      2021-07-18  AL  0.6.0 - Add new task, reorder old tasks
 //-----------------------------------------------------------------------------
 
 `timescale 1ns/1ps
@@ -163,13 +164,26 @@ always #(`CLK_PERIOD/2) clk = ~clk;
 
 //-----------------------------------------------------------------------------
 // Tasks
+task run_test;
+    begin
+        task_driver(test_values_inst_hex[inst_ii]);
+        @(posedge clk); #1;
+        ->ev_decode[0];
+        ->ev_decode[1];
+        #1;
+        $write("Run %2d done. Instruction: 'h%8h   %0s", 
+        inst_ii, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii]);
+        inst_ii = inst_ii + 1;
+    end
+endtask
+
 task task_driver;
     input [31:0] inst;
     
     begin
-        inst_id = inst;
-        
+        inst_id = inst;        
     end
+    
 endtask
 
 task task_checker;
@@ -476,71 +490,27 @@ initial begin
     
     //-----------------------------------------------------------------------------
     // Test 1: R-type
-    $display("\nTest  1: Hit specific cases R-type ... \n");
-    
-    repeat(`R_TYPE_TESTS) begin
-        task_driver(test_values_inst_hex[inst_ii]);
-        @(posedge clk); #1;
-        ->ev_decode[0];
-        ->ev_decode[1];
-        #1;
-        $write("Run %2d done. Instruction: 'h%8h   %0s", 
-        inst_ii, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii]);
-        inst_ii = inst_ii + 1;
-    end
-    
-    $display("\nTest  1: Checking specific cases R-type done \n");
+    $display("\nTest  1: Hit specific cases: R-type \n");
+    repeat(`R_TYPE_TESTS) run_test();    
+    $display("\nTest  1: Checking specific cases done: R-type \n");
     
     //-----------------------------------------------------------------------------
     // Test 2: I-type
-    $display("\nTest  2: Hit specific cases I-type ... \n");
-    
-    repeat(`I_TYPE_TESTS) begin
-        task_driver(test_values_inst_hex[inst_ii]);
-        @(posedge clk); #1;
-        ->ev_decode[0];
-        ->ev_decode[1];
-        #1;
-        $write("Run %2d done. Instruction: 'h%8h   %0s", 
-        inst_ii, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii]);
-        inst_ii = inst_ii + 1;
-    end
-    
-    $display("\nTest  2: Checking specific cases I-type done \n");
+    $display("\nTest  2: Hit specific cases: I-type \n");
+    repeat(`I_TYPE_TESTS) run_test(); 
+    $display("\nTest  2: Checking specific cases done: I-type\n");
     
     //-----------------------------------------------------------------------------
     // Test 3: Load
-    $display("\nTest  3: Hit specific cases Load ... \n");
-    
-    repeat(`LOAD_TESTS) begin
-        task_driver(test_values_inst_hex[inst_ii]);
-        @(posedge clk); #1;
-        ->ev_decode[0];
-        ->ev_decode[1];
-        #1;
-        $write("Run %2d done. Instruction: 'h%8h   %0s", 
-        inst_ii, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii]);
-        inst_ii = inst_ii + 1;
-    end
-    
-    $display("\nTest  3: Checking specific cases Load done \n");
+    $display("\nTest  3: Hit specific cases: Load \n");
+    repeat(`LOAD_TESTS) run_test(); 
+    $display("\nTest  3: Checking specific cases done: Load \n");
     
     //-----------------------------------------------------------------------------
     // Test 4: Store
-    $display("\nTest  4: Hit specific cases Store ... \n");
-    
-    repeat(`STORE_TESTS) begin
-        task_driver(test_values_inst_hex[inst_ii]);
-        @(posedge clk); #1;
-        ->ev_decode[0];
-        ->ev_decode[1];
-        #1;
-        $write("Run %2d done. Instruction: 'h%8h   %0s", 
-        inst_ii, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii]);
-        inst_ii = inst_ii + 1;
-    end
-    
-    $display("\nTest  4: Checking specific cases Store done \n");
+    $display("\nTest  4: Hit specific cases: Store \n");
+    repeat(`STORE_TESTS) run_test(); 
+    $display("\nTest  4: Checking specific cases done: Store\n");
     
     //-----------------------------------------------------------------------------
     repeat (1) @(posedge clk);
