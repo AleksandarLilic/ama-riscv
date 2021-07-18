@@ -13,6 +13,7 @@
 //      2021-07-17  AL  0.1.3 - Remove imem_en signal (needed for write, tbd)
 //      2021-07-17  AL  0.2.0 - Add support for I-type
 //      2021-07-17  AL  0.3.0 - Add support for Load
+//      2021-07-18  AL  0.4.0 - Add support for Store
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -191,7 +192,19 @@ always @ (*) begin
         end
         
         `OPC5_STORE: begin
-            
+            pc_sel_r      = `PC_SEL_INC4;
+            pc_we_r       = 1'b1;
+            branch_inst_r = 1'b0;
+            store_inst_r  = 1'b1;
+            alu_op_sel_r  = `ALU_ADD;
+            alu_a_sel_r   = `ALU_A_SEL_RS1;
+            alu_b_sel_r   = `ALU_B_SEL_IMM;
+            ig_sel_r      = `IG_S_TYPE;
+            // bc_uns_r      = *;
+            dmem_en_r     = 1'b1;
+            load_sm_en_r  = 1'b0;
+            // wb_sel_r      = *;
+            reg_we_r      = 1'b0;
         end
         
         `OPC5_BRANCH: begin
