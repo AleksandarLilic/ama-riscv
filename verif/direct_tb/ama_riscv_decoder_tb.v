@@ -14,7 +14,21 @@
 //      2021-07-17  AL  0.3.0 - Add I-type tests
 //      2021-07-17  AL  0.4.0 - Add Load tests
 //      2021-07-18  AL  0.5.0 - Add Store tests
-//      2021-07-18  AL  0.6.0 - Add new task, reorder old tasks
+//      2021-07-18  AL  0.6.0 - Add new 'run_test()' task, reorder old tasks
+//      2021-07-18  AL  0.6.1 - Fix reset
+//      2021-07-20  AL  0.7.0 - Rework environment
+//                              Add datapath elements for stimuli generation
+//                              Move all simulation to tasks
+//                              Two threads are controlling entire simulation
+//                              1. Main test thread uses sim time
+//                              2. Reset thread listens to events from main
+//
+// Notes on Branch tests:
+//  - Add compare results, 1 clk delay from IMEM
+//  - Add ALU results, 1 clk delay from IMEM
+//  - Collect branch control flow from DUT
+//  - Do not actually jump to other locations <- this may need 1 clk stall
+//
 //-----------------------------------------------------------------------------
 
 `timescale 1ns/1ps
@@ -22,11 +36,12 @@
 `define CLK_PERIOD               8
 //`define CLOCK_FREQ    125_000_000
 //`define SIM_TIME     `CLOCK_FREQ*0.0009 // 900us
+`define RST_TEST                 1
 `define R_TYPE_TESTS            10
 `define I_TYPE_TESTS             9
 `define LOAD_TESTS               5
 `define STORE_TESTS              3
-`define TEST_CASES              `R_TYPE_TESTS + `I_TYPE_TESTS + `LOAD_TESTS + `STORE_TESTS
+`define TEST_CASES              `RST_TEST + `R_TYPE_TESTS + `I_TYPE_TESTS + `LOAD_TESTS + `STORE_TESTS
 
 // MUX select signals
 // PC select
@@ -70,6 +85,7 @@ reg         clk = 0;
 reg         rst;
 // inputs
 reg  [31:0] inst_id   ; 
+reg  [31:0] inst_ex   ; 
 reg         bc_a_eq_b ;
 reg         bc_a_lt_b ;
 reg         bp_taken  ;
@@ -80,7 +96,7 @@ wire        clear_if   ;
 wire        clear_id   ;
 wire        clear_mem  ;
 wire [ 1:0] pc_sel     ;
-wire [ 1:0] pc_we      ;
+wire        pc_we      ;
 wire        branch_inst;
 wire        store_inst ;
 wire [ 3:0] alu_op_sel ;
@@ -99,7 +115,7 @@ reg         dut_m_clear_if   ;
 reg         dut_m_clear_id   ;
 reg         dut_m_clear_mem  ;
 reg  [ 1:0] dut_m_pc_sel     ;
-reg  [ 1:0] dut_m_pc_we      ;
+reg         dut_m_pc_we      ;
 reg         dut_m_branch_inst;
 reg         dut_m_store_inst ;
 reg  [ 3:0] dut_m_alu_op_sel ;
@@ -112,20 +128,38 @@ reg         dut_m_load_sm_en ;
 reg  [ 1:0] dut_m_wb_sel     ;
 reg         dut_m_reg_we     ;
 
+// DUT environment
+reg  [31:0] dut_env_inst_id     ;
+reg  [31:0] dut_env_inst_ex     ;
+integer     dut_env_pc          ;
+integer     dut_env_alu         ;
+integer     dut_env_pc_mux_out  ;
+reg         dut_env_bc_a_eq_b   ;
+reg         dut_env_bc_a_lt_b   ;
+
+// Reset hold for
+reg  [ 3:0] rst_pulses = 4'd2;
+
 // Testbench variables
 integer     i;              // used for all loops
-integer     inst_ii = 0;    // used for instruction array access only
+
+// integer     run_test_pc_current;
+integer     run_test_pc_target ;
 integer     errors;
 integer     warnings;
+
 // file read
 integer fd;
 integer status;
 reg  [20*7:0] str;
 reg  [  31:0] test_values_inst_hex [`TEST_CASES-1:0];
 reg  [20*7:0] test_values_inst_asm [`TEST_CASES-1:0];
+reg  [20*7:0] dut_env_inst_id_asm;
+
 // events
 event ev_rst    [1:0];
-event ev_decode [1:0];
+integer rst_done = 0;
+
 
 //-----------------------------------------------------------------------------
 // DUT instance
@@ -134,6 +168,7 @@ ama_riscv_decoder DUT_ama_riscv_decoder_i (
     .rst         (rst         ),
     // inputs    
     .inst_id     (inst_id     ),
+    .inst_ex     (inst_ex     ),
     .bc_a_eq_b   (bc_a_eq_b   ),
     .bc_a_lt_b   (bc_a_lt_b   ),
     .bp_taken    (bp_taken    ),
@@ -164,118 +199,116 @@ always #(`CLK_PERIOD/2) clk = ~clk;
 
 //-----------------------------------------------------------------------------
 // Tasks
-task run_test;
+task print_test_results;
     begin
-        task_driver(test_values_inst_hex[inst_ii]);
-        @(posedge clk); #1;
-        ->ev_decode[0];
-        ->ev_decode[1];
-        #1;
         $write("Run %2d done. Instruction: 'h%8h   %0s", 
-        inst_ii, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii]);
-        inst_ii = inst_ii + 1;
+        dut_env_pc_mux_out, dut_env_inst_id, dut_env_inst_id_asm);
     end
 endtask
 
-task task_driver;
+task tb_driver;
     input [31:0] inst;
+    input        a_eq_b;
+    input        a_lt_b;
     
     begin
-        inst_id = inst;        
+        inst_id   = inst;
+        bc_a_eq_b = a_eq_b;
+        bc_a_lt_b = a_lt_b;
     end
     
 endtask
 
-task task_checker;
+task tb_checker;
     begin    
         // pc_sel
-        if (pc_sel != dut_m_pc_sel) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s, DUT pc_sel: 'b%2b, Model pc_sel: 'b%2b,", 
-            $time, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii], pc_sel, dut_m_pc_sel);
+        if (pc_sel !== dut_m_pc_sel) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT pc_sel: 'b%2b, Model pc_sel: 'b%2b ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, pc_sel, dut_m_pc_sel);
             errors = errors + 1;
         end
         
         // pc_we
-        if (pc_we != dut_m_pc_we) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s, DUT pc_we: 'b%2b, Model pc_we: 'b%2b,", 
-            $time, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii], pc_we, dut_m_pc_we);
+        if (pc_we !== dut_m_pc_we) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT pc_we: 'b%2b, Model pc_we: 'b%2b ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, pc_we, dut_m_pc_we);
             errors = errors + 1;
         end
         
         // branch_inst
-        if (branch_inst != dut_m_branch_inst) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s, DUT branch_inst: 'b%1b, Model branch_inst: 'b%1b,", 
-            $time, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii], branch_inst, dut_m_branch_inst);
+        if (branch_inst !== dut_m_branch_inst) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT branch_inst: 'b%1b, Model branch_inst: 'b%1b ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, branch_inst, dut_m_branch_inst);
             errors = errors + 1;
         end
         
         // store_inst
-        if (store_inst != dut_m_store_inst) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s, DUT store_inst: 'b%1b, Model store_inst: 'b%1b,", 
-            $time, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii], store_inst, dut_m_store_inst);
+        if (store_inst !== dut_m_store_inst) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT store_inst: 'b%1b, Model store_inst: 'b%1b ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, store_inst, dut_m_store_inst);
             errors = errors + 1;
         end
         
         // alu_op_sel
-        if (alu_op_sel != dut_m_alu_op_sel) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s, DUT alu_op_sel: 'b%4b, Model alu_op_sel: 'b%4b,", 
-            $time, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii], alu_op_sel, dut_m_alu_op_sel);
+        if (alu_op_sel !== dut_m_alu_op_sel) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT alu_op_sel: 'b%4b, Model alu_op_sel: 'b%4b ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, alu_op_sel, dut_m_alu_op_sel);
             errors = errors + 1;
         end
         
         // alu_a_sel
-        if (alu_a_sel != dut_m_alu_a_sel) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s, DUT alu_a_sel: 'b%1b, Model alu_a_sel: 'b%1b,", 
-            $time, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii], alu_a_sel, dut_m_alu_a_sel);
+        if (alu_a_sel !== dut_m_alu_a_sel) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT alu_a_sel: 'b%1b, Model alu_a_sel: 'b%1b ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, alu_a_sel, dut_m_alu_a_sel);
             errors = errors + 1;
         end
         
         // alu_b_sel
-        if (alu_b_sel != dut_m_alu_b_sel) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s, DUT alu_b_sel: 'b%1b, Model alu_b_sel: 'b%1b,", 
-            $time, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii], alu_b_sel, dut_m_alu_b_sel);
+        if (alu_b_sel !== dut_m_alu_b_sel) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT alu_b_sel: 'b%1b, Model alu_b_sel: 'b%1b ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, alu_b_sel, dut_m_alu_b_sel);
             errors = errors + 1;
         end
         
         // ig_sel
-        if (ig_sel != dut_m_ig_sel) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s, DUT ig_sel: 'b%3b, Model ig_sel: 'b%3b,", 
-            $time, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii], ig_sel, dut_m_ig_sel);
+        if (ig_sel !== dut_m_ig_sel) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT ig_sel: 'b%3b, Model ig_sel: 'b%3b ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, ig_sel, dut_m_ig_sel);
             errors = errors + 1;
         end
         
         // bc_uns
-        if (bc_uns != dut_m_bc_uns) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s, DUT bc_uns: 'b%1b, Model bc_uns: 'b%1b,", 
-            $time, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii], bc_uns, dut_m_bc_uns);
+        if (bc_uns !== dut_m_bc_uns) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT bc_uns: 'b%1b, Model bc_uns: 'b%1b ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, bc_uns, dut_m_bc_uns);
             errors = errors + 1;
         end
         
         // dmem_en
-        if (dmem_en != dut_m_dmem_en) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s, DUT dmem_en: 'b%1b, Model dmem_en: 'b%1b,", 
-            $time, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii], dmem_en, dut_m_dmem_en);
+        if (dmem_en !== dut_m_dmem_en) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT dmem_en: 'b%1b, Model dmem_en: 'b%1b ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, dmem_en, dut_m_dmem_en);
             errors = errors + 1;
         end
         
         // load_sm_en
-        if (load_sm_en != dut_m_load_sm_en) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s, DUT load_sm_en: 'b%1b, Model load_sm_en: 'b%1b,", 
-            $time, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii], load_sm_en, dut_m_load_sm_en);
+        if (load_sm_en !== dut_m_load_sm_en) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT load_sm_en: 'b%1b, Model load_sm_en: 'b%1b ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, load_sm_en, dut_m_load_sm_en);
             errors = errors + 1;
         end
         
         // wb_sel
-        if (wb_sel != dut_m_wb_sel) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s, DUT wb_sel: 'b%2b, Model wb_sel: 'b%2b,", 
-            $time, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii], wb_sel, dut_m_wb_sel);
+        if (wb_sel !== dut_m_wb_sel) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT wb_sel: 'b%2b, Model wb_sel: 'b%2b ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, wb_sel, dut_m_wb_sel);
             errors = errors + 1;
         end
         
         // reg_we
-        if (reg_we != dut_m_reg_we) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s, DUT reg_we: 'b%1b, Model reg_we: 'b%1b,", 
-            $time, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii], reg_we, dut_m_reg_we);
+        if (reg_we !== dut_m_reg_we) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT reg_we: 'b%1b, Model reg_we: 'b%1b ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, reg_we, dut_m_reg_we);
             errors = errors + 1;
         end
     
@@ -329,29 +362,7 @@ task randomize_instructions;
 
 endtask
 
-task dut_m_task_reset;
-    begin
-        // dut_m_stall_if   
-        // dut_m_clear_if   
-        // dut_m_clear_id   
-        // dut_m_clear_mem  
-        dut_m_pc_sel      = `PC_SEL_START_ADDR;
-        dut_m_pc_we       = 1'b1;
-        dut_m_branch_inst = 1'b0;
-        dut_m_store_inst  = 1'b0;
-        dut_m_alu_op_sel  = 4'b0000;
-        dut_m_alu_a_sel   = `ALU_A_SEL_RS1;
-        dut_m_alu_b_sel   = `ALU_B_SEL_RS2;
-        dut_m_ig_sel      = `IG_DISABLED;
-        dut_m_bc_uns      = 1'b0;
-        dut_m_dmem_en     = 1'b0;
-        dut_m_load_sm_en  = 1'b0;
-        dut_m_wb_sel      = `WB_SEL_DMEM;
-        dut_m_reg_we      = 1'b0;
-    end                  
-endtask
-
-task dut_m_task_decode;
+task dut_m_decode;
     input [31:0] inst;
     begin
         case (inst[6:0])
@@ -404,7 +415,7 @@ task dut_m_task_decode;
                 dut_m_reg_we      = 1'b1;
             end
             
-            'b010_0011: begin   // Load instruction
+            'b010_0011: begin   // Store instruction
                 dut_m_pc_sel      = `PC_SEL_INC4;
                 dut_m_pc_we       = 1'b1;
                 dut_m_branch_inst = 1'b0;
@@ -421,54 +432,145 @@ task dut_m_task_decode;
             end
             
             default: begin
-                $write("*WARNING @ %0t. Instruction unsupported. Input inst: 'h%8h  %0s", 
-            $time, test_values_inst_hex[inst_ii], test_values_inst_asm[inst_ii]);
+                $write("*WARNING @ %0t. Model 'default' case. Input inst: 'h%8h  %0s",
+                $time, dut_env_inst_id, dut_env_inst_id_asm);
                 warnings = warnings + 1;
             end
         endcase
+        
+        // Override if rst == 1
+        if (rst) begin
+            dut_m_pc_sel      = 2'b11;
+            dut_m_pc_we       = 1'b1;
+            dut_m_branch_inst = 1'b0;
+            dut_m_store_inst  = 1'b0;
+            dut_m_alu_op_sel  = 4'b0000;
+            dut_m_alu_a_sel   = `ALU_A_SEL_RS1;
+            dut_m_alu_b_sel   = `ALU_B_SEL_RS2;
+            dut_m_ig_sel      = `IG_DISABLED;
+            dut_m_bc_uns      = 1'b0;
+            dut_m_dmem_en     = 1'b0;
+            dut_m_load_sm_en  = 1'b0;
+            dut_m_wb_sel      = `WB_SEL_DMEM;
+            dut_m_reg_we      = 1'b0;
+        end
     end                  
 endtask
 
-task reset;
-    input [3:0] clk_pulses_on;
-    
+task env_reset;
     begin
-        rst = 1'b0;
-        @(posedge clk); #1;
-        rst = 1'b1;
-        repeat (clk_pulses_on) begin
-            @(posedge clk); #1;
-            ->ev_rst[0];
-            ->ev_rst[1];            
-        end
-        rst = 1'b0;
+        dut_env_inst_id = 'h0;
+        dut_env_inst_ex = 'h0;
+        // dut_env_pc      = 0;
+        dut_env_alu     = 'h1;  // temp, always return to second (idx=1) instruction
     end
-    
+endtask
+
+task env_pc_mux_update;
+    begin
+        case (pc_sel)
+            2'd0: begin
+                dut_env_pc_mux_out =  dut_env_pc;
+            end
+            
+            2'd1: begin
+                dut_env_pc_mux_out =  dut_env_alu;
+            end
+            
+            2'd2: begin
+                $display("*WARNING @ %0t. pc_sel = 2 is not supported yet - TBD for prediction", $time);
+                warnings = warnings + 1;
+            end
+            
+            2'd3: begin
+                dut_env_pc_mux_out =  'h0;  // start address
+            end
+            
+            default: begin
+                if(rst_done) begin
+                    $display("*ERROR @ %0t. pc_sel not valid", $time);
+                    errors = errors + 1;
+                end 
+                else /* !rst_done */ begin
+                    $display("*WARNING @ %0t. pc_sel not valid", $time);
+                    warnings = warnings + 1;
+                end
+            end
+        endcase
+    end
+endtask
+
+task env_inst_id_update;
+    begin
+        dut_env_inst_id     = test_values_inst_hex[dut_env_pc_mux_out];
+        dut_env_inst_id_asm = test_values_inst_asm[dut_env_pc_mux_out];
+    end
+endtask
+
+task env_pc_update;
+    begin
+        dut_env_pc = (!rst)  ? 
+                     (pc_we) ? dut_env_pc_mux_out + 1   : 
+                               dut_env_pc_mux_out       :
+                               'h0;
+    end
+endtask
+
+task env_inst_ex_update;
+    begin
+        dut_env_inst_ex = (!rst) ? dut_env_inst_id : 'h0;
+    end
+endtask
+
+task env_branch_compare_update;
+    begin
+        dut_env_bc_a_eq_b = 1'b0;
+        dut_env_bc_a_lt_b = 1'b0;
+    end
+endtask
+
+task env_alu_out_update;
+    begin
+        dut_env_alu = 'h1;
+    end
+endtask
+
+task env_update;
+    begin
+        env_inst_ex_update();
+        // $display("FF reg - inst_ex: 'h%8h ", dut_env_inst_ex);
+        env_pc_mux_update();
+        // $display("PC MUX: %0d ", dut_env_pc_mux_out);
+        env_inst_id_update();
+        // $write("IMEM read - inst_id: 'h%8h    %0s", dut_env_inst_id, dut_env_inst_id_asm);
+        env_pc_update();
+        // $display("PC reg: %0d ", dut_env_pc);
+        env_branch_compare_update();
+        // $display("Branch compare result - eq: %0b, lt: %0b ", dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
+        env_alu_out_update();
+        // $display("ALU out: %0d ", dut_env_alu);
+    end
 endtask
 
 //-----------------------------------------------------------------------------
-// DUT model
+// Reset
 initial begin
-    @(ev_rst[0]);
-    dut_m_task_reset();
+    // sync this thread with events from main thread
+    @(ev_rst[0]); // #1;
+    $display("\nReset Sequence start \n");    
+    rst = 1'b0;
     
-    forever begin
-        @(ev_decode[0])
-        dut_m_task_decode(test_values_inst_hex[inst_ii]);
+    @(ev_rst[0]); // @(posedge clk); #1;
+    
+    rst = 1'b1;
+    repeat (rst_pulses) begin
+        @(ev_rst[0]); //@(posedge clk); #1;          
     end
-    
-end
-
-//-----------------------------------------------------------------------------
-// Checker
-initial begin
-    @(ev_rst[1]);
-    task_checker();
-    
-    forever begin
-        @(ev_decode[1])
-        task_checker();
-    end
+    rst = 1'b0;
+    // @(ev_rst[0]); //@(posedge clk); #1;  
+    // ->ev_rst_done;
+    $display("\nReset Sequence end \n");
+    rst_done = 1;
     
 end
 
@@ -476,41 +578,96 @@ end
 // Config
 initial begin
     //Prints %t scaled in ns (-9), with 2 precision digits, with the " ns" string
-    $timeformat(-9, 2, " ns", 20);    
+    $timeformat(-9, 2, " ns", 20);
     read_test_instructions();
-    errors  <= 0;
+    env_reset();
+    errors   <= 0;
     warnings <= 0;
 end
+
+/* initial begin
+    forever begin
+        $display("\n Sim time : %0t \n", $time);
+        @(posedge clk);
+    end
+end */
 
 //-----------------------------------------------------------------------------
 // Test
 initial begin
     $display("\n----------------------- Simulation started -----------------------\n");
-    reset(4'd2);
+    
+    // Test 0: Wait for reset
+    $display("\nTest  0: Wait for reset \n");
+    while (!rst_done) begin
+        ->ev_rst[0];
+        @(posedge clk); #1;
+        env_update();
+        tb_driver(dut_env_inst_id, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
+        dut_m_decode(dut_env_inst_id);
+    end
+    // Check that exit from reset is correct
+    #1; tb_checker();
+    print_test_results();
+    $display("\nTest  0: Wait for reset done \n");
+    
     
     //-----------------------------------------------------------------------------
     // Test 1: R-type
     $display("\nTest  1: Hit specific cases: R-type \n");
-    repeat(`R_TYPE_TESTS) run_test();    
+    run_test_pc_target  = dut_env_pc + `R_TYPE_TESTS;
+    while(dut_env_pc != run_test_pc_target) begin
+        @(posedge clk); #1;
+        env_update();
+        tb_driver(dut_env_inst_id, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
+        dut_m_decode(dut_env_inst_id);
+        #1; tb_checker();
+        print_test_results();
+    end
     $display("\nTest  1: Checking specific cases done: R-type \n");
     
     //-----------------------------------------------------------------------------
     // Test 2: I-type
     $display("\nTest  2: Hit specific cases: I-type \n");
-    repeat(`I_TYPE_TESTS) run_test(); 
+    run_test_pc_target  = dut_env_pc + `I_TYPE_TESTS;
+    while(dut_env_pc != run_test_pc_target) begin
+        @(posedge clk); #1;
+        env_update();
+        tb_driver(dut_env_inst_id, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
+        dut_m_decode(dut_env_inst_id);
+        #1; tb_checker();
+        print_test_results();
+    end
     $display("\nTest  2: Checking specific cases done: I-type\n");
     
     //-----------------------------------------------------------------------------
     // Test 3: Load
     $display("\nTest  3: Hit specific cases: Load \n");
-    repeat(`LOAD_TESTS) run_test(); 
+    run_test_pc_target  = dut_env_pc + `LOAD_TESTS;
+    while(dut_env_pc != run_test_pc_target) begin
+        @(posedge clk); #1;
+        env_update();
+        tb_driver(dut_env_inst_id, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
+        dut_m_decode(dut_env_inst_id);
+        #1; tb_checker();
+        print_test_results();
+    end
     $display("\nTest  3: Checking specific cases done: Load \n");
     
     //-----------------------------------------------------------------------------
     // Test 4: Store
     $display("\nTest  4: Hit specific cases: Store \n");
-    repeat(`STORE_TESTS) run_test(); 
+    run_test_pc_target  = dut_env_pc + `STORE_TESTS;
+    while(dut_env_pc != run_test_pc_target) begin
+        @(posedge clk); #1;
+        env_update();
+        tb_driver(dut_env_inst_id, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
+        dut_m_decode(dut_env_inst_id);
+        #1; tb_checker();
+        print_test_results();
+    end
     $display("\nTest  4: Checking specific cases done: Store\n");
+    
     
     //-----------------------------------------------------------------------------
     repeat (1) @(posedge clk);
