@@ -15,20 +15,20 @@
 //      2021-07-16  AL  0.6.0 - Add Opcode 5-bit defines
 //      2021-07-16  AL  0.7.0 - Add MUX select defines (PC, ALU_A op, ALU_B op, WB)
 //      2021-07-17  AL  0.7.1 - Fix Opcode 5-bit defines
+//      2021-07-18  AL  0.7.2 - Wider Opcode defines from 5-bit to 7-bit 
+//      2021-07-18  AL  0.8.0 - Add Branch Resolution MUX
 //
 //-----------------------------------------------------------------------------
 // Opcodes
-// Only top 5 bits of a 7-bit opcode is needed
-// All RV32I instructions have format of {OPC5,2'b11}
-`define OPC5_R_TYPE  5'b0_1100      // R-type
-`define OPC5_I_TYPE  5'b0_0100      // I-type
-`define OPC5_LOAD    5'b0_0000      // I-type
-`define OPC5_STORE   5'b0_1000      // S-type
-`define OPC5_BRANCH  5'b1_1000      // B-type
-`define OPC5_JALR    5'b1_1001      // J-type, I-format
-`define OPC5_JAL     5'b1_1011      // J-type
-`define OPC5_LUI     5'b0_1101      // U-type
-`define OPC5_AUIPC   5'b0_0101      // U-type
+`define OPC7_R_TYPE  7'b011_0011      // R-type
+`define OPC7_I_TYPE  7'b001_0011      // I-type
+`define OPC7_LOAD    7'b000_0011      // I-type
+`define OPC7_STORE   7'b010_0011      // S-type
+`define OPC7_BRANCH  7'b110_0011      // B-type
+`define OPC7_JALR    7'b110_0111      // J-type, I-format
+`define OPC7_JAL     7'b110_1111      // J-type
+`define OPC7_LUI     7'b011_0111      // U-type
+`define OPC7_AUIPC   7'b001_0111      // U-type
 
 //-----------------------------------------------------------------------------
 // MUX select signals
@@ -52,6 +52,12 @@
 `define WB_SEL_DMEM         2'd0  // Reg[rd] = DMEM[ALU]
 `define WB_SEL_ALU          2'd1  // Reg[rd] = ALU
 `define WB_SEL_INC4         2'd2  // Reg[rd] = PC + 4
+
+// Branch Resolution
+`define BR_SEL_BEQ          2'd0  // Branch Equal
+`define BR_SEL_BNE          2'd1  // Branch Not Equal
+`define BR_SEL_BLT          2'd2  // Branch Less Than
+`define BR_SEL_BGE          2'd3  // Branch Greater Than
 
 //-----------------------------------------------------------------------------
 // Register File
