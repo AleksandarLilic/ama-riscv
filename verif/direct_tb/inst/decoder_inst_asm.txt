@@ -26,3 +26,14 @@ lhu   x4 0x21 x2
 sb    x5 0x08 x0
 sh    x5 0x08 x0
 sw    x5 0x08 x0
+beq   x6 x7 target
+bne   x6 x7 target
+blt   x6 x7 target
+bge   x6 x7 target
+bltu  x6 x7 target
+bgeu  x6 x7 target
+nop
+nop
+nop
+nop
+beq   x6 x7 br_loop
