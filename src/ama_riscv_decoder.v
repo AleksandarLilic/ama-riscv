@@ -14,6 +14,11 @@
 //      2021-07-17  AL  0.2.0 - Add support for I-type
 //      2021-07-17  AL  0.3.0 - Add support for Load
 //      2021-07-18  AL  0.4.0 - Add support for Store
+//      2021-07-18  AL  0.4.1 - Fix reset
+//      2021-07-18  AL  0.5.0 - Add support for Branch
+//                            - Add inst_ex input
+//                            - Add Branch Resolution block
+//                            - Add Stalling
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -23,42 +28,49 @@ module ama_riscv_decoder (
     input   wire        rst         ,
     // inputs
     input   wire [31:0] inst_id     ,
+    input   wire [31:0] inst_ex     ,
     input   wire        bc_a_eq_b   ,
     input   wire        bc_a_lt_b   ,
     input   wire        bp_taken    ,
     input   wire        bp_clear    ,
     // pipeline outputs
-    output  reg         stall_if    ,
-    output  reg         clear_if    ,
-    output  reg         clear_id    ,
-    output  reg         clear_mem   ,
+    output  wire        stall_if    ,
+    output  wire        clear_if    ,
+    output  wire        clear_id    ,
+    output  wire        clear_mem   ,
     // outputs
-    output  reg  [ 1:0] pc_sel      ,
-    output  reg  [ 1:0] pc_we       ,
-    output  reg         imem_en     ,
-    output  reg         branch_inst ,
-    output  reg         store_inst  ,
-    output  reg  [ 3:0] alu_op_sel  ,
-    output  reg         alu_a_sel   ,
-    output  reg         alu_b_sel   ,
-    output  reg  [ 2:0] ig_sel      ,
-    output  reg         bc_uns      ,
-    output  reg         dmem_en     ,
-    output  reg         load_sm_en  ,
-    output  reg  [ 1:0] wb_sel      ,
-    output  reg         reg_we
+    output  wire [ 1:0] pc_sel      ,
+    output  wire        pc_we       ,
+    output  wire        imem_en     ,
+    output  wire        branch_inst ,
+    output  wire        store_inst  ,
+    output  wire [ 3:0] alu_op_sel  ,
+    output  wire        alu_a_sel   ,
+    output  wire        alu_b_sel   ,
+    output  wire [ 2:0] ig_sel      ,
+    output  wire        bc_uns      ,
+    output  wire        dmem_en     ,
+    output  wire        load_sm_en  ,
+    output  wire [ 1:0] wb_sel      ,
+    output  wire        reg_we
 );
 
 //-----------------------------------------------------------------------------
 // Signals
 
-wire  [ 4:0] opc5   =  inst_id[ 6: 2];
-wire  [ 2:0] funct3 =  inst_id[14:12];
-wire  [ 6:0] funct7 =  inst_id[31:25];
+// ID stage functions
+wire  [ 6:0] opc7_id     =  inst_id[ 6: 0];
+wire  [ 2:0] funct3_id   =  inst_id[14:12];
+wire  [ 6:0] funct7_id   =  inst_id[31:25];
 
+// EX stage functions                         
+wire  [ 6:0] opc7_ex     =  inst_ex[ 6: 0];
+wire  [ 2:0] funct3_ex   =  inst_ex[14:12];
+wire  [ 6:0] funct7_ex   =  inst_ex[31:25];
+
+// Switch-Case outputs
 reg   [ 1:0] pc_sel_r      ;
-reg   [ 1:0] pc_we_r       ;
-reg          imem_en_r     ; 
+reg          pc_we_r       ;
 reg          branch_inst_r ;
 reg          store_inst_r  ;
 reg   [ 3:0] alu_op_sel_r  ;
@@ -71,42 +83,21 @@ reg          load_sm_en_r  ;
 reg   [ 1:0] wb_sel_r      ;
 reg          reg_we_r      ;
 
-//-----------------------------------------------------------------------------
-// Output assignment
-always @ (posedge clk) begin
-    if (rst) begin
-        // load start address to pc
-        pc_sel      <= `PC_SEL_START_ADDR;
-        pc_we       <= 1'b1;
-        // disable or some defaults for others
-        branch_inst <= 1'b0;
-        store_inst  <= 1'b0;
-        alu_op_sel  <= 4'b0000;         // add operation
-        alu_a_sel   <= `ALU_A_SEL_RS1;
-        alu_b_sel   <= `ALU_B_SEL_RS2;
-        ig_sel      <= `IG_DISABLED;
-        bc_uns      <= 1'b0;
-        dmem_en     <= 1'b0;
-        load_sm_en  <= 1'b0;
-        wb_sel      <= `WB_SEL_DMEM;
-        reg_we      <= 1'b0;
-    end
-    else begin
-        pc_sel      <= pc_sel_r      ;
-        pc_we       <= pc_we_r       ;
-        branch_inst <= branch_inst_r ;
-        store_inst  <= store_inst_r  ;
-        alu_op_sel  <= alu_op_sel_r  ;
-        alu_a_sel   <= alu_a_sel_r   ;
-        alu_b_sel   <= alu_b_sel_r   ;
-        ig_sel      <= ig_sel_r      ;
-        bc_uns      <= bc_uns_r      ;
-        dmem_en     <= dmem_en_r     ;
-        load_sm_en  <= load_sm_en_r  ;
-        wb_sel      <= wb_sel_r      ;
-        reg_we      <= reg_we_r      ;
-    end
-end
+// Previous values hold
+reg          pc_sel_rst       ;
+reg   [ 1:0] pc_sel_prev      ;
+reg          pc_we_prev       ;
+reg          branch_inst_prev ;
+reg          store_inst_prev  ;
+reg   [ 3:0] alu_op_sel_prev  ;
+reg          alu_a_sel_prev   ;
+reg          alu_b_sel_prev   ;
+reg   [ 2:0] ig_sel_prev      ;
+reg          bc_uns_prev      ;
+reg          dmem_en_prev     ;
+reg          load_sm_en_prev  ;
+reg   [ 1:0] wb_sel_prev      ;
+reg          reg_we_prev      ;
 
 //-----------------------------------------------------------------------------
 // Moving out of the reset sequence
@@ -125,29 +116,14 @@ assign stall_rst_seq_mem = reset_seq[2];    // keeps it clear 3 clks after rst e
  
 //-----------------------------------------------------------------------------
 // Decoder
-always @ (*) begin
-    // Defaults, cover don't care/change cases
-    pc_sel_r      = pc_sel      ;
-    pc_we_r       = pc_we       ;
-    branch_inst_r = branch_inst ;
-    store_inst_r  = store_inst  ;
-    alu_op_sel_r  = alu_op_sel  ;
-    alu_a_sel_r   = alu_a_sel   ;
-    alu_b_sel_r   = alu_b_sel   ;
-    ig_sel_r      = ig_sel      ;
-    bc_uns_r      = bc_uns      ;
-    dmem_en_r     = dmem_en     ;
-    load_sm_en_r  = load_sm_en  ;
-    wb_sel_r      = wb_sel      ;
-    reg_we_r      = reg_we      ;
-    
-    case (opc5)
-        `OPC5_R_TYPE: begin
+always @ (*) begin    
+    case (opc7_id)
+        `OPC7_R_TYPE: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
             branch_inst_r = 1'b0;
             store_inst_r  = 1'b0;
-            alu_op_sel_r  = {funct7[5],funct3};
+            alu_op_sel_r  = {funct7_id[5],funct3_id};
             alu_a_sel_r   = `ALU_A_SEL_RS1;
             alu_b_sel_r   = `ALU_B_SEL_RS2;
             ig_sel_r      = `IG_DISABLED;
@@ -158,13 +134,13 @@ always @ (*) begin
             reg_we_r      = 1'b1;
         end
         
-        `OPC5_I_TYPE: begin
+        `OPC7_I_TYPE: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
             branch_inst_r = 1'b0;
             store_inst_r  = 1'b0;
-            //                                       ----- shift ------- : ----- imm ----
-            alu_op_sel_r  = (funct3[1:0] == 2'b01) ? {funct7[5], funct3} : {1'b0, funct3};
+            //                                           --------- shift -------- : ------ imm ------
+            alu_op_sel_r  = (funct3_id[1:0] == 2'b01) ? {funct7_id[5], funct3_id} : {1'b0, funct3_id};
             alu_a_sel_r   = `ALU_A_SEL_RS1;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
             ig_sel_r      = `IG_I_TYPE;
@@ -175,7 +151,7 @@ always @ (*) begin
             reg_we_r      = 1'b1;
         end
         
-        `OPC5_LOAD: begin
+        `OPC7_LOAD: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
             branch_inst_r = 1'b0;
@@ -191,7 +167,7 @@ always @ (*) begin
             reg_we_r      = 1'b1;
         end
         
-        `OPC5_STORE: begin
+        `OPC7_STORE: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
             branch_inst_r = 1'b0;
@@ -207,33 +183,149 @@ always @ (*) begin
             reg_we_r      = 1'b0;
         end
         
-        `OPC5_BRANCH: begin
+        `OPC7_BRANCH: begin
+            pc_sel_r      = `PC_SEL_INC4;   // to change to branch predictor
+            pc_we_r       = 1'b1;           // assumes branch predictor ... (1)
+            branch_inst_r = 1'b1;
+            store_inst_r  = 1'b0;
+            alu_op_sel_r  = `ALU_ADD;
+            alu_a_sel_r   = `ALU_A_SEL_PC;
+            alu_b_sel_r   = `ALU_B_SEL_IMM;
+            ig_sel_r      = `IG_B_TYPE;
+            bc_uns_r      = funct3_id[1];
+            dmem_en_r     = 1'b0;
+            load_sm_en_r  = 1'b0;
+            // wb_sel_r      = *;
+            reg_we_r      = 1'b0;
+        end
+        
+        `OPC7_JALR: begin
             
         end
         
-        `OPC5_JALR: begin
+        `OPC7_JAL: begin
             
         end
         
-        `OPC5_JAL: begin
+        `OPC7_LUI: begin
             
         end
         
-        `OPC5_LUI: begin
-            
-        end
-        
-        `OPC5_AUIPC: begin
+        `OPC7_AUIPC: begin
             
         end
         
         default: begin
-            
+            pc_sel_r      = pc_sel_prev      ;
+            pc_we_r       = pc_we_prev       ;
+            branch_inst_r = branch_inst_prev ;
+            store_inst_r  = store_inst_prev  ;
+            alu_op_sel_r  = alu_op_sel_prev  ;
+            alu_a_sel_r   = alu_a_sel_prev   ;
+            alu_b_sel_r   = alu_b_sel_prev   ;
+            ig_sel_r      = ig_sel_prev      ;
+            bc_uns_r      = bc_uns_prev      ;
+            dmem_en_r     = dmem_en_prev     ;
+            load_sm_en_r  = load_sm_en_prev  ;
+            wb_sel_r      = wb_sel_prev      ;
+            reg_we_r      = reg_we_prev      ;
         end
         
     endcase
 end
 
+//-----------------------------------------------------------------------------
+// Branch Resolution
+wire  [ 1:0] funct3_ex_b = {funct3_ex[2], funct3_ex[0]}; // branch conditions
+reg          branch_res;
+reg          branch_inst_ex;
+
+always @ (posedge clk) begin
+    if (rst)
+        branch_inst_ex <= 1'b0;
+    else
+        branch_inst_ex <= branch_inst_r;
+end
+
+// Branch outcome is always resolved
+always @ (*) begin
+    case (funct3_ex_b)
+        `BR_SEL_BEQ:
+            branch_res =  bc_a_eq_b;                  // a == b
+        `BR_SEL_BNE:
+            branch_res = !bc_a_eq_b;                  // a != b
+        `BR_SEL_BLT:
+            branch_res =  bc_a_lt_b;                  // a <  b
+        `BR_SEL_BGE:
+            branch_res =  bc_a_eq_b || !bc_a_lt_b;    // a >= b
+        default: 
+            branch_res = 1'b0;
+    endcase
+end
+
+// Can be taken only if instruction was branch
+wire branch_taken = branch_res && branch_inst_ex; 
+
+//-----------------------------------------------------------------------------
+// Stall
+assign stall_if     = branch_inst_r; // PC stall directly, IMEM stall thru FF
+
+
+//-----------------------------------------------------------------------------
+// Output assignment
+assign pc_sel       = (pc_sel_rst)    ? `PC_SEL_START_ADDR  :
+                      (branch_taken)  ? `PC_SEL_ALU         : pc_sel_r;
+assign pc_we        = (stall_if)      ? 1'b0 : pc_we_r       ; // ... (1) overwritten for now
+assign branch_inst  = branch_inst_r ;
+assign store_inst   = store_inst_r  ;
+assign alu_op_sel   = alu_op_sel_r  ;
+assign alu_a_sel    = alu_a_sel_r   ;
+assign alu_b_sel    = alu_b_sel_r   ;
+assign ig_sel       = ig_sel_r      ;
+assign bc_uns       = bc_uns_r      ;
+assign dmem_en      = dmem_en_r     ;
+assign load_sm_en   = load_sm_en_r  ;
+assign wb_sel       = wb_sel_r      ;
+assign reg_we       = reg_we_r      ;
+
+//-----------------------------------------------------------------------------
+// Store previous values
+always @ (posedge clk) begin
+    if (rst) begin
+        // load start address to pc
+        pc_sel_rst       <= 1'b1;
+        // disable or some defaults for others
+        pc_sel_prev      <= `PC_SEL_START_ADDR;
+        pc_we_prev       <= 1'b1;   // it'll increment start_address always after rst -> fine
+        branch_inst_prev <= 1'b0;
+        store_inst_prev  <= 1'b0;
+        alu_op_sel_prev  <= `ALU_ADD;
+        alu_a_sel_prev   <= `ALU_A_SEL_RS1;
+        alu_b_sel_prev   <= `ALU_B_SEL_RS2;
+        ig_sel_prev      <= `IG_DISABLED;
+        bc_uns_prev      <= 1'b0;
+        dmem_en_prev     <= 1'b0;
+        load_sm_en_prev  <= 1'b0;
+        wb_sel_prev      <= `WB_SEL_DMEM;
+        reg_we_prev      <= 1'b0;
+    end
+    else begin
+        pc_sel_rst       <= 1'b0;
+        pc_sel_prev      <= pc_sel     ;
+        pc_we_prev       <= pc_we      ;
+        branch_inst_prev <= branch_inst;
+        store_inst_prev  <= store_inst ;
+        alu_op_sel_prev  <= alu_op_sel ;
+        alu_a_sel_prev   <= alu_a_sel  ;
+        alu_b_sel_prev   <= alu_b_sel  ;
+        ig_sel_prev      <= ig_sel     ;
+        bc_uns_prev      <= bc_uns     ;
+        dmem_en_prev     <= dmem_en    ;
+        load_sm_en_prev  <= load_sm_en ;
+        wb_sel_prev      <= wb_sel     ;
+        reg_we_prev      <= reg_we     ;
+    end
+end
 
 endmodule
 
