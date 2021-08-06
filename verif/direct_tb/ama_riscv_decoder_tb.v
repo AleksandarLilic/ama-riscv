@@ -43,6 +43,7 @@
 `define BRANCH_TESTS             6
 `define BRANCH_TESTS_NOPS_PAD    4+1
 `define TEST_CASES              `RST_TEST + `R_TYPE_TESTS + `I_TYPE_TESTS + `LOAD_TESTS + `STORE_TESTS + `BRANCH_TESTS + `BRANCH_TESTS_NOPS_PAD
+`define LABEL_TGT                38 // location to which to branch
 
 // MUX select signals
 // PC select
@@ -130,6 +131,7 @@ reg  [ 1:0] dut_m_wb_sel        ;
 reg         dut_m_reg_we        ;
 reg         dut_m_branch_taken  ;
 reg         dut_m_branch_inst_ex;
+reg         dut_m_branch_inst_ex_keep;
 
 // DUT environment
 reg  [31:0] dut_env_inst_id    ;
@@ -137,6 +139,7 @@ reg  [31:0] dut_env_inst_ex    ;
 integer     dut_env_pc         ;
 integer     dut_env_alu        ;
 integer     dut_env_pc_mux_out ;
+integer     alu_return_address ;
 reg         dut_env_bc_a_eq_b  ;
 reg         dut_env_bc_a_lt_b  ;
 
@@ -508,6 +511,8 @@ task dut_m_decode;
         // if not branch instruction, it cannot be taken
         dut_m_branch_taken = dut_m_branch_taken && dut_m_branch_inst_ex; 
         
+        dut_m_branch_inst_ex_keep = dut_m_branch_inst_ex; 
+        
         if(dut_m_branch_taken) dut_m_pc_sel = 2'b01; // alu input
         
         // $display("\nBranch used inst ex: %8h, branch_instr: %1b ", dut_env_inst_ex, dut_m_branch_inst_ex);
@@ -519,7 +524,7 @@ task dut_m_decode;
         dut_m_branch_inst_ex = dut_m_branch_inst;
         
     end                  
-endtask
+endtask // dut_m_decode
 
 task env_reset;
     begin
@@ -594,9 +599,42 @@ task env_inst_ex_update;
 endtask
 
 task env_branch_compare_update;
+    input take_branch;
     begin
-        dut_env_bc_a_eq_b = 1'b1;
-        dut_env_bc_a_lt_b = 1'b0;
+        $display("env_branch_compare_update, take_branch: 'b%0b, input inst_ex: 'h%8h  %0s",
+                take_branch, dut_env_inst_ex, dut_env_inst_ex_asm);
+        case ({dut_env_inst_ex[14], dut_env_inst_ex[12]})
+            2'b00: begin     // beq -> a == b
+                dut_env_bc_a_eq_b = take_branch;
+                dut_env_bc_a_lt_b = dut_env_bc_a_eq_b ? 1'b0 : $random;
+                $display("env_branch_compare_update, beq");
+            end
+            
+            2'b01: begin     // bne -> a != b
+                $display("env_branch_compare_update, bne");
+                dut_env_bc_a_eq_b = !take_branch;
+                dut_env_bc_a_lt_b = $random;
+            end
+            
+            2'b10: begin     // blt -> a < b
+                $display("env_branch_compare_update, blt");
+                dut_env_bc_a_lt_b = take_branch;
+                dut_env_bc_a_eq_b = dut_env_bc_a_lt_b ? 1'b0 : $random;
+            end
+            
+            2'b11: begin     // bge -> a >= b
+                $display("env_branch_compare_update, bge");
+                dut_env_bc_a_eq_b = ($random & take_branch);
+                dut_env_bc_a_lt_b = dut_env_bc_a_eq_b ? 1'b0 : !take_branch;
+            end
+            
+            default: begin
+                $write("*WARNING @ %0t. env_branch_compare_update 'default' case. Input inst_ex: 'h%8h  %0s",
+                $time, dut_env_inst_ex, dut_env_inst_ex_asm);
+                warnings = warnings + 1;
+            end
+            
+        endcase
     end
 endtask
 
@@ -610,23 +648,25 @@ endtask
 task env_update_seq;
     begin
         env_inst_ex_update();
-        $display("FF reg - inst_ex: 'h%8h ", dut_env_inst_ex);
+        $write("inst_ex - FF reg:    'h%8h    %0s", dut_env_inst_ex, dut_env_inst_ex_asm);
         env_inst_id_update();
-        $write("IMEM read - inst_id: 'h%8h    %0s", dut_env_inst_id, dut_env_inst_id_asm);
+        $write("inst_id - IMEM read: 'h%8h    %0s", dut_env_inst_id, dut_env_inst_id_asm);
         env_pc_update();
         $display("PC reg: %0d ", dut_env_pc);
     end
 endtask
 
 task env_update_comb;
+    input [31:0] alu_out_update;
+    input        branch_compare_update;
     begin
+        env_branch_compare_update(branch_compare_update);
+        $display("Branch compare result - eq: %0b, lt: %0b ", dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
+        env_alu_out_update(alu_out_update);
+        $display("ALU out: %0d ", dut_env_alu);
         env_pc_mux_update();
         $display("PC sel: %0d ", pc_sel);
         $display("PC MUX: %0d ", dut_env_pc_mux_out);
-        env_branch_compare_update();
-        // $display("Branch compare result - eq: %0b, lt: %0b ", dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
-        env_alu_out_update('h0);
-        // $display("ALU out: %0d ", dut_env_alu);
     end
 endtask
 
@@ -665,7 +705,7 @@ end
 
 initial begin
     forever begin
-        $display("\n\n\n --- Sim time : %0t ---", $time);
+        $display("\n\n\n --- Sim time : %0t ---\n", $time);
         @(posedge clk);
     end
 end
@@ -686,29 +726,22 @@ initial begin
         if(!rst_done) begin @(posedge clk); #1; end
 
         env_update_seq();
-        // env_update_comb();
         tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
         dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
-        #1; env_update_comb();
+        #1; env_update_comb('h0, 'b0);
     end
-    // $display("Reset done, time: %0t \n", $time);
+    $display("Reset done, time: %0t \n", $time);
     
-    // Check that exit from reset is correct
-    // @(posedge clk); #1; 
-    
-    // exit from reset is broken, probably in tb only
     // wait for DUT to actually go out of reset
     @(posedge clk); #1; 
+    $display("Checking reset exit, time: %0t \n", $time);
     env_update_seq();
-    // env_update_comb();
     tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
     dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
     #1; tb_checker();
     print_test_results();
-    env_update_comb();
-    
+    env_update_comb('h0, 'b0);
     $display("\nTest  0: Wait for reset done \n");
-    
     
     //-----------------------------------------------------------------------------
     // Test 1: R-type
@@ -717,12 +750,11 @@ initial begin
     while(dut_env_pc_mux_out < run_test_pc_target) begin
         @(posedge clk); #1;
         env_update_seq();
-        // env_update_comb();
         tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
         dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
         #1; tb_checker();
         print_test_results();
-        env_update_comb();
+        env_update_comb('h0, 'b0);
     end
     $display("\nTest  1: Checking specific cases done: R-type \n");
      
@@ -733,12 +765,11 @@ initial begin
     while(dut_env_pc_mux_out < run_test_pc_target) begin
         @(posedge clk); #1;
         env_update_seq();
-        // env_update_comb();
         tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
         dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
         #1; tb_checker();
         print_test_results();
-        env_update_comb();
+        env_update_comb('h0, 'b0);
     end
     $display("\nTest  2: Checking specific cases done: I-type\n");
     
@@ -749,12 +780,11 @@ initial begin
     while(dut_env_pc_mux_out < run_test_pc_target) begin
         @(posedge clk); #1;
         env_update_seq();
-        // env_update_comb();
         tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
         dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
         #1; tb_checker();
         print_test_results();
-        env_update_comb();
+        env_update_comb('h0, 'b0);
     end
     $display("\nTest  3: Checking specific cases done: Load \n");
     
@@ -765,12 +795,11 @@ initial begin
     while(dut_env_pc_mux_out < run_test_pc_target) begin
         @(posedge clk); #1;
         env_update_seq();
-        // env_update_comb();
         tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
         dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
         #1; tb_checker();
         print_test_results();
-        env_update_comb();
+        env_update_comb('h0, 'b0);
     end
     $display("\nTest  4: Checking specific cases done: Store\n");
     
@@ -780,47 +809,74 @@ initial begin
     run_test_pc_target  = dut_env_pc_mux_out + 1 ; 
     // run_test_pc_target  = dut_env_pc + `BRANCH_TESTS ;
     while(dut_env_pc_mux_out < run_test_pc_target) begin
+        alu_return_address = dut_env_pc_mux_out + 1;
         $display("\ndut_env_pc: %0d ",          dut_env_pc);
         $display("\ndut_env_pc_mux_out: %0d ",  dut_env_pc_mux_out);
         $display("\run_test_pc_target: %0d ",   run_test_pc_target);
-    // while(dut_env_pc < run_test_pc_target) begin
-        // takes 2 cycles to resolve branch + 1 to execute branched instruction (or 2 if branch instruction again like below)
+        
+        // takes 2 cycles to resolve branch + 1 to execute branched instruction (or 2 if  the branched instruction is a branch instruction itself, like it's below)
         repeat(2) begin
             @(posedge clk); #1;
             $display("Execute branch instruction");
+            
             env_update_seq();
             tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
             dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
+            
             #1; tb_checker();
             $display("\nBranch taken: %1b ", dut_m_branch_taken);
+            $display("\nBranch inst_ex_keep: %1b ", dut_m_branch_inst_ex_keep);
             print_test_results();
-            env_update_comb();
-            env_alu_out_update('d38); // location of the instruction to branch to - return instruction
+            
+            env_update_comb(`LABEL_TGT, dut_m_branch_inst_ex_keep & 1'b1);
+            tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
+            dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
+            #1; // takes time for dut to react to branch compare and alu changes
+            env_pc_mux_update();
+            $display("loop: PC sel: %0d ", pc_sel);
+            $display("loop: PC MUX: %0d ", dut_env_pc_mux_out);
+            // env_alu_out_update(`LABEL_TGT); // location of the instruction to branch to - return instruction
+            // $display("Overwrite: ALU out: %0d ", dut_env_alu);
+            // env_branch_compare_update(1'b1);
+            // $display("Overwrite: Branch compare result - eq: %0b, lt: %0b ", dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
         end
         
         repeat(2) begin
             @(posedge clk); #1;
             $display("Execute instruction that was branched to - Return instruction");
             env_update_seq();
+            
             tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
             dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
+            
             #1; tb_checker();
             $display("\nBranch taken: %1b ", dut_m_branch_taken);
+            $display("\nBranch inst_ex_keep: %1b ", dut_m_branch_inst_ex_keep);
             print_test_results();
-            env_update_comb();
-            env_alu_out_update('d29); // location of the second branch test instruction, bne
+            
+            env_update_comb(alu_return_address, dut_m_branch_inst_ex_keep & 1'b1);
+            tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
+            dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
+            #1; // takes time for dut to react to branch compare and alu changes
+            env_pc_mux_update();
+            $display("loop: PC sel: %0d ", pc_sel);
+            $display("loop: PC MUX: %0d ", dut_env_pc_mux_out);
+            
+            // env_alu_out_update(alu_return_address); // location of the second branch test instruction, bne
+            // $display("Overwrite: ALU out: %0d ", dut_env_alu);
+            // env_branch_compare_update(1'b1);
+            // $display("Overwrite: Branch compare result - eq: %0b, lt: %0b ", dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
         end
     end
     
     $display("\nTest  5b: Branch finishes properly? Execute next instruction to verify\n");
     @(posedge clk); #1;
     env_update_seq();
-    // env_update_comb();
     tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
     dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
     #1; tb_checker();
     print_test_results();
-    env_update_comb();
+    env_update_comb('h0, 'b0);
     
     $display("\nTest  5: Checking specific cases done: Branch\n");
     
