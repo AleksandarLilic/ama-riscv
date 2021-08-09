@@ -27,6 +27,7 @@
 //                              2. Reset thread listens to events from main
 //      2021-08-03  AL  0.7.0 - Checkpoint, some features broken
 //      2021-08-05  AL  0.8.0 - Align branch instructions
+//      2021-08-09  AL  0.9.0 - Add branch tests complete
 //
 //-----------------------------------------------------------------------------
 
@@ -131,28 +132,25 @@ reg  [ 1:0] dut_m_wb_sel        ;
 reg         dut_m_reg_we        ;
 reg         dut_m_branch_taken  ;
 reg         dut_m_branch_inst_ex;
-reg         dut_m_branch_inst_ex_keep;
 
 // DUT environment
-reg  [31:0] dut_env_inst_id    ;
-reg  [31:0] dut_env_inst_ex    ;
-integer     dut_env_pc         ;
-integer     dut_env_alu        ;
-integer     dut_env_pc_mux_out ;
-integer     alu_return_address ;
-reg         dut_env_bc_a_eq_b  ;
-reg         dut_env_bc_a_lt_b  ;
+reg  [31:0] dut_env_inst_id     ;
+reg  [31:0] dut_env_inst_ex     ;
+integer     dut_env_pc          ;
+integer     dut_env_alu         ;
+integer     dut_env_pc_mux_out  ;
+integer     alu_return_address  ;
+reg         dut_env_bc_a_eq_b   ;
+reg         dut_env_bc_a_lt_b   ;
 
 // Reset hold for
 reg  [ 3:0] rst_pulses = 4'd3;
 
 // Testbench variables
-integer     i;              // used for all loops
-
-// integer     run_test_pc_current;
-integer     run_test_pc_target ;
-integer     errors;
-integer     warnings;
+integer     i                   ;              // used for all loops
+integer     run_test_pc_target  ;
+integer     errors              ;
+integer     warnings            ;
 
 // file read
 integer fd;
@@ -177,7 +175,7 @@ ama_riscv_decoder DUT_ama_riscv_decoder_i (
     .rst         (rst         ),
     // inputs    
     .inst_id     (inst_id     ),
-    .inst_ex     ('h0     ),
+    .inst_ex     (inst_ex     ),
     .bc_a_eq_b   (bc_a_eq_b   ),
     .bc_a_lt_b   (bc_a_lt_b   ),
     .bp_taken    (bp_taken    ),
@@ -210,8 +208,9 @@ always #(`CLK_PERIOD/2) clk = ~clk;
 // Tasks
 task print_test_results;
     begin
-        $write("Instruction # %2d done. HEX: 'h%8h, ASM: %0s", 
-        dut_env_pc, dut_env_inst_id, dut_env_inst_id_asm);
+        $display("Instruction at PC# %2d done. ", dut_env_pc); 
+        $write  ("ID stage: HEX: 'h%8h, ASM: %0s", dut_env_inst_id, dut_env_inst_id_asm);
+        $write  ("EX stage: HEX: 'h%8h, ASM: %0s", dut_env_inst_ex, dut_env_inst_ex_asm);
     end
 endtask
 
@@ -486,7 +485,6 @@ task dut_m_decode;
         end
         
         // branch resolution
-        // add to checker
         case ({inst_ex[14],inst_ex[12]})
             2'b00:      // beq -> a == b
                 dut_m_branch_taken = dut_env_bc_a_eq_b;
@@ -508,20 +506,15 @@ task dut_m_decode;
             
         endcase
         
-        // if not branch instruction, it cannot be taken
-        dut_m_branch_taken = dut_m_branch_taken && dut_m_branch_inst_ex; 
+        // Override if rst == 1
+        if (rst) dut_m_branch_taken = 1'b0;
         
-        dut_m_branch_inst_ex_keep = dut_m_branch_inst_ex; 
+        // if not branch instruction, it cannot be taken
+        dut_m_branch_taken = dut_m_branch_taken && dut_m_branch_inst_ex;
         
         if(dut_m_branch_taken) dut_m_pc_sel = 2'b01; // alu input
         
         // $display("\nBranch used inst ex: %8h, branch_instr: %1b ", dut_env_inst_ex, dut_m_branch_inst_ex);
-        
-        // Override if rst == 1
-        if (rst) dut_m_branch_taken = 1'b0;
-        
-        // store branch instruction for next pass
-        dut_m_branch_inst_ex = dut_m_branch_inst;
         
     end                  
 endtask // dut_m_decode
@@ -593,37 +586,40 @@ endtask
 
 task env_inst_ex_update;
     begin
+        // env update
         dut_env_inst_ex     = (!rst) ? dut_env_inst_id      : 'h0;
         dut_env_inst_ex_asm = (!rst) ? dut_env_inst_id_asm  : 'h0;
+        
+        // but also model update
+        dut_m_branch_inst_ex =(!rst) ? dut_m_branch_inst    : 'h0;
     end
 endtask
 
 task env_branch_compare_update;
     input take_branch;
     begin
-        $display("env_branch_compare_update, take_branch: 'b%0b, input inst_ex: 'h%8h  %0s",
-                take_branch, dut_env_inst_ex, dut_env_inst_ex_asm);
+        // $display("env_branch_compare_update, take_branch: 'b%0b, input inst_ex: 'h%8h  %0s", take_branch, dut_env_inst_ex, dut_env_inst_ex_asm);
         case ({dut_env_inst_ex[14], dut_env_inst_ex[12]})
             2'b00: begin     // beq -> a == b
                 dut_env_bc_a_eq_b = take_branch;
                 dut_env_bc_a_lt_b = dut_env_bc_a_eq_b ? 1'b0 : $random;
-                $display("env_branch_compare_update, beq");
+                // $display("env_branch_compare_update, beq");
             end
             
             2'b01: begin     // bne -> a != b
-                $display("env_branch_compare_update, bne");
+                // $display("env_branch_compare_update, bne");
                 dut_env_bc_a_eq_b = !take_branch;
                 dut_env_bc_a_lt_b = $random;
             end
             
             2'b10: begin     // blt -> a < b
-                $display("env_branch_compare_update, blt");
+                // $display("env_branch_compare_update, blt");
                 dut_env_bc_a_lt_b = take_branch;
                 dut_env_bc_a_eq_b = dut_env_bc_a_lt_b ? 1'b0 : $random;
             end
             
             2'b11: begin     // bge -> a >= b
-                $display("env_branch_compare_update, bge");
+                // $display("env_branch_compare_update, bge");
                 dut_env_bc_a_eq_b = ($random & take_branch);
                 dut_env_bc_a_lt_b = dut_env_bc_a_eq_b ? 1'b0 : !take_branch;
             end
@@ -648,11 +644,11 @@ endtask
 task env_update_seq;
     begin
         env_inst_ex_update();
-        $write("inst_ex - FF reg:    'h%8h    %0s", dut_env_inst_ex, dut_env_inst_ex_asm);
+        // $write("inst_ex - FF reg:    'h%8h    %0s", dut_env_inst_ex, dut_env_inst_ex_asm);
         env_inst_id_update();
-        $write("inst_id - IMEM read: 'h%8h    %0s", dut_env_inst_id, dut_env_inst_id_asm);
+        // $write("inst_id - IMEM read: 'h%8h    %0s", dut_env_inst_id, dut_env_inst_id_asm);
         env_pc_update();
-        $display("PC reg: %0d ", dut_env_pc);
+        // $display("PC reg: %0d ", dut_env_pc);
     end
 endtask
 
@@ -661,12 +657,12 @@ task env_update_comb;
     input        branch_compare_update;
     begin
         env_branch_compare_update(branch_compare_update);
-        $display("Branch compare result - eq: %0b, lt: %0b ", dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
+        // $display("Branch compare result - eq: %0b, lt: %0b ", dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
         env_alu_out_update(alu_out_update);
-        $display("ALU out: %0d ", dut_env_alu);
+        // $display("ALU out: %0d ", dut_env_alu);
         env_pc_mux_update();
-        $display("PC sel: %0d ", pc_sel);
-        $display("PC MUX: %0d ", dut_env_pc_mux_out);
+        // $display("PC sel: %0d ", pc_sel);
+        // $display("PC MUX: %0d ", dut_env_pc_mux_out);
     end
 endtask
 
@@ -806,13 +802,13 @@ initial begin
     //-----------------------------------------------------------------------------
     // Test 5: Branch
     $display("\nTest  5: Hit specific cases: Branch \n");
-    run_test_pc_target  = dut_env_pc_mux_out + 1 ; 
-    // run_test_pc_target  = dut_env_pc + `BRANCH_TESTS ;
+    // run_test_pc_target  = dut_env_pc_mux_out + 2 ; 
+    run_test_pc_target  = dut_env_pc_mux_out + `BRANCH_TESTS ;
     while(dut_env_pc_mux_out < run_test_pc_target) begin
         alu_return_address = dut_env_pc_mux_out + 1;
-        $display("\ndut_env_pc: %0d ",          dut_env_pc);
-        $display("\ndut_env_pc_mux_out: %0d ",  dut_env_pc_mux_out);
-        $display("\run_test_pc_target: %0d ",   run_test_pc_target);
+        // $display("\ndut_env_pc: %0d ",          dut_env_pc);
+        // $display("\ndut_env_pc_mux_out: %0d ",  dut_env_pc_mux_out);
+        // $display("\run_test_pc_target: %0d ",   run_test_pc_target);
         
         // takes 2 cycles to resolve branch + 1 to execute branched instruction (or 2 if  the branched instruction is a branch instruction itself, like it's below)
         repeat(2) begin
@@ -824,50 +820,48 @@ initial begin
             dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
             
             #1; tb_checker();
-            $display("\nBranch taken: %1b ", dut_m_branch_taken);
-            $display("\nBranch inst_ex_keep: %1b ", dut_m_branch_inst_ex_keep);
             print_test_results();
             
-            env_update_comb(`LABEL_TGT, dut_m_branch_inst_ex_keep & 1'b1);
+            // $display("Branch inst_ex: %1b ", dut_m_branch_inst_ex);
+            env_update_comb(`LABEL_TGT, dut_m_branch_inst_ex & 1'b1);
+            
             tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
             dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
+            
             #1; // takes time for dut to react to branch compare and alu changes
             env_pc_mux_update();
-            $display("loop: PC sel: %0d ", pc_sel);
-            $display("loop: PC MUX: %0d ", dut_env_pc_mux_out);
-            // env_alu_out_update(`LABEL_TGT); // location of the instruction to branch to - return instruction
-            // $display("Overwrite: ALU out: %0d ", dut_env_alu);
-            // env_branch_compare_update(1'b1);
-            // $display("Overwrite: Branch compare result - eq: %0b, lt: %0b ", dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
+            
+            // $display("\nBranch taken: %1b ", dut_m_branch_taken);
+            // $display("loop 1: PC sel: %0d ", pc_sel);
+            // $display("loop 1: PC MUX: %0d ", dut_env_pc_mux_out);
         end
         
         repeat(2) begin
             @(posedge clk); #1;
             $display("Execute instruction that was branched to - Return instruction");
-            env_update_seq();
             
+            env_update_seq();            
             tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
             dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
             
             #1; tb_checker();
-            $display("\nBranch taken: %1b ", dut_m_branch_taken);
-            $display("\nBranch inst_ex_keep: %1b ", dut_m_branch_inst_ex_keep);
             print_test_results();
             
-            env_update_comb(alu_return_address, dut_m_branch_inst_ex_keep & 1'b1);
+            // $display("Branch inst_ex: %1b ", dut_m_branch_inst_ex);
+            env_update_comb(alu_return_address, dut_m_branch_inst_ex & 1'b1);
+            
             tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
             dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
+            
             #1; // takes time for dut to react to branch compare and alu changes
             env_pc_mux_update();
-            $display("loop: PC sel: %0d ", pc_sel);
-            $display("loop: PC MUX: %0d ", dut_env_pc_mux_out);
             
-            // env_alu_out_update(alu_return_address); // location of the second branch test instruction, bne
-            // $display("Overwrite: ALU out: %0d ", dut_env_alu);
-            // env_branch_compare_update(1'b1);
-            // $display("Overwrite: Branch compare result - eq: %0b, lt: %0b ", dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
+            // $display("\nBranch taken: %1b ", dut_m_branch_taken);
+            // $display("loop 2: PC sel: %0d ", pc_sel);
+            // $display("loop 2: PC MUX: %0d ", dut_env_pc_mux_out);
         end
-    end
+        
+    end // while(dut_env_pc_mux_out < run_test_pc_target)
     
     $display("\nTest  5b: Branch finishes properly? Execute next instruction to verify\n");
     @(posedge clk); #1;
