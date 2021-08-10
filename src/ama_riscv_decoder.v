@@ -19,6 +19,7 @@
 //                            - Add inst_ex input
 //                            - Add Branch Resolution block
 //                            - Add Stalling
+//      2021-08-10  AL  0.6.0 - Add support for JALR
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -43,6 +44,7 @@ module ama_riscv_decoder (
     output  wire        pc_we       ,
     output  wire        imem_en     ,
     output  wire        branch_inst ,
+    output  wire        jump_inst   ,
     output  wire        store_inst  ,
     output  wire [ 3:0] alu_op_sel  ,
     output  wire        alu_a_sel   ,
@@ -72,6 +74,7 @@ wire  [ 6:0] funct7_ex   =  inst_ex[31:25];
 reg   [ 1:0] pc_sel_r      ;
 reg          pc_we_r       ;
 reg          branch_inst_r ;
+reg          jump_inst_r   ;
 reg          store_inst_r  ;
 reg   [ 3:0] alu_op_sel_r  ;
 reg          alu_a_sel_r   ;
@@ -88,6 +91,7 @@ reg          pc_sel_rst       ;
 reg   [ 1:0] pc_sel_prev      ;
 reg          pc_we_prev       ;
 reg          branch_inst_prev ;
+reg          jump_inst_prev   ;
 reg          store_inst_prev  ;
 reg   [ 3:0] alu_op_sel_prev  ;
 reg          alu_a_sel_prev   ;
@@ -122,6 +126,7 @@ always @ (*) begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
             branch_inst_r = 1'b0;
+            jump_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
             alu_op_sel_r  = {funct7_id[5],funct3_id};
             alu_a_sel_r   = `ALU_A_SEL_RS1;
@@ -138,6 +143,7 @@ always @ (*) begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
             branch_inst_r = 1'b0;
+            jump_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
             //                                           --------- shift -------- : ------ imm ------
             alu_op_sel_r  = (funct3_id[1:0] == 2'b01) ? {funct7_id[5], funct3_id} : {1'b0, funct3_id};
@@ -155,6 +161,7 @@ always @ (*) begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
             branch_inst_r = 1'b0;
+            jump_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
             alu_op_sel_r  = `ALU_ADD;
             alu_a_sel_r   = `ALU_A_SEL_RS1;
@@ -171,6 +178,7 @@ always @ (*) begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
             branch_inst_r = 1'b0;
+            jump_inst_r   = 1'b0;
             store_inst_r  = 1'b1;
             alu_op_sel_r  = `ALU_ADD;
             alu_a_sel_r   = `ALU_A_SEL_RS1;
@@ -187,6 +195,7 @@ always @ (*) begin
             pc_sel_r      = `PC_SEL_INC4;   // to change to branch predictor
             pc_we_r       = 1'b1;           // assumes branch predictor ... (1)
             branch_inst_r = 1'b1;
+            jump_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
             alu_op_sel_r  = `ALU_ADD;
             alu_a_sel_r   = `ALU_A_SEL_PC;
@@ -200,7 +209,20 @@ always @ (*) begin
         end
         
         `OPC7_JALR: begin
-            
+            pc_sel_r      = `PC_SEL_ALU;    // to change to branch predictor
+            pc_we_r       = 1'b1;           // assumes branch predictor ... (1)
+            branch_inst_r = 1'b0;
+            jump_inst_r   = 1'b1;
+            store_inst_r  = 1'b0;
+            alu_op_sel_r  = `ALU_ADD;
+            alu_a_sel_r   = `ALU_A_SEL_RS1;
+            alu_b_sel_r   = `ALU_B_SEL_IMM;
+            ig_sel_r      = `IG_I_TYPE;
+            // bc_uns_r      = *;
+            dmem_en_r     = 1'b0;
+            // load_sm_en_r  = *;
+            wb_sel_r      = `WB_SEL_INC4;
+            reg_we_r      = 1'b1;
         end
         
         `OPC7_JAL: begin
@@ -219,6 +241,7 @@ always @ (*) begin
             pc_sel_r      = pc_sel_prev      ;
             pc_we_r       = pc_we_prev       ;
             branch_inst_r = branch_inst_prev ;
+            jump_inst_r   = jump_inst_prev   ;
             store_inst_r  = store_inst_prev  ;
             alu_op_sel_r  = alu_op_sel_prev  ;
             alu_a_sel_r   = alu_a_sel_prev   ;
@@ -263,20 +286,32 @@ always @ (*) begin
     endcase
 end
 
-// Can be taken only if instruction was branch
-wire branch_taken = branch_res && branch_inst_ex; 
+//-----------------------------------------------------------------------------
+// Jump instructions
+reg          jump_inst_ex;
+
+always @ (posedge clk) begin
+    if (rst)
+        jump_inst_ex <= 1'b0;
+    else
+        jump_inst_ex <= jump_inst_r;
+end
+
+//-----------------------------------------------------------------------------
+// Flow change
+wire flow_change = (branch_res && branch_inst_ex) | (jump_inst_ex);
 
 //-----------------------------------------------------------------------------
 // Stall
-assign stall_if     = branch_inst_r; // PC stall directly, IMEM stall thru FF
-
+assign stall_if     = branch_inst_r || jump_inst_r; // PC stall directly; IMEM stall thru FF in datapath
 
 //-----------------------------------------------------------------------------
 // Output assignment
-assign pc_sel       = (pc_sel_rst)    ? `PC_SEL_START_ADDR  :
-                      (branch_taken)  ? `PC_SEL_ALU         : pc_sel_r;
-assign pc_we        = (stall_if)      ? 1'b0 : pc_we_r       ; // ... (1) overwritten for now
+assign pc_sel       = (pc_sel_rst)  ? `PC_SEL_START_ADDR  :
+                      (flow_change) ? `PC_SEL_ALU         : pc_sel_r;
+assign pc_we        = (stall_if)    ? 1'b0 : pc_we_r       ; // ... (1) overwritten for now
 assign branch_inst  = branch_inst_r ;
+assign jump_inst    = jump_inst_r   ;
 assign store_inst   = store_inst_r  ;
 assign alu_op_sel   = alu_op_sel_r  ;
 assign alu_a_sel    = alu_a_sel_r   ;
@@ -298,6 +333,7 @@ always @ (posedge clk) begin
         pc_sel_prev      <= `PC_SEL_START_ADDR;
         pc_we_prev       <= 1'b1;   // it'll increment start_address always after rst -> fine
         branch_inst_prev <= 1'b0;
+        jump_inst_prev   <= 1'b0;
         store_inst_prev  <= 1'b0;
         alu_op_sel_prev  <= `ALU_ADD;
         alu_a_sel_prev   <= `ALU_A_SEL_RS1;
@@ -314,6 +350,7 @@ always @ (posedge clk) begin
         pc_sel_prev      <= pc_sel     ;
         pc_we_prev       <= pc_we      ;
         branch_inst_prev <= branch_inst;
+        jump_inst_prev   <= jump_inst  ;
         store_inst_prev  <= store_inst ;
         alu_op_sel_prev  <= alu_op_sel ;
         alu_a_sel_prev   <= alu_a_sel  ;
