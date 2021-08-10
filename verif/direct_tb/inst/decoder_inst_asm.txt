@@ -32,6 +32,7 @@ blt   x6 x7 target
 bge   x6 x7 target
 bltu  x6 x7 target
 bgeu  x6 x7 target
+jalr  x2 x5 0x00
 nop
 nop
 nop
