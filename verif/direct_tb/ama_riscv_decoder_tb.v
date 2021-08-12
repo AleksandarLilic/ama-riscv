@@ -5,12 +5,13 @@
 // Date created:    2021-07-16
 // Author:          Aleksandar Lilic
 // Description:     Test covers following scenarios:
-//                      1.  Data check after reset
+//                      1.  Status check after reset
 //                      2.  R-type checks direct
 //                      3.  Load instructions checks direct
 //                      4.  Store instructions checks direct
 //                      5.  Branch instructions checks direct
 //                      6.  JALR instruction check direct
+//                      7.  JAL instruction check direct
 //
 // Version history:
 //      2021-07-16  AL  0.1.0 - Initial - Reset and R-type (Add & Sub only)
@@ -30,6 +31,7 @@
 //      2021-08-05  AL  0.8.0 - Align branch instructions
 //      2021-08-09  AL  0.9.0 - Add branch tests complete
 //      2021-08-10  AL 0.10.0 - Add JALR test
+//      2021-08-12  AL 0.11.0 - Add JAL test
 //
 //-----------------------------------------------------------------------------
 
@@ -45,8 +47,9 @@
 `define STORE_TESTS              3
 `define BRANCH_TESTS             6
 `define JALR_TEST                1
+`define JAL_TEST                 1
 `define BRANCH_TESTS_NOPS_PAD    4+1    // 4 nops + 1 branch back instruction
-`define TEST_CASES               `RST_TEST + `R_TYPE_TESTS + `I_TYPE_TESTS + `LOAD_TESTS + `STORE_TESTS + `BRANCH_TESTS + `JALR_TEST + `BRANCH_TESTS_NOPS_PAD
+`define TEST_CASES               `RST_TEST + `R_TYPE_TESTS + `I_TYPE_TESTS + `LOAD_TESTS + `STORE_TESTS + `BRANCH_TESTS + `JALR_TEST + `JAL_TEST + `BRANCH_TESTS_NOPS_PAD
 `define LABEL_TGT                `TEST_CASES - 1 // 38 when branch tests were completed // location to which to branch
 
 // MUX select signals
@@ -490,6 +493,23 @@ task dut_m_decode;
                 dut_m_alu_a_sel   = `ALU_A_SEL_RS1;
                 dut_m_alu_b_sel   = `ALU_B_SEL_IMM;
                 dut_m_ig_sel      = `IG_I_TYPE;
+                // dut_m_bc_uns      = *;
+                dut_m_dmem_en     = 1'b0;
+                // dut_m_load_sm_en  = *;
+                dut_m_wb_sel      = `WB_SEL_INC4;
+                dut_m_reg_we      = 1'b1;
+            end
+            
+            'b110_1111: begin   // JAL instruction
+                dut_m_pc_sel      = `PC_SEL_ALU;
+                dut_m_pc_we       = 1'b0;
+                dut_m_branch_inst = 1'b0;
+                dut_m_jump_inst   = 1'b1;
+                dut_m_store_inst  = 1'b0;
+                dut_m_alu_op_sel  = 4'b0000;    // add
+                dut_m_alu_a_sel   = `ALU_A_SEL_PC;
+                dut_m_alu_b_sel   = `ALU_B_SEL_IMM;
+                dut_m_ig_sel      = `IG_J_TYPE;
                 // dut_m_bc_uns      = *;
                 dut_m_dmem_en     = 1'b0;
                 // dut_m_load_sm_en  = *;
@@ -970,7 +990,71 @@ initial begin
         
     end // while(dut_env_pc_mux_out < run_test_pc_target)
     
-    $display("\nTest  6b: Jump finishes properly? Execute next instruction to verify\n");
+    $display("\nTest  6: Hit specific case [JALR]: Done \n");
+    
+    //-----------------------------------------------------------------------------
+    // Test 7: JALR
+    $display("\nTest  7: Hit specific case [JAL]: Start \n");
+    run_test_pc_target  = dut_env_pc_mux_out + `JAL_TEST ;
+    while(dut_env_pc_mux_out < run_test_pc_target) begin
+        alu_return_address = dut_env_pc_mux_out + 1;
+        // $display("\ndut_env_pc: %0d ",          dut_env_pc);
+        // $display("\ndut_env_pc_mux_out: %0d ",  dut_env_pc_mux_out);
+        // $display("\run_test_pc_target: %0d ",   run_test_pc_target);
+        
+        // takes 2 cycles to resolve branch/jump + 1 to execute branched instruction (or 2 if  the branched instruction is a branch/jump instruction itself, like it's below)
+        repeat(2) begin
+            @(posedge clk); #1;
+            $display("Execute JAL instruction");
+            
+            env_update_seq();
+            tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
+            dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
+            
+            #1; tb_checker();
+            print_test_results();
+            
+            // $display("Jump inst_ex: %1b ", dut_m_jump_inst_ex);
+            env_update_comb(`LABEL_TGT, 1'b0);
+            
+            tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
+            dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
+            
+            #1; // takes time for dut to react to alu changes
+            env_pc_mux_update();
+            
+            // $display("loop 1: PC sel: %0d ", pc_sel);
+            // $display("loop 1: PC MUX: %0d ", dut_env_pc_mux_out);
+        end
+        
+        repeat(2) begin
+            @(posedge clk); #1;
+            $display("Execute instruction that was jumped to - Return instruction");
+            
+            env_update_seq();            
+            tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
+            dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
+            
+            #1; tb_checker();
+            print_test_results();
+            
+            // $display("Branch inst_ex: %1b ", dut_m_branch_inst_ex);
+            env_update_comb(alu_return_address, dut_m_branch_inst_ex & 1'b1);
+            
+            tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
+            dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
+            
+            #1; // takes time for dut to react to alu changes
+            env_pc_mux_update();
+            
+            // $display("\nBranch taken: %1b ", dut_m_branch_taken);
+            // $display("loop 2: PC sel: %0d ", pc_sel);
+            // $display("loop 2: PC MUX: %0d ", dut_env_pc_mux_out);
+        end
+        
+    end // while(dut_env_pc_mux_out < run_test_pc_target)
+    
+    $display("\nTest  7b: Jump finishes properly? Execute next instruction to verify\n");
     @(posedge clk); #1;
     env_update_seq();
     tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
@@ -979,7 +1063,7 @@ initial begin
     print_test_results();
     env_update_comb('h0, 'b0);
     
-    $display("\nTest  6: Hit specific case [JALR]: Done \n");
+    $display("\nTest  7: Hit specific case [JAL]: Done \n");
     
     
     //-----------------------------------------------------------------------------
