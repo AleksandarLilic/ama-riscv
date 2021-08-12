@@ -21,6 +21,7 @@
 //                            - Add Stalling
 //      2021-08-10  AL  0.6.0 - Add support for JALR
 //      2021-08-12  AL  0.7.0 - Add support for JAL
+//      2021-08-12  AL  0.8.0 - Add support for LUI
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -244,7 +245,20 @@ always @ (*) begin
         end
         
         `OPC7_LUI: begin
-            
+            pc_sel_r      = `PC_SEL_INC4;
+            pc_we_r       = 1'b1;       
+            branch_inst_r = 1'b0;
+            jump_inst_r   = 1'b0;
+            store_inst_r  = 1'b0;
+            alu_op_sel_r  = `ALU_PASS_B;
+            // alu_a_sel_r   = *;
+            alu_b_sel_r   = `ALU_B_SEL_IMM;
+            ig_sel_r      = `IG_U_TYPE;
+            // bc_uns_r      = *;
+            dmem_en_r     = 1'b0;
+            // load_sm_en_r  = *;
+            wb_sel_r      = `WB_SEL_ALU;
+            reg_we_r      = 1'b1;
         end
         
         `OPC7_AUIPC: begin
