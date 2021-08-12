@@ -35,6 +35,7 @@ bgeu  x6 x7 target
 jalr  x2 x5 0x00
 jal   x2 0x08
 lui   x3 0xC8
+auipc x3 0xE9
 nop
 nop
 nop
