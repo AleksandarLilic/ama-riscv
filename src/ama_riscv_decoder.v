@@ -20,6 +20,7 @@
 //                            - Add Branch Resolution block
 //                            - Add Stalling
 //      2021-08-10  AL  0.6.0 - Add support for JALR
+//      2021-08-12  AL  0.7.0 - Add support for JAL
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -226,7 +227,20 @@ always @ (*) begin
         end
         
         `OPC7_JAL: begin
-            
+            pc_sel_r      = `PC_SEL_ALU;    // to change to branch predictor
+            pc_we_r       = 1'b1;           // assumes branch predictor ... (1)
+            branch_inst_r = 1'b0;
+            jump_inst_r   = 1'b1;
+            store_inst_r  = 1'b0;
+            alu_op_sel_r  = `ALU_ADD;
+            alu_a_sel_r   = `ALU_A_SEL_PC;
+            alu_b_sel_r   = `ALU_B_SEL_IMM;
+            ig_sel_r      = `IG_J_TYPE;
+            // bc_uns_r      = *;
+            dmem_en_r     = 1'b0;
+            // load_sm_en_r  = *;
+            wb_sel_r      = `WB_SEL_INC4;
+            reg_we_r      = 1'b1;
         end
         
         `OPC7_LUI: begin
