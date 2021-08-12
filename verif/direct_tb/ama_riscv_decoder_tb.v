@@ -12,6 +12,7 @@
 //                      5.  Branch instructions checks direct
 //                      6.  JALR instruction check direct
 //                      7.  JAL instruction check direct
+//                      8.  LUI instruction check direct
 //
 // Version history:
 //      2021-07-16  AL  0.1.0 - Initial - Reset and R-type (Add & Sub only)
@@ -32,6 +33,7 @@
 //      2021-08-09  AL  0.9.0 - Add branch tests complete
 //      2021-08-10  AL 0.10.0 - Add JALR test
 //      2021-08-12  AL 0.11.0 - Add JAL test
+//      2021-08-12  AL 0.12.0 - Add LUI test
 //
 //-----------------------------------------------------------------------------
 
@@ -48,8 +50,9 @@
 `define BRANCH_TESTS             6
 `define JALR_TEST                1
 `define JAL_TEST                 1
+`define LUI_TEST                 1
 `define BRANCH_TESTS_NOPS_PAD    4+1    // 4 nops + 1 branch back instruction
-`define TEST_CASES               `RST_TEST + `R_TYPE_TESTS + `I_TYPE_TESTS + `LOAD_TESTS + `STORE_TESTS + `BRANCH_TESTS + `JALR_TEST + `JAL_TEST + `BRANCH_TESTS_NOPS_PAD
+`define TEST_CASES               `RST_TEST + `R_TYPE_TESTS + `I_TYPE_TESTS + `LOAD_TESTS + `STORE_TESTS + `BRANCH_TESTS + `JALR_TEST + `JAL_TEST + `LUI_TEST + `BRANCH_TESTS_NOPS_PAD
 `define LABEL_TGT                `TEST_CASES - 1 // 38 when branch tests were completed // location to which to branch
 
 // MUX select signals
@@ -514,6 +517,23 @@ task dut_m_decode;
                 dut_m_dmem_en     = 1'b0;
                 // dut_m_load_sm_en  = *;
                 dut_m_wb_sel      = `WB_SEL_INC4;
+                dut_m_reg_we      = 1'b1;
+            end
+            
+            'b011_0111: begin   // LUI instruction
+                dut_m_pc_sel      = `PC_SEL_INC4;
+                dut_m_pc_we       = 1'b1;
+                dut_m_branch_inst = 1'b0;
+                dut_m_jump_inst   = 1'b0;
+                dut_m_store_inst  = 1'b0;
+                dut_m_alu_op_sel  = 4'b1111;    // pass b
+                // dut_m_alu_a_sel   = *;
+                dut_m_alu_b_sel   = `ALU_B_SEL_IMM;
+                dut_m_ig_sel      = `IG_U_TYPE;
+                // dut_m_bc_uns      = *;
+                dut_m_dmem_en     = 1'b0;
+                // dut_m_load_sm_en  = *;
+                dut_m_wb_sel      = `WB_SEL_ALU;
                 dut_m_reg_we      = 1'b1;
             end
             
@@ -989,7 +1009,6 @@ initial begin
         end
         
     end // while(dut_env_pc_mux_out < run_test_pc_target)
-    
     $display("\nTest  6: Hit specific case [JALR]: Done \n");
     
     //-----------------------------------------------------------------------------
@@ -1053,18 +1072,22 @@ initial begin
         end
         
     end // while(dut_env_pc_mux_out < run_test_pc_target)
-    
-    $display("\nTest  7b: Jump finishes properly? Execute next instruction to verify\n");
-    @(posedge clk); #1;
-    env_update_seq();
-    tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
-    dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
-    #1; tb_checker();
-    print_test_results();
-    env_update_comb('h0, 'b0);
-    
     $display("\nTest  7: Hit specific case [JAL]: Done \n");
     
+    //-----------------------------------------------------------------------------
+    // Test 8: I-type
+    $display("\nTest  8: Hit specific case [LUI]: Start \n");
+    run_test_pc_target  = dut_env_pc_mux_out + `LUI_TEST;
+    while(dut_env_pc_mux_out < run_test_pc_target) begin
+        @(posedge clk); #1;
+        env_update_seq();
+        tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
+        dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
+        #1; tb_checker();
+        print_test_results();
+        env_update_comb('hA, 'b0);  // ALU is actually used for write to RF, but data is not relevant to this TB, only control signals in checker
+    end
+    $display("\nTest  8: Hit specific case [LUI]: Done \n");
     
     //-----------------------------------------------------------------------------
     repeat (1) @(posedge clk);
