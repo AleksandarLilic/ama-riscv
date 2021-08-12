@@ -13,6 +13,7 @@
 //                      6.  JALR instruction check direct
 //                      7.  JAL instruction check direct
 //                      8.  LUI instruction check direct
+//                      9.  AUIPC instruction check direct
 //
 // Version history:
 //      2021-07-16  AL  0.1.0 - Initial - Reset and R-type (Add & Sub only)
@@ -34,6 +35,7 @@
 //      2021-08-10  AL 0.10.0 - Add JALR test
 //      2021-08-12  AL 0.11.0 - Add JAL test
 //      2021-08-12  AL 0.12.0 - Add LUI test
+//      2021-08-12  AL 0.13.0 - Add AUIPC test
 //
 //-----------------------------------------------------------------------------
 
@@ -51,8 +53,9 @@
 `define JALR_TEST                1
 `define JAL_TEST                 1
 `define LUI_TEST                 1
+`define AUIPC_TEST               1
 `define BRANCH_TESTS_NOPS_PAD    4+1    // 4 nops + 1 branch back instruction
-`define TEST_CASES               `RST_TEST + `R_TYPE_TESTS + `I_TYPE_TESTS + `LOAD_TESTS + `STORE_TESTS + `BRANCH_TESTS + `JALR_TEST + `JAL_TEST + `LUI_TEST + `BRANCH_TESTS_NOPS_PAD
+`define TEST_CASES               `RST_TEST + `R_TYPE_TESTS + `I_TYPE_TESTS + `LOAD_TESTS + `STORE_TESTS + `BRANCH_TESTS + `JALR_TEST + `JAL_TEST + `LUI_TEST + `AUIPC_TEST + `BRANCH_TESTS_NOPS_PAD
 `define LABEL_TGT                `TEST_CASES - 1 // 38 when branch tests were completed // location to which to branch
 
 // MUX select signals
@@ -528,6 +531,23 @@ task dut_m_decode;
                 dut_m_store_inst  = 1'b0;
                 dut_m_alu_op_sel  = 4'b1111;    // pass b
                 // dut_m_alu_a_sel   = *;
+                dut_m_alu_b_sel   = `ALU_B_SEL_IMM;
+                dut_m_ig_sel      = `IG_U_TYPE;
+                // dut_m_bc_uns      = *;
+                dut_m_dmem_en     = 1'b0;
+                // dut_m_load_sm_en  = *;
+                dut_m_wb_sel      = `WB_SEL_ALU;
+                dut_m_reg_we      = 1'b1;
+            end
+            
+            'b001_0111: begin   // AUIPC instruction
+                dut_m_pc_sel      = `PC_SEL_INC4;
+                dut_m_pc_we       = 1'b1;
+                dut_m_branch_inst = 1'b0;
+                dut_m_jump_inst   = 1'b0;
+                dut_m_store_inst  = 1'b0;
+                dut_m_alu_op_sel  = 4'b0000;    // add
+                dut_m_alu_a_sel   = `ALU_A_SEL_PC;
                 dut_m_alu_b_sel   = `ALU_B_SEL_IMM;
                 dut_m_ig_sel      = `IG_U_TYPE;
                 // dut_m_bc_uns      = *;
@@ -1075,7 +1095,7 @@ initial begin
     $display("\nTest  7: Hit specific case [JAL]: Done \n");
     
     //-----------------------------------------------------------------------------
-    // Test 8: I-type
+    // Test 8: LUI
     $display("\nTest  8: Hit specific case [LUI]: Start \n");
     run_test_pc_target  = dut_env_pc_mux_out + `LUI_TEST;
     while(dut_env_pc_mux_out < run_test_pc_target) begin
@@ -1088,6 +1108,21 @@ initial begin
         env_update_comb('hA, 'b0);  // ALU is actually used for write to RF, but data is not relevant to this TB, only control signals in checker
     end
     $display("\nTest  8: Hit specific case [LUI]: Done \n");
+    
+    //-----------------------------------------------------------------------------
+    // Test 9: AUIPC
+    $display("\nTest  9: Hit specific case [AUIPC]: Start \n");
+    run_test_pc_target  = dut_env_pc_mux_out + `AUIPC_TEST;
+    while(dut_env_pc_mux_out < run_test_pc_target) begin
+        @(posedge clk); #1;
+        env_update_seq();
+        tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
+        dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
+        #1; tb_checker();
+        print_test_results();
+        env_update_comb('hE, 'b0);  // ALU is actually used for write to RF, but data is not relevant to this TB, only control signals in checker
+    end
+    $display("\nTest  9: Hit specific case [AUIPC]: Done \n");
     
     //-----------------------------------------------------------------------------
     repeat (1) @(posedge clk);
