@@ -17,6 +17,7 @@
 //      2021-07-17  AL  0.7.1 - Fix Opcode 5-bit defines
 //      2021-07-18  AL  0.7.2 - Wider Opcode defines from 5-bit to 7-bit 
 //      2021-07-18  AL  0.8.0 - Add Branch Resolution MUX
+//      2021-08-12  AL  0.9.0 - Change name for operand forwarding MUX
 //
 //-----------------------------------------------------------------------------
 // Opcodes
@@ -41,12 +42,12 @@
 // ALU A operand select
 `define ALU_A_SEL_RS1       2'd0  // A = Reg[rs1]
 `define ALU_A_SEL_PC        2'd1  // A = PC
-`define ALU_A_SEL_FW_ALU    2'd2  // A = ALU; forwarding from MEM stage
+`define ALU_A_SEL_FWD_ALU   2'd2  // A = ALU; forwarding from MEM stage
 
 // ALU B operand select
 `define ALU_B_SEL_RS2       2'd0  // B = Reg[rs2]
 `define ALU_B_SEL_IMM       2'd1  // B = Immediate value; from Imm Gen
-`define ALU_B_SEL_FW_ALU    2'd2  // B = ALU; forwarding from MEM stage
+`define ALU_B_SEL_FWD_ALU   2'd2  // B = ALU; forwarding from MEM stage
 
 // Write back select
 `define WB_SEL_DMEM         2'd0  // Reg[rd] = DMEM[ALU]
