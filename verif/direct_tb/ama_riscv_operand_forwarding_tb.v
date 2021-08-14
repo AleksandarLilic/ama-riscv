@@ -6,13 +6,14 @@
 // Author:          Aleksandar Lilic
 // Description:     Test covers following scenarios:
 //                      1.  No forwarding when there is no dependency - pass decoder values
-//                      2.  Forwarding data when dependency occurs in the pipeline
-//                      3.  Test that no forwarding occurs when:
-//                          - Dependency exists but its x0   
-//                          - Dependency exists but reg_we_ex = 0   
+//                      2.  Forwarding data when dependency occurs in the pipeline (excl. load)
+//                      3.  No forwarding when load stall occurs
+//                      4.  No forwarding occurs when dependency exists but its x0   
+//                      5.  No forwarding occurs when dependency exists but reg_we_ex = 0   
 //
 // Version history:
-//      2021-08-13  AL  0.1.0 - Initial - Add no forwarding no dependency test
+//      2021-08-13  AL  0.1.0 - Initial - Add no forwarding no dependency tests
+//      2021-08-13  AL  0.2.0 - Add forwarding with dependency tests
 //
 //-----------------------------------------------------------------------------
 
@@ -22,7 +23,8 @@
 //`define CLOCK_FREQ    125_000_000
 //`define SIM_TIME     `CLOCK_FREQ*0.0009 // 900us
 `define NFND_TEST                5  // No Forwarding No Dependency
-`define TEST_CASES               `NFND_TEST
+`define FD_TEST                  3  // Forwarding with Dependency
+`define TEST_CASES               `NFND_TEST + `FD_TEST
 
 // MUX select signals
 // ALU A operand select
@@ -120,6 +122,9 @@ task print_test_results;
         $display("Instruction at PC# %2d done. ", run_test_pc_current); 
         $write  ("ID stage: HEX: 'h%8h, ASM: %0s", dut_env_inst_id, dut_env_inst_id_asm);
         $write  ("EX stage: HEX: 'h%8h, ASM: %0s", dut_env_inst_ex, dut_env_inst_ex_asm);
+        $display("Decoder select signals: alu_a_sel:     %0d, alu_b_sel:     %0d ", alu_a_sel, alu_b_sel); 
+        $display("OP FWD select signals:  alu_a_sel_fwd: %0d, alu_b_sel_fwd: %0d ", alu_a_sel_fwd, alu_b_sel_fwd); 
+        
     end
 endtask
 
@@ -353,21 +358,21 @@ task env_update_seq;
     begin
         //----- EX stage updates
         env_inst_ex_update();
-        $write("inst_ex - FF reg:    'h%8h    %0s", dut_env_inst_ex, dut_env_inst_ex_asm);
+        // $write("inst_ex - FF reg:    'h%8h    %0s", dut_env_inst_ex, dut_env_inst_ex_asm);
         env_reg_addr_ex_update();
-        $display("dut_env_rd_ex: %0d", dut_env_rd_ex);
+        // $display("dut_env_rd_ex: %0d", dut_env_rd_ex);
         env_reg_we_ex_update();
-        $display("dut_env_reg_we_id: 'b%0b", dut_env_reg_we_id);
+        // $display("dut_env_reg_we_id: 'b%0b", dut_env_reg_we_id);
         
         //----- ID stage updates
         env_inst_id_update();
-        $write("inst_id - IMEM read: 'h%8h    %0s", dut_env_inst_id, dut_env_inst_id_asm);
+        // $write("inst_id - IMEM read: 'h%8h    %0s", dut_env_inst_id, dut_env_inst_id_asm);
         env_reg_addr_id_update();
-        $display("dut_env_rs1_id: %0d, dut_env_rs2_id: %0d, dut_env_rd_id: %0d", dut_env_rs1_id, dut_env_rs2_id, dut_env_rd_id);
+        // $display("dut_env_rs1_id: %0d, dut_env_rs2_id: %0d, dut_env_rd_id: %0d", dut_env_rs1_id, dut_env_rs2_id, dut_env_rd_id);
         env_reg_we_id_update();
-        $display("dut_env_reg_we_ex: 'b%0b", dut_env_reg_we_ex);
+        // $display("dut_env_reg_we_ex: 'b%0b", dut_env_reg_we_ex);
         env_alu_op_sel_id_update();
-        $display("dut_env_alu_a_sel: 'b%0b, dut_env_alu_b_sel: 'b%0b", dut_env_alu_a_sel, dut_env_alu_b_sel);
+        // $display("dut_env_alu_a_sel: 'b%0b, dut_env_alu_b_sel: 'b%0b", dut_env_alu_a_sel, dut_env_alu_b_sel);
         
         // env_pc_update();
         // $display("PC reg: %0d ", dut_env_pc);
@@ -467,272 +472,22 @@ initial begin
         run_test_pc_current = run_test_pc_current + 1;
     end
     $display("\nTest  1: Hit specific case [No Forwarding No Dependency]: Done \n");
-     /* 
+    
     //-----------------------------------------------------------------------------
-    // Test 2: I-type
-    $display("\nTest  2: Hit specific case [I-type]: Start \n");
-    run_test_pc_target  = dut_env_pc_mux_out + `I_TYPE_TESTS;
-    while(dut_env_pc_mux_out < run_test_pc_target) begin
+    // Test 1: No Forwarding No Dependency
+    $display("\nTest  2: Hit specific case [Forwarding with Dependency]: Start \n");
+    run_test_pc_target  = run_test_pc_current + `FD_TEST;
+    while(run_test_pc_current < run_test_pc_target) begin
         @(posedge clk); #1;
-        env_update_seq();
-        tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
-        dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
+       env_update_seq();
+        tb_driver(dut_env_alu_a_sel, dut_env_alu_b_sel, dut_env_rs1_id, dut_env_rs2_id, dut_env_rd_ex, dut_env_reg_we_ex);
+        dut_m_decode();
         #1; tb_checker();
         print_test_results();
-        env_update_comb('h0, 'b0);
+        run_test_pc_current = run_test_pc_current + 1;
     end
-    $display("\nTest  2: Hit specific case [I-type]: Done \n");
+    $display("\nTest  2: Hit specific case [Forwarding with Dependency]: Done \n");
     
-    //-----------------------------------------------------------------------------
-    // Test 3: Load
-    $display("\nTest  3: Hit specific case [Load]: Start \n");
-    run_test_pc_target  = dut_env_pc_mux_out + `LOAD_TESTS;
-    while(dut_env_pc_mux_out < run_test_pc_target) begin
-        @(posedge clk); #1;
-        env_update_seq();
-        tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
-        dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
-        #1; tb_checker();
-        print_test_results();
-        env_update_comb('h0, 'b0);
-    end
-    $display("\nTest  3: Hit specific case [Load]: Done \n");
-    
-    //-----------------------------------------------------------------------------
-    // Test 4: Store
-    $display("\nTest  4: Hit specific case [Stores]: Start \n");
-    run_test_pc_target  = dut_env_pc_mux_out + `STORE_TESTS;
-    while(dut_env_pc_mux_out < run_test_pc_target) begin
-        @(posedge clk); #1;
-        env_update_seq();
-        tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
-        dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
-        #1; tb_checker();
-        print_test_results();
-        env_update_comb('h0, 'b0);
-    end
-    $display("\nTest  4: Hit specific case [Stores]: Done \n");
-    
-    //-----------------------------------------------------------------------------
-    // Test 5: Branch
-    $display("\nTest  5: Hit specific cases [Branches]: Start \n");
-    run_test_pc_target  = dut_env_pc_mux_out + `BRANCH_TESTS ;
-    while(dut_env_pc_mux_out < run_test_pc_target) begin
-        alu_return_address = dut_env_pc_mux_out + 1;
-        // $display("\ndut_env_pc: %0d ",          dut_env_pc);
-        // $display("\ndut_env_pc_mux_out: %0d ",  dut_env_pc_mux_out);
-        // $display("\run_test_pc_target: %0d ",   run_test_pc_target);
-        
-        // takes 2 cycles to resolve branch/jump + 1 to execute branched instruction (or 2 if  the branched instruction is a branch/jump instruction itself, like it's below)
-        repeat(2) begin
-            @(posedge clk); #1;
-            $display("Execute branch instruction");
-            
-            env_update_seq();
-            tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
-            dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
-            
-            #1; tb_checker();
-            print_test_results();
-            
-            // $display("Branch inst_ex: %1b ", dut_m_branch_inst_ex);
-            env_update_comb(`LABEL_TGT, dut_m_branch_inst_ex & 1'b1);
-            
-            tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
-            dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
-            
-            #1; // takes time for dut to react to branch compare and alu changes
-            env_pc_mux_update();
-            
-            // $display("\nBranch taken: %1b ", dut_m_branch_taken);
-            // $display("loop 1: PC sel: %0d ", pc_sel);
-            // $display("loop 1: PC MUX: %0d ", dut_env_pc_mux_out);
-        end
-        
-        repeat(2) begin
-            @(posedge clk); #1;
-            $display("Execute instruction that was branched to - Return instruction");
-            
-            env_update_seq();            
-            tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
-            dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
-            
-            #1; tb_checker();
-            print_test_results();
-            
-            // $display("Branch inst_ex: %1b ", dut_m_branch_inst_ex);
-            env_update_comb(alu_return_address, dut_m_branch_inst_ex & 1'b1);
-            
-            tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
-            dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
-            
-            #1; // takes time for dut to react to branch compare and alu changes
-            env_pc_mux_update();
-            
-            // $display("\nBranch taken: %1b ", dut_m_branch_taken);
-            // $display("loop 2: PC sel: %0d ", pc_sel);
-            // $display("loop 2: PC MUX: %0d ", dut_env_pc_mux_out);
-        end
-        
-    end // while(dut_env_pc_mux_out < run_test_pc_target)        
-    $display("\nTest  5: Hit specific cases [Branches]: Done \n");    
-    
-    //-----------------------------------------------------------------------------
-    // Test 6: JALR
-    $display("\nTest  6: Hit specific case [JALR]: Start \n");
-    run_test_pc_target  = dut_env_pc_mux_out + `JALR_TEST ;
-    while(dut_env_pc_mux_out < run_test_pc_target) begin
-        alu_return_address = dut_env_pc_mux_out + 1;
-        // $display("\ndut_env_pc: %0d ",          dut_env_pc);
-        // $display("\ndut_env_pc_mux_out: %0d ",  dut_env_pc_mux_out);
-        // $display("\run_test_pc_target: %0d ",   run_test_pc_target);
-        
-        // takes 2 cycles to resolve branch/jump + 1 to execute branched instruction (or 2 if  the branched instruction is a branch/jump instruction itself, like it's below)
-        repeat(2) begin
-            @(posedge clk); #1;
-            $display("Execute JALR instruction");
-            
-            env_update_seq();
-            tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
-            dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
-            
-            #1; tb_checker();
-            print_test_results();
-            
-            // $display("Jump inst_ex: %1b ", dut_m_jump_inst_ex);
-            env_update_comb(`LABEL_TGT, 1'b0);
-            
-            tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
-            dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
-            
-            #1; // takes time for dut to react to alu changes
-            env_pc_mux_update();
-            
-            // $display("loop 1: PC sel: %0d ", pc_sel);
-            // $display("loop 1: PC MUX: %0d ", dut_env_pc_mux_out);
-        end
-        
-        repeat(2) begin
-            @(posedge clk); #1;
-            $display("Execute instruction that was jumped to - Return instruction");
-            
-            env_update_seq();            
-            tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
-            dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
-            
-            #1; tb_checker();
-            print_test_results();
-            
-            // $display("Branch inst_ex: %1b ", dut_m_branch_inst_ex);
-            env_update_comb(alu_return_address, dut_m_branch_inst_ex & 1'b1);
-            
-            tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
-            dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
-            
-            #1; // takes time for dut to react to alu changes
-            env_pc_mux_update();
-            
-            // $display("\nBranch taken: %1b ", dut_m_branch_taken);
-            // $display("loop 2: PC sel: %0d ", pc_sel);
-            // $display("loop 2: PC MUX: %0d ", dut_env_pc_mux_out);
-        end
-        
-    end // while(dut_env_pc_mux_out < run_test_pc_target)
-    $display("\nTest  6: Hit specific case [JALR]: Done \n");
-    
-    //-----------------------------------------------------------------------------
-    // Test 7: JALR
-    $display("\nTest  7: Hit specific case [JAL]: Start \n");
-    run_test_pc_target  = dut_env_pc_mux_out + `JAL_TEST ;
-    while(dut_env_pc_mux_out < run_test_pc_target) begin
-        alu_return_address = dut_env_pc_mux_out + 1;
-        // $display("\ndut_env_pc: %0d ",          dut_env_pc);
-        // $display("\ndut_env_pc_mux_out: %0d ",  dut_env_pc_mux_out);
-        // $display("\run_test_pc_target: %0d ",   run_test_pc_target);
-        
-        // takes 2 cycles to resolve branch/jump + 1 to execute branched instruction (or 2 if  the branched instruction is a branch/jump instruction itself, like it's below)
-        repeat(2) begin
-            @(posedge clk); #1;
-            $display("Execute JAL instruction");
-            
-            env_update_seq();
-            tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
-            dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
-            
-            #1; tb_checker();
-            print_test_results();
-            
-            // $display("Jump inst_ex: %1b ", dut_m_jump_inst_ex);
-            env_update_comb(`LABEL_TGT, 1'b0);
-            
-            tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
-            dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
-            
-            #1; // takes time for dut to react to alu changes
-            env_pc_mux_update();
-            
-            // $display("loop 1: PC sel: %0d ", pc_sel);
-            // $display("loop 1: PC MUX: %0d ", dut_env_pc_mux_out);
-        end
-        
-        repeat(2) begin
-            @(posedge clk); #1;
-            $display("Execute instruction that was jumped to - Return instruction");
-            
-            env_update_seq();            
-            tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
-            dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
-            
-            #1; tb_checker();
-            print_test_results();
-            
-            // $display("Branch inst_ex: %1b ", dut_m_branch_inst_ex);
-            env_update_comb(alu_return_address, dut_m_branch_inst_ex & 1'b1);
-            
-            tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
-            dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
-            
-            #1; // takes time for dut to react to alu changes
-            env_pc_mux_update();
-            
-            // $display("\nBranch taken: %1b ", dut_m_branch_taken);
-            // $display("loop 2: PC sel: %0d ", pc_sel);
-            // $display("loop 2: PC MUX: %0d ", dut_env_pc_mux_out);
-        end
-        
-    end // while(dut_env_pc_mux_out < run_test_pc_target)
-    $display("\nTest  7: Hit specific case [JAL]: Done \n");
-    
-    //-----------------------------------------------------------------------------
-    // Test 8: LUI
-    $display("\nTest  8: Hit specific case [LUI]: Start \n");
-    run_test_pc_target  = dut_env_pc_mux_out + `LUI_TEST;
-    while(dut_env_pc_mux_out < run_test_pc_target) begin
-        @(posedge clk); #1;
-        env_update_seq();
-        tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
-        dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
-        #1; tb_checker();
-        print_test_results();
-        env_update_comb('hA, 'b0);  // ALU is actually used for write to RF, but data is not relevant to this TB, only control signals in checker
-    end
-    $display("\nTest  8: Hit specific case [LUI]: Done \n");
-    
-    //-----------------------------------------------------------------------------
-    // Test 9: AUIPC
-    $display("\nTest  9: Hit specific case [AUIPC]: Start \n");
-    run_test_pc_target  = dut_env_pc_mux_out + `AUIPC_TEST;
-    while(dut_env_pc_mux_out < run_test_pc_target) begin
-        @(posedge clk); #1;
-        env_update_seq();
-        tb_driver(dut_env_inst_id, dut_env_inst_ex, dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
-        dut_m_decode(dut_env_inst_id, dut_env_inst_ex);
-        #1; tb_checker();
-        print_test_results();
-        env_update_comb('hE, 'b0);  // ALU is actually used for write to RF, but data is not relevant to this TB, only control signals in checker
-    end
-    $display("\nTest  9: Hit specific case [AUIPC]: Done \n");
-     */
     //-----------------------------------------------------------------------------
     repeat (1) @(posedge clk);
     $display("\n----------------------- Simulation results -----------------------");
