@@ -7,13 +7,15 @@
 // Description:     Test covers following scenarios:
 //                      1.  No forwarding when there is no dependency - pass decoder values
 //                      2.  Forwarding data when dependency occurs in the pipeline (excl. load)
-//                      3.  No forwarding when load stall occurs
+//                      3.  Forwarding data when dependency occurs for load instruction
 //                      4.  No forwarding occurs when dependency exists but its x0   
 //                      5.  No forwarding occurs when dependency exists but reg_we_ex = 0   
 //
 // Version history:
 //      2021-08-13  AL  0.1.0 - Initial - Add no forwarding no dependency tests
-//      2021-08-13  AL  0.2.0 - Add forwarding with dependency tests
+//      2021-08-13  AL  0.2.0 - Add forwarding with dependency tests (excl. load)
+//      2021-08-14  AL  0.3.0 - Add forwarding with dependency tests for load instruction
+//      2021-08-16  AL  0.4.0 - Match RTL DMEM forwarding implementation
 //
 //-----------------------------------------------------------------------------
 
@@ -44,31 +46,35 @@ module ama_riscv_operand_forwarding_tb();
 reg         clk = 0;
 reg         rst;
 // inputs
-reg         reg_we_ex     ;
-reg  [ 5:0] rs1_id        ;
-reg  [ 5:0] rs2_id        ;
-reg  [ 5:0] rd_ex         ;
-reg         alu_a_sel     ;
-reg         alu_b_sel     ;
+reg         reg_we_ex           ;
+        reg         store_inst_id       ;
+reg  [ 5:0] rs1_id              ;
+reg  [ 5:0] rs2_id              ;
+reg  [ 5:0] rd_ex               ;
+reg         a_op_sel            ;
+reg         b_op_sel            ;
 // outputs
-wire [ 1:0] alu_a_sel_fwd ;
-wire [ 1:0] alu_b_sel_fwd ;
+wire [ 1:0] a_op_sel_fwd        ;
+wire [ 1:0] b_op_sel_fwd        ;
+        wire        dmem_din_sel_fwd    ;
 
 // DUT model Outputs
-reg  [ 1:0] dut_m_alu_a_sel_fwd ;
-reg  [ 1:0] dut_m_alu_b_sel_fwd ;
+reg  [ 1:0] dut_m_a_op_sel_fwd      ;
+reg  [ 1:0] dut_m_b_op_sel_fwd      ;
+        reg         dut_m_dmem_din_sel_fwd  ;
 
 // DUT environment
-reg  [31:0] dut_env_inst_id     ;
-reg  [31:0] dut_env_inst_ex     ;
-reg         dut_env_reg_we_id   ;
-reg         dut_env_reg_we_ex   ;
-reg  [ 5:0] dut_env_rs1_id      ;
-reg  [ 5:0] dut_env_rs2_id      ;
-reg  [ 5:0] dut_env_rd_id       ;
-reg  [ 5:0] dut_env_rd_ex       ;
-reg         dut_env_alu_a_sel   ;
-reg         dut_env_alu_b_sel   ;
+reg  [31:0] dut_env_inst_id       ;
+reg  [31:0] dut_env_inst_ex       ;
+reg         dut_env_reg_we_id     ;
+reg         dut_env_reg_we_ex     ;
+        reg         dut_env_store_inst_id ;
+reg  [ 5:0] dut_env_rs1_id        ;
+reg  [ 5:0] dut_env_rs2_id        ;
+reg  [ 5:0] dut_env_rd_id         ;
+reg  [ 5:0] dut_env_rd_ex         ;
+reg         dut_env_a_op_sel      ;
+reg         dut_env_b_op_sel      ;
 
 // Reset hold for
 reg  [ 3:0] rst_pulses = 4'd3;
@@ -100,15 +106,17 @@ integer rst_done = 0;
 // DUT instance
 ama_riscv_operand_forwarding DUT_ama_riscv_operand_forwarding_i (
     // inputs    
-    .reg_we_ex      (reg_we_ex     ),
-    .rs1_id         (rs1_id        ),
-    .rs2_id         (rs2_id        ),
-    .rd_ex          (rd_ex         ),
-    .alu_a_sel      (alu_a_sel     ),
-    .alu_b_sel      (alu_b_sel     ),
-    // outputs   
-    .alu_a_sel_fwd  (alu_a_sel_fwd ),
-    .alu_b_sel_fwd  (alu_b_sel_fwd )   
+    .reg_we_ex        (reg_we_ex         ),
+    .store_inst_id    (store_inst_id     ),
+    .rs1_id           (rs1_id            ),
+    .rs2_id           (rs2_id            ),
+    .rd_ex            (rd_ex             ),
+    .a_op_sel         (a_op_sel          ),
+    .b_op_sel         (b_op_sel          ),
+    // outputs                           
+    .a_op_sel_fwd     (a_op_sel_fwd      ),
+    .b_op_sel_fwd     (b_op_sel_fwd      ),
+    .dmem_din_sel_fwd (dmem_din_sel_fwd  )
 );
 
 //-----------------------------------------------------------------------------
@@ -122,44 +130,54 @@ task print_test_results;
         $display("Instruction at PC# %2d done. ", run_test_pc_current); 
         $write  ("ID stage: HEX: 'h%8h, ASM: %0s", dut_env_inst_id, dut_env_inst_id_asm);
         $write  ("EX stage: HEX: 'h%8h, ASM: %0s", dut_env_inst_ex, dut_env_inst_ex_asm);
-        $display("Decoder select signals: alu_a_sel:     %0d, alu_b_sel:     %0d ", alu_a_sel, alu_b_sel); 
-        $display("OP FWD select signals:  alu_a_sel_fwd: %0d, alu_b_sel_fwd: %0d ", alu_a_sel_fwd, alu_b_sel_fwd); 
-        
+        $display("Input control signals:  reg_we_ex:      'b%0b,  store_inst_id: 'b%0b ", reg_we_ex, store_inst_id); 
+        $display("Decoder select signals: a_op_sel:         %0d,  b_op_sel:        %0d ", a_op_sel, b_op_sel); 
+        $display("OP FWD select signals:  a_op_sel_fwd:     %0d,  b_op_sel_fwd:    %0d ", a_op_sel_fwd, b_op_sel_fwd); 
+        $display("DMEM FWD select signal: dmem_din_sel_fwd: %0d", dmem_din_sel_fwd);
     end
 endtask
 
 task tb_driver;
-    input [ 0:0] task_alu_a_sel;
-    input [ 0:0] task_alu_b_sel;
-    input [ 5:0] task_rs1_id   ;
-    input [ 5:0] task_rs2_id   ;
-    input [ 5:0] task_rd_ex    ;
-    input [ 0:0] task_reg_we_ex;
+    input [ 0:0] task_a_op_sel     ;
+    input [ 0:0] task_b_op_sel     ;
+    input [ 5:0] task_rs1_id       ;
+    input [ 5:0] task_rs2_id       ;
+    input [ 5:0] task_rd_ex        ;
+    input [ 0:0] task_reg_we_ex    ;
+    input [ 0:0] task_store_inst_id;
     
     begin
-        reg_we_ex = task_reg_we_ex ;
-        rs1_id    = task_rs1_id    ;
-        rs2_id    = task_rs2_id    ;
-        rd_ex     = task_rd_ex     ;
-        alu_a_sel = task_alu_a_sel ;
-        alu_b_sel = task_alu_b_sel ;
+        reg_we_ex     = task_reg_we_ex     ;
+        rs1_id        = task_rs1_id        ;
+        rs2_id        = task_rs2_id        ;
+        rd_ex         = task_rd_ex         ;
+        store_inst_id = task_store_inst_id ;
+        a_op_sel      = task_a_op_sel      ;
+        b_op_sel      = task_b_op_sel      ;
     end
     
 endtask
 
 task tb_checker;
     begin    
-        // alu_a_sel_fwd
-        if (alu_a_sel_fwd !== dut_m_alu_a_sel_fwd) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT alu_a_sel_fwd: %0d, Model alu_a_sel_fwd: %0d ", 
-            $time, dut_env_inst_id, dut_env_inst_id_asm, alu_a_sel_fwd, dut_m_alu_a_sel_fwd);
+        // a_op_sel_fwd
+        if (a_op_sel_fwd !== dut_m_a_op_sel_fwd) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT a_op_sel_fwd: %0d, Model a_op_sel_fwd: %0d ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, a_op_sel_fwd, dut_m_a_op_sel_fwd);
             errors = errors + 1;
         end
         
-        // alu_b_sel_fwd
-        if (alu_b_sel_fwd !== dut_m_alu_b_sel_fwd) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT alu_b_sel_fwd: %0d, Model alu_b_sel_fwd: %0d ", 
-            $time, dut_env_inst_id, dut_env_inst_id_asm, alu_b_sel_fwd, dut_m_alu_b_sel_fwd);
+        // b_op_sel_fwd
+        if (b_op_sel_fwd !== dut_m_b_op_sel_fwd) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT b_op_sel_fwd: %0d, Model b_op_sel_fwd: %0d ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, b_op_sel_fwd, dut_m_b_op_sel_fwd);
+            errors = errors + 1;
+        end
+        
+        // dmem_din_sel_fwd
+        if (dmem_din_sel_fwd !== dut_m_dmem_din_sel_fwd) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT dmem_din_sel_fwd: %0d, Model dmem_din_sel_fwd: %0d ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, dmem_din_sel_fwd, dut_m_dmem_din_sel_fwd);
             errors = errors + 1;
         end
     end // main task body
@@ -218,18 +236,19 @@ task dut_m_decode;
     begin
         // Operand A
         if ((dut_env_rs1_id != `RF_X0_ZERO) && (dut_env_rs1_id == dut_env_rd_ex) && (dut_env_reg_we_ex))
-            dut_m_alu_a_sel_fwd = `ALU_A_SEL_FWD_ALU;  // forward previous ALU result
+            dut_m_a_op_sel_fwd = `ALU_A_SEL_FWD_ALU;  // forward previous ALU result
         else
-            dut_m_alu_a_sel_fwd = {1'b0, dut_env_alu_a_sel};  // don't forward
+            dut_m_a_op_sel_fwd = {1'b0, dut_env_a_op_sel};  // don't forward
         
         // Operand B
-        if ((dut_env_rs2_id != `RF_X0_ZERO) && (dut_env_rs2_id == dut_env_rd_ex) && (dut_env_reg_we_ex))
-            dut_m_alu_b_sel_fwd = `ALU_B_SEL_FWD_ALU;  // forward previous ALU result
+        if ((dut_env_rs2_id != `RF_X0_ZERO) && (dut_env_rs2_id == dut_env_rd_ex) && (dut_env_reg_we_ex) && (!dut_env_store_inst_id))
+            dut_m_b_op_sel_fwd = `ALU_B_SEL_FWD_ALU;  // forward previous ALU result
         else
-            dut_m_alu_b_sel_fwd = {1'b0, dut_env_alu_b_sel};  // don't forward
+            dut_m_b_op_sel_fwd = {1'b0, dut_env_b_op_sel};  // don't forward
         
+        // DMEM din
+        dut_m_dmem_din_sel_fwd = ((dut_env_rs2_id != `RF_X0_ZERO) && (dut_env_rs2_id == dut_env_rd_ex) && (dut_env_reg_we_ex) && (dut_env_store_inst_id));
     end
-        
 endtask // dut_m_decode
 
 // Reset task
@@ -248,7 +267,6 @@ task env_inst_id_update;
     begin
         dut_env_inst_id      = test_values_inst_hex[run_test_pc_current];
         dut_env_inst_id_asm  = test_values_inst_asm[run_test_pc_current];
-        
     end
 endtask
 
@@ -260,8 +278,12 @@ task env_reg_addr_id_update;
         end
 endtask
 
-task env_reg_we_id_update;
+task env_decoder_id_update;
     begin
+        // store instruction
+        dut_env_store_inst_id = (dut_env_inst_id[6:0] == 'b010_0011);
+        
+        // reg_we
         case (dut_env_inst_id[6:0])
             'b011_0011,     // R-type instruction
             'b001_0011,     // I-type instruction
@@ -290,8 +312,8 @@ task env_alu_op_sel_id_update;
         case (dut_env_inst_id[6:0])
             'b011_0011:     // R-type instruction
             begin
-                dut_env_alu_a_sel   = `ALU_A_SEL_RS1;
-                dut_env_alu_b_sel   = `ALU_B_SEL_RS2;
+                dut_env_a_op_sel   = `ALU_A_SEL_RS1;
+                dut_env_b_op_sel   = `ALU_B_SEL_RS2;
             end
             
             'b001_0011,     // I-type instruction
@@ -299,22 +321,22 @@ task env_alu_op_sel_id_update;
             'b010_0011,     // Store instruction
             'b110_0111:     // JALR instruction
             begin
-                dut_env_alu_a_sel   = `ALU_A_SEL_RS1;
-                dut_env_alu_b_sel   = `ALU_B_SEL_IMM;
+                dut_env_a_op_sel   = `ALU_A_SEL_RS1;
+                dut_env_b_op_sel   = `ALU_B_SEL_IMM;
             end
 
             'b011_0111:     // LUI instruction
             begin
-                // dut_env_alu_a_sel   = *;
-                dut_env_alu_b_sel   = `ALU_B_SEL_IMM;
+                // dut_env_a_op_sel   = *;
+                dut_env_b_op_sel   = `ALU_B_SEL_IMM;
             end
             
             'b110_0011,     // Branch instruction
             'b110_1111,     // JAL instruction            
             'b001_0111:     // AUIPC instruction
             begin
-                dut_env_alu_a_sel   = `ALU_A_SEL_PC;
-                dut_env_alu_b_sel   = `ALU_B_SEL_IMM;
+                dut_env_a_op_sel   = `ALU_A_SEL_PC;
+                dut_env_b_op_sel   = `ALU_B_SEL_IMM;
             end
             
             default: begin
@@ -369,10 +391,10 @@ task env_update_seq;
         // $write("inst_id - IMEM read: 'h%8h    %0s", dut_env_inst_id, dut_env_inst_id_asm);
         env_reg_addr_id_update();
         // $display("dut_env_rs1_id: %0d, dut_env_rs2_id: %0d, dut_env_rd_id: %0d", dut_env_rs1_id, dut_env_rs2_id, dut_env_rd_id);
-        env_reg_we_id_update();
+        env_decoder_id_update();
         // $display("dut_env_reg_we_ex: 'b%0b", dut_env_reg_we_ex);
         env_alu_op_sel_id_update();
-        // $display("dut_env_alu_a_sel: 'b%0b, dut_env_alu_b_sel: 'b%0b", dut_env_alu_a_sel, dut_env_alu_b_sel);
+        // $display("dut_env_a_op_sel: 'b%0b, dut_env_b_op_sel: 'b%0b", dut_env_a_op_sel, dut_env_b_op_sel);
         
         // env_pc_update();
         // $display("PC reg: %0d ", dut_env_pc);
@@ -423,8 +445,8 @@ end
 // Timestamp print
 initial begin
     forever begin
-        $display("\n\n\n --- Sim time : %0t ---\n", $time);
         @(posedge clk);
+        $display("\n\n\n --- Sim time : %0t ---\n", $time);
     end
 end
 
@@ -443,7 +465,7 @@ initial begin
         // if still not done, wait for next clk else update env and exit
         if(!rst_done) begin @(posedge clk); env_update_seq(); #1; end
 
-        tb_driver(dut_env_alu_a_sel, dut_env_alu_b_sel, dut_env_rs1_id, dut_env_rs2_id, dut_env_rd_ex, dut_env_reg_we_ex);
+        tb_driver(dut_env_a_op_sel, dut_env_b_op_sel, dut_env_rs1_id, dut_env_rs2_id, dut_env_rd_ex, dut_env_reg_we_ex, dut_env_store_inst_id);
         dut_m_decode();
     end
     $display("Reset done, time: %0t \n", $time);
@@ -452,7 +474,7 @@ initial begin
     @(posedge clk); #1; 
     $display("Checking reset exit, time: %0t \n", $time);
     env_update_seq();
-    tb_driver(dut_env_alu_a_sel, dut_env_alu_b_sel, dut_env_rs1_id, dut_env_rs2_id, dut_env_rd_ex, dut_env_reg_we_ex);
+    tb_driver(dut_env_a_op_sel, dut_env_b_op_sel, dut_env_rs1_id, dut_env_rs2_id, dut_env_rd_ex, dut_env_reg_we_ex, dut_env_store_inst_id);
     dut_m_decode();
     #1; tb_checker();
     print_test_results();
@@ -464,8 +486,8 @@ initial begin
     run_test_pc_target  = run_test_pc_current + `NFND_TEST;
     while(run_test_pc_current < run_test_pc_target) begin
         @(posedge clk); #1;
-       env_update_seq();
-        tb_driver(dut_env_alu_a_sel, dut_env_alu_b_sel, dut_env_rs1_id, dut_env_rs2_id, dut_env_rd_ex, dut_env_reg_we_ex);
+        env_update_seq();
+        tb_driver(dut_env_a_op_sel, dut_env_b_op_sel, dut_env_rs1_id, dut_env_rs2_id, dut_env_rd_ex, dut_env_reg_we_ex, dut_env_store_inst_id);
         dut_m_decode();
         #1; tb_checker();
         print_test_results();
@@ -479,8 +501,8 @@ initial begin
     run_test_pc_target  = run_test_pc_current + `FD_TEST;
     while(run_test_pc_current < run_test_pc_target) begin
         @(posedge clk); #1;
-       env_update_seq();
-        tb_driver(dut_env_alu_a_sel, dut_env_alu_b_sel, dut_env_rs1_id, dut_env_rs2_id, dut_env_rd_ex, dut_env_reg_we_ex);
+        env_update_seq();
+        tb_driver(dut_env_a_op_sel, dut_env_b_op_sel, dut_env_rs1_id, dut_env_rs2_id, dut_env_rd_ex, dut_env_reg_we_ex, dut_env_store_inst_id);
         dut_m_decode();
         #1; tb_checker();
         print_test_results();
