@@ -14,8 +14,7 @@
 // Version history:
 //      2021-08-13  AL  0.1.0 - Initial - Add no forwarding no dependency tests
 //      2021-08-13  AL  0.2.0 - Add forwarding with dependency tests (excl. load)
-//      2021-08-14  AL  0.3.0 - Add forwarding with dependency tests for load instruction
-//      2021-08-16  AL  0.4.0 - Match RTL DMEM forwarding implementation
+//      2021-08-16  AL  0.3.0 - Match RTL DMEM forwarding implementation
 //
 //-----------------------------------------------------------------------------
 
