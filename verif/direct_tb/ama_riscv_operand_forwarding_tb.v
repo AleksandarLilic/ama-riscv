@@ -6,15 +6,25 @@
 // Author:          Aleksandar Lilic
 // Description:     Test covers following scenarios:
 //                      1.  No forwarding when there is no dependency - pass decoder values
-//                      2.  Forwarding data when dependency occurs in the pipeline (excl. load)
-//                      3.  Forwarding data when dependency occurs for load instruction
+//                      2.  Forwarding data when dependency occurs in the pipeline
+//                        2a. R-type followed by all dependency options
+//                        2b. I-type followed by all dependency options
+//                        2c. Load followed by all dependency options
 //                      4.  No forwarding occurs when dependency exists but its x0   
 //                      5.  No forwarding occurs when dependency exists but reg_we_ex = 0   
+//                      * All dependency options are:
+//                       - R-type   : rs1(ALU A), rs2(ALU B),    rs1(ALU A) and rs2(ALU B)
+//                       - I-type   : rs1(ALU A)
+//                       - Load     : rs1(ALU A)
+//                       - Store    : rs1(ALU A), rs2(DMEM Din), rs1(ALU A) and rs2(DMEM Din)
+//                       - Branch   : rs1(BC A) , rs2(BC B),     rs1(BC A)  and rs2(BC B)
+//                       - JALR     : rs1(ALU A)
 //
 // Version history:
 //      2021-08-13  AL  0.1.0 - Initial - Add no forwarding no dependency tests
 //      2021-08-13  AL  0.2.0 - Add forwarding with dependency tests (excl. load)
 //      2021-08-16  AL  0.3.0 - Match RTL DMEM forwarding implementation
+//      2021-08-18  AL  0.4.0 - Match RTL Branch Compare and DMEM forwarding implementation
 //
 //-----------------------------------------------------------------------------
 
@@ -23,9 +33,11 @@
 `define CLK_PERIOD               8
 //`define CLOCK_FREQ    125_000_000
 //`define SIM_TIME     `CLOCK_FREQ*0.0009 // 900us
-`define NFND_TEST                5  // No Forwarding No Dependency
-`define FD_TEST                  3  // Forwarding with Dependency
-`define TEST_CASES               `NFND_TEST + `FD_TEST
+`define NFND_TEST                5              // No Forwarding No Dependency
+`define FDRT_TEST                8*2 + 2*2      // Forwarding with Dependency R-type
+`define FDIT_TEST                8*2 + 2*2      // Forwarding with Dependency I-type
+`define FDL_TEST                 8*2 + 2*2      // Forwarding with Dependency Load
+`define TEST_CASES               `NFND_TEST + `FDRT_TEST
 
 // MUX select signals
 // ALU A operand select
@@ -45,35 +57,39 @@ module ama_riscv_operand_forwarding_tb();
 reg         clk = 0;
 reg         rst;
 // inputs
-reg         reg_we_ex           ;
-        reg         store_inst_id       ;
-reg  [ 5:0] rs1_id              ;
-reg  [ 5:0] rs2_id              ;
-reg  [ 5:0] rd_ex               ;
-reg         a_op_sel            ;
-reg         b_op_sel            ;
-// outputs
-wire [ 1:0] a_op_sel_fwd        ;
-wire [ 1:0] b_op_sel_fwd        ;
-        wire        dmem_din_sel_fwd    ;
+reg         reg_we_ex       ;
+reg         store_inst_id   ;
+reg         branch_inst_id  ;
+reg  [ 5:0] rs1_id          ;
+reg  [ 5:0] rs2_id          ;
+reg  [ 5:0] rd_ex           ;
+reg         alu_a_sel       ;
+reg         alu_b_sel       ;
+// outputs                  
+wire [ 1:0] alu_a_sel_fwd   ;
+wire [ 1:0] alu_b_sel_fwd   ;
+wire        bc_a_sel_fwd    ;
+wire        bcs_b_sel_fwd   ;
 
 // DUT model Outputs
-reg  [ 1:0] dut_m_a_op_sel_fwd      ;
-reg  [ 1:0] dut_m_b_op_sel_fwd      ;
-        reg         dut_m_dmem_din_sel_fwd  ;
+reg  [ 1:0] dut_m_alu_a_sel_fwd   ;
+reg  [ 1:0] dut_m_alu_b_sel_fwd   ;
+reg         dut_m_bc_a_sel_fwd    ;
+reg         dut_m_bcs_b_sel_fwd   ;
 
 // DUT environment
 reg  [31:0] dut_env_inst_id       ;
 reg  [31:0] dut_env_inst_ex       ;
 reg         dut_env_reg_we_id     ;
 reg         dut_env_reg_we_ex     ;
-        reg         dut_env_store_inst_id ;
+reg         dut_env_store_inst_id ;
+reg         dut_env_branch_inst_id;
 reg  [ 5:0] dut_env_rs1_id        ;
 reg  [ 5:0] dut_env_rs2_id        ;
 reg  [ 5:0] dut_env_rd_id         ;
 reg  [ 5:0] dut_env_rd_ex         ;
-reg         dut_env_a_op_sel      ;
-reg         dut_env_b_op_sel      ;
+reg         dut_env_alu_a_sel     ;
+reg         dut_env_alu_b_sel     ;
 
 // Reset hold for
 reg  [ 3:0] rst_pulses = 4'd3;
@@ -84,6 +100,10 @@ integer     run_test_pc_target  ;
 integer     run_test_pc_current ;
 integer     errors              ;
 integer     warnings            ;
+integer     alu_a_sel_fwd_cnt   ;
+integer     alu_b_sel_fwd_cnt   ;
+integer     bc_a_sel_fwd_cnt    ;
+integer     bcs_b_sel_fwd_cnt   ;
 
 // file read
 integer fd;
@@ -105,17 +125,19 @@ integer rst_done = 0;
 // DUT instance
 ama_riscv_operand_forwarding DUT_ama_riscv_operand_forwarding_i (
     // inputs    
-    .reg_we_ex        (reg_we_ex         ),
-    .store_inst_id    (store_inst_id     ),
-    .rs1_id           (rs1_id            ),
-    .rs2_id           (rs2_id            ),
-    .rd_ex            (rd_ex             ),
-    .a_op_sel         (a_op_sel          ),
-    .b_op_sel         (b_op_sel          ),
-    // outputs                           
-    .a_op_sel_fwd     (a_op_sel_fwd      ),
-    .b_op_sel_fwd     (b_op_sel_fwd      ),
-    .dmem_din_sel_fwd (dmem_din_sel_fwd  )
+    .reg_we_ex        (reg_we_ex     ),
+    .store_inst_id    (store_inst_id ),
+    .branch_inst_id   (branch_inst_id),
+    .rs1_id           (rs1_id        ),
+    .rs2_id           (rs2_id        ),
+    .rd_ex            (rd_ex         ),
+    .alu_a_sel        (alu_a_sel     ),
+    .alu_b_sel        (alu_b_sel     ),
+    // outputs                       
+    .alu_a_sel_fwd    (alu_a_sel_fwd ),
+    .alu_b_sel_fwd    (alu_b_sel_fwd ),
+    .bc_a_sel_fwd     (bc_a_sel_fwd  ),
+    .bcs_b_sel_fwd    (bcs_b_sel_fwd )
 );
 
 //-----------------------------------------------------------------------------
@@ -124,61 +146,84 @@ always #(`CLK_PERIOD/2) clk = ~clk;
 
 //-----------------------------------------------------------------------------
 // Tasks
+task print_dependency_counters;
+    begin
+        $display("");
+        $write("Dependency counters:  ");
+        $write("alu_a_sel_fwd_cnt: %2d;  ", alu_a_sel_fwd_cnt);
+        $write("alu_b_sel_fwd_cnt: %2d;  ", alu_b_sel_fwd_cnt);
+        $write("bc_a_sel_fwd_cnt : %2d;  ",  bc_a_sel_fwd_cnt);
+        $write("bcs_b_sel_fwd_cnt: %2d;  ", bcs_b_sel_fwd_cnt);
+        $display("");
+    end
+endtask
+
 task print_test_results;
     begin
         $display("Instruction at PC# %2d done. ", run_test_pc_current); 
         $write  ("ID stage: HEX: 'h%8h, ASM: %0s", dut_env_inst_id, dut_env_inst_id_asm);
         $write  ("EX stage: HEX: 'h%8h, ASM: %0s", dut_env_inst_ex, dut_env_inst_ex_asm);
-        $display("Input control signals:  reg_we_ex:      'b%0b,  store_inst_id: 'b%0b ", reg_we_ex, store_inst_id); 
-        $display("Decoder select signals: a_op_sel:         %0d,  b_op_sel:        %0d ", a_op_sel, b_op_sel); 
-        $display("OP FWD select signals:  a_op_sel_fwd:     %0d,  b_op_sel_fwd:    %0d ", a_op_sel_fwd, b_op_sel_fwd); 
-        $display("DMEM FWD select signal: dmem_din_sel_fwd: %0d", dmem_din_sel_fwd);
+        $display("Input control signals : reg_we_ex:      'b%0b, store_inst_id: 'b%0b , branch_inst_id: 'b%0b ", reg_we_ex, store_inst_id, branch_inst_id); 
+        $display("Decoder select signals: alu_a_sel:        %0d, alu_b_sel:       %0d ", alu_a_sel, alu_b_sel); 
+        $display("OP FWD select signals : alu_a_sel_fwd:    %0d, alu_b_sel_fwd:   %0d ", alu_a_sel_fwd, alu_b_sel_fwd); 
+        $display("BC FWD select signal  : bc_a_sel_fwd :    %0d", bc_a_sel_fwd );
+        $display("BCS FWD select signal : bcs_b_sel_fwd:    %0d", bcs_b_sel_fwd);
     end
 endtask
 
 task tb_driver;
-    input [ 0:0] task_a_op_sel     ;
-    input [ 0:0] task_b_op_sel     ;
-    input [ 5:0] task_rs1_id       ;
-    input [ 5:0] task_rs2_id       ;
-    input [ 5:0] task_rd_ex        ;
-    input [ 0:0] task_reg_we_ex    ;
-    input [ 0:0] task_store_inst_id;
+    input [ 0:0] task_alu_a_sel     ;
+    input [ 0:0] task_alu_b_sel     ;
+    input [ 5:0] task_rs1_id        ;
+    input [ 5:0] task_rs2_id        ;
+    input [ 5:0] task_rd_ex         ;
+    input [ 0:0] task_reg_we_ex     ;
+    input [ 0:0] task_store_inst_id ;
+    input [ 0:0] task_branch_inst_id;
     
     begin
-        reg_we_ex     = task_reg_we_ex     ;
-        rs1_id        = task_rs1_id        ;
-        rs2_id        = task_rs2_id        ;
-        rd_ex         = task_rd_ex         ;
-        store_inst_id = task_store_inst_id ;
-        a_op_sel      = task_a_op_sel      ;
-        b_op_sel      = task_b_op_sel      ;
+        reg_we_ex      = task_reg_we_ex      ;
+        rs1_id         = task_rs1_id         ;
+        rs2_id         = task_rs2_id         ;
+        rd_ex          = task_rd_ex          ;
+        store_inst_id  = task_store_inst_id  ;
+        branch_inst_id = task_branch_inst_id ;
+        alu_a_sel      = task_alu_a_sel      ;
+        alu_b_sel      = task_alu_b_sel      ;
     end
     
 endtask
 
 task tb_checker;
     begin    
-        // a_op_sel_fwd
-        if (a_op_sel_fwd !== dut_m_a_op_sel_fwd) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT a_op_sel_fwd: %0d, Model a_op_sel_fwd: %0d ", 
-            $time, dut_env_inst_id, dut_env_inst_id_asm, a_op_sel_fwd, dut_m_a_op_sel_fwd);
+        // alu_a_sel_fwd
+        if (alu_a_sel_fwd !== dut_m_alu_a_sel_fwd) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT alu_a_sel_fwd: %0d, Model alu_a_sel_fwd: %0d ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, alu_a_sel_fwd, dut_m_alu_a_sel_fwd);
             errors = errors + 1;
         end
         
-        // b_op_sel_fwd
-        if (b_op_sel_fwd !== dut_m_b_op_sel_fwd) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT b_op_sel_fwd: %0d, Model b_op_sel_fwd: %0d ", 
-            $time, dut_env_inst_id, dut_env_inst_id_asm, b_op_sel_fwd, dut_m_b_op_sel_fwd);
+        // alu_b_sel_fwd
+        if (alu_b_sel_fwd !== dut_m_alu_b_sel_fwd) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT alu_b_sel_fwd: %0d, Model alu_b_sel_fwd: %0d ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, alu_b_sel_fwd, dut_m_alu_b_sel_fwd);
             errors = errors + 1;
         end
         
-        // dmem_din_sel_fwd
-        if (dmem_din_sel_fwd !== dut_m_dmem_din_sel_fwd) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT dmem_din_sel_fwd: %0d, Model dmem_din_sel_fwd: %0d ", 
-            $time, dut_env_inst_id, dut_env_inst_id_asm, dmem_din_sel_fwd, dut_m_dmem_din_sel_fwd);
+        // bc_a_sel_fwd
+        if (bc_a_sel_fwd !== dut_m_bc_a_sel_fwd) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT bc_a_sel_fwd: %0d, Model bc_a_sel_fwd: %0d ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, bc_a_sel_fwd, dut_m_bc_a_sel_fwd);
             errors = errors + 1;
         end
+        
+        // bcs_b_sel_fwd
+        if (bcs_b_sel_fwd !== dut_m_bcs_b_sel_fwd) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT bcs_b_sel_fwd: %0d, Model bcs_b_sel_fwd: %0d ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, bcs_b_sel_fwd, dut_m_bcs_b_sel_fwd);
+            errors = errors + 1;
+        end
+        
     end // main task body
 endtask
 
@@ -234,19 +279,34 @@ endtask
 task dut_m_decode;
     begin
         // Operand A
-        if ((dut_env_rs1_id != `RF_X0_ZERO) && (dut_env_rs1_id == dut_env_rd_ex) && (dut_env_reg_we_ex))
-            dut_m_a_op_sel_fwd = `ALU_A_SEL_FWD_ALU;  // forward previous ALU result
+        if ((dut_env_rs1_id != `RF_X0_ZERO) && (dut_env_rs1_id == dut_env_rd_ex) && (!dut_env_alu_a_sel) && (dut_env_reg_we_ex))
+            dut_m_alu_a_sel_fwd = `ALU_A_SEL_FWD_ALU;  // forward previous ALU result
         else
-            dut_m_a_op_sel_fwd = {1'b0, dut_env_a_op_sel};  // don't forward
+            dut_m_alu_a_sel_fwd = {1'b0, dut_env_alu_a_sel};  // don't forward
         
         // Operand B
-        if ((dut_env_rs2_id != `RF_X0_ZERO) && (dut_env_rs2_id == dut_env_rd_ex) && (dut_env_reg_we_ex) && (!dut_env_store_inst_id))
-            dut_m_b_op_sel_fwd = `ALU_B_SEL_FWD_ALU;  // forward previous ALU result
+        if ((dut_env_rs2_id != `RF_X0_ZERO) && (dut_env_rs2_id == dut_env_rd_ex) && (dut_env_reg_we_ex) && (!dut_env_alu_b_sel) && (!dut_env_store_inst_id))
+            dut_m_alu_b_sel_fwd = `ALU_B_SEL_FWD_ALU;  // forward previous ALU result
         else
-            dut_m_b_op_sel_fwd = {1'b0, dut_env_b_op_sel};  // don't forward
+            dut_m_alu_b_sel_fwd = {1'b0, dut_env_alu_b_sel};  // don't forward
         
-        // DMEM din
-        dut_m_dmem_din_sel_fwd = ((dut_env_rs2_id != `RF_X0_ZERO) && (dut_env_rs2_id == dut_env_rd_ex) && (dut_env_reg_we_ex) && (dut_env_store_inst_id));
+        // BC A
+        dut_m_bc_a_sel_fwd  = ((dut_env_rs1_id != `RF_X0_ZERO) && (dut_env_rs1_id == dut_env_rd_ex) && (dut_env_reg_we_ex) && (dut_env_branch_inst_id));
+        
+        // BC B / DMEM din
+        dut_m_bcs_b_sel_fwd = ((dut_env_rs2_id != `RF_X0_ZERO) && (dut_env_rs2_id == dut_env_rd_ex) && (dut_env_reg_we_ex) && (dut_env_store_inst_id || dut_env_branch_inst_id));
+        
+        // Dependency counters:
+        alu_a_sel_fwd_cnt  = alu_a_sel_fwd_cnt + dut_m_alu_a_sel_fwd[1];
+        alu_b_sel_fwd_cnt  = alu_b_sel_fwd_cnt + dut_m_alu_b_sel_fwd[1];
+        bc_a_sel_fwd_cnt   = bc_a_sel_fwd_cnt  + dut_m_bc_a_sel_fwd ;
+        bcs_b_sel_fwd_cnt  = bcs_b_sel_fwd_cnt + dut_m_bcs_b_sel_fwd;
+        
+        // Print info
+        if(dut_m_alu_a_sel_fwd[1])  $display("---> alu_a_sel forwarded");
+        if(dut_m_alu_b_sel_fwd[1])  $display("---> alu_b_sel forwarded");
+        if(dut_m_bc_a_sel_fwd )     $display("---> bc_a_sel_fwd  forwarded");
+        if(dut_m_bcs_b_sel_fwd)     $display("---> bcs_b_sel_fwd forwarded");
     end
 endtask // dut_m_decode
 
@@ -280,7 +340,10 @@ endtask
 task env_decoder_id_update;
     begin
         // store instruction
-        dut_env_store_inst_id = (dut_env_inst_id[6:0] == 'b010_0011);
+        dut_env_store_inst_id  = (dut_env_inst_id[6:0] == 'b010_0011);
+        
+        // store instruction
+        dut_env_branch_inst_id = (dut_env_inst_id[6:0] == 'b110_0011);
         
         // reg_we
         case (dut_env_inst_id[6:0])
@@ -311,8 +374,8 @@ task env_alu_op_sel_id_update;
         case (dut_env_inst_id[6:0])
             'b011_0011:     // R-type instruction
             begin
-                dut_env_a_op_sel   = `ALU_A_SEL_RS1;
-                dut_env_b_op_sel   = `ALU_B_SEL_RS2;
+                dut_env_alu_a_sel   = `ALU_A_SEL_RS1;
+                dut_env_alu_b_sel   = `ALU_B_SEL_RS2;
             end
             
             'b001_0011,     // I-type instruction
@@ -320,22 +383,22 @@ task env_alu_op_sel_id_update;
             'b010_0011,     // Store instruction
             'b110_0111:     // JALR instruction
             begin
-                dut_env_a_op_sel   = `ALU_A_SEL_RS1;
-                dut_env_b_op_sel   = `ALU_B_SEL_IMM;
+                dut_env_alu_a_sel   = `ALU_A_SEL_RS1;
+                dut_env_alu_b_sel   = `ALU_B_SEL_IMM;
             end
 
             'b011_0111:     // LUI instruction
             begin
-                // dut_env_a_op_sel   = *;
-                dut_env_b_op_sel   = `ALU_B_SEL_IMM;
+                // dut_env_alu_a_sel   = *;
+                dut_env_alu_b_sel   = `ALU_B_SEL_IMM;
             end
             
             'b110_0011,     // Branch instruction
             'b110_1111,     // JAL instruction            
             'b001_0111:     // AUIPC instruction
             begin
-                dut_env_a_op_sel   = `ALU_A_SEL_PC;
-                dut_env_b_op_sel   = `ALU_B_SEL_IMM;
+                dut_env_alu_a_sel   = `ALU_A_SEL_PC;
+                dut_env_alu_b_sel   = `ALU_B_SEL_IMM;
             end
             
             default: begin
@@ -393,7 +456,7 @@ task env_update_seq;
         env_decoder_id_update();
         // $display("dut_env_reg_we_ex: 'b%0b", dut_env_reg_we_ex);
         env_alu_op_sel_id_update();
-        // $display("dut_env_a_op_sel: 'b%0b, dut_env_b_op_sel: 'b%0b", dut_env_a_op_sel, dut_env_b_op_sel);
+        // $display("dut_env_alu_a_sel: 'b%0b, dut_env_alu_b_sel: 'b%0b", dut_env_alu_a_sel, dut_env_alu_b_sel);
         
         // env_pc_update();
         // $display("PC reg: %0d ", dut_env_pc);
@@ -437,8 +500,12 @@ initial begin
     $timeformat(-9, 2, " ns", 20);
     read_test_instructions();
     env_reset();
-    errors   <= 0;
-    warnings <= 0;
+    errors            <= 0;
+    warnings          <= 0;
+    alu_a_sel_fwd_cnt <= 0;
+    alu_b_sel_fwd_cnt <= 0;
+    bc_a_sel_fwd_cnt  <= 0;
+    bcs_b_sel_fwd_cnt <= 0;
 end
 
 // Timestamp print
@@ -464,7 +531,7 @@ initial begin
         // if still not done, wait for next clk else update env and exit
         if(!rst_done) begin @(posedge clk); env_update_seq(); #1; end
 
-        tb_driver(dut_env_a_op_sel, dut_env_b_op_sel, dut_env_rs1_id, dut_env_rs2_id, dut_env_rd_ex, dut_env_reg_we_ex, dut_env_store_inst_id);
+        tb_driver(dut_env_alu_a_sel, dut_env_alu_b_sel, dut_env_rs1_id, dut_env_rs2_id, dut_env_rd_ex, dut_env_reg_we_ex, dut_env_store_inst_id, dut_env_branch_inst_id);
         dut_m_decode();
     end
     $display("Reset done, time: %0t \n", $time);
@@ -473,7 +540,7 @@ initial begin
     @(posedge clk); #1; 
     $display("Checking reset exit, time: %0t \n", $time);
     env_update_seq();
-    tb_driver(dut_env_a_op_sel, dut_env_b_op_sel, dut_env_rs1_id, dut_env_rs2_id, dut_env_rd_ex, dut_env_reg_we_ex, dut_env_store_inst_id);
+    tb_driver(dut_env_alu_a_sel, dut_env_alu_b_sel, dut_env_rs1_id, dut_env_rs2_id, dut_env_rd_ex, dut_env_reg_we_ex, dut_env_store_inst_id, dut_env_branch_inst_id);
     dut_m_decode();
     #1; tb_checker();
     print_test_results();
@@ -486,27 +553,30 @@ initial begin
     while(run_test_pc_current < run_test_pc_target) begin
         @(posedge clk); #1;
         env_update_seq();
-        tb_driver(dut_env_a_op_sel, dut_env_b_op_sel, dut_env_rs1_id, dut_env_rs2_id, dut_env_rd_ex, dut_env_reg_we_ex, dut_env_store_inst_id);
+        tb_driver(dut_env_alu_a_sel, dut_env_alu_b_sel, dut_env_rs1_id, dut_env_rs2_id, dut_env_rd_ex, dut_env_reg_we_ex, dut_env_store_inst_id, dut_env_branch_inst_id);
         dut_m_decode();
         #1; tb_checker();
         print_test_results();
         run_test_pc_current = run_test_pc_current + 1;
     end
+    print_dependency_counters();
     $display("\nTest  1: Hit specific case [No Forwarding No Dependency]: Done \n");
     
     //-----------------------------------------------------------------------------
-    // Test 1: No Forwarding No Dependency
+    // Test 2: Forwarding with Dependency
     $display("\nTest  2: Hit specific case [Forwarding with Dependency]: Start \n");
-    run_test_pc_target  = run_test_pc_current + `FD_TEST;
+    run_test_pc_target  = run_test_pc_current + `FDRT_TEST;
     while(run_test_pc_current < run_test_pc_target) begin
         @(posedge clk); #1;
         env_update_seq();
-        tb_driver(dut_env_a_op_sel, dut_env_b_op_sel, dut_env_rs1_id, dut_env_rs2_id, dut_env_rd_ex, dut_env_reg_we_ex, dut_env_store_inst_id);
+        tb_driver(dut_env_alu_a_sel, dut_env_alu_b_sel, dut_env_rs1_id, dut_env_rs2_id, dut_env_rd_ex, dut_env_reg_we_ex, dut_env_store_inst_id, dut_env_branch_inst_id);
         dut_m_decode();
         #1; tb_checker();
         print_test_results();
         run_test_pc_current = run_test_pc_current + 1;
     end
+    // add expected counter values, compare counters here then clear them for next test
+    print_dependency_counters();
     $display("\nTest  2: Hit specific case [Forwarding with Dependency]: Done \n");
     
     //-----------------------------------------------------------------------------
