@@ -19,12 +19,17 @@
 //                       - Store    : rs1(ALU A), rs2(DMEM Din), rs1(ALU A) and rs2(DMEM Din)
 //                       - Branch   : rs1(BC A) , rs2(BC B),     rs1(BC A)  and rs2(BC B)
 //                       - JALR     : rs1(ALU A)
+//                         Total dependencies: 12
+//                       - Additionally, another 3 instructions (JAL, LUI, AUIPC) should be 
+//                         checked to verify that they do not cause forwarding
+//                         Total checks: 15
 //
 // Version history:
 //      2021-08-13  AL  0.1.0 - Initial - Add no forwarding no dependency tests
 //      2021-08-13  AL  0.2.0 - Add forwarding with dependency tests (excl. load)
 //      2021-08-16  AL  0.3.0 - Match RTL DMEM forwarding implementation
 //      2021-08-18  AL  0.4.0 - Match RTL Branch Compare and DMEM forwarding implementation
+//      2021-08-18  AL  0.5.0 - Add forwarding with dependency tests for R-type
 //
 //-----------------------------------------------------------------------------
 
@@ -33,11 +38,17 @@
 `define CLK_PERIOD               8
 //`define CLOCK_FREQ    125_000_000
 //`define SIM_TIME     `CLOCK_FREQ*0.0009 // 900us
-`define NFND_TEST                5              // No Forwarding No Dependency
-`define FDRT_TEST                8*2 + 2*2      // Forwarding with Dependency R-type
-`define FDIT_TEST                8*2 + 2*2      // Forwarding with Dependency I-type
-`define FDL_TEST                 8*2 + 2*2      // Forwarding with Dependency Load
+`define NFND_TEST                5           // No Forwarding No Dependency
+`define FDRT_TEST                12*2 + 3*2  // Forwarding with Dependency R-type
+// `define FDIT_TEST                8*2 + 2*2      // Forwarding with Dependency I-type
+// `define FDL_TEST                 8*2 + 2*2      // Forwarding with Dependency Load
 `define TEST_CASES               `NFND_TEST + `FDRT_TEST
+
+// Expected dependencies in R-type tests
+`define FDRT_TEST_EXP_ALU_A      7  // for ALU A
+`define FDRT_TEST_EXP_ALU_B      2  // for ALU B
+`define FDRT_TEST_EXP_BC_A       2  // for BC A 
+`define FDRT_TEST_EXP_BCS_B      4  // for BCS B
 
 // MUX select signals
 // ALU A operand select
@@ -100,6 +111,10 @@ integer     run_test_pc_target  ;
 integer     run_test_pc_current ;
 integer     errors              ;
 integer     warnings            ;
+integer     checker_exp_alu_a   ;
+integer     checker_exp_alu_b   ;
+integer     checker_exp_bc_a    ;
+integer     checker_exp_bcs_b   ;
 integer     alu_a_sel_fwd_cnt   ;
 integer     alu_b_sel_fwd_cnt   ;
 integer     bc_a_sel_fwd_cnt    ;
@@ -108,13 +123,13 @@ integer     bcs_b_sel_fwd_cnt   ;
 // file read
 integer fd;
 integer status;
-reg  [24*7:0] str;
+reg  [26*7:0] str;
 reg  [  31:0] test_values_inst_hex [`TEST_CASES-1:0];
 reg  [  31:0] test_values_inst_hex_nop;
-reg  [24*7:0] test_values_inst_asm [`TEST_CASES-1:0];
-reg  [24*7:0] test_values_inst_asm_nop;
-reg  [24*7:0] dut_env_inst_id_asm;
-reg  [24*7:0] dut_env_inst_ex_asm;
+reg  [26*7:0] test_values_inst_asm [`TEST_CASES-1:0];
+reg  [26*7:0] test_values_inst_asm_nop;
+reg  [26*7:0] dut_env_inst_id_asm;
+reg  [26*7:0] dut_env_inst_ex_asm;
 
 // events
 event ev_rst    [1:0];
@@ -171,27 +186,17 @@ task print_test_results;
     end
 endtask
 
-task tb_driver;
-    input [ 0:0] task_alu_a_sel     ;
-    input [ 0:0] task_alu_b_sel     ;
-    input [ 5:0] task_rs1_id        ;
-    input [ 5:0] task_rs2_id        ;
-    input [ 5:0] task_rd_ex         ;
-    input [ 0:0] task_reg_we_ex     ;
-    input [ 0:0] task_store_inst_id ;
-    input [ 0:0] task_branch_inst_id;
-    
+task tb_driver;    
     begin
-        reg_we_ex      = task_reg_we_ex      ;
-        rs1_id         = task_rs1_id         ;
-        rs2_id         = task_rs2_id         ;
-        rd_ex          = task_rd_ex          ;
-        store_inst_id  = task_store_inst_id  ;
-        branch_inst_id = task_branch_inst_id ;
-        alu_a_sel      = task_alu_a_sel      ;
-        alu_b_sel      = task_alu_b_sel      ;
-    end
-    
+        alu_a_sel      = dut_env_alu_a_sel      ;
+        alu_b_sel      = dut_env_alu_b_sel      ;
+        rs1_id         = dut_env_rs1_id         ;
+        rs2_id         = dut_env_rs2_id         ;
+        rd_ex          = dut_env_rd_ex          ;
+        reg_we_ex      = dut_env_reg_we_ex      ;
+        store_inst_id  = dut_env_store_inst_id  ;
+        branch_inst_id = dut_env_branch_inst_id ;        
+    end    
 endtask
 
 task tb_checker;
@@ -225,6 +230,57 @@ task tb_checker;
         end
         
     end // main task body
+endtask
+
+task expected_dependencies;
+    input integer task_exp_alu_a;
+    input integer task_exp_alu_b;
+    input integer task_exp_bc_a;
+    input integer task_exp_bcs_b;
+    
+    begin
+        checker_exp_alu_a = task_exp_alu_a;
+        checker_exp_alu_b = task_exp_alu_b;
+        checker_exp_bc_a  = task_exp_bc_a ;
+        checker_exp_bcs_b = task_exp_bcs_b;
+    end
+endtask
+
+task dependency_checker;
+    begin
+        if(alu_a_sel_fwd_cnt !== checker_exp_alu_a) begin
+            $display("*ERROR @ %0t. Mismatch in dependencies for ALU A. Expected: %0d, Counted: %0d,", 
+            $time, checker_exp_alu_a, alu_a_sel_fwd_cnt);
+            errors = errors + 1;
+        end
+        
+        if(alu_b_sel_fwd_cnt !== checker_exp_alu_b) begin
+            $display("*ERROR @ %0t. Mismatch in dependencies for ALU B. Expected: %0d, Counted: %0d,", 
+            $time, checker_exp_alu_b, alu_b_sel_fwd_cnt);
+            errors = errors + 1;
+        end
+        
+        if(bc_a_sel_fwd_cnt !== checker_exp_bc_a) begin
+            $display("*ERROR @ %0t. Mismatch in dependencies for BC A. Expected: %0d, Counted: %0d,", 
+            $time, checker_exp_bc_a, bc_a_sel_fwd_cnt);
+            errors = errors + 1;
+        end
+        
+        if(bcs_b_sel_fwd_cnt !== checker_exp_bcs_b) begin
+            $display("*ERROR @ %0t. Mismatch in dependencies for BCS B. Expected: %0d, Counted: %0d,", 
+            $time, checker_exp_bcs_b, bcs_b_sel_fwd_cnt);
+            errors = errors + 1;
+        end
+        
+        print_dependency_counters();
+        
+        // reset counters for next test run
+        alu_a_sel_fwd_cnt = 0;
+        alu_b_sel_fwd_cnt = 0;
+        bc_a_sel_fwd_cnt  = 0;
+        bcs_b_sel_fwd_cnt = 0;
+        
+    end
 endtask
 
 task read_test_instructions;
@@ -500,12 +556,12 @@ initial begin
     $timeformat(-9, 2, " ns", 20);
     read_test_instructions();
     env_reset();
-    errors            <= 0;
-    warnings          <= 0;
-    alu_a_sel_fwd_cnt <= 0;
-    alu_b_sel_fwd_cnt <= 0;
-    bc_a_sel_fwd_cnt  <= 0;
-    bcs_b_sel_fwd_cnt <= 0;
+    errors            = 0;
+    warnings          = 0;
+    alu_a_sel_fwd_cnt = 0;
+    alu_b_sel_fwd_cnt = 0;
+    bc_a_sel_fwd_cnt  = 0;
+    bcs_b_sel_fwd_cnt = 0;
 end
 
 // Timestamp print
@@ -530,8 +586,7 @@ initial begin
         
         // if still not done, wait for next clk else update env and exit
         if(!rst_done) begin @(posedge clk); env_update_seq(); #1; end
-
-        tb_driver(dut_env_alu_a_sel, dut_env_alu_b_sel, dut_env_rs1_id, dut_env_rs2_id, dut_env_rd_ex, dut_env_reg_we_ex, dut_env_store_inst_id, dut_env_branch_inst_id);
+        tb_driver();
         dut_m_decode();
     end
     $display("Reset done, time: %0t \n", $time);
@@ -540,7 +595,7 @@ initial begin
     @(posedge clk); #1; 
     $display("Checking reset exit, time: %0t \n", $time);
     env_update_seq();
-    tb_driver(dut_env_alu_a_sel, dut_env_alu_b_sel, dut_env_rs1_id, dut_env_rs2_id, dut_env_rd_ex, dut_env_reg_we_ex, dut_env_store_inst_id, dut_env_branch_inst_id);
+    tb_driver();
     dut_m_decode();
     #1; tb_checker();
     print_test_results();
@@ -550,33 +605,37 @@ initial begin
     // Test 1: No Forwarding No Dependency
     $display("\nTest  1: Hit specific case [No Forwarding No Dependency]: Start \n");
     run_test_pc_target  = run_test_pc_current + `NFND_TEST;
+    expected_dependencies(0, 0, 0, 0);
     while(run_test_pc_current < run_test_pc_target) begin
         @(posedge clk); #1;
         env_update_seq();
-        tb_driver(dut_env_alu_a_sel, dut_env_alu_b_sel, dut_env_rs1_id, dut_env_rs2_id, dut_env_rd_ex, dut_env_reg_we_ex, dut_env_store_inst_id, dut_env_branch_inst_id);
+        tb_driver();
         dut_m_decode();
         #1; tb_checker();
         print_test_results();
         run_test_pc_current = run_test_pc_current + 1;
     end
-    print_dependency_counters();
+    dependency_checker();
     $display("\nTest  1: Hit specific case [No Forwarding No Dependency]: Done \n");
     
     //-----------------------------------------------------------------------------
     // Test 2: Forwarding with Dependency
     $display("\nTest  2: Hit specific case [Forwarding with Dependency]: Start \n");
     run_test_pc_target  = run_test_pc_current + `FDRT_TEST;
+    expected_dependencies(`FDRT_TEST_EXP_ALU_A, 
+                          `FDRT_TEST_EXP_ALU_B, 
+                          `FDRT_TEST_EXP_BC_A, 
+                          `FDRT_TEST_EXP_BCS_B);
     while(run_test_pc_current < run_test_pc_target) begin
         @(posedge clk); #1;
         env_update_seq();
-        tb_driver(dut_env_alu_a_sel, dut_env_alu_b_sel, dut_env_rs1_id, dut_env_rs2_id, dut_env_rd_ex, dut_env_reg_we_ex, dut_env_store_inst_id, dut_env_branch_inst_id);
+        tb_driver();
         dut_m_decode();
         #1; tb_checker();
         print_test_results();
         run_test_pc_current = run_test_pc_current + 1;
     end
-    // add expected counter values, compare counters here then clear them for next test
-    print_dependency_counters();
+    dependency_checker();
     $display("\nTest  2: Hit specific case [Forwarding with Dependency]: Done \n");
     
     //-----------------------------------------------------------------------------
