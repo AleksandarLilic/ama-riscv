@@ -33,3 +33,33 @@ add   x9  x5 x2
 lui   x9  0xC8
 add   x10 x5 x2
 auipc x10 0xE9
+addi  x1  x5 0xFD
+sra   x4  x1 x3
+addi  x7  x5 0xFD
+sub   x4  x8 x7
+addi  x9  x5 0xFD
+or    x4  x9 x9
+addi  x13 x5 0xFD
+andi  x6  x13 0xAA
+addi  x12 x5 0xFD
+lw    x4  0x21 x12
+addi  x11 x5 0xFD
+sh    x11 0x08 x0
+addi  x10 x5 0xFD
+sw    x7  0x08 x10
+addi  x9  x5 0xFD
+sb    x9  0x08 x9
+addi  x14 x5 0xFD
+blt   x14 x7 target
+addi  x15 x5 0xFD
+blt   x8  x15 target
+addi  x16 x5 0xFD
+blt   x16 x16 target
+addi  x18 x5 0xFD
+jalr  x4  x18 0x04
+addi  x8  x5 0xFD
+jal   x8  0x08
+addi  x9  x5 0xFD
+lui   x9  0xC8
+addi  x10 x5 0xFD
+auipc x10 0xE9
