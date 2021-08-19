@@ -63,3 +63,33 @@ addi  x9  x5 0xFD
 lui   x9  0xC8
 addi  x10 x5 0xFD
 auipc x10 0xE9
+lw    x1  0x1C x5
+sra   x4  x1 x3
+lw    x7  0x1C x5
+sub   x4  x8 x7
+lw    x9  0x1C x5
+or    x4  x9 x9
+lw    x13 0x1C x5
+andi  x6  x13 0xAA
+lw    x12 0x1C x5
+lw    x4  0x21 x12
+lw    x11 0x1C x5
+sh    x11 0x08 x0
+lw    x10 0x1C x5
+sw    x7  0x08 x10
+lw    x9  0x1C x5
+sb    x9  0x08 x9
+lw    x14 0x1C x5
+blt   x14 x7 target
+lw    x15 0x1C x5
+blt   x8  x15 target
+lw    x16 0x1C x5
+blt   x16 x16 target
+lw    x18 0x1C x5
+jalr  x4  x18 0x04
+lw    x8  0x1C x5
+jal   x8  0x08
+lw    x9  0x1C x5
+lui   x9  0xC8
+lw    x10 0x1C x5
+auipc x10 0xE9
