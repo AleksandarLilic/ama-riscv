@@ -13,6 +13,7 @@
 //                            - Add b_op condition to avoid forwarding rs2 for store
 //      2021-08-17  AL  0.2.1 - Fix forwarding when imm/pc was selected
 //      2021-08-18  AL  0.2.2 - Add muxes for branch compare/dmem din
+//      2021-08-19  AL  0.2.3 - Remove store inst check for B select
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -49,7 +50,7 @@ end
 //-----------------------------------------------------------------------------
 // B operand select
 always @ (*) begin
-    if ((rs2_id != `RF_X0_ZERO) && (rs2_id == rd_ex) && (reg_we_ex) && (!alu_b_sel) && (!store_inst_id))
+    if ((rs2_id != `RF_X0_ZERO) && (rs2_id == rd_ex) && (reg_we_ex) && (!alu_b_sel))
         alu_b_sel_fwd = `ALU_B_SEL_FWD_ALU;     // forward previous ALU result
     else
         alu_b_sel_fwd = {1'b0, alu_b_sel};      // don't forward
