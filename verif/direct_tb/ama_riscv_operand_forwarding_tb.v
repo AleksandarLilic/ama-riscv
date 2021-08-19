@@ -26,10 +26,12 @@
 //
 // Version history:
 //      2021-08-13  AL  0.1.0 - Initial - Add no forwarding no dependency tests
-//      2021-08-13  AL  0.2.0 - Add forwarding with dependency tests (excl. load)
+//      2021-08-13  AL  0.2.0 - Add forwarding with dependency tests (test set)
 //      2021-08-16  AL  0.3.0 - Match RTL DMEM forwarding implementation
 //      2021-08-18  AL  0.4.0 - Match RTL Branch Compare and DMEM forwarding implementation
 //      2021-08-18  AL  0.5.0 - Add forwarding with dependency tests for R-type
+//      2021-08-19  AL  0.6.0 - Add forwarding with dependency tests for I-type
+//      2021-08-19  AL  0.7.0 - Add forwarding with dependency tests for Load
 //
 //-----------------------------------------------------------------------------
 
@@ -41,8 +43,8 @@
 `define NFND_TEST                5           // No Forwarding No Dependency
 `define FDRT_TEST                12*2 + 3*2  // Forwarding with Dependency R-type
 `define FDIT_TEST                12*2 + 3*2  // Forwarding with Dependency I-type
-// `define FDL_TEST                 8*2 + 2*2      // Forwarding with Dependency Load
-`define TEST_CASES               `NFND_TEST + `FDRT_TEST + `FDIT_TEST
+`define FDL_TEST                 12*2 + 3*2  // Forwarding with Dependency Load
+`define TEST_CASES               `NFND_TEST + `FDRT_TEST + `FDIT_TEST + `FDL_TEST
 
 // Expected dependencies in each of the dependency tests
 `define FD_TEST_EXP_ALU_A      7  // for ALU A
@@ -654,6 +656,23 @@ initial begin
     end
     dependency_checker();
     $display("\nTest  3: Hit specific case [Forwarding with Dependency I-type]: Done \n");
+    
+    //-----------------------------------------------------------------------------
+    // Test 4: Forwarding with Dependency I-type
+    $display("\nTest  4: Hit specific case [Forwarding with Dependency Load]: Start \n");
+    run_test_pc_target  = run_test_pc_current + `FDL_TEST;
+    // expected_dependencies are the same as R-type and I-type
+    while(run_test_pc_current < run_test_pc_target) begin
+        @(posedge clk); #1;
+        env_update_seq();
+        tb_driver();
+        dut_m_decode();
+        #1; tb_checker();
+        print_test_results();
+        run_test_pc_current = run_test_pc_current + 1;
+    end
+    dependency_checker();
+    $display("\nTest  4: Hit specific case [Forwarding with Dependency Load]: Done \n");
     
     //-----------------------------------------------------------------------------
     repeat (1) @(posedge clk);
