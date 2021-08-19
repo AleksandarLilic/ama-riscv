@@ -40,15 +40,15 @@
 //`define SIM_TIME     `CLOCK_FREQ*0.0009 // 900us
 `define NFND_TEST                5           // No Forwarding No Dependency
 `define FDRT_TEST                12*2 + 3*2  // Forwarding with Dependency R-type
-// `define FDIT_TEST                8*2 + 2*2      // Forwarding with Dependency I-type
+`define FDIT_TEST                12*2 + 3*2  // Forwarding with Dependency I-type
 // `define FDL_TEST                 8*2 + 2*2      // Forwarding with Dependency Load
-`define TEST_CASES               `NFND_TEST + `FDRT_TEST
+`define TEST_CASES               `NFND_TEST + `FDRT_TEST + `FDIT_TEST
 
-// Expected dependencies in R-type tests
-`define FDRT_TEST_EXP_ALU_A      7  // for ALU A
-`define FDRT_TEST_EXP_ALU_B      2  // for ALU B
-`define FDRT_TEST_EXP_BC_A       2  // for BC A 
-`define FDRT_TEST_EXP_BCS_B      4  // for BCS B
+// Expected dependencies in each of the dependency tests
+`define FD_TEST_EXP_ALU_A      7  // for ALU A
+`define FD_TEST_EXP_ALU_B      2  // for ALU B
+`define FD_TEST_EXP_BC_A       2  // for BC A 
+`define FD_TEST_EXP_BCS_B      4  // for BCS B
 
 // MUX select signals
 // ALU A operand select
@@ -335,13 +335,13 @@ endtask
 task dut_m_decode;
     begin
         // Operand A
-        if ((dut_env_rs1_id != `RF_X0_ZERO) && (dut_env_rs1_id == dut_env_rd_ex) && (!dut_env_alu_a_sel) && (dut_env_reg_we_ex))
+        if ((dut_env_rs1_id != `RF_X0_ZERO) && (dut_env_rs1_id == dut_env_rd_ex) && (dut_env_reg_we_ex) && (!dut_env_alu_a_sel))
             dut_m_alu_a_sel_fwd = `ALU_A_SEL_FWD_ALU;  // forward previous ALU result
         else
             dut_m_alu_a_sel_fwd = {1'b0, dut_env_alu_a_sel};  // don't forward
         
         // Operand B
-        if ((dut_env_rs2_id != `RF_X0_ZERO) && (dut_env_rs2_id == dut_env_rd_ex) && (dut_env_reg_we_ex) && (!dut_env_alu_b_sel) && (!dut_env_store_inst_id))
+        if ((dut_env_rs2_id != `RF_X0_ZERO) && (dut_env_rs2_id == dut_env_rd_ex) && (dut_env_reg_we_ex) && (!dut_env_alu_b_sel))
             dut_m_alu_b_sel_fwd = `ALU_B_SEL_FWD_ALU;  // forward previous ALU result
         else
             dut_m_alu_b_sel_fwd = {1'b0, dut_env_alu_b_sel};  // don't forward
@@ -619,13 +619,13 @@ initial begin
     $display("\nTest  1: Hit specific case [No Forwarding No Dependency]: Done \n");
     
     //-----------------------------------------------------------------------------
-    // Test 2: Forwarding with Dependency
-    $display("\nTest  2: Hit specific case [Forwarding with Dependency]: Start \n");
+    // Test 2: Forwarding with Dependency R-type
+    $display("\nTest  2: Hit specific case [Forwarding with Dependency R-type]: Start \n");
     run_test_pc_target  = run_test_pc_current + `FDRT_TEST;
-    expected_dependencies(`FDRT_TEST_EXP_ALU_A, 
-                          `FDRT_TEST_EXP_ALU_B, 
-                          `FDRT_TEST_EXP_BC_A, 
-                          `FDRT_TEST_EXP_BCS_B);
+    expected_dependencies(`FD_TEST_EXP_ALU_A, 
+                          `FD_TEST_EXP_ALU_B, 
+                          `FD_TEST_EXP_BC_A, 
+                          `FD_TEST_EXP_BCS_B);
     while(run_test_pc_current < run_test_pc_target) begin
         @(posedge clk); #1;
         env_update_seq();
@@ -636,7 +636,24 @@ initial begin
         run_test_pc_current = run_test_pc_current + 1;
     end
     dependency_checker();
-    $display("\nTest  2: Hit specific case [Forwarding with Dependency]: Done \n");
+    $display("\nTest  2: Hit specific case [Forwarding with Dependency R-type]: Done \n");
+    
+    //-----------------------------------------------------------------------------
+    // Test 3: Forwarding with Dependency I-type
+    $display("\nTest  3: Hit specific case [Forwarding with Dependency I-type]: Start \n");
+    run_test_pc_target  = run_test_pc_current + `FDIT_TEST;
+    // expected_dependencies are the same as R-type
+    while(run_test_pc_current < run_test_pc_target) begin
+        @(posedge clk); #1;
+        env_update_seq();
+        tb_driver();
+        dut_m_decode();
+        #1; tb_checker();
+        print_test_results();
+        run_test_pc_current = run_test_pc_current + 1;
+    end
+    dependency_checker();
+    $display("\nTest  3: Hit specific case [Forwarding with Dependency I-type]: Done \n");
     
     //-----------------------------------------------------------------------------
     repeat (1) @(posedge clk);
