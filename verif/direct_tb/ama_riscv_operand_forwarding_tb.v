@@ -10,8 +10,18 @@
 //                        2a. R-type followed by all dependency options
 //                        2b. I-type followed by all dependency options
 //                        2c. Load followed by all dependency options
-//                      4.  No forwarding occurs when dependency exists but its x0   
-//                      5.  No forwarding occurs when dependency exists but reg_we_ex = 0   
+//                      4.  No forwarding occurs when dependency exists but its x0
+//                        4a. R-type writes to x0
+//                        4b. I-type writes to x0
+//                        4c. Load writes to x0
+//                        4d. JALR writes to x0
+//                        4e. JAL writes to x0
+//                        4f. LUI writes to x0
+//                        4g. AUIPC writes to x0
+//                      5.  No forwarding occurs when it looks like dependency exists but reg_we_ex = 0
+//                        5a. Store has imm[4:0] that aligns with rd address of next instruction
+//                        5a. Branch has imm[4:1|11] that aligns with rd address of next instruction
+//
 //                      * All dependency options are:
 //                       - R-type   : rs1(ALU A), rs2(ALU B),    rs1(ALU A) and rs2(ALU B)
 //                       - I-type   : rs1(ALU A)
@@ -32,6 +42,7 @@
 //      2021-08-18  AL  0.5.0 - Add forwarding with dependency tests for R-type
 //      2021-08-19  AL  0.6.0 - Add forwarding with dependency tests for I-type
 //      2021-08-19  AL  0.7.0 - Add forwarding with dependency tests for Load
+//      2021-08-    AL  0.8.0 - Add forwarding counters
 //
 //-----------------------------------------------------------------------------
 
@@ -44,7 +55,11 @@
 `define FDRT_TEST                12*2 + 3*2  // Forwarding with Dependency R-type
 `define FDIT_TEST                12*2 + 3*2  // Forwarding with Dependency I-type
 `define FDL_TEST                 12*2 + 3*2  // Forwarding with Dependency Load
-`define TEST_CASES               `NFND_TEST + `FDRT_TEST + `FDIT_TEST + `FDL_TEST
+`define NFX0_TEST                7*2         // No Forwarding with Dependency on x0
+// `define NFWE0_TEST               2*2         // No Forwarding with reg_we=0
+`define TEST_CASES               `NFND_TEST + `FDRT_TEST + `FDIT_TEST + `FDL_TEST + `NFX0_TEST
+
+// add 'tried to write when...' for x0 and we=0 and all checks that are present in dut model
 
 // Expected dependencies in each of the dependency tests
 `define FD_TEST_EXP_ALU_A      7  // for ALU A
@@ -121,6 +136,12 @@ integer     alu_a_sel_fwd_cnt   ;
 integer     alu_b_sel_fwd_cnt   ;
 integer     bc_a_sel_fwd_cnt    ;
 integer     bcs_b_sel_fwd_cnt   ;
+// false dependency detection
+integer     dependency_checks_cnt         ;
+integer     cd_alu_a_partial_fwd_cnt      ;
+integer     cd_alu_a_fwd_cnt              ;
+integer     cd_alu_a_not_fwd_cnt          ;
+reg  [ 3:0] cd_alu_a_option_pattern_match ;
 
 // file read
 integer fd;
@@ -171,7 +192,25 @@ task print_dependency_counters;
         $write("alu_b_sel_fwd_cnt: %2d;  ", alu_b_sel_fwd_cnt);
         $write("bc_a_sel_fwd_cnt : %2d;  ",  bc_a_sel_fwd_cnt);
         $write("bcs_b_sel_fwd_cnt: %2d;  ", bcs_b_sel_fwd_cnt);
-        $display("");
+        $display("\n");
+    end
+endtask
+
+task print_dependency_check_patterns;
+    begin
+        $display("Dependency checks ran %0d times", dependency_checks_cnt);
+        $display("Dependency checks for ALU A collected %0d times", cd_alu_a_partial_fwd_cnt + 
+                                                                    cd_alu_a_fwd_cnt + 
+                                                                    cd_alu_a_not_fwd_cnt);
+        $display("Forwarding ALU A Results:");
+        $display("  Possible but not completed: %0d ",  cd_alu_a_partial_fwd_cnt);
+        $display("  Completed                 : %0d ", cd_alu_a_fwd_cnt);
+        $display("  Not possible              : %0d ", cd_alu_a_not_fwd_cnt);
+        $display("  Pattern match:" );
+        $display("      rs1 == x0       hit: %1b ", cd_alu_a_option_pattern_match[3]);
+        $display("      rs1 != rd       hit: %1b ", cd_alu_a_option_pattern_match[2]);
+        $display("      reg_we_ex = 0   hit: %1b ", cd_alu_a_option_pattern_match[1]);
+        $display("      alu_a_sel != 0  hit: %1b ", cd_alu_a_option_pattern_match[0]);
     end
 endtask
 
@@ -180,7 +219,7 @@ task print_test_results;
         $display("Instruction at PC# %2d done. ", run_test_pc_current); 
         $write  ("ID stage: HEX: 'h%8h, ASM: %0s", dut_env_inst_id, dut_env_inst_id_asm);
         $write  ("EX stage: HEX: 'h%8h, ASM: %0s", dut_env_inst_ex, dut_env_inst_ex_asm);
-        $display("Input control signals : reg_we_ex:      'b%0b, store_inst_id: 'b%0b , branch_inst_id: 'b%0b ", reg_we_ex, store_inst_id, branch_inst_id); 
+        $display("Input control signals : reg_we_ex:      'b%0b, store_inst_id: 'b%0b, branch_inst_id: 'b%0b ", reg_we_ex, store_inst_id, branch_inst_id); 
         $display("Decoder select signals: alu_a_sel:        %0d, alu_b_sel:       %0d ", alu_a_sel, alu_b_sel); 
         $display("OP FWD select signals : alu_a_sel_fwd:    %0d, alu_b_sel_fwd:   %0d ", alu_a_sel_fwd, alu_b_sel_fwd); 
         $display("BC FWD select signal  : bc_a_sel_fwd :    %0d", bc_a_sel_fwd );
@@ -334,19 +373,51 @@ task randomize_instructions;
 
 endtask
 
+task cd_patern_match;
+    reg [3:0] pattern_alu_a;
+    begin
+        dependency_checks_cnt = dependency_checks_cnt + 1;
+        // pattern tests all opposite conditions for forwarding to detect when only some but not all 
+        // conditions were met for forwarding
+        
+        // note: if alu_a_sel != 0, it's not possible to forward, take that as a main check, then use
+        // other three checks for pattern
+        
+        pattern_alu_a = {(dut_env_rs1_id == `RF_X0_ZERO), (dut_env_rs1_id != dut_env_rd_ex), 
+                         (!dut_env_reg_we_ex),            (dut_env_alu_a_sel)               };
+        if ((|pattern_alu_a) && (~&pattern_alu_a)) begin    // forwarding was possible but not complete
+            cd_alu_a_partial_fwd_cnt = cd_alu_a_partial_fwd_cnt + 1;
+            // $display("ALU Operand A could not be forwarded but was possible"); 
+            // if (pattern_alu_a[3]) $display("rs1 == x0");    
+            // if (pattern_alu_a[2]) $display("rs1 != rd");    
+            // if (pattern_alu_a[1]) $display("reg_we_ex = 0");
+            // if (pattern_alu_a[0]) $display("alu_a_sel != 0");
+        end
+        else if (~|pattern_alu_a) begin     // forwarding was possible and completed
+            // $display("ALU Operand A was forwarded"); 
+            cd_alu_a_fwd_cnt = cd_alu_a_fwd_cnt + 1;
+        end
+        else /* pattern_alu_a = 1 */ begin  // forwarding was not possible
+            // $display("ALU Operand A was not possible to be forwarded");
+            cd_alu_a_not_fwd_cnt = cd_alu_a_not_fwd_cnt + 1;
+        end
+        cd_alu_a_option_pattern_match = cd_alu_a_option_pattern_match | pattern_alu_a;
+    end
+endtask
+
 task dut_m_decode;
     begin
         // Operand A
         if ((dut_env_rs1_id != `RF_X0_ZERO) && (dut_env_rs1_id == dut_env_rd_ex) && (dut_env_reg_we_ex) && (!dut_env_alu_a_sel))
-            dut_m_alu_a_sel_fwd = `ALU_A_SEL_FWD_ALU;  // forward previous ALU result
+            dut_m_alu_a_sel_fwd = `ALU_A_SEL_FWD_ALU;           // forward previous ALU result
         else
-            dut_m_alu_a_sel_fwd = {1'b0, dut_env_alu_a_sel};  // don't forward
+            dut_m_alu_a_sel_fwd = {1'b0, dut_env_alu_a_sel};    // don't forward
         
         // Operand B
         if ((dut_env_rs2_id != `RF_X0_ZERO) && (dut_env_rs2_id == dut_env_rd_ex) && (dut_env_reg_we_ex) && (!dut_env_alu_b_sel))
-            dut_m_alu_b_sel_fwd = `ALU_B_SEL_FWD_ALU;  // forward previous ALU result
+            dut_m_alu_b_sel_fwd = `ALU_B_SEL_FWD_ALU;           // forward previous ALU result
         else
-            dut_m_alu_b_sel_fwd = {1'b0, dut_env_alu_b_sel};  // don't forward
+            dut_m_alu_b_sel_fwd = {1'b0, dut_env_alu_b_sel};    // don't forward
         
         // BC A
         dut_m_bc_a_sel_fwd  = ((dut_env_rs1_id != `RF_X0_ZERO) && (dut_env_rs1_id == dut_env_rd_ex) && (dut_env_reg_we_ex) && (dut_env_branch_inst_id));
@@ -361,10 +432,10 @@ task dut_m_decode;
         bcs_b_sel_fwd_cnt  = bcs_b_sel_fwd_cnt + dut_m_bcs_b_sel_fwd;
         
         // Print info
-        if(dut_m_alu_a_sel_fwd[1])  $display("---> alu_a_sel forwarded");
-        if(dut_m_alu_b_sel_fwd[1])  $display("---> alu_b_sel forwarded");
-        if(dut_m_bc_a_sel_fwd )     $display("---> bc_a_sel_fwd  forwarded");
-        if(dut_m_bcs_b_sel_fwd)     $display("---> bcs_b_sel_fwd forwarded");
+        // if(dut_m_alu_a_sel_fwd[1])  $display("---> alu_a_sel forwarded");
+        // if(dut_m_alu_b_sel_fwd[1])  $display("---> alu_b_sel forwarded");
+        // if(dut_m_bc_a_sel_fwd )     $display("---> bc_a_sel_fwd  forwarded");
+        // if(dut_m_bcs_b_sel_fwd)     $display("---> bcs_b_sel_fwd forwarded");
     end
 endtask // dut_m_decode
 
@@ -564,6 +635,11 @@ initial begin
     alu_b_sel_fwd_cnt = 0;
     bc_a_sel_fwd_cnt  = 0;
     bcs_b_sel_fwd_cnt = 0;
+    dependency_checks_cnt         = 0;
+    cd_alu_a_partial_fwd_cnt      = 0;
+    cd_alu_a_fwd_cnt              = 0;
+    cd_alu_a_not_fwd_cnt          = 0;
+    cd_alu_a_option_pattern_match = 4'b0;    
 end
 
 // Timestamp print
@@ -613,11 +689,13 @@ initial begin
         env_update_seq();
         tb_driver();
         dut_m_decode();
+        cd_patern_match();
         #1; tb_checker();
         print_test_results();
         run_test_pc_current = run_test_pc_current + 1;
     end
     dependency_checker();
+    print_dependency_check_patterns();
     $display("\nTest  1: Hit specific case [No Forwarding No Dependency]: Done \n");
     
     //-----------------------------------------------------------------------------
@@ -633,6 +711,7 @@ initial begin
         env_update_seq();
         tb_driver();
         dut_m_decode();
+        cd_patern_match();
         #1; tb_checker();
         print_test_results();
         run_test_pc_current = run_test_pc_current + 1;
@@ -650,6 +729,7 @@ initial begin
         env_update_seq();
         tb_driver();
         dut_m_decode();
+        cd_patern_match();
         #1; tb_checker();
         print_test_results();
         run_test_pc_current = run_test_pc_current + 1;
@@ -667,12 +747,15 @@ initial begin
         env_update_seq();
         tb_driver();
         dut_m_decode();
+        cd_patern_match();
         #1; tb_checker();
         print_test_results();
         run_test_pc_current = run_test_pc_current + 1;
     end
     dependency_checker();
     $display("\nTest  4: Hit specific case [Forwarding with Dependency Load]: Done \n");
+    
+    print_dependency_check_patterns();
     
     //-----------------------------------------------------------------------------
     repeat (1) @(posedge clk);
