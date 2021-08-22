@@ -42,7 +42,7 @@
 //      2021-08-18  AL  0.5.0 - Add forwarding with dependency tests for R-type
 //      2021-08-19  AL  0.6.0 - Add forwarding with dependency tests for I-type
 //      2021-08-19  AL  0.7.0 - Add forwarding with dependency tests for Load
-//      2021-08-    AL  0.8.0 - Add forwarding counters
+//      2021-08-22  AL  0.8.0 - Add forwarding counters
 //
 //-----------------------------------------------------------------------------
 
@@ -59,7 +59,8 @@
 // `define NFWE0_TEST               2*2         // No Forwarding with reg_we=0
 `define TEST_CASES               `NFND_TEST + `FDRT_TEST + `FDIT_TEST + `FDL_TEST + `NFX0_TEST
 
-// add 'tried to write when...' for x0 and we=0 and all checks that are present in dut model
+// toggle debug messages
+`define PRINT_CHECKS             1
 
 // Expected dependencies in each of the dependency tests
 `define FD_TEST_EXP_ALU_A      7  // for ALU A
@@ -132,23 +133,53 @@ integer     checker_exp_alu_a   ;
 integer     checker_exp_alu_b   ;
 integer     checker_exp_bc_a    ;
 integer     checker_exp_bcs_b   ;
+
+// forwarding counters
 integer     alu_a_sel_fwd_cnt   ;
 integer     alu_b_sel_fwd_cnt   ;
 integer     bc_a_sel_fwd_cnt    ;
 integer     bcs_b_sel_fwd_cnt   ;
-// false dependency detection
+
+// check dependency (cd_) tasks
 integer     dependency_checks_cnt         ;
+// pass counters alu
 integer     cd_alu_a_partial_fwd_cnt      ;
 integer     cd_alu_a_fwd_cnt              ;
 integer     cd_alu_a_not_fwd_cnt          ;
-reg  [ 3:0] cd_alu_a_option_pattern_match ;
+integer     cd_alu_b_partial_fwd_cnt      ;
+integer     cd_alu_b_fwd_cnt              ;
+integer     cd_alu_b_not_fwd_cnt          ;
+// pass counters bc/s
+integer     cd_bc_a_partial_fwd_cnt       ;
+integer     cd_bc_a_fwd_cnt               ;
+integer     cd_bc_a_not_fwd_cnt           ;
+integer     cd_bcs_b_partial_fwd_cnt      ;
+integer     cd_bcs_b_fwd_cnt              ;
+integer     cd_bcs_b_not_fwd_cnt          ;
+// pattern match alu
+reg  [ 2:0] cd_alu_a_option_pattern_match ;
+reg  [ 2:0] cd_alu_b_option_pattern_match ;
+// pattern match bc/s
+reg  [ 1:0] cd_bc_a_option_pattern_match  ;
+reg  [ 1:0] cd_bcs_b_option_pattern_match ;
+
+// pc store for a particular scenario match alu
+// verilog does not allow for arrays to be passed to tasks/functions
+// this is a workaround since it'a a 1-bit array
+// to make printing them more readable
+reg  [`TEST_CASES-1:0] cd_rs1_x0_pc_cnt   ; //[`TEST_CASES-1:0];
+reg  [`TEST_CASES-1:0] cd_reg_we_a_pc_cnt ; //[`TEST_CASES-1:0];
+reg  [`TEST_CASES-1:0] cd_a_sel_pc_cnt    ; //[`TEST_CASES-1:0];
+reg  [`TEST_CASES-1:0] cd_rs2_x0_pc_cnt   ; //[`TEST_CASES-1:0];
+reg  [`TEST_CASES-1:0] cd_reg_we_b_pc_cnt ; //[`TEST_CASES-1:0];
+reg  [`TEST_CASES-1:0] cd_b_sel_pc_cnt    ; //[`TEST_CASES-1:0];
 
 // file read
 integer fd;
 integer status;
-reg  [26*7:0] str;
 reg  [  31:0] test_values_inst_hex [`TEST_CASES-1:0];
 reg  [  31:0] test_values_inst_hex_nop;
+reg  [26*7:0] str;
 reg  [26*7:0] test_values_inst_asm [`TEST_CASES-1:0];
 reg  [26*7:0] test_values_inst_asm_nop;
 reg  [26*7:0] dut_env_inst_id_asm;
@@ -184,10 +215,10 @@ always #(`CLK_PERIOD/2) clk = ~clk;
 
 //-----------------------------------------------------------------------------
 // Tasks
-task print_dependency_counters;
+task print_forwarding_counters;
     begin
         $display("");
-        $write("Dependency counters:  ");
+        $write("Forwarding counters:  ");
         $write("alu_a_sel_fwd_cnt: %2d;  ", alu_a_sel_fwd_cnt);
         $write("alu_b_sel_fwd_cnt: %2d;  ", alu_b_sel_fwd_cnt);
         $write("bc_a_sel_fwd_cnt : %2d;  ",  bc_a_sel_fwd_cnt);
@@ -196,25 +227,109 @@ task print_dependency_counters;
     end
 endtask
 
-task print_dependency_check_patterns;
+task print_dependency_check_patterns_pc;
+    input check;
+    input [`TEST_CASES-1:0] pc_cnt; // [`TEST_CASES-1:0];
     begin
-        $display("Dependency checks ran %0d times", dependency_checks_cnt);
-        $display("Dependency checks for ALU A collected %0d times", cd_alu_a_partial_fwd_cnt + 
-                                                                    cd_alu_a_fwd_cnt + 
-                                                                    cd_alu_a_not_fwd_cnt);
-        $display("Forwarding ALU A Results:");
-        $display("  Possible but not completed: %0d ",  cd_alu_a_partial_fwd_cnt);
-        $display("  Completed                 : %0d ", cd_alu_a_fwd_cnt);
-        $display("  Not possible              : %0d ", cd_alu_a_not_fwd_cnt);
-        $display("  Pattern match:" );
-        $display("      rs1 == x0       hit: %1b ", cd_alu_a_option_pattern_match[3]);
-        $display("      rs1 != rd       hit: %1b ", cd_alu_a_option_pattern_match[2]);
-        $display("      reg_we_ex = 0   hit: %1b ", cd_alu_a_option_pattern_match[1]);
-        $display("      alu_a_sel != 0  hit: %1b ", cd_alu_a_option_pattern_match[0]);
+        if(check) begin
+        $write  ("          PCs with hits:");
+            for(i = 0; i < `TEST_CASES-1; i = i + 1) begin
+                if (pc_cnt[i]) $write(" %0d;", i);
+            end
+            $display("");
+        end
     end
 endtask
 
-task print_test_results;
+task print_dependency_check_patterns;
+    begin
+        `ifdef PRINT_CHECKS
+        $display("\n-------------------- Dependency check results --------------------\n");
+        $display("Dependency checks ran %0d times", dependency_checks_cnt);
+        
+        //--------------------
+        $display("\nDependency checks for ALU A collected %0d times", cd_alu_a_partial_fwd_cnt + 
+                                                                      cd_alu_a_fwd_cnt + 
+                                                                      cd_alu_a_not_fwd_cnt);
+        $display("Forwarding ALU A Results:");
+        $display("  Completed                 : %0d ", cd_alu_a_fwd_cnt);
+        $display("  Not possible              : %0d ", cd_alu_a_not_fwd_cnt);
+        $display("      *No reg match");
+        $display("  Possible but not completed: %0d ", cd_alu_a_partial_fwd_cnt);        
+        $display("      Tried to write to x0, rs1 == x0;            hit: %1b ", cd_alu_a_option_pattern_match[2]);
+        print_dependency_check_patterns_pc(cd_alu_a_option_pattern_match[2], cd_rs1_x0_pc_cnt);
+        $display("      Write enable inactive, reg_we_ex = 0;       hit: %1b ", cd_alu_a_option_pattern_match[1]);
+        print_dependency_check_patterns_pc(cd_alu_a_option_pattern_match[1], cd_reg_we_a_pc_cnt);
+        $display("      Imm value read as reg addr, alu_a_sel != 0; hit: %1b ", cd_alu_a_option_pattern_match[0]);
+        print_dependency_check_patterns_pc(cd_alu_a_option_pattern_match[0], cd_a_sel_pc_cnt);
+        
+        //--------------------
+        $display("\nDependency checks for ALU B collected %0d times", cd_alu_b_partial_fwd_cnt + 
+                                                                      cd_alu_b_fwd_cnt + 
+                                                                      cd_alu_b_not_fwd_cnt);
+        $display("Forwarding ALU B Results:");
+        $display("  Completed                 : %0d ", cd_alu_b_fwd_cnt);
+        $display("  Not possible              : %0d ", cd_alu_b_not_fwd_cnt);
+        $display("      *No reg match");
+        $display("  Possible but not completed: %0d ", cd_alu_b_partial_fwd_cnt);
+        $display("      Tried to write to x0, rs2 == x0;            hit: %1b ", cd_alu_b_option_pattern_match[2]);
+        print_dependency_check_patterns_pc(cd_alu_b_option_pattern_match[2], cd_rs2_x0_pc_cnt);
+        $display("      Write enable inactive, reg_we_ex = 0;       hit: %1b ", cd_alu_b_option_pattern_match[1]);
+        print_dependency_check_patterns_pc(cd_alu_b_option_pattern_match[1], cd_reg_we_b_pc_cnt);
+        $display("      Imm value read as reg addr, alu_b_sel != 0; hit: %1b ", cd_alu_b_option_pattern_match[0]);
+        print_dependency_check_patterns_pc(cd_alu_b_option_pattern_match[0], cd_b_sel_pc_cnt);
+        
+        //--------------------
+        $display("\nDependency checks for BC A collected %0d times",  cd_bc_a_partial_fwd_cnt + 
+                                                                      cd_bc_a_fwd_cnt + 
+                                                                      cd_bc_a_not_fwd_cnt);
+        $display("Forwarding BC A Results:");
+        $display("  Completed                 : %0d ", cd_bc_a_fwd_cnt);
+        $display("  Not possible              : %0d ", cd_bc_a_not_fwd_cnt);
+        $display("      *No reg match or not branch instruction");
+        $display("  Possible but not completed: %0d ", cd_bc_a_partial_fwd_cnt);
+        $display("      Tried to write to x0, rs1 == x0;            hit: %1b ", cd_bc_a_option_pattern_match[1]);
+        print_dependency_check_patterns_pc(cd_bc_a_option_pattern_match[1], cd_rs1_x0_pc_cnt);
+        $display("      Write enable inactive, reg_we_ex = 0;       hit: %1b ", cd_bc_a_option_pattern_match[0]);
+        print_dependency_check_patterns_pc(cd_bc_a_option_pattern_match[0], cd_reg_we_a_pc_cnt);
+        
+        //--------------------
+        $display("\nDependency checks for BCS B collected %0d times", cd_bcs_b_partial_fwd_cnt + 
+                                                                      cd_bcs_b_fwd_cnt + 
+                                                                      cd_bcs_b_not_fwd_cnt);
+        $display("Forwarding BCS B Results:");
+        $display("  Completed                 : %0d ", cd_bcs_b_fwd_cnt);
+        $display("  Not possible              : %0d ", cd_bcs_b_not_fwd_cnt);
+        $display("      *No reg match or not branch or store instruction");
+        $display("  Possible but not completed: %0d ", cd_bcs_b_partial_fwd_cnt);
+        $display("      Tried to write to x0, rs2 == x0;            hit: %1b ", cd_bcs_b_option_pattern_match[1]);
+        print_dependency_check_patterns_pc(cd_bcs_b_option_pattern_match[0], cd_rs1_x0_pc_cnt);
+        $display("      Write enable inactive, reg_we_ex = 0;       hit: %1b ", cd_bcs_b_option_pattern_match[0]);
+        print_dependency_check_patterns_pc(cd_bcs_b_option_pattern_match[1], cd_reg_we_a_pc_cnt);
+        
+        $display("\n---------------- End of dependency check results -----------------\n");
+        `else
+        $display("Dependency checks printing disabled");
+        `endif
+    end
+endtask
+
+task print_test_status;
+    begin
+        $display("\n----------------------- Simulation results -----------------------");
+        $display("Tests ran to completion");
+        $write("Status: ");
+        if(!errors)
+            $display("Passed");
+        else
+            $display("Failed");
+        $display("Warnings: %2d", warnings);
+        $display("Errors:   %2d", errors);
+        $display("--------------------- End of the simulation ----------------------\n");
+    end
+endtask
+
+task print_single_instruction_results;
     begin
         $display("Instruction at PC# %2d done. ", run_test_pc_current); 
         $write  ("ID stage: HEX: 'h%8h, ASM: %0s", dut_env_inst_id, dut_env_inst_id_asm);
@@ -313,7 +428,7 @@ task dependency_checker;
             errors = errors + 1;
         end
         
-        print_dependency_counters();
+        print_forwarding_counters();
         
         // reset counters for next test run
         alu_a_sel_fwd_cnt = 0;
@@ -374,34 +489,113 @@ task randomize_instructions;
 endtask
 
 task cd_patern_match;
-    reg [3:0] pattern_alu_a;
+    reg [2:0] pattern_alu_a;
+    reg [2:0] pattern_alu_b;
+    reg [1:0] pattern_bc_a ;
+    reg [1:0] pattern_bcs_b;
+    
     begin
         dependency_checks_cnt = dependency_checks_cnt + 1;
-        // pattern tests all opposite conditions for forwarding to detect when only some but not all 
-        // conditions were met for forwarding
         
-        // note: if alu_a_sel != 0, it's not possible to forward, take that as a main check, then use
-        // other three checks for pattern
+        // ALU A OPERAND
+        pattern_alu_a = 3'b000;
         
-        pattern_alu_a = {(dut_env_rs1_id == `RF_X0_ZERO), (dut_env_rs1_id != dut_env_rd_ex), 
-                         (!dut_env_reg_we_ex),            (dut_env_alu_a_sel)               };
-        if ((|pattern_alu_a) && (~&pattern_alu_a)) begin    // forwarding was possible but not complete
-            cd_alu_a_partial_fwd_cnt = cd_alu_a_partial_fwd_cnt + 1;
-            // $display("ALU Operand A could not be forwarded but was possible"); 
-            // if (pattern_alu_a[3]) $display("rs1 == x0");    
-            // if (pattern_alu_a[2]) $display("rs1 != rd");    
-            // if (pattern_alu_a[1]) $display("reg_we_ex = 0");
-            // if (pattern_alu_a[0]) $display("alu_a_sel != 0");
+        if (dut_env_rs1_id == dut_env_rd_ex) begin 
+            // $display("Dependency possible"); 
+            pattern_alu_a = {(dut_env_rs1_id == `RF_X0_ZERO), (!dut_env_reg_we_ex), (dut_env_alu_a_sel)};
+            cd_rs1_x0_pc_cnt  [run_test_pc_current] = pattern_alu_a[2];
+            cd_reg_we_a_pc_cnt[run_test_pc_current] = pattern_alu_a[1];
+            cd_a_sel_pc_cnt   [run_test_pc_current] = pattern_alu_a[0];
+            
+            if ((|pattern_alu_a) && (~&pattern_alu_a)) begin 
+                // $display("ALU Operand A could not be forwarded but was possible"); 
+                cd_alu_a_partial_fwd_cnt = cd_alu_a_partial_fwd_cnt + 1;
+            end
+            else if (~|pattern_alu_a) begin
+                // $display("ALU Operand A was forwarded"); 
+                cd_alu_a_fwd_cnt = cd_alu_a_fwd_cnt + 1;
+            end
         end
-        else if (~|pattern_alu_a) begin     // forwarding was possible and completed
-            // $display("ALU Operand A was forwarded"); 
-            cd_alu_a_fwd_cnt = cd_alu_a_fwd_cnt + 1;
-        end
-        else /* pattern_alu_a = 1 */ begin  // forwarding was not possible
-            // $display("ALU Operand A was not possible to be forwarded");
+            
+        else /*(dut_env_rs1_id != dut_env_rd_ex)*/ begin 
+            // $display("ALU Operand A was impossible to forward");
             cd_alu_a_not_fwd_cnt = cd_alu_a_not_fwd_cnt + 1;
-        end
+        end        
         cd_alu_a_option_pattern_match = cd_alu_a_option_pattern_match | pattern_alu_a;
+        
+        // ALU B OPERAND
+        pattern_alu_b = 3'b000;
+        
+        if (dut_env_rs2_id == dut_env_rd_ex) begin 
+            // $display("Dependency possible"); 
+            pattern_alu_b = {(dut_env_rs2_id == `RF_X0_ZERO), (!dut_env_reg_we_ex), (dut_env_alu_b_sel)};
+            cd_rs2_x0_pc_cnt  [run_test_pc_current] = pattern_alu_b[2];
+            cd_reg_we_b_pc_cnt[run_test_pc_current] = pattern_alu_b[1];
+            cd_b_sel_pc_cnt   [run_test_pc_current] = pattern_alu_b[0];
+            
+            if ((|pattern_alu_b) && (~&pattern_alu_b)) begin 
+                // $display("ALU Operand B could not be forwarded but was possible"); 
+                cd_alu_b_partial_fwd_cnt = cd_alu_b_partial_fwd_cnt + 1;
+            end
+            else if (~|pattern_alu_b) begin
+                // $display("ALU Operand B was forwarded"); 
+                cd_alu_b_fwd_cnt = cd_alu_b_fwd_cnt + 1;
+            end
+        end
+            
+        else /*(dut_env_rs1_id != dut_env_rd_ex)*/ begin 
+            // $display("ALU Operand B was impossible to forward");
+            cd_alu_b_not_fwd_cnt = cd_alu_b_not_fwd_cnt + 1;
+        end        
+        cd_alu_b_option_pattern_match = cd_alu_b_option_pattern_match | pattern_alu_b;
+        
+        // BC A OPERAND
+        pattern_bc_a = 2'b00;
+        
+        if ((dut_env_rs1_id == dut_env_rd_ex) && (dut_env_branch_inst_id)) begin 
+            // $display("Dependency possible"); 
+            // reuse checks from ALU A, two MSBs are the same
+            pattern_bc_a = pattern_alu_a[2:1];
+            
+            if ((|pattern_bc_a) && (~&pattern_bc_a)) begin 
+                // $display("ALU Operand A could not be forwarded but was possible"); 
+                cd_bc_a_partial_fwd_cnt = cd_bc_a_partial_fwd_cnt + 1;
+            end
+            else if (~|pattern_bc_a) begin
+                // $display("ALU Operand A was forwarded"); 
+                cd_bc_a_fwd_cnt = cd_bc_a_fwd_cnt + 1;
+            end
+        end
+            
+        else /*(dut_env_rs1_id != dut_env_rd_ex)*/ begin 
+            // $display("ALU Operand A was impossible to forward");
+            cd_bc_a_not_fwd_cnt = cd_bc_a_not_fwd_cnt + 1;
+        end        
+        cd_bc_a_option_pattern_match = cd_bc_a_option_pattern_match | pattern_bc_a;
+        
+        // BCS B OPERAND
+        pattern_bcs_b = 2'b00;
+        
+        if ((dut_env_rs2_id == dut_env_rd_ex) && (dut_env_branch_inst_id || dut_env_store_inst_id)) begin 
+            // $display("Dependency possible"); 
+            // reuse checks from ALU B, two MSBs are the same
+            pattern_bcs_b = pattern_alu_b[2:1];
+            
+            if ((|pattern_bcs_b) && (~&pattern_bcs_b)) begin 
+                // $display("ALU Operand A could not be forwarded but was possible"); 
+                cd_bcs_b_partial_fwd_cnt = cd_bcs_b_partial_fwd_cnt + 1;
+            end
+            else if (~|pattern_bcs_b) begin
+                // $display("ALU Operand A was forwarded"); 
+                cd_bcs_b_fwd_cnt = cd_bcs_b_fwd_cnt + 1;
+            end
+        end
+            
+        else /*(dut_env_rs2_id != dut_env_rd_ex)*/ begin 
+            // $display("ALU Operand A was impossible to forward");
+            cd_bcs_b_not_fwd_cnt = cd_bcs_b_not_fwd_cnt + 1;
+        end        
+        cd_bcs_b_option_pattern_match = cd_bcs_b_option_pattern_match | pattern_bcs_b;
     end
 endtask
 
@@ -635,11 +829,27 @@ initial begin
     alu_b_sel_fwd_cnt = 0;
     bc_a_sel_fwd_cnt  = 0;
     bcs_b_sel_fwd_cnt = 0;
+    
     dependency_checks_cnt         = 0;
+    
     cd_alu_a_partial_fwd_cnt      = 0;
     cd_alu_a_fwd_cnt              = 0;
     cd_alu_a_not_fwd_cnt          = 0;
-    cd_alu_a_option_pattern_match = 4'b0;    
+    cd_alu_a_option_pattern_match = 3'b0;
+    cd_alu_b_partial_fwd_cnt      = 0;
+    cd_alu_b_fwd_cnt              = 0;
+    cd_alu_b_not_fwd_cnt          = 0;
+    cd_alu_b_option_pattern_match = 3'b0;
+    
+    cd_bc_a_partial_fwd_cnt       = 0;
+    cd_bc_a_fwd_cnt               = 0;
+    cd_bc_a_not_fwd_cnt           = 0;
+    cd_bc_a_option_pattern_match  = 2'b0;
+    cd_bcs_b_partial_fwd_cnt      = 0;
+    cd_bcs_b_fwd_cnt              = 0;
+    cd_bcs_b_not_fwd_cnt          = 0;
+    cd_bcs_b_option_pattern_match = 2'b0;
+    
 end
 
 // Timestamp print
@@ -676,7 +886,7 @@ initial begin
     tb_driver();
     dut_m_decode();
     #1; tb_checker();
-    print_test_results();
+    print_single_instruction_results();
     $display("\nTest  0: Wait for reset: Done \n");
     
     //-----------------------------------------------------------------------------
@@ -691,7 +901,7 @@ initial begin
         dut_m_decode();
         cd_patern_match();
         #1; tb_checker();
-        print_test_results();
+        print_single_instruction_results();
         run_test_pc_current = run_test_pc_current + 1;
     end
     dependency_checker();
@@ -713,7 +923,7 @@ initial begin
         dut_m_decode();
         cd_patern_match();
         #1; tb_checker();
-        print_test_results();
+        print_single_instruction_results();
         run_test_pc_current = run_test_pc_current + 1;
     end
     dependency_checker();
@@ -731,7 +941,7 @@ initial begin
         dut_m_decode();
         cd_patern_match();
         #1; tb_checker();
-        print_test_results();
+        print_single_instruction_results();
         run_test_pc_current = run_test_pc_current + 1;
     end
     dependency_checker();
@@ -749,26 +959,17 @@ initial begin
         dut_m_decode();
         cd_patern_match();
         #1; tb_checker();
-        print_test_results();
+        print_single_instruction_results();
         run_test_pc_current = run_test_pc_current + 1;
     end
     dependency_checker();
     $display("\nTest  4: Hit specific case [Forwarding with Dependency Load]: Done \n");
     
-    print_dependency_check_patterns();
     
     //-----------------------------------------------------------------------------
     repeat (1) @(posedge clk);
-    $display("\n----------------------- Simulation results -----------------------");
-    $display("Tests ran to completion");
-    $write("Status: ");
-    if(!errors)
-        $display("Passed");
-    else
-        $display("Failed");
-    $display("Warnings: %2d", warnings);
-    $display("Errors:   %2d", errors);
-    $display("--------------------- End of the simulation ----------------------\n");
+    print_dependency_check_patterns();
+    print_test_status();
     $finish();
 end
 
