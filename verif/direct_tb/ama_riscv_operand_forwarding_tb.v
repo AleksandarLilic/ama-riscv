@@ -7,20 +7,28 @@
 // Description:     Test covers following scenarios:
 //                      1.  No forwarding when there is no dependency - pass decoder values
 //                      2.  Forwarding data when dependency occurs in the pipeline
-//                        2a. R-type followed by all dependency options
-//                        2b. I-type followed by all dependency options
-//                        2c. Load followed by all dependency options
-//                      4.  No forwarding occurs when dependency exists but its x0
-//                        4a. R-type writes to x0
-//                        4b. I-type writes to x0
-//                        4c. Load writes to x0
-//                        4d. JALR writes to x0
-//                        4e. JAL writes to x0
-//                        4f. LUI writes to x0
-//                        4g. AUIPC writes to x0
-//                      5.  No forwarding occurs when it looks like dependency exists but reg_we_ex = 0
-//                        5a. Store has imm[4:0] that aligns with rd address of next instruction
-//                        5a. Branch has imm[4:1|11] that aligns with rd address of next instruction
+//                        2a. R-type followed by all dependency options*
+//                        2b. I-type followed by all dependency options*
+//                        2c. Load followed by all dependency options*
+//                      3.  No forwarding false dependency - writes to x0
+//                          Signal reg_we_ex would be high from decoder but RF would not write to x0 location
+//                        3a. R-type writes to x0
+//                        3b. I-type writes to x0
+//                        3c. Load writes to x0
+//                        3d. JALR writes to x0
+//                        3e. JAL writes to x0
+//                        3f. LUI writes to x0
+//                        3g. AUIPC writes to x0
+//                      4.  No forwarding false dependency - reg_we_ex = 0
+//                        4a. Store has imm[4:0] (rd address for most instr) that aligns with rs1 or rs2
+//                            address or part of imm value of next instruction**
+//                        4a. Branch has imm[4:1|11] (rd address for most instr) that aligns with rs1 or rs2
+//                            address or part of imm value of next instruction**
+//                      5.  No forwarding occurs when it looks like dependency exists with reg_we_ex = 1
+//                          but module treated immediate value as register address. In other words, 
+//                          decoder ALU A or B select output was '1', for A that's PC, for B IMM GEN
+//                          These cases are very frequent occurrence and have been covered with previous 
+//                          tests (see reports at the end of simulation)
 //
 //                      * All dependency options are:
 //                       - R-type   : rs1(ALU A), rs2(ALU B),    rs1(ALU A) and rs2(ALU B)
@@ -34,6 +42,21 @@
 //                         checked to verify that they do not cause forwarding
 //                         Total checks: 15
 //
+//                      ** Specifically, instruction that follows store or branch can, and will, decode
+//                       store/branch imm value as rd address for their own either rs1 or rs2. Therefore
+//                       dependency would not exist as there would be no actual writes to rd by store/branch.
+//                       Note that rs1 or rs2 do not have to be present in next instruction. Here again, 
+//                       imm value of the instruction will be decoded as rs1 or rs2 for bits that sit in that 
+//                       position, regardless of whether they are actually treated as rs1 and rs2
+//                       Example of scenario like this that can happen (occurs in this tb when PC=83):
+//                                _ funct7_ rs2 _ rs1 _fn3_ rd  _opcode _
+//                       id stage: 0000000_11100_00101_010_01111_0000011    lw x15 0x1C x5
+//                       ex stage: 0000110_00111_01110_100_11100_1100011    blt x14 x7 0xDC <tgt>
+//                       The supposed rd field of blt instruction aligned with the supposed rs2 field of lw
+//                       Their imm values aligned:
+//                          in lw: 'rs2' is holding 5-bit LSB part 0x1C of imm offset of 12-bit 0x01C
+//                          in blt: 'rd' is holding 5-bit [4:1|11] part 0x1C of imm offset of 12-bit 0x0DC
+//
 // Version history:
 //      2021-08-13  AL  0.1.0 - Initial - Add no forwarding no dependency tests
 //      2021-08-13  AL  0.2.0 - Add forwarding with dependency tests (test set)
@@ -43,6 +66,7 @@
 //      2021-08-19  AL  0.6.0 - Add forwarding with dependency tests for I-type
 //      2021-08-19  AL  0.7.0 - Add forwarding with dependency tests for Load
 //      2021-08-22  AL  0.8.0 - Add forwarding counters
+//      2021-08-23  AL  0.9.0 - Add no forwarding with false dependency write to x0 tests
 //
 //-----------------------------------------------------------------------------
 
@@ -173,17 +197,21 @@ reg  [`TEST_CASES-1:0] cd_a_sel_pc_cnt    ; //[`TEST_CASES-1:0];
 reg  [`TEST_CASES-1:0] cd_rs2_x0_pc_cnt   ; //[`TEST_CASES-1:0];
 reg  [`TEST_CASES-1:0] cd_reg_we_b_pc_cnt ; //[`TEST_CASES-1:0];
 reg  [`TEST_CASES-1:0] cd_b_sel_pc_cnt    ; //[`TEST_CASES-1:0];
+reg  [`TEST_CASES-1:0] cd_bc_rs1_x0_pc_cnt    ; //[`TEST_CASES-1:0];
+reg  [`TEST_CASES-1:0] cd_bc_reg_we_a_pc_cnt  ; //[`TEST_CASES-1:0];
+reg  [`TEST_CASES-1:0] cd_bcs_rs2_x0_pc_cnt   ; //[`TEST_CASES-1:0];
+reg  [`TEST_CASES-1:0] cd_bcs_reg_we_b_pc_cnt ; //[`TEST_CASES-1:0];
 
 // file read
 integer fd;
 integer status;
 reg  [  31:0] test_values_inst_hex [`TEST_CASES-1:0];
 reg  [  31:0] test_values_inst_hex_nop;
-reg  [26*7:0] str;
-reg  [26*7:0] test_values_inst_asm [`TEST_CASES-1:0];
-reg  [26*7:0] test_values_inst_asm_nop;
-reg  [26*7:0] dut_env_inst_id_asm;
-reg  [26*7:0] dut_env_inst_ex_asm;
+reg  [30*7:0] str;
+reg  [30*7:0] test_values_inst_asm [`TEST_CASES-1:0];
+reg  [30*7:0] test_values_inst_asm_nop;
+reg  [30*7:0] dut_env_inst_id_asm;
+reg  [30*7:0] dut_env_inst_ex_asm;
 
 // events
 event ev_rst    [1:0];
@@ -233,7 +261,7 @@ task print_dependency_check_patterns_pc;
     begin
         if(check) begin
         $write  ("          PCs with hits:");
-            for(i = 0; i < `TEST_CASES-1; i = i + 1) begin
+            for(i = 0; i < `TEST_CASES; i = i + 1) begin
                 if (pc_cnt[i]) $write(" %0d;", i);
             end
             $display("");
@@ -256,11 +284,11 @@ task print_dependency_check_patterns;
         $display("  Not possible              : %0d ", cd_alu_a_not_fwd_cnt);
         $display("      *No reg match");
         $display("  Possible but not completed: %0d ", cd_alu_a_partial_fwd_cnt);        
-        $display("      Tried to write to x0, rs1 == x0;            hit: %1b ", cd_alu_a_option_pattern_match[2]);
+        $display("      Tried to write to x0, rs1 == x0;            hit: %s ", cd_alu_a_option_pattern_match[2] ? "True" : "False");
         print_dependency_check_patterns_pc(cd_alu_a_option_pattern_match[2], cd_rs1_x0_pc_cnt);
-        $display("      Write enable inactive, reg_we_ex = 0;       hit: %1b ", cd_alu_a_option_pattern_match[1]);
+        $display("      Write enable inactive, reg_we_ex = 0;       hit: %s ", cd_alu_a_option_pattern_match[1] ? "True" : "False");
         print_dependency_check_patterns_pc(cd_alu_a_option_pattern_match[1], cd_reg_we_a_pc_cnt);
-        $display("      Imm value read as reg addr, alu_a_sel != 0; hit: %1b ", cd_alu_a_option_pattern_match[0]);
+        $display("      Imm value read as reg addr, alu_a_sel != 0; hit: %s ", cd_alu_a_option_pattern_match[0] ? "True" : "False");
         print_dependency_check_patterns_pc(cd_alu_a_option_pattern_match[0], cd_a_sel_pc_cnt);
         
         //--------------------
@@ -272,11 +300,11 @@ task print_dependency_check_patterns;
         $display("  Not possible              : %0d ", cd_alu_b_not_fwd_cnt);
         $display("      *No reg match");
         $display("  Possible but not completed: %0d ", cd_alu_b_partial_fwd_cnt);
-        $display("      Tried to write to x0, rs2 == x0;            hit: %1b ", cd_alu_b_option_pattern_match[2]);
+        $display("      Tried to write to x0, rs2 == x0;            hit: %s ", cd_alu_b_option_pattern_match[2] ? "True" : "False");
         print_dependency_check_patterns_pc(cd_alu_b_option_pattern_match[2], cd_rs2_x0_pc_cnt);
-        $display("      Write enable inactive, reg_we_ex = 0;       hit: %1b ", cd_alu_b_option_pattern_match[1]);
+        $display("      Write enable inactive, reg_we_ex = 0;       hit: %s ", cd_alu_b_option_pattern_match[1] ? "True" : "False");
         print_dependency_check_patterns_pc(cd_alu_b_option_pattern_match[1], cd_reg_we_b_pc_cnt);
-        $display("      Imm value read as reg addr, alu_b_sel != 0; hit: %1b ", cd_alu_b_option_pattern_match[0]);
+        $display("      Imm value read as reg addr, alu_b_sel != 0; hit: %s ", cd_alu_b_option_pattern_match[0] ? "True" : "False");
         print_dependency_check_patterns_pc(cd_alu_b_option_pattern_match[0], cd_b_sel_pc_cnt);
         
         //--------------------
@@ -288,10 +316,10 @@ task print_dependency_check_patterns;
         $display("  Not possible              : %0d ", cd_bc_a_not_fwd_cnt);
         $display("      *No reg match or not branch instruction");
         $display("  Possible but not completed: %0d ", cd_bc_a_partial_fwd_cnt);
-        $display("      Tried to write to x0, rs1 == x0;            hit: %1b ", cd_bc_a_option_pattern_match[1]);
-        print_dependency_check_patterns_pc(cd_bc_a_option_pattern_match[1], cd_rs1_x0_pc_cnt);
-        $display("      Write enable inactive, reg_we_ex = 0;       hit: %1b ", cd_bc_a_option_pattern_match[0]);
-        print_dependency_check_patterns_pc(cd_bc_a_option_pattern_match[0], cd_reg_we_a_pc_cnt);
+        $display("      Tried to write to x0, rs1 == x0;            hit: %s ", cd_bc_a_option_pattern_match[1] ? "True" : "False");
+        print_dependency_check_patterns_pc(cd_bc_a_option_pattern_match[1], cd_bc_rs1_x0_pc_cnt);
+        $display("      Write enable inactive, reg_we_ex = 0;       hit: %s ", cd_bc_a_option_pattern_match[0] ? "True" : "False");
+        print_dependency_check_patterns_pc(cd_bc_a_option_pattern_match[0], cd_bc_reg_we_a_pc_cnt);
         
         //--------------------
         $display("\nDependency checks for BCS B collected %0d times", cd_bcs_b_partial_fwd_cnt + 
@@ -302,10 +330,10 @@ task print_dependency_check_patterns;
         $display("  Not possible              : %0d ", cd_bcs_b_not_fwd_cnt);
         $display("      *No reg match or not branch or store instruction");
         $display("  Possible but not completed: %0d ", cd_bcs_b_partial_fwd_cnt);
-        $display("      Tried to write to x0, rs2 == x0;            hit: %1b ", cd_bcs_b_option_pattern_match[1]);
-        print_dependency_check_patterns_pc(cd_bcs_b_option_pattern_match[0], cd_rs1_x0_pc_cnt);
-        $display("      Write enable inactive, reg_we_ex = 0;       hit: %1b ", cd_bcs_b_option_pattern_match[0]);
-        print_dependency_check_patterns_pc(cd_bcs_b_option_pattern_match[1], cd_reg_we_a_pc_cnt);
+        $display("      Tried to write to x0, rs2 == x0;            hit: %s ", cd_bcs_b_option_pattern_match[1] ? "True" : "False");
+        print_dependency_check_patterns_pc(cd_bcs_b_option_pattern_match[1], cd_bcs_rs2_x0_pc_cnt);
+        $display("      Write enable inactive, reg_we_ex = 0;       hit: %s ", cd_bcs_b_option_pattern_match[0] ? "True" : "False");
+        print_dependency_check_patterns_pc(cd_bcs_b_option_pattern_match[0], cd_bcs_reg_we_b_pc_cnt);
         
         $display("\n---------------- End of dependency check results -----------------\n");
         `else
@@ -503,15 +531,12 @@ task cd_patern_match;
         if (dut_env_rs1_id == dut_env_rd_ex) begin 
             // $display("Dependency possible"); 
             pattern_alu_a = {(dut_env_rs1_id == `RF_X0_ZERO), (!dut_env_reg_we_ex), (dut_env_alu_a_sel)};
-            cd_rs1_x0_pc_cnt  [run_test_pc_current] = pattern_alu_a[2];
-            cd_reg_we_a_pc_cnt[run_test_pc_current] = pattern_alu_a[1];
-            cd_a_sel_pc_cnt   [run_test_pc_current] = pattern_alu_a[0];
             
-            if ((|pattern_alu_a) && (~&pattern_alu_a)) begin 
+            if (pattern_alu_a > 3'd0) begin 
                 // $display("ALU Operand A could not be forwarded but was possible"); 
                 cd_alu_a_partial_fwd_cnt = cd_alu_a_partial_fwd_cnt + 1;
             end
-            else if (~|pattern_alu_a) begin
+            else /*pattern_alu_a == 3'd0*/ begin
                 // $display("ALU Operand A was forwarded"); 
                 cd_alu_a_fwd_cnt = cd_alu_a_fwd_cnt + 1;
             end
@@ -520,7 +545,11 @@ task cd_patern_match;
         else /*(dut_env_rs1_id != dut_env_rd_ex)*/ begin 
             // $display("ALU Operand A was impossible to forward");
             cd_alu_a_not_fwd_cnt = cd_alu_a_not_fwd_cnt + 1;
-        end        
+        end
+        
+        cd_rs1_x0_pc_cnt  [run_test_pc_current] = pattern_alu_a[2];
+        cd_reg_we_a_pc_cnt[run_test_pc_current] = pattern_alu_a[1];
+        cd_a_sel_pc_cnt   [run_test_pc_current] = pattern_alu_a[0];
         cd_alu_a_option_pattern_match = cd_alu_a_option_pattern_match | pattern_alu_a;
         
         // ALU B OPERAND
@@ -529,15 +558,12 @@ task cd_patern_match;
         if (dut_env_rs2_id == dut_env_rd_ex) begin 
             // $display("Dependency possible"); 
             pattern_alu_b = {(dut_env_rs2_id == `RF_X0_ZERO), (!dut_env_reg_we_ex), (dut_env_alu_b_sel)};
-            cd_rs2_x0_pc_cnt  [run_test_pc_current] = pattern_alu_b[2];
-            cd_reg_we_b_pc_cnt[run_test_pc_current] = pattern_alu_b[1];
-            cd_b_sel_pc_cnt   [run_test_pc_current] = pattern_alu_b[0];
             
-            if ((|pattern_alu_b) && (~&pattern_alu_b)) begin 
+            if (pattern_alu_b > 3'd0) begin 
                 // $display("ALU Operand B could not be forwarded but was possible"); 
                 cd_alu_b_partial_fwd_cnt = cd_alu_b_partial_fwd_cnt + 1;
             end
-            else if (~|pattern_alu_b) begin
+            else /*pattern_alu_b == 3'd0*/ begin
                 // $display("ALU Operand B was forwarded"); 
                 cd_alu_b_fwd_cnt = cd_alu_b_fwd_cnt + 1;
             end
@@ -546,7 +572,11 @@ task cd_patern_match;
         else /*(dut_env_rs1_id != dut_env_rd_ex)*/ begin 
             // $display("ALU Operand B was impossible to forward");
             cd_alu_b_not_fwd_cnt = cd_alu_b_not_fwd_cnt + 1;
-        end        
+        end
+        
+        cd_rs2_x0_pc_cnt  [run_test_pc_current] = pattern_alu_b[2];
+        cd_reg_we_b_pc_cnt[run_test_pc_current] = pattern_alu_b[1];
+        cd_b_sel_pc_cnt   [run_test_pc_current] = pattern_alu_b[0];
         cd_alu_b_option_pattern_match = cd_alu_b_option_pattern_match | pattern_alu_b;
         
         // BC A OPERAND
@@ -554,47 +584,51 @@ task cd_patern_match;
         
         if ((dut_env_rs1_id == dut_env_rd_ex) && (dut_env_branch_inst_id)) begin 
             // $display("Dependency possible"); 
-            // reuse checks from ALU A, two MSBs are the same
-            pattern_bc_a = pattern_alu_a[2:1];
+            // reuse checks from BC A, two MSBs are the same
+            pattern_bc_a = {(dut_env_rs1_id == `RF_X0_ZERO), (!dut_env_reg_we_ex)};
             
-            if ((|pattern_bc_a) && (~&pattern_bc_a)) begin 
-                // $display("ALU Operand A could not be forwarded but was possible"); 
+            if (pattern_bc_a > 2'd0) begin 
+                // $display("BC Operand A could not be forwarded but was possible"); 
                 cd_bc_a_partial_fwd_cnt = cd_bc_a_partial_fwd_cnt + 1;
             end
-            else if (~|pattern_bc_a) begin
-                // $display("ALU Operand A was forwarded"); 
+            else /*pattern_bc_a == 2'd0*/ begin
+                // $display("BC Operand A was forwarded"); 
                 cd_bc_a_fwd_cnt = cd_bc_a_fwd_cnt + 1;
             end
         end
             
         else /*(dut_env_rs1_id != dut_env_rd_ex)*/ begin 
-            // $display("ALU Operand A was impossible to forward");
+            // $display("BC Operand A was impossible to forward");
             cd_bc_a_not_fwd_cnt = cd_bc_a_not_fwd_cnt + 1;
-        end        
+        end
+        
+        cd_bc_rs1_x0_pc_cnt  [run_test_pc_current] = pattern_bc_a[1];
+        cd_bc_reg_we_a_pc_cnt[run_test_pc_current] = pattern_bc_a[0];
         cd_bc_a_option_pattern_match = cd_bc_a_option_pattern_match | pattern_bc_a;
         
         // BCS B OPERAND
         pattern_bcs_b = 2'b00;
         
         if ((dut_env_rs2_id == dut_env_rd_ex) && (dut_env_branch_inst_id || dut_env_store_inst_id)) begin 
-            // $display("Dependency possible"); 
-            // reuse checks from ALU B, two MSBs are the same
-            pattern_bcs_b = pattern_alu_b[2:1];
+            // $display("Dependency possible");
+            pattern_bcs_b = {(dut_env_rs2_id == `RF_X0_ZERO), (!dut_env_reg_we_ex)};
             
-            if ((|pattern_bcs_b) && (~&pattern_bcs_b)) begin 
-                // $display("ALU Operand A could not be forwarded but was possible"); 
+            if (pattern_bcs_b > 2'd0) begin 
+                // $display("BCS Operand B could not be forwarded but was possible"); 
                 cd_bcs_b_partial_fwd_cnt = cd_bcs_b_partial_fwd_cnt + 1;
             end
-            else if (~|pattern_bcs_b) begin
-                // $display("ALU Operand A was forwarded"); 
+            else /*pattern_bcs_b == 2'd0*/ begin
+                // $display("BCS Operand B was forwarded"); 
                 cd_bcs_b_fwd_cnt = cd_bcs_b_fwd_cnt + 1;
             end
         end
             
         else /*(dut_env_rs2_id != dut_env_rd_ex)*/ begin 
-            // $display("ALU Operand A was impossible to forward");
+            // $display("BCS Operand B was impossible to forward");
             cd_bcs_b_not_fwd_cnt = cd_bcs_b_not_fwd_cnt + 1;
-        end        
+        end
+        cd_bcs_rs2_x0_pc_cnt  [run_test_pc_current] = pattern_bcs_b[1];
+        cd_bcs_reg_we_b_pc_cnt[run_test_pc_current] = pattern_bcs_b[0];
         cd_bcs_b_option_pattern_match = cd_bcs_b_option_pattern_match | pattern_bcs_b;
     end
 endtask
@@ -909,8 +943,8 @@ initial begin
     $display("\nTest  1: Hit specific case [No Forwarding No Dependency]: Done \n");
     
     //-----------------------------------------------------------------------------
-    // Test 2: Forwarding with Dependency R-type
-    $display("\nTest  2: Hit specific case [Forwarding with Dependency R-type]: Start \n");
+    // Test 2a: Forwarding with Dependency R-type
+    $display("\nTest  2a: Hit specific case [Forwarding with Dependency R-type]: Start \n");
     run_test_pc_target  = run_test_pc_current + `FDRT_TEST;
     expected_dependencies(`FD_TEST_EXP_ALU_A, 
                           `FD_TEST_EXP_ALU_B, 
@@ -927,11 +961,11 @@ initial begin
         run_test_pc_current = run_test_pc_current + 1;
     end
     dependency_checker();
-    $display("\nTest  2: Hit specific case [Forwarding with Dependency R-type]: Done \n");
+    $display("\nTest  2a: Hit specific case [Forwarding with Dependency R-type]: Done \n");
     
     //-----------------------------------------------------------------------------
-    // Test 3: Forwarding with Dependency I-type
-    $display("\nTest  3: Hit specific case [Forwarding with Dependency I-type]: Start \n");
+    // Test 2b: Forwarding with Dependency I-type
+    $display("\nTest  2b: Hit specific case [Forwarding with Dependency I-type]: Start \n");
     run_test_pc_target  = run_test_pc_current + `FDIT_TEST;
     // expected_dependencies are the same as R-type
     while(run_test_pc_current < run_test_pc_target) begin
@@ -945,11 +979,11 @@ initial begin
         run_test_pc_current = run_test_pc_current + 1;
     end
     dependency_checker();
-    $display("\nTest  3: Hit specific case [Forwarding with Dependency I-type]: Done \n");
+    $display("\nTest  2b: Hit specific case [Forwarding with Dependency I-type]: Done \n");
     
     //-----------------------------------------------------------------------------
-    // Test 4: Forwarding with Dependency I-type
-    $display("\nTest  4: Hit specific case [Forwarding with Dependency Load]: Start \n");
+    // Test 2c: Forwarding with Dependency Load
+    $display("\nTest  2c: Hit specific case [Forwarding with Dependency Load]: Start \n");
     run_test_pc_target  = run_test_pc_current + `FDL_TEST;
     // expected_dependencies are the same as R-type and I-type
     while(run_test_pc_current < run_test_pc_target) begin
@@ -963,7 +997,25 @@ initial begin
         run_test_pc_current = run_test_pc_current + 1;
     end
     dependency_checker();
-    $display("\nTest  4: Hit specific case [Forwarding with Dependency Load]: Done \n");
+    $display("\nTest  2c: Hit specific case [Forwarding with Dependency Load]: Done \n");
+    
+    //-----------------------------------------------------------------------------
+    // Test 3: No forwarding false dependency - writes to x0
+    $display("\nTest  3: Hit specific case [No forwarding false dependency - writes to x0]: Start \n");
+    run_test_pc_target  = run_test_pc_current + `NFX0_TEST;
+    expected_dependencies(0, 0, 0, 0);
+    while(run_test_pc_current < run_test_pc_target) begin
+        @(posedge clk); #1;
+        env_update_seq();
+        tb_driver();
+        dut_m_decode();
+        cd_patern_match();
+        #1; tb_checker();
+        print_single_instruction_results();
+        run_test_pc_current = run_test_pc_current + 1;
+    end
+    dependency_checker();
+    $display("\nTest  3: Hit specific case [No forwarding false dependency - writes to x0]: Done \n");
     
     
     //-----------------------------------------------------------------------------
