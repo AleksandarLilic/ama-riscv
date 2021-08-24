@@ -107,3 +107,11 @@ lui   x0  0xC8
 beq   x0  x0 0xB4 <tgt>
 auipc x0  0xE9
 or    x4  x0 x9
+sw    x7  0x0A x3
+addi  x1  x10 0x23
+sh    x5  0x0F x3
+add   x4  x2  x15
+blt   x7  x11 0xAC <tgt>
+sh    x16 0x04 x5
+sb    x2  0x08 x3
+beq   x8 x8 0x 0xAC <tgt>
