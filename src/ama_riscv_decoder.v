@@ -23,6 +23,7 @@
 //      2021-08-12  AL  0.7.0 - Add support for JAL
 //      2021-08-12  AL  0.8.0 - Add support for LUI
 //      2021-08-12  AL  0.9.0 - Add support for AUIPC
+//      2021-09-08  AL 0.10.0 - Remove imem_en and branch prediction I/O
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -35,20 +36,21 @@ module ama_riscv_decoder (
     input   wire [31:0] inst_ex     ,
     input   wire        bc_a_eq_b   ,
     input   wire        bc_a_lt_b   ,
-    input   wire        bp_taken    ,
-    input   wire        bp_clear    ,
+    // input   wire        bp_taken    ,
+    // input   wire        bp_clear    ,
     // pipeline outputs
     output  wire        stall_if    ,
     output  wire        clear_if    ,
     output  wire        clear_id    ,
+    output  wire        clear_ex    ,
     output  wire        clear_mem   ,
     // outputs
     output  wire [ 1:0] pc_sel      ,
     output  wire        pc_we       ,
-    output  wire        imem_en     ,
+    // output  wire        imem_en     ,
+    output  wire        store_inst  ,
     output  wire        branch_inst ,
     output  wire        jump_inst   ,
-    output  wire        store_inst  ,
     output  wire [ 3:0] alu_op_sel  ,
     output  wire        alu_a_sel   ,
     output  wire        alu_b_sel   ,
@@ -76,9 +78,9 @@ wire  [ 6:0] funct7_ex   =  inst_ex[31:25];
 // Switch-Case outputs
 reg   [ 1:0] pc_sel_r      ;
 reg          pc_we_r       ;
+reg          store_inst_r  ;
 reg          branch_inst_r ;
 reg          jump_inst_r   ;
-reg          store_inst_r  ;
 reg   [ 3:0] alu_op_sel_r  ;
 reg          alu_a_sel_r   ;
 reg          alu_b_sel_r   ;
@@ -93,9 +95,9 @@ reg          reg_we_r      ;
 reg          pc_sel_rst       ;
 reg   [ 1:0] pc_sel_prev      ;
 reg          pc_we_prev       ;
+reg          store_inst_prev  ;
 reg          branch_inst_prev ;
 reg          jump_inst_prev   ;
-reg          store_inst_prev  ;
 reg   [ 3:0] alu_op_sel_prev  ;
 reg          alu_a_sel_prev   ;
 reg          alu_b_sel_prev   ;
@@ -116,9 +118,9 @@ reg          reg_we_prev      ;
 posedge clk
     if (rst) reset_seq = 3'b111
     else reset_seq = {reset_seq[2:1],1'b0};
-assign stall_rst_seq_id  = reset_seq[0];    // keeps it clear 1 clk after rst ends
-assign stall_rst_seq_ex  = reset_seq[1];    // keeps it clear 2 clks after rst ends
-assign stall_rst_seq_mem = reset_seq[2];    // keeps it clear 3 clks after rst ends
+assign rst_seq_id  = reset_seq[0];    // keeps it clear 1 clk after rst ends
+assign rst_seq_ex  = reset_seq[1];    // keeps it clear 2 clks after rst ends
+assign rst_seq_mem = reset_seq[2];    // keeps it clear 3 clks after rst ends
  */
  
 //-----------------------------------------------------------------------------
@@ -128,9 +130,9 @@ always @ (*) begin
         `OPC7_R_TYPE: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
+            store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
-            store_inst_r  = 1'b0;
             alu_op_sel_r  = {funct7_id[5],funct3_id};
             alu_a_sel_r   = `ALU_A_SEL_RS1;
             alu_b_sel_r   = `ALU_B_SEL_RS2;
@@ -145,9 +147,9 @@ always @ (*) begin
         `OPC7_I_TYPE: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
+            store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
-            store_inst_r  = 1'b0;
             //                                           --------- shift -------- : ------ imm ------
             alu_op_sel_r  = (funct3_id[1:0] == 2'b01) ? {funct7_id[5], funct3_id} : {1'b0, funct3_id};
             alu_a_sel_r   = `ALU_A_SEL_RS1;
@@ -163,9 +165,9 @@ always @ (*) begin
         `OPC7_LOAD: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
+            store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
-            store_inst_r  = 1'b0;
             alu_op_sel_r  = `ALU_ADD;
             alu_a_sel_r   = `ALU_A_SEL_RS1;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
@@ -180,9 +182,9 @@ always @ (*) begin
         `OPC7_STORE: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
+            store_inst_r  = 1'b1;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
-            store_inst_r  = 1'b1;
             alu_op_sel_r  = `ALU_ADD;
             alu_a_sel_r   = `ALU_A_SEL_RS1;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
@@ -197,9 +199,9 @@ always @ (*) begin
         `OPC7_BRANCH: begin
             pc_sel_r      = `PC_SEL_INC4;   // to change to branch predictor
             pc_we_r       = 1'b1;           // assumes branch predictor ... (1)
+            store_inst_r  = 1'b0;
             branch_inst_r = 1'b1;
             jump_inst_r   = 1'b0;
-            store_inst_r  = 1'b0;
             alu_op_sel_r  = `ALU_ADD;
             alu_a_sel_r   = `ALU_A_SEL_PC;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
@@ -214,9 +216,9 @@ always @ (*) begin
         `OPC7_JALR: begin
             pc_sel_r      = `PC_SEL_ALU;    // to change to branch predictor
             pc_we_r       = 1'b1;           // assumes branch predictor ... (1)
+            store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b1;
-            store_inst_r  = 1'b0;
             alu_op_sel_r  = `ALU_ADD;
             alu_a_sel_r   = `ALU_A_SEL_RS1;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
@@ -231,9 +233,9 @@ always @ (*) begin
         `OPC7_JAL: begin
             pc_sel_r      = `PC_SEL_ALU;    // to change to branch predictor
             pc_we_r       = 1'b1;           // assumes branch predictor ... (1)
+            store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b1;
-            store_inst_r  = 1'b0;
             alu_op_sel_r  = `ALU_ADD;
             alu_a_sel_r   = `ALU_A_SEL_PC;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
@@ -248,9 +250,9 @@ always @ (*) begin
         `OPC7_LUI: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;       
+            store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
-            store_inst_r  = 1'b0;
             alu_op_sel_r  = `ALU_PASS_B;
             // alu_a_sel_r   = *;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
@@ -265,9 +267,9 @@ always @ (*) begin
         `OPC7_AUIPC: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;       
+            store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
-            store_inst_r  = 1'b0;
             alu_op_sel_r  = `ALU_ADD;
             alu_a_sel_r   = `ALU_A_SEL_PC;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
@@ -282,9 +284,9 @@ always @ (*) begin
         default: begin
             pc_sel_r      = pc_sel_prev      ;
             pc_we_r       = pc_we_prev       ;
+            store_inst_r  = store_inst_prev  ;
             branch_inst_r = branch_inst_prev ;
             jump_inst_r   = jump_inst_prev   ;
-            store_inst_r  = store_inst_prev  ;
             alu_op_sel_r  = alu_op_sel_prev  ;
             alu_a_sel_r   = alu_a_sel_prev   ;
             alu_b_sel_r   = alu_b_sel_prev   ;
@@ -352,9 +354,9 @@ assign stall_if     = branch_inst_r || jump_inst_r; // PC stall directly; IMEM s
 assign pc_sel       = (pc_sel_rst)  ? `PC_SEL_START_ADDR  :
                       (flow_change) ? `PC_SEL_ALU         : pc_sel_r;
 assign pc_we        = (stall_if)    ? 1'b0 : pc_we_r       ; // ... (1) overwritten for now
+assign store_inst   = store_inst_r  ;
 assign branch_inst  = branch_inst_r ;
 assign jump_inst    = jump_inst_r   ;
-assign store_inst   = store_inst_r  ;
 assign alu_op_sel   = alu_op_sel_r  ;
 assign alu_a_sel    = alu_a_sel_r   ;
 assign alu_b_sel    = alu_b_sel_r   ;
@@ -374,9 +376,9 @@ always @ (posedge clk) begin
         // disable or some defaults for others
         pc_sel_prev      <= `PC_SEL_START_ADDR;
         pc_we_prev       <= 1'b1;   // it'll increment start_address always after rst -> fine
+        store_inst_prev  <= 1'b0;
         branch_inst_prev <= 1'b0;
         jump_inst_prev   <= 1'b0;
-        store_inst_prev  <= 1'b0;
         alu_op_sel_prev  <= `ALU_ADD;
         alu_a_sel_prev   <= `ALU_A_SEL_RS1;
         alu_b_sel_prev   <= `ALU_B_SEL_RS2;
@@ -391,9 +393,9 @@ always @ (posedge clk) begin
         pc_sel_rst       <= 1'b0;
         pc_sel_prev      <= pc_sel     ;
         pc_we_prev       <= pc_we      ;
+        store_inst_prev  <= store_inst ;
         branch_inst_prev <= branch_inst;
         jump_inst_prev   <= jump_inst  ;
-        store_inst_prev  <= store_inst ;
         alu_op_sel_prev  <= alu_op_sel ;
         alu_a_sel_prev   <= alu_a_sel  ;
         alu_b_sel_prev   <= alu_b_sel  ;
