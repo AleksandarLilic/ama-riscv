@@ -14,6 +14,7 @@
 //      2021-08-17  AL  0.2.1 - Fix forwarding when imm/pc was selected
 //      2021-08-18  AL  0.2.2 - Add muxes for branch compare/dmem din
 //      2021-08-19  AL  0.2.3 - Remove store inst check for B select
+//      2021-09-08  AL  0.2.4 - Fix register address signal width
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -23,9 +24,9 @@ module ama_riscv_operand_forwarding (
     input   wire        reg_we_ex       ,
     input   wire        store_inst_id   ,
     input   wire        branch_inst_id  ,
-    input   wire [ 5:0] rs1_id          ,
-    input   wire [ 5:0] rs2_id          ,
-    input   wire [ 5:0] rd_ex           ,
+    input   wire [ 4:0] rs1_id          ,
+    input   wire [ 4:0] rs2_id          ,
+    input   wire [ 4:0] rd_ex           ,
     input   wire        alu_a_sel       ,
     input   wire        alu_b_sel       ,
     // outputs                          
