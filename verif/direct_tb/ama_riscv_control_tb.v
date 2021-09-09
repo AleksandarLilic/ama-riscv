@@ -18,6 +18,7 @@
 // Version history:
 //      2021-09-07  AL  0.1.0 - Initial - Reset and R-type
 //      2021-09-09  AL  0.2.0 - Finish model and checker for decoder and forwarding
+//      2021-09-10  AL  0.3.0 - Add model and checker for store mask
 //
 //-----------------------------------------------------------------------------
 
@@ -41,7 +42,7 @@
 `define LABEL_TGT                `TEST_CASES - 1 // location to which to branch
 
 // Register Field
-`define RF_X0_ZERO          5'd0
+// `define RF_X0_ZERO          5'd0
 
 // MUX select signals
 // PC select
@@ -135,6 +136,7 @@ wire [ 3:0] dmem_we             ;       reg  [ 3:0] dut_m_dmem_we       ;
                                         reg  [ 4:0] dut_env_rs1_id      ;
                                         reg  [ 4:0] dut_env_rs2_id      ;
                                         reg  [ 4:0] dut_env_rd_id       ;
+                                        reg  [ 2:0] dut_env_funct3_ex   ;
 
 //-----------------------------------------------------------------------------
 // DUT environment datapath
@@ -389,6 +391,14 @@ task tb_checker;
             $time, dut_env_inst_id, dut_env_inst_id_asm, bcs_b_sel_fwd, dut_m_bcs_b_sel_fwd);
             errors = errors + 1;
         end
+        
+        // Store Mask
+        // dmem_we
+        if (dmem_we !== dut_m_dmem_we) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT dmem_we: %0d, Model dmem_we: %0d ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, dmem_we, dut_m_dmem_we);
+            errors = errors + 1;
+        end
     
     end // main task body */
 endtask // tb_checker
@@ -447,10 +457,12 @@ endtask
 task dut_m_decode;
     reg  [31:0] inst_id;
     reg  [31:0] inst_ex;
+    reg  [ 2:0] funct3_ex;
     
     begin
-    inst_id       = dut_env_inst_id;
-    inst_ex       = dut_env_inst_ex;
+    inst_id         = dut_env_inst_id;
+    inst_ex         = dut_env_inst_ex;
+    funct3_ex       = dut_env_inst_ex[14:12];
     
         case (inst_id[6:0])
             'b011_0011: begin   // R-type instruction
@@ -608,7 +620,7 @@ task dut_m_decode;
             end
             
             default: begin
-                $write("*WARNING @ %0t. Model 'default' case. Input inst_id: 'h%8h  %0s",
+                $write("*WARNING @ %0t. Decoder model 'default' case. Input inst_id: 'h%8h  %0s",
                 $time, dut_env_inst_id, dut_env_inst_id_asm);
                 warnings = warnings + 1;
             end
@@ -632,7 +644,7 @@ task dut_m_decode;
             dut_m_reg_we      = 1'b0;
         end
         
-        // operand forwarding
+        // Operand Forwarding
         // Operand A
         if ((dut_env_rs1_id != `RF_X0_ZERO) && (dut_env_rs1_id == dut_env_rd_ex) && (dut_env_reg_we_ex) && (!dut_m_alu_a_sel))
             dut_m_alu_a_sel_fwd = `ALU_A_SEL_FWD_ALU;           // forward previous ALU result
@@ -651,9 +663,81 @@ task dut_m_decode;
         // BC B / DMEM din
         dut_m_bcs_b_sel_fwd = ((dut_env_rs2_id != `RF_X0_ZERO) && (dut_env_rs2_id == dut_env_rd_ex) && (dut_env_reg_we_ex) && (dut_m_store_inst || dut_m_branch_inst));
         
+        // Store Mask
+        if(dut_env_store_inst_ex) begin                 // store mask enable
+            case(funct3_ex[1:0])                        // store mask width
+                5'd0:   // byte
+                    case (dut_env_store_mask_offset)    // store mask offset, valid for byte and half
+                        2'd0:
+                            dut_m_dmem_we = 4'b0001;
+                        2'd1:
+                            dut_m_dmem_we = 4'b0010;
+                        2'd2:
+                            dut_m_dmem_we = 4'b0100;
+                        2'd3:
+                            dut_m_dmem_we = 4'b1000;
+                        default: begin
+                            $write("*WARNING @ %0t. Store Mask model offset 'default' case. Input inst_id: 'h%8h  %0s",
+                            $time, dut_env_inst_id, dut_env_inst_id_asm);
+                            warnings = warnings + 1;
+                        end
+                    endcase
+                
+                5'd1:   // half
+                    case (dut_env_store_mask_offset)
+                        2'd0:
+                            dut_m_dmem_we = 4'b0011;
+                        2'd1:
+                            dut_m_dmem_we = 4'b0110;
+                        2'd2:
+                            dut_m_dmem_we = 4'b1100;
+                        2'd3: begin 
+                            $write("*WARNING @ %0t. Store Mask model offset unaligned access - half. Input inst_id: 'h%8h  %0s",
+                            $time, dut_env_inst_id, dut_env_inst_id_asm);
+                            warnings = warnings + 1;
+                            dut_m_dmem_we = 4'b0000;
+                        end
+                        default: begin
+                            $write("*WARNING @ %0t. Store Mask model offset 'default' case. Input inst_id: 'h%8h  %0s",
+                            $time, dut_env_inst_id, dut_env_inst_id_asm);
+                            warnings = warnings + 1;
+                        end
+                    endcase
+               
+                5'd2:   // word
+                    case (dut_env_store_mask_offset)
+                        2'd0:
+                            dut_m_dmem_we = 4'b1111;
+                        2'd1,
+                        2'd2,
+                        2'd3: begin
+                            $write("*WARNING @ %0t. Store Mask model offset unaligned access - word. Input inst_id: 'h%8h  %0s",
+                            $time, dut_env_inst_id, dut_env_inst_id_asm);
+                            warnings = warnings + 1;
+                            dut_m_dmem_we = 4'b0000;
+                        end
+                        default: begin
+                            $write("*WARNING @ %0t. Store Mask model offset 'default' case. Input inst_id: 'h%8h  %0s",
+                            $time, dut_env_inst_id, dut_env_inst_id_asm);
+                            warnings = warnings + 1;
+                        end
+                    endcase
+                
+                default: begin
+                    $write("*WARNING @ %0t. Store Mask model width 'default' case. Input inst_id: 'h%8h  %0s",
+                    $time, dut_env_inst_id, dut_env_inst_id_asm);
+                    warnings = warnings + 1;
+                    dut_m_dmem_we = 4'b0000;
+                end
+            endcase
+        end
+        else /*(dut_env_store_inst_ex)*/ begin
+            dut_m_dmem_we = 4'b0000;
+        end
+        
         
         // branch resolution
-        case ({inst_ex[14],inst_ex[12]})
+        case ({inst_ex[14], inst_ex[12]})
             2'b00:      // beq -> a == b
                 dut_m_branch_taken = dut_env_bc_a_eq_b;
             
@@ -788,14 +872,18 @@ endtask
 task env_ex_pipeline_update;
     begin
         // instruction update env
-        dut_env_inst_ex      = (!rst) ? dut_env_inst_id     : 'h0;
-        dut_env_inst_ex_asm  = (!rst) ? dut_env_inst_id_asm : 'h0;
+        dut_env_inst_ex         = (!rst) ? dut_env_inst_id      : 'h0;
+        dut_env_inst_ex_asm     = (!rst) ? dut_env_inst_id_asm  : 'h0;
+                        
+        // rd address update        
+        dut_env_rd_ex           = (!rst) ? dut_env_rd_id        : 'h0;
                 
-        // rd address update
-        dut_env_rd_ex        = (!rst) ? dut_env_rd_id       : 'h0;
+        // we update        
+        dut_env_reg_we_ex       = (!rst) ? reg_we               : 'b0;
+            
+        dut_env_funct3_ex       = dut_env_inst_ex[14:12];
         
-        // we update
-        dut_env_reg_we_ex    = (!rst) ? reg_we              : 'b0;
+        dut_env_store_inst_ex   = (!rst) ? store_inst           : 'b0;
         
         // update model
         dut_m_ex_pipeline_update();
@@ -845,7 +933,8 @@ endtask
 task env_alu_out_update;
     input [31:0] in_dut_env_alu;
     begin
-        dut_env_alu = in_dut_env_alu;
+        dut_env_alu                 = in_dut_env_alu;
+        dut_env_store_mask_offset   = in_dut_env_alu[1:0];
     end
 endtask
 
