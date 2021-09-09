@@ -19,6 +19,7 @@
 //      2021-09-07  AL  0.1.0 - Initial - Reset and R-type
 //      2021-09-09  AL  0.2.0 - Finish model and checker for decoder and forwarding
 //      2021-09-10  AL  0.3.0 - Add model and checker for store mask
+//      2021-09-10  AL  0.4.0 - Add all remaining tests from decoder_tb - I-type to AUIPC
 //
 //-----------------------------------------------------------------------------
 
@@ -1061,7 +1062,6 @@ initial begin
     end
     $display("\nTest  1: Hit specific case [R-type]: Done \n");
     
-/*    
     //-----------------------------------------------------------------------------
     // Test 2: I-type
     $display("\nTest  2: Hit specific case [I-type]: Start \n");
@@ -1325,7 +1325,7 @@ initial begin
         print_single_instruction_results();
         env_update_comb('hE, 'b0);  // ALU is actually used for write to RF, but data is not relevant to this TB, only control signals in checker
     end
-    $display("\nTest  9: Hit specific case [AUIPC]: Done \n");*/
+    $display("\nTest  9: Hit specific case [AUIPC]: Done \n");
     
     //-----------------------------------------------------------------------------
     repeat (1) @(posedge clk);
