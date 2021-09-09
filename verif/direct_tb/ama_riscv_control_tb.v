@@ -17,6 +17,7 @@
 //
 // Version history:
 //      2021-09-07  AL  0.1.0 - Initial - Reset and R-type
+//      2021-09-09  AL  0.2.0 - Finish model and checker for decoder and forwarding
 //
 //-----------------------------------------------------------------------------
 
@@ -39,6 +40,9 @@
 `define TEST_CASES               `RST_TEST + `R_TYPE_TESTS + `I_TYPE_TESTS + `LOAD_TESTS + `STORE_TESTS + `BRANCH_TESTS + `JALR_TEST + `JAL_TEST + `LUI_TEST + `AUIPC_TEST + `BRANCH_TESTS_NOPS_PAD
 `define LABEL_TGT                `TEST_CASES - 1 // location to which to branch
 
+// Register Field
+`define RF_X0_ZERO          5'd0
+
 // MUX select signals
 // PC select
 `define PC_SEL_INC4         2'd0  // PC = PC + 4
@@ -49,12 +53,12 @@
 // ALU A operand select
 `define ALU_A_SEL_RS1       2'd0  // A = Reg[rs1]
 `define ALU_A_SEL_PC        2'd1  // A = PC
-`define ALU_A_SEL_FW_ALU    2'd2  // A = ALU; forwarding from MEM stage
+`define ALU_A_SEL_FWD_ALU   2'd2  // A = ALU; forwarding from MEM stage
 
 // ALU B operand select
 `define ALU_B_SEL_RS2       2'd0  // B = Reg[rs2]
 `define ALU_B_SEL_IMM       2'd1  // B = Immediate value; from Imm Gen
-`define ALU_B_SEL_FW_ALU    2'd2  // B = ALU; forwarding from MEM stage
+`define ALU_B_SEL_FWD_ALU   2'd2  // B = ALU; forwarding from MEM stage
 
 // Write back select
 `define WB_SEL_DMEM         2'd0  // Reg[rd] = DMEM[ALU]
@@ -127,9 +131,10 @@ wire [ 3:0] dmem_we             ;       reg  [ 3:0] dut_m_dmem_we       ;
                                         reg         dut_m_branch_inst_ex;
                                         reg         dut_m_jump_inst_ex  ;
                                         reg         dut_m_jump_taken    ;
-                                        reg  [ 4:0] dut_m_rs1_id        ;
-                                        reg  [ 4:0] dut_m_rs2_id        ;
-                                        reg  [ 4:0] dut_m_rd_id         ;
+                                        // Env misc signals
+                                        reg  [ 4:0] dut_env_rs1_id      ;
+                                        reg  [ 4:0] dut_env_rs2_id      ;
+                                        reg  [ 4:0] dut_env_rd_id       ;
 
 //-----------------------------------------------------------------------------
 // DUT environment datapath
@@ -198,7 +203,6 @@ ama_riscv_control DUT_ama_riscv_control_i (
     .alu_op_sel         (alu_op_sel       ),
     .ig_sel             (ig_sel           ),
     .bc_uns             (bc_uns           ),
-    
     .dmem_en            (dmem_en          ),
     .load_sm_en         (load_sm_en       ),
     .wb_sel             (wb_sel           ),
@@ -241,16 +245,24 @@ endtask
 
 task tb_driver;
     begin
-        inst_id   = dut_env_inst_id;
-        inst_ex   = dut_env_inst_ex;
-        bc_a_eq_b = dut_env_bc_a_eq_b;
-        bc_a_lt_b = dut_env_bc_a_lt_b;
+        // inputs
+        inst_id             = dut_env_inst_id           ;
+        bc_a_eq_b           = dut_env_bc_a_eq_b         ;
+        bc_a_lt_b           = dut_env_bc_a_lt_b         ;
+        store_mask_offset   = dut_env_store_mask_offset ;
+        
+        // pipeline inputs
+        inst_ex             = dut_env_inst_ex           ;
+        reg_we_ex           = dut_env_reg_we_ex         ;
+        rd_ex               = dut_env_rd_ex             ;
+        store_inst_ex       = dut_env_store_inst_ex     ;
     end
     
 endtask
 
 task tb_checker;
-    begin    
+    begin
+        // Decoder
         // pc_sel
         if (pc_sel !== dut_m_pc_sel) begin
             $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT pc_sel: 'b%2b, Model pc_sel: 'b%2b ", 
@@ -292,7 +304,7 @@ task tb_checker;
             $time, dut_env_inst_id, dut_env_inst_id_asm, alu_op_sel, dut_m_alu_op_sel);
             errors = errors + 1;
         end
-        
+        /* 
         // alu_a_sel_fwd
         if (alu_a_sel_fwd !== dut_m_alu_a_sel_fwd) begin
             $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT alu_a_sel_fwd: 'b%1b, Model alu_a_sel_fwd: 'b%1b ", 
@@ -306,7 +318,7 @@ task tb_checker;
             $time, dut_env_inst_id, dut_env_inst_id_asm, alu_b_sel_fwd, dut_m_alu_b_sel_fwd);
             errors = errors + 1;
         end
-        
+         */
         // ig_sel
         if (ig_sel !== dut_m_ig_sel) begin
             $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT ig_sel: 'b%3b, Model ig_sel: 'b%3b ", 
@@ -346,6 +358,35 @@ task tb_checker;
         if (reg_we !== dut_m_reg_we) begin
             $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT reg_we: 'b%1b, Model reg_we: 'b%1b ", 
             $time, dut_env_inst_id, dut_env_inst_id_asm, reg_we, dut_m_reg_we);
+            errors = errors + 1;
+        end
+        
+        // Operand Forwarding
+        // alu_a_sel_fwd
+        if (alu_a_sel_fwd !== dut_m_alu_a_sel_fwd) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT alu_a_sel_fwd: %0d, Model alu_a_sel_fwd: %0d ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, alu_a_sel_fwd, dut_m_alu_a_sel_fwd);
+            errors = errors + 1;
+        end
+        
+        // alu_b_sel_fwd
+        if (alu_b_sel_fwd !== dut_m_alu_b_sel_fwd) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT alu_b_sel_fwd: %0d, Model alu_b_sel_fwd: %0d ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, alu_b_sel_fwd, dut_m_alu_b_sel_fwd);
+            errors = errors + 1;
+        end
+        
+        // bc_a_sel_fwd
+        if (bc_a_sel_fwd !== dut_m_bc_a_sel_fwd) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT bc_a_sel_fwd: %0d, Model bc_a_sel_fwd: %0d ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, bc_a_sel_fwd, dut_m_bc_a_sel_fwd);
+            errors = errors + 1;
+        end
+        
+        // bcs_b_sel_fwd
+        if (bcs_b_sel_fwd !== dut_m_bcs_b_sel_fwd) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT bcs_b_sel_fwd: %0d, Model bcs_b_sel_fwd: %0d ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, bcs_b_sel_fwd, dut_m_bcs_b_sel_fwd);
             errors = errors + 1;
         end
     
@@ -409,10 +450,7 @@ task dut_m_decode;
     
     begin
     inst_id       = dut_env_inst_id;
-    inst_ex       = dut_env_inst_ex;    
-    dut_m_rs1_id  = dut_env_inst_id[19:15];
-    dut_m_rs2_id  = dut_env_inst_id[24:20];
-    dut_m_rd_id   = dut_env_inst_id[11: 7];
+    inst_ex       = dut_env_inst_ex;
     
         case (inst_id[6:0])
             'b011_0011: begin   // R-type instruction
@@ -596,22 +634,23 @@ task dut_m_decode;
         
         // operand forwarding
         // Operand A
-        if ((dut_m_rs1_id != `RF_X0_ZERO) && (dut_m_rs1_id == dut_env_rd_ex) && (dut_env_reg_we_ex) && (!dut_m_alu_a_sel))
+        if ((dut_env_rs1_id != `RF_X0_ZERO) && (dut_env_rs1_id == dut_env_rd_ex) && (dut_env_reg_we_ex) && (!dut_m_alu_a_sel))
             dut_m_alu_a_sel_fwd = `ALU_A_SEL_FWD_ALU;           // forward previous ALU result
         else
-            dut_m_alu_a_sel_fwd = {1'b0, dut_m_alu_a_sel};    // don't forward
+            dut_m_alu_a_sel_fwd = {1'b0, dut_m_alu_a_sel};      // don't forward
         
         // Operand B
-        if ((dut_m_rs2_id != `RF_X0_ZERO) && (dut_m_rs2_id == dut_env_rd_ex) && (dut_env_reg_we_ex) && (!dut_m_alu_b_sel))
+        if ((dut_env_rs2_id != `RF_X0_ZERO) && (dut_env_rs2_id == dut_env_rd_ex) && (dut_env_reg_we_ex) && (!dut_m_alu_b_sel))
             dut_m_alu_b_sel_fwd = `ALU_B_SEL_FWD_ALU;           // forward previous ALU result
         else
-            dut_m_alu_b_sel_fwd = {1'b0, dut_m_alu_b_sel};    // don't forward
+            dut_m_alu_b_sel_fwd = {1'b0, dut_m_alu_b_sel};      // don't forward
         
         // BC A
-        dut_m_bc_a_sel_fwd  = ((dut_m_rs1_id != `RF_X0_ZERO) && (dut_m_rs1_id == dut_env_rd_ex) && (dut_env_reg_we_ex) && (dut_m_branch_inst));
+        dut_m_bc_a_sel_fwd  = ((dut_env_rs1_id != `RF_X0_ZERO) && (dut_env_rs1_id == dut_env_rd_ex) && (dut_env_reg_we_ex) && (dut_m_branch_inst));
         
         // BC B / DMEM din
-        dut_m_bcs_b_sel_fwd = ((dut_m_rs2_id != `RF_X0_ZERO) && (dut_m_rs2_id == dut_env_rd_ex) && (dut_env_reg_we_ex) && (dut_m_store_inst || dut_m_branch_inst));
+        dut_m_bcs_b_sel_fwd = ((dut_env_rs2_id != `RF_X0_ZERO) && (dut_env_rs2_id == dut_env_rd_ex) && (dut_env_reg_we_ex) && (dut_m_store_inst || dut_m_branch_inst));
+        
         
         // branch resolution
         case ({inst_ex[14],inst_ex[12]})
@@ -632,18 +671,18 @@ task dut_m_decode;
                 $time, dut_env_inst_ex, dut_env_inst_ex_asm);
                 warnings = warnings + 1;
             end
-            
         endcase
-        
         // Override if rst == 1
         if (rst) dut_m_branch_taken = 1'b0;
-        
         // if not branch instruction, it cannot be taken
         dut_m_branch_taken = dut_m_branch_taken && dut_m_branch_inst_ex;
+        
         
         // jump?
         dut_m_jump_taken = dut_m_jump_inst_ex;
         
+        
+        // flow change instructions use ALU out as destination address
         if(dut_m_branch_taken || dut_m_jump_taken) dut_m_pc_sel = 2'b01; // alu input
         
         // $display("\nBranch used inst ex: %8h, branch_instr: %1b ", dut_env_inst_ex, dut_m_branch_inst_ex);
@@ -656,13 +695,6 @@ task dut_m_ex_pipeline_update;
         // instruction update model
         dut_m_branch_inst_ex = (!rst) ? dut_m_branch_inst   : 'b0;
         dut_m_jump_inst_ex   = (!rst) ? dut_m_jump_inst     : 'b0;
-        
-        // rd address update
-        // dut_env_rd_ex        = (!rst) ? dut_m_rd_id       : 'h0;
-        
-        // we update
-        // dut_env_reg_we_ex    = (!rst) ? dut_env_reg_we_id   : 'b0;
-        
     end
 endtask
 
@@ -745,6 +777,10 @@ task env_id_pipeline_update;
             dut_env_inst_id      = test_values_inst_hex[dut_env_pc_mux_out];
             dut_env_inst_id_asm  = test_values_inst_asm[dut_env_pc_mux_out];
         end
+        
+        dut_env_rs1_id  = dut_env_inst_id[19:15];
+        dut_env_rs2_id  = dut_env_inst_id[24:20];
+        dut_env_rd_id   = dut_env_inst_id[11: 7];
     end
 endtask
 
@@ -756,7 +792,7 @@ task env_ex_pipeline_update;
         dut_env_inst_ex_asm  = (!rst) ? dut_env_inst_id_asm : 'h0;
                 
         // rd address update
-        dut_env_rd_ex        = (!rst) ? dut_m_rd_id       : 'h0;
+        dut_env_rd_ex        = (!rst) ? dut_env_rd_id       : 'h0;
         
         // we update
         dut_env_reg_we_ex    = (!rst) ? reg_we              : 'b0;
