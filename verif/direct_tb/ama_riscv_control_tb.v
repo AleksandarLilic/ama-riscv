@@ -5,21 +5,16 @@
 // Date created:    2021-09-07
 // Author:          Aleksandar Lilic
 // Description:     Test covers following scenarios:
-//                      1.  Status check after reset
-//                      2.  R-type checks direct
-//                      3.  Load instructions checks direct
-//                      4.  Store instructions checks direct
-//                      5.  Branch instructions checks direct
-//                      6.  JALR instruction check direct
-//                      7.  JAL instruction check direct
-//                      8.  LUI instruction check direct
-//                      9.  AUIPC instruction check direct
+//                      1. decoder_tb tests
+//                      2. operand_forwarding_tb tests
+//                      * see corresponding tb for further test details
 //
 // Version history:
 //      2021-09-07  AL  0.1.0 - Initial - Reset and R-type
 //      2021-09-09  AL  0.2.0 - Finish model and checker for decoder and forwarding
-//      2021-09-10  AL  0.3.0 - Add model and checker for store mask
-//      2021-09-10  AL  0.4.0 - Add all remaining tests from decoder_tb - I-type to AUIPC
+//      2021-09-09  AL  0.3.0 - Add model and checker for store mask
+//      2021-09-09  AL  0.4.0 - Add all remaining tests from decoder_tb - I-type to AUIPC
+//      2021-09-10  AL  0.5.0 - Add all tests from op_fwd_tb
 //
 //-----------------------------------------------------------------------------
 
@@ -39,11 +34,24 @@
 `define LUI_TEST                 1
 `define AUIPC_TEST               1
 `define BRANCH_TESTS_NOPS_PAD    4+1    // 4 nops + 1 branch back instruction
-`define TEST_CASES               `RST_TEST + `R_TYPE_TESTS + `I_TYPE_TESTS + `LOAD_TESTS + `STORE_TESTS + `BRANCH_TESTS + `JALR_TEST + `JAL_TEST + `LUI_TEST + `AUIPC_TEST + `BRANCH_TESTS_NOPS_PAD
-`define LABEL_TGT                `TEST_CASES - 1 // location to which to branch
+`define TEST_CASES_DEC           `RST_TEST + `R_TYPE_TESTS + `I_TYPE_TESTS + `LOAD_TESTS + `STORE_TESTS + `BRANCH_TESTS + `JALR_TEST + `JAL_TEST + `LUI_TEST + `AUIPC_TEST + `BRANCH_TESTS_NOPS_PAD
+`define LABEL_TGT                `TEST_CASES_DEC - 1 // location to which to branch
 
-// Register Field
-// `define RF_X0_ZERO          5'd0
+`define NFND_TEST                5           // No Forwarding No Dependency
+`define FDRT_TEST                12*2 + 3*2  // Forwarding with Dependency R-type
+`define FDIT_TEST                12*2 + 3*2  // Forwarding with Dependency I-type
+`define FDL_TEST                 12*2 + 3*2  // Forwarding with Dependency Load
+`define NFX0_TEST                7*2         // No Forwarding with Dependency on x0
+`define NFWE0_TEST               4*2         // No Forwarding with reg_we_ex = 0
+`define TEST_CASES_FWD           `NFND_TEST + `FDRT_TEST + `FDIT_TEST + `FDL_TEST + `NFX0_TEST+ `NFWE0_TEST
+
+`define TEST_CASES               `TEST_CASES_DEC + `TEST_CASES_FWD
+
+// Expected dependencies in each of the dependency tests
+`define FD_TEST_EXP_ALU_A      7  // for ALU A
+`define FD_TEST_EXP_ALU_B      2  // for ALU B
+`define FD_TEST_EXP_BC_A       2  // for BC A 
+`define FD_TEST_EXP_BCS_B      4  // for BCS B
 
 // MUX select signals
 // PC select
@@ -138,12 +146,13 @@ wire [ 3:0] dmem_we             ;       reg  [ 3:0] dut_m_dmem_we       ;
                                         reg  [ 4:0] dut_env_rs2_id      ;
                                         reg  [ 4:0] dut_env_rd_id       ;
                                         reg  [ 2:0] dut_env_funct3_ex   ;
+                                        reg  [31:0] dut_env_inst_mem    ;
 
 //-----------------------------------------------------------------------------
 // DUT environment datapath
-integer     dut_env_pc          ;
-integer     dut_env_alu         ;
-integer     dut_env_pc_mux_out  ;
+integer       dut_env_pc          ;
+integer       dut_env_alu         ;
+integer       dut_env_pc_mux_out  ;
 
 //-----------------------------------------------------------------------------
 // Testbench variables
@@ -152,6 +161,16 @@ integer       run_test_pc_target  ;
 integer       alu_return_address  ;
 integer       errors              ;
 integer       warnings            ;
+integer       checker_exp_alu_a   ;
+integer       checker_exp_alu_b   ;
+integer       checker_exp_bc_a    ;
+integer       checker_exp_bcs_b   ;
+
+// forwarding counters
+integer       alu_a_sel_fwd_cnt   ;
+integer       alu_b_sel_fwd_cnt   ;
+integer       bc_a_sel_fwd_cnt    ;
+integer       bcs_b_sel_fwd_cnt   ;
 
 // Reset hold for
 reg    [ 3:0] rst_pulses = 4'd3;
@@ -159,13 +178,14 @@ reg    [ 3:0] rst_pulses = 4'd3;
 // file read
 integer       fd;
 integer       status;
-reg  [24*7:0] str;
 reg  [  31:0] test_values_inst_hex [`TEST_CASES-1:0];
 reg  [  31:0] test_values_inst_hex_nop;
-reg  [24*7:0] test_values_inst_asm [`TEST_CASES-1:0];
-reg  [24*7:0] test_values_inst_asm_nop;
-reg  [24*7:0] dut_env_inst_id_asm;
-reg  [24*7:0] dut_env_inst_ex_asm;
+reg  [30*7:0] str;
+reg  [30*7:0] test_values_inst_asm [`TEST_CASES-1:0];
+reg  [30*7:0] test_values_inst_asm_nop  ;
+reg  [30*7:0] dut_env_inst_id_asm       ;
+reg  [30*7:0] dut_env_inst_ex_asm       ;
+reg  [30*7:0] dut_env_inst_mem_asm      ;
 
 // events
 event         ev_rst    [1:0];
@@ -241,8 +261,21 @@ endtask
 task print_single_instruction_results;
     begin
         $display("Instruction at PC# %2d done. ", dut_env_pc); 
-        $write  ("ID stage: HEX: 'h%8h, ASM: %0s", dut_env_inst_id, dut_env_inst_id_asm);
-        $write  ("EX stage: HEX: 'h%8h, ASM: %0s", dut_env_inst_ex, dut_env_inst_ex_asm);
+        $write  ("ID  stage: HEX: 'h%8h, ASM: %0s", dut_env_inst_id,  dut_env_inst_id_asm );
+        $write  ("EX  stage: HEX: 'h%8h, ASM: %0s", dut_env_inst_ex,  dut_env_inst_ex_asm );
+        $write  ("MEM stage: HEX: 'h%8h, ASM: %0s", dut_env_inst_mem, dut_env_inst_mem_asm);
+    end
+endtask
+
+task print_forwarding_counters;
+    begin
+        $display("");
+        $write("Forwarding counters:  ");
+        $write("alu_a_sel_fwd_cnt: %2d;  ", alu_a_sel_fwd_cnt);
+        $write("alu_b_sel_fwd_cnt: %2d;  ", alu_b_sel_fwd_cnt);
+        $write("bc_a_sel_fwd_cnt : %2d;  ",  bc_a_sel_fwd_cnt);
+        $write("bcs_b_sel_fwd_cnt: %2d;  ", bcs_b_sel_fwd_cnt);
+        $display("\n");
     end
 endtask
 
@@ -404,31 +437,98 @@ task tb_checker;
     end // main task body */
 endtask // tb_checker
 
+task expected_dependencies;
+    input integer task_exp_alu_a;
+    input integer task_exp_alu_b;
+    input integer task_exp_bc_a;
+    input integer task_exp_bcs_b;
+    
+    begin
+        checker_exp_alu_a = task_exp_alu_a;
+        checker_exp_alu_b = task_exp_alu_b;
+        checker_exp_bc_a  = task_exp_bc_a ;
+        checker_exp_bcs_b = task_exp_bcs_b;
+    end
+endtask
+
+task dependency_checker;
+    begin
+        if(alu_a_sel_fwd_cnt !== checker_exp_alu_a) begin
+            $display("*ERROR @ %0t. Mismatch in dependencies for ALU A. Expected: %0d, Counted: %0d,", 
+            $time, checker_exp_alu_a, alu_a_sel_fwd_cnt);
+            errors = errors + 1;
+        end
+        
+        if(alu_b_sel_fwd_cnt !== checker_exp_alu_b) begin
+            $display("*ERROR @ %0t. Mismatch in dependencies for ALU B. Expected: %0d, Counted: %0d,", 
+            $time, checker_exp_alu_b, alu_b_sel_fwd_cnt);
+            errors = errors + 1;
+        end
+        
+        if(bc_a_sel_fwd_cnt !== checker_exp_bc_a) begin
+            $display("*ERROR @ %0t. Mismatch in dependencies for BC A. Expected: %0d, Counted: %0d,", 
+            $time, checker_exp_bc_a, bc_a_sel_fwd_cnt);
+            errors = errors + 1;
+        end
+        
+        if(bcs_b_sel_fwd_cnt !== checker_exp_bcs_b) begin
+            $display("*ERROR @ %0t. Mismatch in dependencies for BCS B. Expected: %0d, Counted: %0d,", 
+            $time, checker_exp_bcs_b, bcs_b_sel_fwd_cnt);
+            errors = errors + 1;
+        end
+        
+        print_forwarding_counters();
+        
+        // reset counters for next test run
+        clear_forwarding_counters();
+        
+    end
+endtask
+
+task clear_forwarding_counters;
+    begin
+        alu_a_sel_fwd_cnt = 0;
+        alu_b_sel_fwd_cnt = 0;
+        bc_a_sel_fwd_cnt  = 0;
+        bcs_b_sel_fwd_cnt = 0;
+    end
+endtask
+
 task read_test_instructions;
     begin
         // Instructions HEX
-        fd = $fopen({`PROJECT_PATH, "verif/direct_tb/inst/decoder_inst_hex.txt"}, "r");
-    
+        // From decoder test
+        fd = $fopen({`PROJECT_PATH, "verif/direct_tb/inst/decoder_inst_hex.txt"}, "r");    
         if (fd == 0) begin
             $display("fd handle was NULL");        
-        end
-    
+        end    
         i = 0;
         while(!$feof(fd)) begin
             $fscanf (fd, "%h", test_values_inst_hex[i]);
             // $display("'h%h", test_values_inst_hex[i]);
             i = i + 1;
         end
-        $fclose(fd);        
+        $fclose(fd);
+        
+        // From op fwd test, concat to same array
+        fd = $fopen({`PROJECT_PATH, "verif/direct_tb/inst/op_fwd_inst_hex.txt"}, "r");    
+        if (fd == 0) begin
+            $display("fd handle was NULL");        
+        end    
+        while(!$feof(fd)) begin
+            $fscanf (fd, "%h", test_values_inst_hex[i]);
+            // $display("'h%h", test_values_inst_hex[i]);
+            i = i + 1;
+        end
+        $fclose(fd);
         test_values_inst_hex_nop = 'h0000_0013;
         
         // Instructions ASM
+        // From decoder test
         fd = $fopen({`PROJECT_PATH, "verif/direct_tb/inst/decoder_inst_asm.txt"}, "r");
-        
         if (fd == 0) begin
             $display("fd handle was NULL");        
         end
-                
         i = 0;
         while(!$feof(fd)) begin
             status = $fgets(str, fd);
@@ -438,6 +538,25 @@ task read_test_instructions;
             i = i + 1;
         end
         $fclose(fd);
+        
+        // From op fwd test, concat to same array
+        // asm txt has empty newline at the end
+        // decrement counter by one to overwrite it with actual instruction
+        // to match hex txt
+        i = i - 1;
+        fd = $fopen({`PROJECT_PATH, "verif/direct_tb/inst/op_fwd_inst_asm.txt"}, "r");    
+        if (fd == 0) begin
+            $display("fd handle was NULL");        
+        end    
+        while(!$feof(fd)) begin
+            status = $fgets(str, fd);
+            // $write("%0s", str);
+            test_values_inst_asm[i] = str;
+            // $write("%0s", test_values_inst_asm[i]);
+            i = i + 1;
+        end
+        $fclose(fd);
+        
         test_values_inst_asm_nop = "addi  x0 x0 0 \n";
     end
 endtask
@@ -663,6 +782,12 @@ task dut_m_decode;
         
         // BC B / DMEM din
         dut_m_bcs_b_sel_fwd = ((dut_env_rs2_id != `RF_X0_ZERO) && (dut_env_rs2_id == dut_env_rd_ex) && (dut_env_reg_we_ex) && (dut_m_store_inst || dut_m_branch_inst));
+        
+        // Dependency counters:
+        alu_a_sel_fwd_cnt  = alu_a_sel_fwd_cnt + dut_m_alu_a_sel_fwd[1];
+        alu_b_sel_fwd_cnt  = alu_b_sel_fwd_cnt + dut_m_alu_b_sel_fwd[1];
+        bc_a_sel_fwd_cnt   = bc_a_sel_fwd_cnt  + dut_m_bc_a_sel_fwd ;
+        bcs_b_sel_fwd_cnt  = bcs_b_sel_fwd_cnt + dut_m_bcs_b_sel_fwd;
         
         // Store Mask
         if(dut_env_store_inst_ex) begin                 // store mask enable
@@ -939,9 +1064,25 @@ task env_alu_out_update;
     end
 endtask
 
+// MEM Stage - Environment update tasks
+task env_mem_pipeline_update;
+    begin
+        // instruction update env
+        dut_env_inst_mem         = (!rst) ? dut_env_inst_ex      : 'h0;
+        dut_env_inst_mem_asm     = (!rst) ? dut_env_inst_ex_asm  : 'h0;
+        
+        // update model
+        // dut_m_mem_pipeline_update();
+        
+    end
+endtask
+
 // Sequential logic - Environment update tasks
 task env_update_seq;
     begin
+        //----- MEM stage updates
+        env_mem_pipeline_update();
+        
         //----- EX stage updates
         env_ex_pipeline_update();
         // $write  ("inst_ex - FF :     'h%8h    %0s", dut_env_inst_ex, dut_env_inst_ex_asm);
@@ -1002,8 +1143,9 @@ initial begin
     $timeformat(-9, 2, " ns", 20);
     read_test_instructions();
     env_reset();
-    errors   <= 0;
-    warnings <= 0;
+    errors            = 0;
+    warnings          = 0;
+    clear_forwarding_counters();
 end
 
 // Timestamp print
@@ -1045,6 +1187,7 @@ initial begin
     #1; tb_checker();
     print_single_instruction_results();
     env_update_comb('h0, 'b0);
+    clear_forwarding_counters();
     $display("\nTest  0: Wait for reset: Done \n");
     
     //-----------------------------------------------------------------------------
@@ -1328,9 +1471,165 @@ initial begin
     $display("\nTest  9: Hit specific case [AUIPC]: Done \n");
     
     //-----------------------------------------------------------------------------
+    // Test 10: NOPs
+    $display("\nTest 10: Execute NOPs: Start \n");
+    run_test_pc_target  = dut_env_pc_mux_out + `BRANCH_TESTS_NOPS_PAD - 1;  // without last beq
+    while(dut_env_pc_mux_out < run_test_pc_target) begin
+        @(posedge clk); #1;
+        env_update_seq();
+        tb_driver();
+        dut_m_decode();
+        #1; tb_checker();
+        print_single_instruction_results();
+        env_update_comb('h0, 'b0);
+    end
+    
+    run_test_pc_target  = dut_env_pc_mux_out + 1;  // beq
+    while(dut_env_pc_mux_out < run_test_pc_target) begin
+        alu_return_address = dut_env_pc_mux_out + 1;
+        // $display("\ndut_env_pc: %0d ",          dut_env_pc);
+        // $display("\ndut_env_pc_mux_out: %0d ",  dut_env_pc_mux_out);
+        // $display("\run_test_pc_target: %0d ",   run_test_pc_target);
+        
+        // takes 2 cycles to resolve branch/jump + 1 to execute branched instruction (or 2 if  the branched instruction is a branch/jump instruction itself, like it's below)
+        repeat(2) begin
+            @(posedge clk); #1;
+            $display("Execute branch instruction");
+            
+            env_update_seq();
+            tb_driver();
+            dut_m_decode();
+            
+            #1; tb_checker();
+            print_single_instruction_results();
+            
+            // $display("Branch inst_ex: %1b ", dut_m_branch_inst_ex);
+            env_update_comb('h0, 'b0);  // don't branch
+            
+            tb_driver();
+            dut_m_decode();
+            
+            #1; // takes time for dut to react to branch compare and alu changes
+            env_pc_mux_update();
+            
+            // $display("\nBranch taken: %1b ", dut_m_branch_taken);
+            // $display("loop 1: PC sel: %0d ", pc_sel);
+            // $display("loop 1: PC MUX: %0d ", dut_env_pc_mux_out);
+        end
+    end
+    
+    $display("\nTest 10: Execute NOPs: Done \n");
+    
+    //-----------------------------------------------------------------------------
+    // Test 11: No Forwarding No Dependency
+    $display("\nTest 11: Hit specific case [No Forwarding No Dependency]: Start \n");
+    run_test_pc_target  = dut_env_pc_mux_out + `NFND_TEST;
+    expected_dependencies(0, 0, 0, 0);
+    while(dut_env_pc_mux_out < run_test_pc_target) begin
+        @(posedge clk); #1;
+        env_update_seq();
+        tb_driver();
+        dut_m_decode();
+        #1; tb_checker();
+        print_single_instruction_results();
+        dut_env_pc_mux_out = dut_env_pc_mux_out + 1;
+    end
+    dependency_checker();
+    $display("\nTest 11: Hit specific case [No Forwarding No Dependency]: Done \n");
+    
+    //-----------------------------------------------------------------------------
+    // Test 12a: Forwarding with Dependency R-type
+    $display("\nTest 12a: Hit specific case [Forwarding with Dependency R-type]: Start \n");
+    run_test_pc_target  = dut_env_pc_mux_out + `FDRT_TEST;
+    expected_dependencies(`FD_TEST_EXP_ALU_A, 
+                          `FD_TEST_EXP_ALU_B, 
+                          `FD_TEST_EXP_BC_A, 
+                          `FD_TEST_EXP_BCS_B);
+    while(dut_env_pc_mux_out < run_test_pc_target) begin
+        @(posedge clk); #1;
+        env_update_seq();
+        tb_driver();
+        dut_m_decode();
+        #1; tb_checker();
+        print_single_instruction_results();
+        dut_env_pc_mux_out = dut_env_pc_mux_out + 1;
+    end
+    dependency_checker();
+    $display("\nTest 12a: Hit specific case [Forwarding with Dependency R-type]: Done \n");
+    
+    //-----------------------------------------------------------------------------
+    // Test 12b: Forwarding with Dependency I-type
+    $display("\nTest 12b: Hit specific case [Forwarding with Dependency I-type]: Start \n");
+    run_test_pc_target  = dut_env_pc_mux_out + `FDIT_TEST;
+    // expected_dependencies are the same as R-type
+    while(dut_env_pc_mux_out < run_test_pc_target) begin
+        @(posedge clk); #1;
+        env_update_seq();
+        tb_driver();
+        dut_m_decode();
+        #1; tb_checker();
+        print_single_instruction_results();
+        dut_env_pc_mux_out = dut_env_pc_mux_out + 1;
+    end
+    dependency_checker();
+    $display("\nTest 12b: Hit specific case [Forwarding with Dependency I-type]: Done \n");
+    
+    //-----------------------------------------------------------------------------
+    // Test 12c: Forwarding with Dependency Load
+    $display("\nTest 12c: Hit specific case [Forwarding with Dependency Load]: Start \n");
+    run_test_pc_target  = dut_env_pc_mux_out + `FDL_TEST;
+    // expected_dependencies are the same as R-type and I-type
+    while(dut_env_pc_mux_out < run_test_pc_target) begin
+        @(posedge clk); #1;
+        env_update_seq();
+        tb_driver();
+        dut_m_decode();
+        #1; tb_checker();
+        print_single_instruction_results();
+        dut_env_pc_mux_out = dut_env_pc_mux_out + 1;
+    end
+    dependency_checker();
+    $display("\nTest 12c: Hit specific case [Forwarding with Dependency Load]: Done \n");
+    
+    //-----------------------------------------------------------------------------
+    // Test 13: No forwarding false dependency - writes to x0
+    $display("\nTest 13: Hit specific case [No forwarding false dependency - writes to x0]: Start \n");
+    run_test_pc_target  = dut_env_pc_mux_out + `NFX0_TEST;
+    expected_dependencies(0, 0, 0, 0);
+    while(dut_env_pc_mux_out < run_test_pc_target) begin
+        @(posedge clk); #1;
+        env_update_seq();
+        tb_driver();
+        dut_m_decode();
+        #1; tb_checker();
+        print_single_instruction_results();
+        dut_env_pc_mux_out = dut_env_pc_mux_out + 1;
+    end
+    dependency_checker();
+    $display("\nTest 13: Hit specific case [No forwarding false dependency - writes to x0]: Done \n");
+    
+    //-----------------------------------------------------------------------------
+    // Test 14: No forwarding false dependency - reg_we_ex = 0
+    $display("\nTest 14: Hit specific case [No forwarding false dependency - reg_we_ex = 0]: Start \n");
+    run_test_pc_target  = dut_env_pc_mux_out + `NFWE0_TEST;
+    expected_dependencies(0, 0, 0, 0);
+    while(dut_env_pc_mux_out < run_test_pc_target) begin
+        @(posedge clk); #1;
+        env_update_seq();
+        tb_driver();
+        dut_m_decode();
+        #1; tb_checker();
+        print_single_instruction_results();
+        dut_env_pc_mux_out = dut_env_pc_mux_out + 1;
+    end
+    dependency_checker();
+    $display("\nTest 14: Hit specific case [No forwarding false dependency - reg_we_ex = 0]: Done \n");
+    
+    //-----------------------------------------------------------------------------
     repeat (1) @(posedge clk);
     print_test_status();
     $finish();
-end
+    
+end // test
 
 endmodule
