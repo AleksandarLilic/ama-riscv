@@ -15,6 +15,7 @@
 //      2021-09-09  AL  0.3.0 - Add model and checker for store mask
 //      2021-09-09  AL  0.4.0 - Add all remaining tests from decoder_tb - I-type to AUIPC
 //      2021-09-10  AL  0.5.0 - Add all tests from op_fwd_tb
+//      2021-09-11  AL  0.6.0 - Add 1 more clk period for branch/jump tests
 //
 //-----------------------------------------------------------------------------
 
@@ -134,6 +135,7 @@ wire [ 1:0] alu_b_sel_fwd       ;       reg  [ 1:0] dut_m_alu_b_sel_fwd ;
 wire        bc_a_sel_fwd        ;       reg         dut_m_bc_a_sel_fwd  ;
 wire        bcs_b_sel_fwd       ;       reg         dut_m_bcs_b_sel_fwd ;
 wire [ 3:0] dmem_we             ;       reg  [ 3:0] dut_m_dmem_we       ;
+                                        
                                         // Model internal signals
                                         reg         dut_m_alu_a_sel     ;
                                         reg         dut_m_alu_b_sel     ;
@@ -141,6 +143,7 @@ wire [ 3:0] dmem_we             ;       reg  [ 3:0] dut_m_dmem_we       ;
                                         reg         dut_m_branch_inst_ex;
                                         reg         dut_m_jump_inst_ex  ;
                                         reg         dut_m_jump_taken    ;
+                                        
                                         // Env misc signals
                                         reg  [ 4:0] dut_env_rs1_id      ;
                                         reg  [ 4:0] dut_env_rs2_id      ;
@@ -157,6 +160,7 @@ integer       dut_env_pc_mux_out  ;
 //-----------------------------------------------------------------------------
 // Testbench variables
 integer       i                   ;              // used for all loops
+integer       clocks_to_execute   ;
 integer       run_test_pc_target  ;
 integer       alu_return_address  ;
 integer       errors              ;
@@ -259,11 +263,15 @@ task print_test_status;
 endtask
 
 task print_single_instruction_results;
+    integer last_pc;
+    reg     stalled;
     begin
-        $display("Instruction at PC# %2d done. ", dut_env_pc); 
+        stalled = (last_pc == dut_env_pc);
+        $display("Instruction at PC# %2d %s ", dut_env_pc, stalled ? "stalled " : "executed"); 
         $write  ("ID  stage: HEX: 'h%8h, ASM: %0s", dut_env_inst_id,  dut_env_inst_id_asm );
         $write  ("EX  stage: HEX: 'h%8h, ASM: %0s", dut_env_inst_ex,  dut_env_inst_ex_asm );
         $write  ("MEM stage: HEX: 'h%8h, ASM: %0s", dut_env_inst_mem, dut_env_inst_mem_asm);
+        last_pc = dut_env_pc;
     end
 endtask
 
@@ -789,6 +797,8 @@ task dut_m_decode;
         bc_a_sel_fwd_cnt   = bc_a_sel_fwd_cnt  + dut_m_bc_a_sel_fwd ;
         bcs_b_sel_fwd_cnt  = bcs_b_sel_fwd_cnt + dut_m_bcs_b_sel_fwd;
         
+        print_forwarding_counters();
+        
         // Store Mask
         if(dut_env_store_inst_ex) begin                 // store mask enable
             case(funct3_ex[1:0])                        // store mask width
@@ -1253,7 +1263,7 @@ initial begin
     //-----------------------------------------------------------------------------
     // Test 5: Branch
     $display("\nTest  5: Hit specific cases [Branches]: Start \n");
-    run_test_pc_target  = dut_env_pc_mux_out + `BRANCH_TESTS ;
+    run_test_pc_target  = dut_env_pc_mux_out + `BRANCH_TESTS ;    
     while(dut_env_pc_mux_out < run_test_pc_target) begin
         alu_return_address = dut_env_pc_mux_out + 1;
         // $display("\ndut_env_pc: %0d ",          dut_env_pc);
@@ -1546,13 +1556,18 @@ initial begin
                           `FD_TEST_EXP_BC_A, 
                           `FD_TEST_EXP_BCS_B);
     while(dut_env_pc_mux_out < run_test_pc_target) begin
-        @(posedge clk); #1;
-        env_update_seq();
-        tb_driver();
-        dut_m_decode();
-        #1; tb_checker();
-        print_single_instruction_results();
-        dut_env_pc_mux_out = dut_env_pc_mux_out + 1;
+        clocks_to_execute = 1;   // by default, 1 clock needed for instruction execution
+        while(clocks_to_execute != 0) begin
+            clocks_to_execute = 0;   // instruction executed
+            @(posedge clk); #1;
+            env_update_seq();
+            tb_driver();
+            dut_m_decode();
+            #1; tb_checker();
+            print_single_instruction_results();
+            if(branch_inst || jump_inst) clocks_to_execute = 1;   // add one more 1 clock for branch/jump
+            if(clocks_to_execute == 0) dut_env_pc_mux_out = dut_env_pc_mux_out + 1;
+        end
     end
     dependency_checker();
     $display("\nTest 12a: Hit specific case [Forwarding with Dependency R-type]: Done \n");
@@ -1563,13 +1578,18 @@ initial begin
     run_test_pc_target  = dut_env_pc_mux_out + `FDIT_TEST;
     // expected_dependencies are the same as R-type
     while(dut_env_pc_mux_out < run_test_pc_target) begin
-        @(posedge clk); #1;
-        env_update_seq();
-        tb_driver();
-        dut_m_decode();
-        #1; tb_checker();
-        print_single_instruction_results();
-        dut_env_pc_mux_out = dut_env_pc_mux_out + 1;
+        clocks_to_execute = 1;   // by default, 1 clock needed for instruction execution
+        while(clocks_to_execute != 0) begin
+            clocks_to_execute = 0;   // instruction executed
+            @(posedge clk); #1;
+            env_update_seq();
+            tb_driver();
+            dut_m_decode();
+            #1; tb_checker();
+            print_single_instruction_results();
+            if(branch_inst || jump_inst) clocks_to_execute = 1;   // add one more 1 clock for branch/jump
+            if(clocks_to_execute == 0) dut_env_pc_mux_out = dut_env_pc_mux_out + 1;
+        end
     end
     dependency_checker();
     $display("\nTest 12b: Hit specific case [Forwarding with Dependency I-type]: Done \n");
@@ -1580,13 +1600,18 @@ initial begin
     run_test_pc_target  = dut_env_pc_mux_out + `FDL_TEST;
     // expected_dependencies are the same as R-type and I-type
     while(dut_env_pc_mux_out < run_test_pc_target) begin
-        @(posedge clk); #1;
-        env_update_seq();
-        tb_driver();
-        dut_m_decode();
-        #1; tb_checker();
-        print_single_instruction_results();
-        dut_env_pc_mux_out = dut_env_pc_mux_out + 1;
+        clocks_to_execute = 1;   // by default, 1 clock needed for instruction execution
+        while(clocks_to_execute != 0) begin
+            clocks_to_execute = 0;   // instruction executed
+            @(posedge clk); #1;
+            env_update_seq();
+            tb_driver();
+            dut_m_decode();
+            #1; tb_checker();
+            print_single_instruction_results();
+            if(branch_inst || jump_inst) clocks_to_execute = 1;   // add one more 1 clock for branch/jump
+            if(clocks_to_execute == 0) dut_env_pc_mux_out = dut_env_pc_mux_out + 1;
+        end
     end
     dependency_checker();
     $display("\nTest 12c: Hit specific case [Forwarding with Dependency Load]: Done \n");
@@ -1597,13 +1622,18 @@ initial begin
     run_test_pc_target  = dut_env_pc_mux_out + `NFX0_TEST;
     expected_dependencies(0, 0, 0, 0);
     while(dut_env_pc_mux_out < run_test_pc_target) begin
-        @(posedge clk); #1;
-        env_update_seq();
-        tb_driver();
-        dut_m_decode();
-        #1; tb_checker();
-        print_single_instruction_results();
-        dut_env_pc_mux_out = dut_env_pc_mux_out + 1;
+        clocks_to_execute = 1;   // by default, 1 clock needed for instruction execution
+        while(clocks_to_execute != 0) begin
+            clocks_to_execute = 0;   // instruction executed
+            @(posedge clk); #1;
+            env_update_seq();
+            tb_driver();
+            dut_m_decode();
+            #1; tb_checker();
+            print_single_instruction_results();
+            if(branch_inst || jump_inst) clocks_to_execute = 1;   // add one more 1 clock for branch/jump
+            if(clocks_to_execute == 0) dut_env_pc_mux_out = dut_env_pc_mux_out + 1;
+        end
     end
     dependency_checker();
     $display("\nTest 13: Hit specific case [No forwarding false dependency - writes to x0]: Done \n");
@@ -1614,13 +1644,18 @@ initial begin
     run_test_pc_target  = dut_env_pc_mux_out + `NFWE0_TEST;
     expected_dependencies(0, 0, 0, 0);
     while(dut_env_pc_mux_out < run_test_pc_target) begin
-        @(posedge clk); #1;
-        env_update_seq();
-        tb_driver();
-        dut_m_decode();
-        #1; tb_checker();
-        print_single_instruction_results();
-        dut_env_pc_mux_out = dut_env_pc_mux_out + 1;
+        clocks_to_execute = 1;   // by default, 1 clock needed for instruction execution
+        while(clocks_to_execute != 0) begin
+            clocks_to_execute = 0;   // instruction executed
+            @(posedge clk); #1;
+            env_update_seq();
+            tb_driver();
+            dut_m_decode();
+            #1; tb_checker();
+            print_single_instruction_results();
+            if(branch_inst || jump_inst) clocks_to_execute = 1;   // add one more 1 clock for branch/jump
+            if(clocks_to_execute == 0) dut_env_pc_mux_out = dut_env_pc_mux_out + 1;
+        end
     end
     dependency_checker();
     $display("\nTest 14: Hit specific case [No forwarding false dependency - reg_we_ex = 0]: Done \n");
