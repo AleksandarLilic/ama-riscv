@@ -18,18 +18,22 @@
 //      2021-07-18  AL  0.7.2 - Wider Opcode defines from 5-bit to 7-bit 
 //      2021-07-18  AL  0.8.0 - Add Branch Resolution MUX
 //      2021-08-12  AL  0.9.0 - Change name for operand forwarding MUX
+//      2021-09-12  AL 0.10.0 - Add NOP
 //
 //-----------------------------------------------------------------------------
 // Opcodes
-`define OPC7_R_TYPE  7'b011_0011      // R-type
-`define OPC7_I_TYPE  7'b001_0011      // I-type
-`define OPC7_LOAD    7'b000_0011      // I-type
-`define OPC7_STORE   7'b010_0011      // S-type
-`define OPC7_BRANCH  7'b110_0011      // B-type
-`define OPC7_JALR    7'b110_0111      // J-type, I-format
-`define OPC7_JAL     7'b110_1111      // J-type
-`define OPC7_LUI     7'b011_0111      // U-type
-`define OPC7_AUIPC   7'b001_0111      // U-type
+`define OPC7_R_TYPE     7'b011_0011     // R-type
+`define OPC7_I_TYPE     7'b001_0011     // I-type
+`define OPC7_LOAD       7'b000_0011     // I-type
+`define OPC7_STORE      7'b010_0011     // S-type
+`define OPC7_BRANCH     7'b110_0011     // B-type
+`define OPC7_JALR       7'b110_0111     // J-type, I-format
+`define OPC7_JAL        7'b110_1111     // J-type
+`define OPC7_LUI        7'b011_0111     // U-type
+`define OPC7_AUIPC      7'b001_0111     // U-type
+
+// NOP
+`define NOP             32'h13          // addi x0 x0 0 
 
 //-----------------------------------------------------------------------------
 // MUX select signals
