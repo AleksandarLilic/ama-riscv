@@ -8,6 +8,7 @@
 //
 // Version history:
 //      2021-09-11  AL  0.1.0 - Initial - IF stage
+//      2021-09-13  AL  0.1.1 - Fix IMEM address signal
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -108,7 +109,7 @@ ama_riscv_control ama_riscv_control_i (
 reg  [31:0] pc_sel_mux_out  ;
 reg  [31:0] pc              ;
 wire [31:0] pc_inc4         ;
-wire [31:0] imem_addr       ;
+wire [13:0] imem_addr       ;
 wire [31:0] alu_out         ;
 
 // PC select mux
@@ -139,7 +140,7 @@ assign pc_inc4 = pc + 32'd4;
 
 // IMEM
 wire [31:0] inst_id_read    ;
-assign imem_addr = pc_sel_mux_out[13:0];
+assign imem_addr = pc_sel_mux_out[15:2];
 ama_riscv_imem ama_riscv_imem_i (
     .clk   (clk         ),
     .ena   (1'b0        ),
