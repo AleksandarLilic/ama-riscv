@@ -9,6 +9,7 @@
 // Version history:
 //      2021-09-11  AL  0.1.0 - Initial - IF stage
 //      2021-09-13  AL  0.2.0 - Add model - IF stage
+//      2021-09-13  AL  0.3.0 - Add checker - IF stage
 //
 //-----------------------------------------------------------------------------
 
@@ -78,6 +79,8 @@
 `define IG_U_TYPE   3'b101
 
 `define PROJECT_PATH        "C:/Users/Aleksandar/Documents/xilinx/ama-riscv/"
+
+`define DUT                 DUT_ama_riscv_core_i
 
 module ama_riscv_core_tb();
 
@@ -214,12 +217,12 @@ task print_single_instruction_results;
     integer last_pc;
     reg     stalled;
     begin
-        stalled = 0;//(last_pc == dut_m_pc);
-        // $display("Instruction at PC# %2d %s ", dut_m_pc, stalled ? "stalled " : "executed"); 
+        stalled = (last_pc == dut_m_pc);
+        $display("Instruction at PC# %2d %s ", dut_m_pc, stalled ? "stalled " : "executed"); 
         $write  ("ID  stage: HEX: 'h%8h, ASM: %0s", dut_m_inst_id,  dut_m_inst_id_asm );
         // $write  ("EX  stage: HEX: 'h%8h, ASM: %0s", dut_m_inst_ex,  dut_m_inst_ex_asm );
         // $write  ("MEM stage: HEX: 'h%8h, ASM: %0s", dut_m_inst_mem, dut_m_inst_mem_asm);
-        // last_pc = dut_m_pc;
+        last_pc = dut_m_pc;
     end
 endtask
 
@@ -292,9 +295,144 @@ endtask
 
 task tb_checker;
     begin
-        // check that inst_id is equal to what is written with readmemh
+        // Datapath
+        // inst_id
+        if (`DUT.inst_id !== dut_m_inst_id) begin
+            $display("*ERROR @ %0t. DUT inst: 'h%8h, Model inst: 'h%8h;  DUT pc: %5d, Model pc: %5d ", 
+            $time, `DUT.inst_id, dut_m_inst_id, `DUT.pc_sel, dut_m_pc_sel);
+            errors = errors + 1;
+        end
         
-        // additionally, reuse all code from control tb
+        // Decoder
+        // pc_sel
+        if (`DUT.pc_sel !== dut_m_pc_sel) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT pc_sel: 'b%2b, Model pc_sel: 'b%2b ", 
+            $time, dut_m_inst_id, dut_m_inst_id_asm, `DUT.pc_sel, dut_m_pc_sel);
+            errors = errors + 1;
+        end
+        
+        // pc_we
+        if (`DUT.pc_we !== dut_m_pc_we) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT pc_we: 'b%2b, Model pc_we: 'b%2b ", 
+            $time, dut_m_inst_id, dut_m_inst_id_asm, `DUT.pc_we, dut_m_pc_we);
+            errors = errors + 1;
+        end
+        
+        // pc
+        if (`DUT.pc !== dut_m_pc*4) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT pc: %5d, Model pc: %5d  *Note: x4 model pc", 
+            $time, dut_m_inst_id, dut_m_inst_id_asm, `DUT.pc, dut_m_pc);
+            errors = errors + 1;
+        end
+        
+        /*
+        // branch_inst
+        if (branch_inst !== dut_m_branch_inst) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT branch_inst: 'b%1b, Model branch_inst: 'b%1b ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, branch_inst, dut_m_branch_inst);
+            errors = errors + 1;
+        end
+        
+         // jump_inst
+        if (jump_inst !== dut_m_jump_inst) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT jump_inst: 'b%1b, Model jump_inst: 'b%1b ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, jump_inst, dut_m_jump_inst);
+            errors = errors + 1;
+        end
+        
+        // store_inst
+        if (store_inst !== dut_m_store_inst) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT store_inst: 'b%1b, Model store_inst: 'b%1b ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, store_inst, dut_m_store_inst);
+            errors = errors + 1;
+        end
+        
+        // alu_op_sel
+        if (alu_op_sel !== dut_m_alu_op_sel) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT alu_op_sel: 'b%4b, Model alu_op_sel: 'b%4b ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, alu_op_sel, dut_m_alu_op_sel);
+            errors = errors + 1;
+        end
+        
+        // ig_sel
+        if (ig_sel !== dut_m_ig_sel) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT ig_sel: 'b%3b, Model ig_sel: 'b%3b ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, ig_sel, dut_m_ig_sel);
+            errors = errors + 1;
+        end
+        
+        // bc_uns
+        if (bc_uns !== dut_m_bc_uns) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT bc_uns: 'b%1b, Model bc_uns: 'b%1b ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, bc_uns, dut_m_bc_uns);
+            errors = errors + 1;
+        end
+        
+        // dmem_en
+        if (dmem_en !== dut_m_dmem_en) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT dmem_en: 'b%1b, Model dmem_en: 'b%1b ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, dmem_en, dut_m_dmem_en);
+            errors = errors + 1;
+        end
+        
+        // load_sm_en
+        if (load_sm_en !== dut_m_load_sm_en) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT load_sm_en: 'b%1b, Model load_sm_en: 'b%1b ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, load_sm_en, dut_m_load_sm_en);
+            errors = errors + 1;
+        end
+        
+        // wb_sel
+        if (wb_sel !== dut_m_wb_sel) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT wb_sel: 'b%2b, Model wb_sel: 'b%2b ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, wb_sel, dut_m_wb_sel);
+            errors = errors + 1;
+        end
+        
+        // reg_we
+        if (reg_we !== dut_m_reg_we) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT reg_we: 'b%1b, Model reg_we: 'b%1b ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, reg_we, dut_m_reg_we);
+            errors = errors + 1;
+        end
+        
+        // Operand Forwarding
+        // alu_a_sel_fwd
+        if (alu_a_sel_fwd !== dut_m_alu_a_sel_fwd) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT alu_a_sel_fwd: %0d, Model alu_a_sel_fwd: %0d ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, alu_a_sel_fwd, dut_m_alu_a_sel_fwd);
+            errors = errors + 1;
+        end
+        
+        // alu_b_sel_fwd
+        if (alu_b_sel_fwd !== dut_m_alu_b_sel_fwd) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT alu_b_sel_fwd: %0d, Model alu_b_sel_fwd: %0d ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, alu_b_sel_fwd, dut_m_alu_b_sel_fwd);
+            errors = errors + 1;
+        end
+        
+        // bc_a_sel_fwd
+        if (bc_a_sel_fwd !== dut_m_bc_a_sel_fwd) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT bc_a_sel_fwd: %0d, Model bc_a_sel_fwd: %0d ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, bc_a_sel_fwd, dut_m_bc_a_sel_fwd);
+            errors = errors + 1;
+        end
+        
+        // bcs_b_sel_fwd
+        if (bcs_b_sel_fwd !== dut_m_bcs_b_sel_fwd) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT bcs_b_sel_fwd: %0d, Model bcs_b_sel_fwd: %0d ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, bcs_b_sel_fwd, dut_m_bcs_b_sel_fwd);
+            errors = errors + 1;
+        end
+        
+        // Store Mask
+        // dmem_we
+        if (dmem_we !== dut_m_dmem_we) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT dmem_we: %0d, Model dmem_we: %0d ", 
+            $time, dut_env_inst_id, dut_env_inst_id_asm, dmem_we, dut_m_dmem_we);
+            errors = errors + 1;
+        end
+        */
     
     end // main task body */
 endtask // tb_checker
@@ -673,11 +811,17 @@ task dut_m_pc_update;
 endtask
 
 task dut_m_imem_update;
-    reg [31:0] dut_m_inst_id_read;
+    reg   [31:0] dut_m_inst_id_read;
+    reg [30*7:0] dut_m_inst_id_read_asm;
     begin
-        dut_m_inst_id_read  = test_values_inst_hex[dut_m_pc_mux_out];
+        dut_m_inst_id_read      = test_values_inst_hex[dut_m_pc_mux_out];
+        dut_m_inst_id_read_asm  = test_values_inst_asm[dut_m_pc_mux_out];
+        
         // dut_m_inst_id       = (dut_m_stall_if_q1) ? test_values_inst_hex_nop : dut_m_inst_id_read;
         dut_m_inst_id       = dut_m_inst_id_read;
+        
+        // dut_m_inst_id_asm       = (dut_m_stall_if_q1) ? test_values_inst_hex_nop : dut_m_inst_id_read; <- fix this
+        dut_m_inst_id_asm   = dut_m_inst_id_read_asm;
     end
 endtask
 
@@ -781,8 +925,7 @@ initial begin
             @(posedge clk); #1; 
             dut_m_seq_update();
             dut_m_decode();
-            // #1; dut_m_comb_update('h0, 'b0);
-            #1; dut_m_comb_update();
+            dut_m_comb_update();
         end
     end
     $display("Reset done, time: %0t \n", $time);
@@ -792,10 +935,9 @@ initial begin
     $display("Checking reset exit, time: %0t \n", $time);
     dut_m_seq_update();
     dut_m_decode();
-    // #1; tb_checker();
-    // print_single_instruction_results();
-    // #1; dut_m_comb_update('h0, 'b0);
-    #1; dut_m_comb_update();
+    dut_m_comb_update();
+    tb_checker();
+    print_single_instruction_results();
     // clear_forwarding_counters();
     $display("\nTest  0: Wait for reset: Done \n");
     
@@ -807,10 +949,9 @@ initial begin
         @(posedge clk); #1;
         dut_m_seq_update();
         dut_m_decode();
-        // #1; tb_checker();
-        // print_single_instruction_results();
-        // #1; dut_m_comb_update('h0, 'b0);
-        #1; dut_m_comb_update();
+        dut_m_comb_update();
+        tb_checker();
+        print_single_instruction_results();
     end
     $display("\nTest  1: Hit specific case [R-type]: Done \n");
     /*
