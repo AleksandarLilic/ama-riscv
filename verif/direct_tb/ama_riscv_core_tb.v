@@ -10,6 +10,7 @@
 //      2021-09-11  AL  0.1.0 - Initial - IF stage
 //      2021-09-13  AL  0.2.0 - Add model - IF stage
 //      2021-09-13  AL  0.3.0 - Add checker - IF stage
+//      2021-09-14  AL  0.4.0 - WIP - Add model - ID stage
 //
 //-----------------------------------------------------------------------------
 
@@ -41,6 +42,10 @@
 `define TEST_CASES_FWD           `NFND_TEST + `FDRT_TEST + `FDIT_TEST + `FDL_TEST + `NFX0_TEST+ `NFWE0_TEST
 
 `define TEST_CASES               `TEST_CASES_DEC + `TEST_CASES_FWD
+
+// Reg File
+`define RF_DATA_WIDTH         32
+`define RF_NUM                32
 
 // Expected dependencies in each of the dependency tests
 `define FD_TEST_EXP_ALU_A      7  // for ALU A
@@ -102,15 +107,15 @@ reg  [31:0] dut_m_pc                ;
 reg  [31:0] dut_m_pc_mux_out        ;
 // ID stage
 reg  [31:0] dut_m_inst_id           ;
-reg  [ 4:0] dut_m_rs1_id            ;
-reg  [ 4:0] dut_m_rs2_id            ;
-reg  [ 4:0] dut_m_rd_id             ;
-reg  [24:0] dut_m_imm               ;
+reg  [ 4:0] dut_m_rs1_addr_id       ;
+reg  [ 4:0] dut_m_rs2_addr_id       ;
+reg  [ 4:0] dut_m_rd_addr_id        ;
+reg  [24:0] dut_m_imm_gen_in        ;
 // EX stage
 reg  [31:0] dut_m_inst_ex           ;
 reg  [ 2:0] dut_m_funct3_ex         ;
 reg         dut_m_reg_we_ex         ;
-reg  [ 4:0] dut_m_rd_ex             ;
+reg  [ 4:0] dut_m_rd_addr_ex        ;
 reg  [31:0] dut_m_alu               ;
 // MEM stage
 reg  [31:0] dut_m_inst_mem          ;
@@ -137,7 +142,7 @@ reg         dut_m_branch_inst   ;
 reg         dut_m_jump_inst     ;
 reg  [ 3:0] dut_m_alu_op_sel    ;
 reg  [ 2:0] dut_m_ig_sel        ;
-reg         dut_m_reg_we        ;
+reg         dut_m_reg_we_id     ;
 reg  [ 1:0] dut_m_alu_a_sel_fwd ;
 reg  [ 1:0] dut_m_alu_b_sel_fwd ;
 // EX stage
@@ -151,6 +156,7 @@ reg         dut_m_load_sm_en    ;
 reg  [ 1:0] dut_m_wb_sel        ;
 
 // Model internal signals
+reg [`RF_DATA_WIDTH-1:0]  dut_m_rf32 [`RF_NUM-1:0];
 reg         dut_m_alu_a_sel     ;
 reg         dut_m_alu_b_sel     ;
 reg         dut_m_branch_taken  ;
@@ -325,6 +331,13 @@ task tb_checker;
             errors = errors + 1;
         end
         
+        // pc_mux_out
+        if (`DUT.pc_mux_out !== dut_m_pc_mux_out*4) begin
+            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT pc_mux_out: %5d, Model pc_mux_out: %5d  *Note: x4 model pc_mux_out", 
+            $time, dut_m_inst_id, dut_m_inst_id_asm, `DUT.pc_mux_out, dut_m_pc_mux_out);
+            errors = errors + 1;
+        end
+        
         /*
         // branch_inst
         if (branch_inst !== dut_m_branch_inst) begin
@@ -390,9 +403,9 @@ task tb_checker;
         end
         
         // reg_we
-        if (reg_we !== dut_m_reg_we) begin
+        if (reg_we !== dut_m_reg_we_id) begin
             $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT reg_we: 'b%1b, Model reg_we: 'b%1b ", 
-            $time, dut_env_inst_id, dut_env_inst_id_asm, reg_we, dut_m_reg_we);
+            $time, dut_env_inst_id, dut_env_inst_id_asm, reg_we, dut_m_reg_we_id);
             errors = errors + 1;
         end
         
@@ -464,7 +477,7 @@ task dut_m_decode;
                 dut_m_dmem_en     = 1'b0;
                 dut_m_load_sm_en  = 1'b0;
                 dut_m_wb_sel      = `WB_SEL_ALU;
-                dut_m_reg_we      = 1'b1;
+                dut_m_reg_we_id   = 1'b1;
             end
             
             'b001_0011: begin   // I-type instruction
@@ -482,7 +495,7 @@ task dut_m_decode;
                 dut_m_dmem_en     = 1'b0;
                 dut_m_load_sm_en  = 1'b0;
                 dut_m_wb_sel      = `WB_SEL_ALU;
-                dut_m_reg_we      = 1'b1;
+                dut_m_reg_we_id   = 1'b1;
             end
             
             'b000_0011: begin   // Load instruction
@@ -499,7 +512,7 @@ task dut_m_decode;
                 dut_m_dmem_en     = 1'b1;
                 dut_m_load_sm_en  = 1'b1;
                 dut_m_wb_sel      = `WB_SEL_DMEM;
-                dut_m_reg_we      = 1'b1;
+                dut_m_reg_we_id   = 1'b1;
             end
             
             'b010_0011: begin   // Store instruction
@@ -516,7 +529,7 @@ task dut_m_decode;
                 dut_m_dmem_en     = 1'b1;
                 dut_m_load_sm_en  = 1'b0;
                 // dut_m_wb_sel      = `WB_SEL_DMEM;
-                dut_m_reg_we      = 1'b0;
+                dut_m_reg_we_id   = 1'b0;
             end
             
             'b110_0011: begin   // Branch instruction
@@ -533,7 +546,7 @@ task dut_m_decode;
                 dut_m_dmem_en     = 1'b0;
                 dut_m_load_sm_en  = 1'b0;
                 // dut_m_wb_sel      = `WB_SEL_DMEM;
-                dut_m_reg_we      = 1'b0;
+                dut_m_reg_we_id   = 1'b0;
             end
             
             'b110_0111: begin   // JALR instruction
@@ -550,7 +563,7 @@ task dut_m_decode;
                 dut_m_dmem_en     = 1'b0;
                 // dut_m_load_sm_en  = *;
                 dut_m_wb_sel      = `WB_SEL_INC4;
-                dut_m_reg_we      = 1'b1;
+                dut_m_reg_we_id   = 1'b1;
             end
             
             'b110_1111: begin   // JAL instruction
@@ -567,7 +580,7 @@ task dut_m_decode;
                 dut_m_dmem_en     = 1'b0;
                 // dut_m_load_sm_en  = *;
                 dut_m_wb_sel      = `WB_SEL_INC4;
-                dut_m_reg_we      = 1'b1;
+                dut_m_reg_we_id   = 1'b1;
             end
             
             'b011_0111: begin   // LUI instruction
@@ -584,7 +597,7 @@ task dut_m_decode;
                 dut_m_dmem_en     = 1'b0;
                 // dut_m_load_sm_en  = *;
                 dut_m_wb_sel      = `WB_SEL_ALU;
-                dut_m_reg_we      = 1'b1;
+                dut_m_reg_we_id   = 1'b1;
             end
             
             'b001_0111: begin   // AUIPC instruction
@@ -601,7 +614,7 @@ task dut_m_decode;
                 dut_m_dmem_en     = 1'b0;
                 // dut_m_load_sm_en  = *;
                 dut_m_wb_sel      = `WB_SEL_ALU;
-                dut_m_reg_we      = 1'b1;
+                dut_m_reg_we_id   = 1'b1;
             end
             
             default: begin
@@ -626,7 +639,7 @@ task dut_m_decode;
             dut_m_dmem_en     = 1'b0;
             dut_m_load_sm_en  = 1'b0;
             dut_m_wb_sel      = `WB_SEL_DMEM;
-            dut_m_reg_we      = 1'b0;
+            dut_m_reg_we_id   = 1'b0;
         end
         
     /*    // Operand Forwarding
@@ -820,8 +833,32 @@ task dut_m_imem_update;
         // dut_m_inst_id       = (dut_m_stall_if_q1) ? test_values_inst_hex_nop : dut_m_inst_id_read;
         dut_m_inst_id       = dut_m_inst_id_read;
         
-        // dut_m_inst_id_asm       = (dut_m_stall_if_q1) ? test_values_inst_hex_nop : dut_m_inst_id_read; <- fix this
+        // dut_m_inst_id_asm   = (dut_m_stall_if_q1) ? test_values_inst_asm_nop : dut_m_inst_id_read_asm;
         dut_m_inst_id_asm   = dut_m_inst_id_read_asm;
+    end
+endtask
+
+task dut_m_reg_file_read_update;
+    begin
+        dut_m_rs1_addr_id = dut_m_inst_id[19:15];
+        dut_m_rs2_addr_id = dut_m_inst_id[24:20];
+        dut_m_rd_addr_id  = dut_m_inst_id[11: 7];
+        
+        //dut_m_rf32
+        dut_m_rs1_data_id = dut_m_rf32[dut_m_rs1_addr_id];
+        dut_m_rs2_data_id = dut_m_rf32[dut_m_rs2_addr_id];
+        
+        // add write to rf32, also has to be reset at the beginning
+        // continue with imm_gen and decoder models
+        // add checkers
+        // implement rst sequence
+        
+    end
+endtask
+
+task dut_m_imm_gen_update;
+    begin
+        dut_m_imm_gen_in = dut_m_inst_id[31: 7];
     end
 endtask
 
@@ -855,6 +892,10 @@ task dut_m_comb_update;
         // $display("Branch compare result - eq: %0b, lt: %0b ", dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
         // env_alu_out_update(alu_out_update);
         // $display("ALU out: %0d ", dut_env_alu);
+        
+        //----- ID stage updates
+        dut_m_reg_file_read_update();
+        dut_m_imm_gen_update();
         
         //----- IF stage updates
         dut_m_pc_mux_update();
@@ -892,7 +933,7 @@ end
 initial begin
     //Prints %t scaled in ns (-9), with 2 precision digits, with the " ns" string
     $timeformat(-9, 2, " ns", 20);
-    // $readmemh("../../software/assembly_tests/assembly_tests.hex", CPU.bios_mem.mem, 0, 4095);
+    // load IMEM
     $readmemh({`PROJECT_PATH, "verif/direct_tb/inst/decoder_inst_hex.txt"}, DUT_ama_riscv_core_i.ama_riscv_imem_i.mem, 0, 4095);
     read_test_instructions();
     errors            = 0;
