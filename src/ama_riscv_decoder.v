@@ -24,6 +24,7 @@
 //      2021-08-12  AL  0.8.0 - Add support for LUI
 //      2021-08-12  AL  0.9.0 - Add support for AUIPC
 //      2021-09-08  AL 0.10.0 - Remove imem_en and branch prediction I/O
+//      2021-09-16  AL 0.11.0 - Add reset sequence
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -76,53 +77,58 @@ wire  [ 2:0] funct3_ex   =  inst_ex[14:12];
 wire  [ 6:0] funct7_ex   =  inst_ex[31:25];
 
 // Switch-Case outputs
-reg   [ 1:0] pc_sel_r      ;
-reg          pc_we_r       ;
-reg          store_inst_r  ;
-reg          branch_inst_r ;
-reg          jump_inst_r   ;
-reg   [ 3:0] alu_op_sel_r  ;
-reg          alu_a_sel_r   ;
-reg          alu_b_sel_r   ;
-reg   [ 2:0] ig_sel_r      ;
-reg          bc_uns_r      ;
-reg          dmem_en_r     ;
-reg          load_sm_en_r  ;
-reg   [ 1:0] wb_sel_r      ;
-reg          reg_we_r      ;
+reg   [ 1:0] pc_sel_r           ;
+reg          pc_we_r            ;
+reg          store_inst_r       ;
+reg          branch_inst_r      ;
+reg          jump_inst_r        ;
+reg   [ 3:0] alu_op_sel_r       ;
+reg          alu_a_sel_r        ;
+reg          alu_b_sel_r        ;
+reg   [ 2:0] ig_sel_r           ;
+reg          bc_uns_r           ;
+reg          dmem_en_r          ;
+reg          load_sm_en_r       ;
+reg   [ 1:0] wb_sel_r           ;
+reg          reg_we_r           ;
 
 // Previous values hold
-reg          pc_sel_rst       ;
-reg   [ 1:0] pc_sel_prev      ;
-reg          pc_we_prev       ;
-reg          store_inst_prev  ;
-reg          branch_inst_prev ;
-reg          jump_inst_prev   ;
-reg   [ 3:0] alu_op_sel_prev  ;
-reg          alu_a_sel_prev   ;
-reg          alu_b_sel_prev   ;
-reg   [ 2:0] ig_sel_prev      ;
-reg          bc_uns_prev      ;
-reg          dmem_en_prev     ;
-reg          load_sm_en_prev  ;
-reg   [ 1:0] wb_sel_prev      ;
-reg          reg_we_prev      ;
+reg          pc_sel_rst         ;
+reg   [ 1:0] pc_sel_prev        ;
+reg          pc_we_prev         ;
+reg          store_inst_prev    ;
+reg          branch_inst_prev   ;
+reg          jump_inst_prev     ;
+reg   [ 3:0] alu_op_sel_prev    ;
+reg          alu_a_sel_prev     ;
+reg          alu_b_sel_prev     ;
+reg   [ 2:0] ig_sel_prev        ;
+reg          bc_uns_prev        ;
+reg          dmem_en_prev       ;
+reg          load_sm_en_prev    ;
+reg   [ 1:0] wb_sel_prev        ;
+reg          reg_we_prev        ;
 
 //-----------------------------------------------------------------------------
-// Moving out of the reset sequence
-// pipeline registers? though they are reset with rst=1 regardless
-// imem issue with reset
-// keep all pipe regs in 'clear', remove once decoder goes out of reset
+// Reset sequence
+reg   [ 2:0] reset_seq          ;
+always @ (posedge clk) begin
+    if (rst)
+        reset_seq <= 3'b111;
+    else
+        reset_seq <= {reset_seq[1:0],1'b0};
+end
 
-/* 
-posedge clk
-    if (rst) reset_seq = 3'b111
-    else reset_seq = {reset_seq[2:1],1'b0};
-assign rst_seq_id  = reset_seq[0];    // keeps it clear 1 clk after rst ends
-assign rst_seq_ex  = reset_seq[1];    // keeps it clear 2 clks after rst ends
-assign rst_seq_mem = reset_seq[2];    // keeps it clear 3 clks after rst ends
- */
- 
+wire rst_seq_id  = reset_seq[0];        // keeps it clear 1 clk after rst ends
+wire rst_seq_ex  = reset_seq[1];        // keeps it clear 2 clks after rst ends
+wire rst_seq_mem = reset_seq[2];        // keeps it clear 3 clks after rst ends
+
+//-----------------------------------------------------------------------------
+// Pipeline FFs clear
+assign clear_id  = rst_seq_id   ;
+assign clear_ex  = rst_seq_ex   ;
+assign clear_mem = rst_seq_mem  ;
+
 //-----------------------------------------------------------------------------
 // Decoder
 always @ (*) begin    
