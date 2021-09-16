@@ -9,6 +9,7 @@
 //
 // Version history:
 //      2021-09-07  AL  0.1.0 - Initial
+//      2021-09-16  AL  0.1.1 - Fix - add clear_ex signal
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -80,6 +81,7 @@ ama_riscv_decoder ama_riscv_decoder_i (
     .stall_if       (stall_if       ),
     .clear_if       (clear_if       ),
     .clear_id       (clear_id       ),
+    .clear_ex       (clear_ex       ),
     .clear_mem      (clear_mem      ),
     // outputs      
     .pc_sel         (pc_sel         ),
