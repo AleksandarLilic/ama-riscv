@@ -12,6 +12,7 @@
 //      2021-09-13  AL  0.3.0 - Add checker - IF stage
 //      2021-09-14  AL  0.4.0 - WIP - Add model - ID stage
 //      2021-09-15  AL  0.5.0 - WIP - Add imm_gen and decoder model - ID stage
+//      2021-09-16  AL  0.6.0 - Add reset sequence
 //
 //-----------------------------------------------------------------------------
 
@@ -117,10 +118,13 @@ reg  [`RF_DATA_WIDTH-1:0]  dut_m_rf32 [`RF_NUM-1:0];
 reg  [31:0] dut_m_rs1_data_id       ;
 reg  [31:0] dut_m_rs2_data_id       ;
 // EX stage
+reg  [31:0] dut_m_pc_ex             ;
 reg  [31:0] dut_m_inst_ex           ;
-reg  [ 2:0] dut_m_funct3_ex         ;
+reg  [31:0] dut_m_rs1_data_ex       ;
+reg  [31:0] dut_m_rs2_data_ex       ;
 reg         dut_m_reg_we_ex         ;
 reg  [ 4:0] dut_m_rd_addr_ex        ;
+reg  [31:0] dut_m_imm_gen_out_ex    ;
 reg  [31:0] dut_m_alu               ;
 // MEM stage
 reg  [31:0] dut_m_inst_mem          ;
@@ -311,6 +315,8 @@ endtask
 task tb_checker;
     begin
         // Datapath
+        
+        // ID_Stage
         // inst_id
         if (`DUT.inst_id !== dut_m_inst_id) begin
             $display("*ERROR @ %0t. DUT inst: 'h%8h, Model inst: 'h%8h;  DUT pc: %5d, Model pc: %5d ", 
@@ -338,6 +344,8 @@ task tb_checker;
             $time, dut_m_inst_id, dut_m_inst_id_asm, `DUT.imm_gen_out_id, dut_m_imm_gen_out_id);
             errors = errors + 1;
         end
+        
+        // EX_Stage
         
         
         // Decoder
@@ -894,7 +902,7 @@ task dut_m_reg_file_write_update;
                 dut_m_rf32[i] = 'h0;
             end
         end
-        // else if (reg_we_mem) begin
+        // else if (reg_we_mem && (dut_m_rd_addr_mem != 5'd0)) begin    // no writes to x0
             // dut_m_rf32[dut_m_rd_addr_mem] = dut_m_rd_data;
         // end
     end
@@ -973,14 +981,58 @@ endtask
 task dut_m_id_pipeline_update;
     begin
         // instruction update env
-        dut_m_inst_ex       = (!rst) ? dut_m_inst_id        : 'h0;
-        dut_m_inst_ex_asm   = (!rst) ? dut_m_inst_id_asm    : 'h0;
+        dut_m_inst_ex        = (!rst && !dut_m_clear_id) ? dut_m_inst_id           : 'h0;
+        dut_m_inst_ex_asm    = (!rst && !dut_m_clear_id) ? dut_m_inst_id_asm       : 'h0;
         
-        dut_m_rd_addr_ex    = (!rst) ? dut_m_rd_addr_id     : 'h0;
+        dut_m_rd_addr_ex     = (!rst && !dut_m_clear_id) ? dut_m_rd_addr_id        : 'h0;
+        dut_m_reg_we_ex      = (!rst && !dut_m_clear_id) ? dut_m_reg_we_id         : 'b0;
         
-        dut_m_reg_we_ex     = (!rst) ? dut_m_reg_we_id      : 'b0;
+        dut_m_rs1_data_ex    = (!rst && !dut_m_clear_id) ? dut_m_rs1_data_id       : 'h0;
+        dut_m_rs2_data_ex    = (!rst && !dut_m_clear_id) ? dut_m_rs2_data_id       : 'h0;
         
-        dut_m_store_inst_ex = (!rst) ? dut_m_store_inst     : 'b0;
+        dut_m_pc_ex          = (!rst && !dut_m_clear_id) ? dut_m_pc                : 'h0;
+        dut_m_imm_gen_out_ex = (!rst && !dut_m_clear_id) ? dut_m_imm_gen_out_id    : 'h0;
+        
+        // internal only
+        dut_m_store_inst_ex  = (!rst && !dut_m_clear_id) ? dut_m_store_inst        : 'b0;
+    end
+endtask
+
+/* 
+reg   [ 2:0] reset_seq          ;
+always @ (posedge clk) begin
+    if (rst)
+        reset_seq <= 3'b111;
+    else
+        reset_seq <= {reset_seq[1:0],1'b0};
+end
+
+wire rst_seq_id  = reset_seq[0];        // keeps it clear 1 clk after rst ends
+wire rst_seq_ex  = reset_seq[1];        // keeps it clear 2 clks after rst ends
+wire rst_seq_mem = reset_seq[2];        // keeps it clear 3 clks after rst ends
+
+//-----------------------------------------------------------------------------
+// Pipeline FFs clear
+assign clear_id  = rst_seq_id   ;
+assign clear_ex  = rst_seq_ex   ;
+assign clear_mem = rst_seq_mem  ;
+ */
+
+task dut_m_rst_sequence_update;
+    reg   [ 2:0] reset_seq  ;
+    reg          rst_seq_id ;
+    reg          rst_seq_ex ;
+    reg          rst_seq_mem;
+    begin
+        reset_seq       = (!rst) ? {reset_seq[1:0],1'b0} : 3'b111;
+        rst_seq_id      = reset_seq[0];
+        rst_seq_ex      = reset_seq[1];
+        rst_seq_mem     = reset_seq[2];
+        
+        dut_m_clear_id  = rst_seq_id   ;
+        dut_m_clear_ex  = rst_seq_ex   ;
+        dut_m_clear_mem = rst_seq_mem  ;
+        
     end
 endtask
 
@@ -999,6 +1051,7 @@ task dut_m_seq_update;
         //----- ID stage updates
         dut_m_imm_gen_seq_update();
         dut_m_id_pipeline_update();
+        dut_m_rst_sequence_update();
         // $write("inst_id - IMEM read: 'h%8h    %0s", dut_m_inst_id, dut_m_inst_id_asm);
         
         //----- IF stage updates
