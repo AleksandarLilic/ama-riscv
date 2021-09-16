@@ -2,20 +2,25 @@
 
 **Description:**
 
-Verilog implementation of RISC-V (RV32I) ISA
+Verilog implementation of RISC-V RV32I ISA
 
-Project is a part of Advanced Microprocessor Architectures MS course
+Project is a part of 'Advanced Microprocessor Architectures' Masters course
 
-The final goal is to have a running C code on the FPGA implementation of a design with communication over UART with the PC
+The final goal is to have a compiled C code running on the FPGA implementation of a design with communication with the PC over UART
 
 **Status:**   
-In development
+In development - Integration
 
 **Further development:**  
 TBD    
   
 ### **Project Structure**
-**RTL:** /src/  
-**Direct TB:**  /sim/tb_direct/  
-**UVM:**  /sim/tb_uvm/  
-**Documentation:**  /docs/  
+**RTL:** /src  
+**Direct TB:**  /verif/direct_tb  
+**Documentation:**  /docs  
+
+### **Branches**
+**Main - stable release:** *main*  
+**Ongoing development:** *dev*   
+**Documentation:** *doc*  
+
