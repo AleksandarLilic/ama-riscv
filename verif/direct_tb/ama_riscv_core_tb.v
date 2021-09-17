@@ -14,6 +14,7 @@
 //      2021-09-15  AL  0.5.0 - WIP - Add imm_gen and decoder model - ID stage
 //      2021-09-16  AL  0.6.0 - Add reset sequence
 //      2021-09-17  AL  0.7.0 - Rework checkers
+//      2021-09-17  AL  0.8.0 - Add ID/EX stage FF checkers
 //
 //-----------------------------------------------------------------------------
 
@@ -346,6 +347,16 @@ task run_checkers;
         checker_t("rs1_data_id",    `CHECKER_ACTIVE, `DUT.rs1_data_id,      dut_m_rs1_data_id   );
         checker_t("rs2_data_id",    `CHECKER_ACTIVE, `DUT.rs2_data_id,      dut_m_rs2_data_id   );
         checker_t("imm_gen_out_id", `CHECKER_ACTIVE, `DUT.imm_gen_out_id,   dut_m_imm_gen_out_id);
+        checker_t("clear_id",       `CHECKER_ACTIVE, `DUT.clear_id,         dut_m_clear_id      );
+        // EX_Stage
+        checker_t("inst_ex",        `CHECKER_ACTIVE, `DUT.inst_ex,          dut_m_inst_ex       );
+        checker_t("pc_ex",          `CHECKER_ACTIVE, `DUT.pc_ex,            dut_m_pc_ex*4       );
+        checker_t("rs1_data_ex",    `CHECKER_ACTIVE, `DUT.rs1_data_ex,      dut_m_rs1_data_ex   );
+        checker_t("rs2_data_ex",    `CHECKER_ACTIVE, `DUT.rs2_data_ex,      dut_m_rs2_data_ex   );
+        checker_t("imm_gen_out_ex", `CHECKER_ACTIVE, `DUT.imm_gen_out_ex,   dut_m_imm_gen_out_ex);
+        checker_t("rd_addr_ex",     `CHECKER_ACTIVE, `DUT.rd_addr_ex,       dut_m_rd_addr_ex    );
+        checker_t("reg_we_ex",      `CHECKER_ACTIVE, `DUT.reg_we_ex,        dut_m_reg_we_ex     );
+        checker_t("clear_ex",       `CHECKER_ACTIVE, `DUT.clear_ex,         dut_m_clear_ex      );
         
         
         // Decoder
