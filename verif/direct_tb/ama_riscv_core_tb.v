@@ -13,6 +13,7 @@
 //      2021-09-14  AL  0.4.0 - WIP - Add model - ID stage
 //      2021-09-15  AL  0.5.0 - WIP - Add imm_gen and decoder model - ID stage
 //      2021-09-16  AL  0.6.0 - Add reset sequence
+//      2021-09-17  AL  0.7.0 - Rework checkers
 //
 //-----------------------------------------------------------------------------
 
@@ -48,6 +49,10 @@
 // Reg File
 `define RF_DATA_WIDTH         32
 `define RF_NUM                32
+
+// TB
+`define CHECKER_ACTIVE        1'b1
+`define CHECKER_INACTIVE      1'b0
 
 // Expected dependencies in each of the dependency tests
 `define FD_TEST_EXP_ALU_A      7  // for ALU A
@@ -312,182 +317,60 @@ task read_test_instructions;
     end
 endtask
 
-task tb_checker;
+task checker_t;
+    input reg  [30*7:0] checker_name            ;
+    input reg           checker_active          ;
+    // input reg  [ 5:0]   checker_width           ;
+    input reg  [31:0]   checker_dut_signal      ;
+    input reg  [31:0]   checker_model_signal    ;
+    
     begin
-        // Datapath
-        
+        if (checker_active == 1) begin
+            if (checker_dut_signal !== checker_model_signal) begin
+                $display("*ERROR @ %0t. Checker: \"%0s\"; DUT: %5d, Model: %5d ", 
+                    $time, checker_name, checker_dut_signal, checker_model_signal);
+                errors = errors + 1;
+            end // checker compare
+        end // checker valid
+    end
+endtask
+
+task run_checkers;
+    begin
+        // Datapath        
+        // IF_stage                                         // *4 is offset, different arrays used
+        checker_t("pc",             `CHECKER_ACTIVE, `DUT.pc,               dut_m_pc*4          );
+        checker_t("pc_mux_out",     `CHECKER_ACTIVE, `DUT.pc_mux_out,       dut_m_pc_mux_out*4  );
         // ID_Stage
-        // inst_id
-        if (`DUT.inst_id !== dut_m_inst_id) begin
-            $display("*ERROR @ %0t. DUT inst: 'h%8h, Model inst: 'h%8h;  DUT pc: %5d, Model pc: %5d ", 
-            $time, `DUT.inst_id, dut_m_inst_id, `DUT.pc_sel, dut_m_pc_sel);
-            errors = errors + 1;
-        end
-        
-        // rs1_data_id
-        if (`DUT.rs1_data_id !== dut_m_rs1_data_id) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT rs1_data_id: %5d, Model rs1_data_id: %5d ", 
-            $time, dut_m_inst_id, dut_m_inst_id_asm, `DUT.rs1_data_id, dut_m_rs1_data_id);
-            errors = errors + 1;
-        end
-        
-        // rs2_data_id
-        if (`DUT.rs2_data_id !== dut_m_rs2_data_id) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT rs2_data_id: %5d, Model rs2_data_id: %5d ", 
-            $time, dut_m_inst_id, dut_m_inst_id_asm, `DUT.rs2_data_id, dut_m_rs2_data_id);
-            errors = errors + 1;
-        end
-        
-        // imm_gen_out_id
-        if (`DUT.imm_gen_out_id !== dut_m_imm_gen_out_id) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT imm_gen_out_id: %5d, Model imm_gen_out_id: %5d ", 
-            $time, dut_m_inst_id, dut_m_inst_id_asm, `DUT.imm_gen_out_id, dut_m_imm_gen_out_id);
-            errors = errors + 1;
-        end
-        
-        // EX_Stage
+        checker_t("inst_id",        `CHECKER_ACTIVE, `DUT.inst_id,          dut_m_inst_id       );
+        checker_t("rs1_data_id",    `CHECKER_ACTIVE, `DUT.rs1_data_id,      dut_m_rs1_data_id   );
+        checker_t("rs2_data_id",    `CHECKER_ACTIVE, `DUT.rs2_data_id,      dut_m_rs2_data_id   );
+        checker_t("imm_gen_out_id", `CHECKER_ACTIVE, `DUT.imm_gen_out_id,   dut_m_imm_gen_out_id);
         
         
         // Decoder
-        // pc_sel
-        if (`DUT.pc_sel !== dut_m_pc_sel) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT pc_sel: 'b%2b, Model pc_sel: 'b%2b ", 
-            $time, dut_m_inst_id, dut_m_inst_id_asm, `DUT.pc_sel, dut_m_pc_sel);
-            errors = errors + 1;
-        end
-        
-        // pc_we
-        if (`DUT.pc_we !== dut_m_pc_we) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT pc_we: 'b%2b, Model pc_we: 'b%2b ", 
-            $time, dut_m_inst_id, dut_m_inst_id_asm, `DUT.pc_we, dut_m_pc_we);
-            errors = errors + 1;
-        end
-        
-        // pc
-        if (`DUT.pc !== dut_m_pc*4) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT pc: %5d, Model pc: %5d  *Note: x4 model pc", 
-            $time, dut_m_inst_id, dut_m_inst_id_asm, `DUT.pc, dut_m_pc);
-            errors = errors + 1;
-        end
-        
-        // pc_mux_out
-        if (`DUT.pc_mux_out !== dut_m_pc_mux_out*4) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT pc_mux_out: %5d, Model pc_mux_out: %5d  *Note: x4 model pc_mux_out", 
-            $time, dut_m_inst_id, dut_m_inst_id_asm, `DUT.pc_mux_out, dut_m_pc_mux_out);
-            errors = errors + 1;
-        end
-        
-        // branch_inst
-        if (`DUT.branch_inst_id !== dut_m_branch_inst) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT branch_inst: 'b%1b, Model branch_inst: 'b%1b ", 
-            $time, dut_m_inst_id, dut_m_inst_id_asm, `DUT.branch_inst_id, dut_m_branch_inst);
-            errors = errors + 1;
-        end
-        
-         // jump_inst
-        if (`DUT.jump_inst_id !== dut_m_jump_inst) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT jump_inst: 'b%1b, Model jump_inst: 'b%1b ", 
-            $time, dut_m_inst_id, dut_m_inst_id_asm, `DUT.jump_inst_id, dut_m_jump_inst);
-            errors = errors + 1;
-        end
-        
-        // store_inst
-        if (`DUT.store_inst_id !== dut_m_store_inst) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT store_inst: 'b%1b, Model store_inst: 'b%1b ", 
-            $time, dut_m_inst_id, dut_m_inst_id_asm, `DUT.store_inst_id, dut_m_store_inst);
-            errors = errors + 1;
-        end
-        
-        // alu_op_sel
-        if (`DUT.alu_op_sel !== dut_m_alu_op_sel) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT alu_op_sel: 'b%4b, Model alu_op_sel: 'b%4b ", 
-            $time, dut_m_inst_id, dut_m_inst_id_asm, `DUT.alu_op_sel, dut_m_alu_op_sel);
-            errors = errors + 1;
-        end
-        
-        // imm_gen_sel
-        if (`DUT.imm_gen_sel !== dut_m_imm_gen_sel) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT imm_gen_sel: 'b%3b, Model imm_gen_sel: 'b%3b ", 
-            $time, dut_m_inst_id, dut_m_inst_id_asm, `DUT.imm_gen_sel, dut_m_imm_gen_sel);
-            errors = errors + 1;
-        end
-        
-        // bc_uns
-        if (`DUT.bc_uns !== dut_m_bc_uns) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT bc_uns: 'b%1b, Model bc_uns: 'b%1b ", 
-            $time, dut_m_inst_id, dut_m_inst_id_asm, `DUT.bc_uns, dut_m_bc_uns);
-            errors = errors + 1;
-        end
-        
-        // dmem_en
-        if (`DUT.dmem_en !== dut_m_dmem_en) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT dmem_en: 'b%1b, Model dmem_en: 'b%1b ", 
-            $time, dut_m_inst_id, dut_m_inst_id_asm, `DUT.dmem_en, dut_m_dmem_en);
-            errors = errors + 1;
-        end
-        
-        // load_sm_en
-        if (`DUT.load_sm_en !== dut_m_load_sm_en) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT load_sm_en: 'b%1b, Model load_sm_en: 'b%1b ", 
-            $time, dut_m_inst_id, dut_m_inst_id_asm, `DUT.load_sm_en, dut_m_load_sm_en);
-            errors = errors + 1;
-        end
-        
-        // wb_sel
-        if (`DUT.wb_sel !== dut_m_wb_sel) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT wb_sel: 'b%2b, Model wb_sel: 'b%2b ", 
-            $time, dut_m_inst_id, dut_m_inst_id_asm, `DUT.wb_sel, dut_m_wb_sel);
-            errors = errors + 1;
-        end
-        
-        // reg_we
-        if (`DUT.reg_we_id !== dut_m_reg_we_id) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT reg_we: 'b%1b, Model reg_we: 'b%1b ", 
-            $time, dut_m_inst_id, dut_m_inst_id_asm, `DUT.reg_we_id, dut_m_reg_we_id);
-            errors = errors + 1;
-        end
+        checker_t("pc_sel",         `CHECKER_ACTIVE, `DUT.pc_sel,           dut_m_pc_sel        );
+        checker_t("pc_we",          `CHECKER_ACTIVE, `DUT.pc_we,            dut_m_pc_we         );
+        checker_t("branch_inst_id", `CHECKER_ACTIVE, `DUT.branch_inst_id,   dut_m_branch_inst   );
+        checker_t("jump_inst_id",   `CHECKER_ACTIVE, `DUT.jump_inst_id,     dut_m_jump_inst     );
+        checker_t("store_inst_id",  `CHECKER_ACTIVE, `DUT.store_inst_id,    dut_m_store_inst    );
+        checker_t("alu_op_sel",     `CHECKER_ACTIVE, `DUT.alu_op_sel,       dut_m_alu_op_sel    );
+        checker_t("imm_gen_sel",    `CHECKER_ACTIVE, `DUT.imm_gen_sel,      dut_m_imm_gen_sel   );
+        checker_t("bc_uns",         `CHECKER_ACTIVE, `DUT.bc_uns,           dut_m_bc_uns        );
+        checker_t("dmem_en",        `CHECKER_ACTIVE, `DUT.dmem_en,          dut_m_dmem_en       );
+        checker_t("load_sm_en",     `CHECKER_ACTIVE, `DUT.load_sm_en,       dut_m_load_sm_en    );
+        checker_t("wb_sel",         `CHECKER_ACTIVE, `DUT.wb_sel,           dut_m_wb_sel        );
+        checker_t("reg_we_id",      `CHECKER_ACTIVE, `DUT.reg_we_id,        dut_m_reg_we_id     );
         /*
-        // Operand Forwarding
-        // alu_a_sel_fwd
-        if (alu_a_sel_fwd !== dut_m_alu_a_sel_fwd) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT alu_a_sel_fwd: %0d, Model alu_a_sel_fwd: %0d ", 
-            $time, dut_m_inst_id, dut_m_inst_id_asm, alu_a_sel_fwd, dut_m_alu_a_sel_fwd);
-            errors = errors + 1;
-        end
-        
-        // alu_b_sel_fwd
-        if (alu_b_sel_fwd !== dut_m_alu_b_sel_fwd) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT alu_b_sel_fwd: %0d, Model alu_b_sel_fwd: %0d ", 
-            $time, dut_m_inst_id, dut_m_inst_id_asm, alu_b_sel_fwd, dut_m_alu_b_sel_fwd);
-            errors = errors + 1;
-        end
-        
-        // bc_a_sel_fwd
-        if (bc_a_sel_fwd !== dut_m_bc_a_sel_fwd) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT bc_a_sel_fwd: %0d, Model bc_a_sel_fwd: %0d ", 
-            $time, dut_m_inst_id, dut_m_inst_id_asm, bc_a_sel_fwd, dut_m_bc_a_sel_fwd);
-            errors = errors + 1;
-        end
-        
-        // bcs_b_sel_fwd
-        if (bcs_b_sel_fwd !== dut_m_bcs_b_sel_fwd) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT bcs_b_sel_fwd: %0d, Model bcs_b_sel_fwd: %0d ", 
-            $time, dut_m_inst_id, dut_m_inst_id_asm, bcs_b_sel_fwd, dut_m_bcs_b_sel_fwd);
-            errors = errors + 1;
-        end
-        */
-        /*
-        // Store Mask
-        // dmem_we
-        if (`DUT.dmem_we !== dut_m_dmem_we) begin
-            $display("*ERROR @ %0t. Input inst: 'h%8h  %0s    DUT dmem_we: %0d, Model dmem_we: %0d ", 
-            $time, dut_m_inst_id, dut_m_inst_id_asm, `DUT.dmem_we, dut_m_dmem_we);
-            errors = errors + 1;
-        end
+        checker_t("alu_a_sel_fwd",  `CHECKER_ACTIVE, `DUT.alu_a_sel_fwd,    dut_m_alu_a_sel_fwd );
+        checker_t("alu_b_sel_fwd",  `CHECKER_ACTIVE, `DUT.alu_b_sel_fwd,    dut_m_alu_b_sel_fwd );
+        checker_t("bc_a_sel_fwd",   `CHECKER_ACTIVE, `DUT.bc_a_sel_fwd,     dut_m_bc_a_sel_fwd  );
+        checker_t("bcs_b_sel_fwd",  `CHECKER_ACTIVE, `DUT.bcs_b_sel_fwd,    dut_m_bcs_b_sel_fwd );
+        checker_t("dmem_we",        `CHECKER_ACTIVE, `DUT.dmem_we,          dut_m_dmem_we       );
         */
     
     end // main task body */
-endtask // tb_checker
+endtask // run_checkers
 
 //-----------------------------------------------------------------------------
 // DUT model tasks
@@ -888,13 +771,6 @@ task dut_m_reg_file_read_update;
     end
 endtask
 
-// Notes:
-// add write to rf32, also has to be reset at the beginning
-// continue with imm_gen and decoder models
-// add checkers
-// add all to ex ff
-// implement rst sequence
-
 task dut_m_reg_file_write_update;
     begin
         if (rst) begin
@@ -1157,7 +1033,7 @@ initial begin
     dut_m_seq_update();
     dut_m_comb_update();
     // dut_m_decode();
-    tb_checker();
+    run_checkers();
     print_single_instruction_results();
     // clear_forwarding_counters();
     $display("\nTest  0: Wait for reset: Done \n");
@@ -1171,7 +1047,7 @@ initial begin
         dut_m_seq_update();
         dut_m_comb_update();
         // dut_m_decode();
-        tb_checker();
+        run_checkers();
         print_single_instruction_results();
     end
     $display("\nTest  1: Hit specific case [R-type]: Done \n");
@@ -1185,7 +1061,7 @@ initial begin
         env_update_seq();
         tb_driver();
         dut_m_decode();
-        #1; tb_checker();
+        #1; run_checkers();
         print_single_instruction_results();
         env_update_comb('h0, 'b0);
     end
@@ -1200,7 +1076,7 @@ initial begin
         env_update_seq();
         tb_driver();
         dut_m_decode();
-        #1; tb_checker();
+        #1; run_checkers();
         print_single_instruction_results();
         env_update_comb('h0, 'b0);
     end
@@ -1215,7 +1091,7 @@ initial begin
         env_update_seq();
         tb_driver();
         dut_m_decode();
-        #1; tb_checker();
+        #1; run_checkers();
         print_single_instruction_results();
         env_update_comb('h0, 'b0);
     end
@@ -1240,7 +1116,7 @@ initial begin
             tb_driver();
             dut_m_decode();
             
-            #1; tb_checker();
+            #1; run_checkers();
             print_single_instruction_results();
             
             // $display("Branch inst_ex: %1b ", dut_m_branch_inst_ex);
@@ -1265,7 +1141,7 @@ initial begin
             tb_driver();
             dut_m_decode();
             
-            #1; tb_checker();
+            #1; run_checkers();
             print_single_instruction_results();
             
             // $display("Branch inst_ex: %1b ", dut_m_branch_inst_ex);
@@ -1304,7 +1180,7 @@ initial begin
             tb_driver();
             dut_m_decode();
             
-            #1; tb_checker();
+            #1; run_checkers();
             print_single_instruction_results();
             
             // $display("Jump inst_ex: %1b ", dut_m_jump_inst_ex);
@@ -1328,7 +1204,7 @@ initial begin
             tb_driver();
             dut_m_decode();
             
-            #1; tb_checker();
+            #1; run_checkers();
             print_single_instruction_results();
             
             // $display("Branch inst_ex: %1b ", dut_m_branch_inst_ex);
@@ -1367,7 +1243,7 @@ initial begin
             tb_driver();
             dut_m_decode();
             
-            #1; tb_checker();
+            #1; run_checkers();
             print_single_instruction_results();
             
             // $display("Jump inst_ex: %1b ", dut_m_jump_inst_ex);
@@ -1391,7 +1267,7 @@ initial begin
             tb_driver();
             dut_m_decode();
             
-            #1; tb_checker();
+            #1; run_checkers();
             print_single_instruction_results();
             
             // $display("Branch inst_ex: %1b ", dut_m_branch_inst_ex);
@@ -1420,7 +1296,7 @@ initial begin
         env_update_seq();
         tb_driver();
         dut_m_decode();
-        #1; tb_checker();
+        #1; run_checkers();
         print_single_instruction_results();
         env_update_comb('hA, 'b0);  // ALU is actually used for write to RF, but data is not relevant to this TB, only control signals in checker
     end
@@ -1435,7 +1311,7 @@ initial begin
         env_update_seq();
         tb_driver();
         dut_m_decode();
-        #1; tb_checker();
+        #1; run_checkers();
         print_single_instruction_results();
         env_update_comb('hE, 'b0);  // ALU is actually used for write to RF, but data is not relevant to this TB, only control signals in checker
     end
@@ -1450,7 +1326,7 @@ initial begin
         env_update_seq();
         tb_driver();
         dut_m_decode();
-        #1; tb_checker();
+        #1; run_checkers();
         print_single_instruction_results();
         env_update_comb('h0, 'b0);
     end
@@ -1471,7 +1347,7 @@ initial begin
             tb_driver();
             dut_m_decode();
             
-            #1; tb_checker();
+            #1; run_checkers();
             print_single_instruction_results();
             
             // $display("Branch inst_ex: %1b ", dut_m_branch_inst_ex);
@@ -1501,7 +1377,7 @@ initial begin
         env_update_seq();
         tb_driver();
         dut_m_decode();
-        #1; tb_checker();
+        #1; run_checkers();
         print_single_instruction_results();
         dut_m_pc_mux_out = dut_m_pc_mux_out + 1;
     end
@@ -1524,7 +1400,7 @@ initial begin
             env_update_seq();
             tb_driver();
             dut_m_decode();
-            #1; tb_checker();
+            #1; run_checkers();
             print_single_instruction_results();
             if(branch_inst || jump_inst) clocks_to_execute = 1;   // add one more 1 clock for branch/jump
             if(clocks_to_execute == 0) dut_m_pc_mux_out = dut_m_pc_mux_out + 1;
@@ -1546,7 +1422,7 @@ initial begin
             env_update_seq();
             tb_driver();
             dut_m_decode();
-            #1; tb_checker();
+            #1; run_checkers();
             print_single_instruction_results();
             if(branch_inst || jump_inst) clocks_to_execute = 1;   // add one more 1 clock for branch/jump
             if(clocks_to_execute == 0) dut_m_pc_mux_out = dut_m_pc_mux_out + 1;
@@ -1568,7 +1444,7 @@ initial begin
             env_update_seq();
             tb_driver();
             dut_m_decode();
-            #1; tb_checker();
+            #1; run_checkers();
             print_single_instruction_results();
             if(branch_inst || jump_inst) clocks_to_execute = 1;   // add one more 1 clock for branch/jump
             if(clocks_to_execute == 0) dut_m_pc_mux_out = dut_m_pc_mux_out + 1;
@@ -1590,7 +1466,7 @@ initial begin
             env_update_seq();
             tb_driver();
             dut_m_decode();
-            #1; tb_checker();
+            #1; run_checkers();
             print_single_instruction_results();
             if(branch_inst || jump_inst) clocks_to_execute = 1;   // add one more 1 clock for branch/jump
             if(clocks_to_execute == 0) dut_m_pc_mux_out = dut_m_pc_mux_out + 1;
@@ -1612,7 +1488,7 @@ initial begin
             env_update_seq();
             tb_driver();
             dut_m_decode();
-            #1; tb_checker();
+            #1; run_checkers();
             print_single_instruction_results();
             if(branch_inst || jump_inst) clocks_to_execute = 1;   // add one more 1 clock for branch/jump
             if(clocks_to_execute == 0) dut_m_pc_mux_out = dut_m_pc_mux_out + 1;
