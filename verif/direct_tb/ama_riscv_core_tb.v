@@ -17,6 +17,7 @@
 //      2021-09-17  AL  0.8.0 - Add ID/EX stage FF checkers
 //      2021-09-18  AL  0.8.1 - Fix ID stage names
 //      2021-09-18  AL  0.8.2 - Fix PC notation - match RTL
+//      2021-09-18  AL  0.9.0 - Add ID/EX pipeline signals and Branch Compare model
 //
 //-----------------------------------------------------------------------------
 
@@ -135,6 +136,7 @@ reg  [31:0] dut_m_inst_ex           ;
 reg  [31:0] dut_m_rs1_data_ex       ;
 reg  [31:0] dut_m_rs2_data_ex       ;
 reg         dut_m_reg_we_ex         ;
+reg         dut_m_bc_uns_ex         ;
 reg  [ 4:0] dut_m_rd_addr_ex        ;
 reg  [31:0] dut_m_imm_gen_out_ex    ;
 // out
@@ -149,6 +151,8 @@ reg  [ 1:0] dut_m_store_mask_offset ;
 // in
 reg  [31:0] dut_m_pc_mem            ;
 reg  [31:0] dut_m_inst_mem          ;
+reg  [31:0] dut_m_writeback         ;
+
 
 // Control Outputs - Pipeline Registers
 reg         dut_m_stall_if      ;
@@ -158,11 +162,12 @@ reg         dut_m_clear_id      ;
 reg         dut_m_clear_ex      ;
 reg         dut_m_clear_mem     ;
 
+
 // Control Outputs
-// IF stage
+// for IF stage
 reg  [ 1:0] dut_m_pc_sel_if        ;
 reg         dut_m_pc_we_if         ;
-// ID stage
+// for ID stage
 reg         dut_m_store_inst_id    ;
 reg         dut_m_branch_inst_id   ;
 reg         dut_m_jump_inst_id     ;
@@ -171,15 +176,31 @@ reg  [ 2:0] dut_m_imm_gen_sel_id   ;
 reg         dut_m_reg_we_id     ;
 reg  [ 1:0] dut_m_alu_a_sel_fwd_id ;
 reg  [ 1:0] dut_m_alu_b_sel_fwd_id ;
-// EX stage
+// for EX stage
 reg         dut_m_bc_uns_id        ;
 reg         dut_m_dmem_en_id       ;
 reg         dut_m_bc_a_sel_fwd_id  ;
 reg         dut_m_bcs_b_sel_fwd_id ;
 reg  [ 3:0] dut_m_dmem_we_id       ;
-// MEM stage
+// for MEM stage
 reg         dut_m_load_sm_en_id    ;
 reg  [ 1:0] dut_m_wb_sel_id        ;
+
+// Control Outputs in datapath
+// in EX stage
+reg         dut_m_bc_uns_ex        ;
+reg         dut_m_bc_a_sel_fwd_ex  ;
+reg         dut_m_bcs_b_sel_fwd_ex ;
+reg  [ 1:0] dut_m_alu_a_sel_fwd_ex ;
+reg  [ 1:0] dut_m_alu_b_sel_fwd_ex ;
+reg  [ 3:0] dut_m_alu_op_sel_ex    ;
+reg         dut_m_dmem_en_ex       ;
+reg  [ 3:0] dut_m_dmem_we_ex       ;
+reg         dut_m_load_sm_en_ex    ;
+reg  [ 1:0] dut_m_wb_sel_ex        ;
+// in MEM stage
+
+
 
 // Model internal signals
 reg  [31:0] dut_m_pc_mux_out_div4       ;
@@ -192,7 +213,7 @@ reg         dut_m_branch_taken          ;
 reg         dut_m_jump_taken            ;
 reg         dut_m_branch_inst_ex        ;
 reg         dut_m_jump_inst_ex          ;
-reg         dut_m_store_inst_id_ex         ;
+reg         dut_m_store_inst_id_ex      ;
 
 //-----------------------------------------------------------------------------
 // Testbench variables
@@ -561,7 +582,7 @@ task dut_m_decode;
             end
             
             default: begin
-                $write("*WARNING @ %0t. Decoder model 'default' case. Input inst_id: 'h%8h  %0s",
+                $display("*WARNING @ %0t. Decoder model 'default' case. Input inst_id: 'h%8h  %0s",
                 $time, dut_m_inst_id, dut_m_inst_id_asm);
                 warnings = warnings + 1;
             end
@@ -610,17 +631,9 @@ task dut_m_decode;
         
         // BC B / DMEM din
         dut_m_bcs_b_sel_fwd_id = ((dut_m_rs2_addr_id != `RF_X0_ZERO) && (dut_m_rs2_addr_id == dut_m_rd_addr_ex) && (dut_m_reg_we_ex) && (dut_m_store_inst_id || dut_m_branch_inst_id));
-        
-        /* // Dependency counters:
-        alu_a_sel_fwd_cnt  = alu_a_sel_fwd_cnt + dut_m_alu_a_sel_fwd_id[1];
-        alu_b_sel_fwd_cnt  = alu_b_sel_fwd_cnt + dut_m_alu_b_sel_fwd_id[1];
-        bc_a_sel_fwd_cnt   = bc_a_sel_fwd_cnt  + dut_m_bc_a_sel_fwd ;
-        bcs_b_sel_fwd_cnt  = bcs_b_sel_fwd_cnt + dut_m_bcs_b_sel_fwd; 
-        
-        print_forwarding_counters();*/
-        
-        /* 
-        // Store Mask
+                
+         
+      /*  // Store Mask
         if(dut_m_store_inst_id_ex) begin                   // store mask enable
             case(funct3_ex[1:0])                        // store mask width
                 5'd0:   // byte
@@ -692,8 +705,8 @@ task dut_m_decode;
             dut_m_dmem_we = 4'b0000;
         end
          */
-        /*
-        // branch resolution
+        
+      /*  // branch resolution
         case ({inst_ex[14], inst_ex[12]})
             2'b00:      // beq -> a == b
                 dut_m_branch_taken = dut_m_bc_a_eq_b;
@@ -725,8 +738,6 @@ task dut_m_decode;
         
         // flow change instructions use ALU out as destination address
         // if(dut_m_branch_taken || dut_m_jump_taken) dut_m_pc_sel_if = 2'b01; // alu input
-        
-        // $display("\nBranch used inst ex: %8h, branch_instr: %1b ", dut_m_inst_ex, dut_m_branch_inst_ex);
         
     end                  
 endtask // dut_m_decode
@@ -847,7 +858,7 @@ task dut_m_imm_gen_update;
                 end
                                 
                 default: begin  // invalid operation
-                    $write("*WARNING @ %0t. Imm Gen model 'default' case. Input inst_id: 'h%8h  %0s",
+                    $display("*WARNING @ %0t. Imm Gen model 'default' case. Input inst_id: 'h%8h  %0s",
                     $time, dut_m_inst_id, dut_m_inst_id_asm);
                     warnings = warnings + 1;
                 end
@@ -866,58 +877,94 @@ task dut_m_imm_gen_seq_update;
     end
 endtask
 
-task dut_m_if_pipeline_update;
+task dut_m_bc_update;
+    reg [31:0] bc_in_a;
+    reg [31:0] bc_in_b;
     begin
-        dut_m_stall_if_q1 = (!rst) ? dut_m_stall_if         : 'b0;
+        bc_in_a = dut_m_bc_a_sel_fwd_ex  ? dut_m_writeback : dut_m_rs1_data_ex;
+        bc_in_b = dut_m_bcs_b_sel_fwd_ex ? dut_m_writeback : dut_m_rs2_data_ex;
+        
+        case (dut_m_bc_uns_ex)
+            1'b0: begin     // signed
+                dut_m_bc_a_eq_b = ($signed(bc_in_a) == $signed(bc_in_b));
+                dut_m_bc_a_lt_b = ($signed(bc_in_a) <  $signed(bc_in_b));
+            end
+            
+            1'b1: begin     // unsigned
+                dut_m_bc_a_eq_b = (bc_in_a == bc_in_b);
+                dut_m_bc_a_lt_b = (bc_in_a <  bc_in_b);
+            end
+            
+            default: begin
+                $display("*WARNING @ %0t. Branch Compare 'default' case. Input bc_uns: 'b%1b ",
+                $time, dut_m_bc_uns_ex);
+                warnings = warnings + 1;
+                dut_m_bc_a_eq_b = 1'b0;
+                dut_m_bc_a_lt_b = 1'b0;
+            end
+        endcase
     end
 endtask
+
+/* task dut_m_alu_update;
+    begin
+        
+    end
+endtask */
+
+/* task dut_m_dmem_update;
+    begin
+        
+    end
+endtask */
 
 task dut_m_nop_id_update;
     begin
-        dut_m_inst_id       = (dut_m_stall_if_q1) ? test_values_inst_hex_nop : dut_m_inst_id_read;
-        dut_m_inst_id_asm   = (dut_m_stall_if_q1) ? test_values_inst_asm_nop : dut_m_inst_id_read_asm;
+        dut_m_inst_id           = (dut_m_stall_if_q1) ? test_values_inst_hex_nop : dut_m_inst_id_read;
+        dut_m_inst_id_asm       = (dut_m_stall_if_q1) ? test_values_inst_asm_nop : dut_m_inst_id_read_asm;
     end
 endtask
 
-task dut_m_id_pipeline_update;
+task dut_m_if_pipeline_update;
+    begin
+        dut_m_stall_if_q1       = (!rst) ? dut_m_stall_if : 'b0;
+    end
+endtask
+
+task dut_m_id_ex_pipeline_update;
     begin
         // instruction update env
-        dut_m_inst_ex        = (!rst && !dut_m_clear_id) ? dut_m_inst_id           : 'h0;
-        dut_m_inst_ex_asm    = (!rst && !dut_m_clear_id) ? dut_m_inst_id_asm       : 'h0;
-        
-        dut_m_rd_addr_ex     = (!rst && !dut_m_clear_id) ? dut_m_rd_addr_id        : 'h0;
-        dut_m_reg_we_ex      = (!rst && !dut_m_clear_id) ? dut_m_reg_we_id         : 'b0;
-        
-        dut_m_rs1_data_ex    = (!rst && !dut_m_clear_id) ? dut_m_rs1_data_id       : 'h0;
-        dut_m_rs2_data_ex    = (!rst && !dut_m_clear_id) ? dut_m_rs2_data_id       : 'h0;
-        
-        dut_m_pc_ex          = (!rst && !dut_m_clear_id) ? dut_m_pc                : 'h0;
-        dut_m_imm_gen_out_ex = (!rst && !dut_m_clear_id) ? dut_m_imm_gen_out_id    : 'h0;
+        // datapath
+        dut_m_pc_ex             = (!rst && !dut_m_clear_id) ? dut_m_pc                  : 'h0;
+        dut_m_rd_addr_ex        = (!rst && !dut_m_clear_id) ? dut_m_rd_addr_id          : 'h0;
+        dut_m_rs1_data_ex       = (!rst && !dut_m_clear_id) ? dut_m_rs1_data_id         : 'h0;
+        dut_m_rs2_data_ex       = (!rst && !dut_m_clear_id) ? dut_m_rs2_data_id         : 'h0;
+        dut_m_imm_gen_out_ex    = (!rst && !dut_m_clear_id) ? dut_m_imm_gen_out_id      : 'h0;        
+        dut_m_inst_ex           = (!rst && !dut_m_clear_id) ? dut_m_inst_id             : 'h0;
+        dut_m_inst_ex_asm       = (!rst && !dut_m_clear_id) ? dut_m_inst_id_asm         : 'h0;
+        // control
+        dut_m_bc_uns_ex         = (!rst && !dut_m_clear_id) ? dut_m_bc_uns_id           : 'b0;
+        dut_m_bc_a_sel_fwd_ex   = (!rst && !dut_m_clear_id) ? dut_m_bc_a_sel_fwd_id     : 'b0;
+        dut_m_bcs_b_sel_fwd_ex  = (!rst && !dut_m_clear_id) ? dut_m_bcs_b_sel_fwd_ex    : 'b0;        
+        dut_m_alu_a_sel_fwd_ex  = (!rst && !dut_m_clear_id) ? dut_m_alu_a_sel_fwd_id    : 'h0;
+        dut_m_alu_b_sel_fwd_ex  = (!rst && !dut_m_clear_id) ? dut_m_alu_b_sel_fwd_id    : 'h0;
+        dut_m_alu_op_sel_ex     = (!rst && !dut_m_clear_id) ? dut_m_alu_op_sel_id       : 'h0;
+        dut_m_dmem_en_ex        = (!rst && !dut_m_clear_id) ? dut_m_dmem_en_id          : 'b0;
+        dut_m_dmem_we_ex        = (!rst && !dut_m_clear_id) ? dut_m_dmem_we_id          : 'h0;
+        dut_m_load_sm_en_ex     = (!rst && !dut_m_clear_id) ? dut_m_load_sm_en_id       : 'b0;
+        dut_m_wb_sel_ex         = (!rst && !dut_m_clear_id) ? dut_m_wb_sel_id           : 'h0;        
+        dut_m_reg_we_ex         = (!rst && !dut_m_clear_id) ? dut_m_reg_we_id           : 'b0;
         
         // internal only
-        dut_m_store_inst_id_ex  = (!rst && !dut_m_clear_id) ? dut_m_store_inst_id        : 'b0;
+        dut_m_store_inst_id_ex  = (!rst && !dut_m_clear_id) ? dut_m_store_inst_id       : 'b0;
     end
 endtask
 
-/* 
-reg   [ 2:0] reset_seq          ;
-always @ (posedge clk) begin
-    if (rst)
-        reset_seq <= 3'b111;
-    else
-        reset_seq <= {reset_seq[1:0],1'b0};
-end
-
-wire rst_seq_id  = reset_seq[0];        // keeps it clear 1 clk after rst ends
-wire rst_seq_ex  = reset_seq[1];        // keeps it clear 2 clks after rst ends
-wire rst_seq_mem = reset_seq[2];        // keeps it clear 3 clks after rst ends
-
-//-----------------------------------------------------------------------------
-// Pipeline FFs clear
-assign clear_id  = rst_seq_id   ;
-assign clear_ex  = rst_seq_ex   ;
-assign clear_mem = rst_seq_mem  ;
- */
+/* task dut_m_ex_mem_pipeline_update;
+    begin
+        
+    end
+endtask */
 
 task dut_m_rst_sequence_update;
     reg   [ 2:0] reset_seq  ;
@@ -939,19 +986,21 @@ endtask
 
 task dut_m_seq_update;
     begin
-        //----- MEM stage updates
+        //----- WB stage updates
         dut_m_reg_file_write_update();
-        // env_mem_pipeline_update();
+        
+        //----- MEM stage updates
+        //
         
         //----- EX stage updates
-        // env_ex_pipeline_update();
+        // dut_m_ex_mem_pipeline_update();
         // $write  ("inst_ex - FF :     'h%8h    %0s", dut_env_inst_ex, dut_env_inst_ex_asm);
         // $display("dut_env_rd_ex:       %0d", dut_env_rd_ex     );
         // $display("dut_env_reg_we_ex: 'b%0b", dut_env_reg_we_ex );
         
         //----- ID stage updates
         dut_m_imm_gen_seq_update();
-        dut_m_id_pipeline_update();
+        dut_m_id_ex_pipeline_update();
         dut_m_rst_sequence_update();
         // $write("inst_id - IMEM read: 'h%8h    %0s", dut_m_inst_id, dut_m_inst_id_asm);
         
@@ -971,6 +1020,9 @@ task dut_m_comb_update;
         // $display("Branch compare result - eq: %0b, lt: %0b ", dut_env_bc_a_eq_b, dut_env_bc_a_lt_b);
         // env_alu_out_update(alu_out_update);
         // $display("ALU out: %0d ", dut_env_alu);
+        
+        //----- EX stage updates
+        dut_m_bc_update();
         
         //----- ID stage updates
         dut_m_nop_id_update();
