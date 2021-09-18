@@ -12,6 +12,7 @@
 //      2021-09-14  AL  0.2.0 - Add ID stage
 //      2021-09-18  AL  0.3.0 - Finish ID/EX pipeline
 //      2021-09-18  AL  0.4.0 - Add EX stage
+//      2021-09-18  AL  0.4.1 - Fix dmem_we
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -57,11 +58,13 @@ wire [ 1:0] alu_b_sel_fwd_id        ;
 wire        bc_a_sel_fwd_id         ;
 wire        bcs_b_sel_fwd_id        ;
 wire        bc_uns_id               ;
-wire [ 3:0] dmem_we_id              ;
 wire        dmem_en_id              ;
 wire        load_sm_en_id           ;
 wire [ 1:0] wb_sel_id               ;
 wire        reg_we_id               ;
+
+// Signals - EX stage
+wire [ 3:0] dmem_we_ex              ;
 
 // Signals - IF stage            
 wire [ 1:0] pc_sel_if               ;
@@ -110,7 +113,7 @@ ama_riscv_control ama_riscv_control_i (
     .alu_b_sel_fwd      (alu_b_sel_fwd_id   ),
     .bc_a_sel_fwd       (bc_a_sel_fwd_id    ),
     .bcs_b_sel_fwd      (bcs_b_sel_fwd_id   ),
-    .dmem_we            (dmem_we_id         )
+    .dmem_we            (dmem_we_ex         )
 );
 
 //-----------------------------------------------------------------------------
@@ -238,7 +241,6 @@ reg  [ 1:0] alu_a_sel_fwd_ex    ;
 reg  [ 1:0] alu_b_sel_fwd_ex    ;
 reg  [ 3:0] alu_op_sel_ex       ;
 reg         dmem_en_ex          ;
-reg  [ 3:0] dmem_we_ex          ;
 reg         load_sm_en_ex       ;
 reg  [ 1:0] wb_sel_ex           ;
 // reg         reg_we_ex           ;   // defined previously
@@ -260,7 +262,6 @@ always @ (posedge clk) begin
         alu_b_sel_fwd_ex <=  2'h0;
         alu_op_sel_ex    <=  4'h0;
         dmem_en_ex       <=  1'b0;
-        dmem_we_ex       <=  4'h0;
         load_sm_en_ex    <=  1'b0;
         wb_sel_ex        <=  2'h0;
         reg_we_ex        <=  1'b0;
@@ -281,7 +282,6 @@ always @ (posedge clk) begin
         alu_b_sel_fwd_ex <=  2'h0;
         alu_op_sel_ex    <=  4'h0;
         dmem_en_ex       <=  1'b0;
-        dmem_we_ex       <=  4'h0;
         load_sm_en_ex    <=  1'b0;
         wb_sel_ex        <=  2'h0;
         reg_we_ex        <=  1'b0;
@@ -302,7 +302,6 @@ always @ (posedge clk) begin
         alu_b_sel_fwd_ex <= alu_b_sel_fwd_id;
         alu_op_sel_ex    <= alu_op_sel_id   ;
         dmem_en_ex       <= dmem_en_id      ;
-        dmem_we_ex       <= dmem_we_id      ;
         load_sm_en_ex    <= load_sm_en_id   ;
         wb_sel_ex        <= wb_sel_id       ;
         reg_we_ex        <= reg_we_id       ;
