@@ -15,6 +15,7 @@
 //      2021-09-16  AL  0.6.0 - Add reset sequence
 //      2021-09-17  AL  0.7.0 - Rework checkers
 //      2021-09-17  AL  0.8.0 - Add ID/EX stage FF checkers
+//      2021-09-18  AL  0.8.1 - Fix ID stage names
 //
 //-----------------------------------------------------------------------------
 
@@ -111,19 +112,23 @@ reg         rst;
 // Datapath
 // IF stage
 reg  [31:0] dut_m_pc                ;
-// reg  [31:0] dut_m_pc_inc4           ;
 reg  [31:0] dut_m_pc_mux_out        ;
+
 // ID stage
+// in
 reg  [31:0] dut_m_inst_id           ;
 reg  [ 4:0] dut_m_rs1_addr_id       ;
 reg  [ 4:0] dut_m_rs2_addr_id       ;
 reg  [ 4:0] dut_m_rd_addr_id        ;
 reg  [24:0] dut_m_imm_gen_in        ;
-reg  [31:0] dut_m_imm_gen_out_id    ;
 reg  [`RF_DATA_WIDTH-1:0]  dut_m_rf32 [`RF_NUM-1:0];
+// out
 reg  [31:0] dut_m_rs1_data_id       ;
 reg  [31:0] dut_m_rs2_data_id       ;
+reg  [31:0] dut_m_imm_gen_out_id    ;
+
 // EX stage
+// in
 reg  [31:0] dut_m_pc_ex             ;
 reg  [31:0] dut_m_inst_ex           ;
 reg  [31:0] dut_m_rs1_data_ex       ;
@@ -131,14 +136,18 @@ reg  [31:0] dut_m_rs2_data_ex       ;
 reg         dut_m_reg_we_ex         ;
 reg  [ 4:0] dut_m_rd_addr_ex        ;
 reg  [31:0] dut_m_imm_gen_out_ex    ;
-reg  [31:0] dut_m_alu               ;
-// MEM stage
-reg  [31:0] dut_m_inst_mem          ;
-
-// Datapath to Control
+// out
+reg  [31:0] dut_m_alu_ex            ;
+reg  [ 1:0] dut_m_load_sm_offset_ex ;
+// to control
 reg         dut_m_bc_a_eq_b         ;
 reg         dut_m_bc_a_lt_b         ;
 reg  [ 1:0] dut_m_store_mask_offset ;
+
+// MEM stage
+// in
+reg  [31:0] dut_m_pc_mem            ;
+reg  [31:0] dut_m_inst_mem          ;
 
 // Control Outputs - Pipeline Registers
 reg         dut_m_stall_if      ;
@@ -150,38 +159,38 @@ reg         dut_m_clear_mem     ;
 
 // Control Outputs
 // IF stage
-reg  [ 1:0] dut_m_pc_sel        ;
-reg         dut_m_pc_we         ;
+reg  [ 1:0] dut_m_pc_sel_if        ;
+reg         dut_m_pc_we_if         ;
 // ID stage
-reg         dut_m_store_inst    ;
-reg         dut_m_branch_inst   ;
-reg         dut_m_jump_inst     ;
-reg  [ 3:0] dut_m_alu_op_sel    ;
-reg  [ 2:0] dut_m_imm_gen_sel   ;
+reg         dut_m_store_inst_id    ;
+reg         dut_m_branch_inst_id   ;
+reg         dut_m_jump_inst_id     ;
+reg  [ 3:0] dut_m_alu_op_sel_id    ;
+reg  [ 2:0] dut_m_imm_gen_sel_id   ;
 reg         dut_m_reg_we_id     ;
-reg  [ 1:0] dut_m_alu_a_sel_fwd ;
-reg  [ 1:0] dut_m_alu_b_sel_fwd ;
+reg  [ 1:0] dut_m_alu_a_sel_fwd_id ;
+reg  [ 1:0] dut_m_alu_b_sel_fwd_id ;
 // EX stage
-reg         dut_m_bc_uns        ;
-reg         dut_m_dmem_en       ;
-reg         dut_m_bc_a_sel_fwd  ;
-reg         dut_m_bcs_b_sel_fwd ;
-reg  [ 3:0] dut_m_dmem_we       ;
+reg         dut_m_bc_uns_id        ;
+reg         dut_m_dmem_en_id       ;
+reg         dut_m_bc_a_sel_fwd_id  ;
+reg         dut_m_bcs_b_sel_fwd_id ;
+reg  [ 3:0] dut_m_dmem_we_id       ;
 // MEM stage
-reg         dut_m_load_sm_en    ;
-reg  [ 1:0] dut_m_wb_sel        ;
+reg         dut_m_load_sm_en_id    ;
+reg  [ 1:0] dut_m_wb_sel_id        ;
 
 // Model internal signals
 reg  [31:0] dut_m_inst_id_read          ;
 reg[30*7:0] dut_m_inst_id_read_asm      ;
 reg  [31:0] dut_m_imm_gen_out_id_prev   ;
-reg         dut_m_alu_a_sel             ;
-reg         dut_m_alu_b_sel             ;
+reg         dut_m_alu_a_sel_id             ;
+reg         dut_m_alu_b_sel_id             ;
 reg         dut_m_branch_taken          ;
 reg         dut_m_jump_taken            ;
 reg         dut_m_branch_inst_ex        ;
 reg         dut_m_jump_inst_ex          ;
-reg         dut_m_store_inst_ex         ;
+reg         dut_m_store_inst_id_ex         ;
 
 //-----------------------------------------------------------------------------
 // Testbench variables
@@ -202,6 +211,7 @@ reg  [  31:0] test_values_inst_hex_nop;
 reg  [30*7:0] str;
 reg  [30*7:0] test_values_inst_asm [`TEST_CASES-1:0];
 reg  [30*7:0] test_values_inst_asm_nop  ;
+
 reg  [30*7:0] dut_m_inst_id_asm       ;
 reg  [30*7:0] dut_m_inst_ex_asm       ;
 reg  [30*7:0] dut_m_inst_mem_asm      ;
@@ -340,45 +350,43 @@ task run_checkers;
     begin
         // Datapath        
         // IF_stage                                         // *4 is offset, different arrays used
-        checker_t("pc",             `CHECKER_ACTIVE, `DUT.pc,               dut_m_pc*4          );
-        checker_t("pc_mux_out",     `CHECKER_ACTIVE, `DUT.pc_mux_out,       dut_m_pc_mux_out*4  );
-        // ID_Stage
-        checker_t("inst_id",        `CHECKER_ACTIVE, `DUT.inst_id,          dut_m_inst_id       );
-        checker_t("rs1_data_id",    `CHECKER_ACTIVE, `DUT.rs1_data_id,      dut_m_rs1_data_id   );
-        checker_t("rs2_data_id",    `CHECKER_ACTIVE, `DUT.rs2_data_id,      dut_m_rs2_data_id   );
-        checker_t("imm_gen_out_id", `CHECKER_ACTIVE, `DUT.imm_gen_out_id,   dut_m_imm_gen_out_id);
-        checker_t("clear_id",       `CHECKER_ACTIVE, `DUT.clear_id,         dut_m_clear_id      );
-        // EX_Stage
-        checker_t("inst_ex",        `CHECKER_ACTIVE, `DUT.inst_ex,          dut_m_inst_ex       );
-        checker_t("pc_ex",          `CHECKER_ACTIVE, `DUT.pc_ex,            dut_m_pc_ex*4       );
-        checker_t("rs1_data_ex",    `CHECKER_ACTIVE, `DUT.rs1_data_ex,      dut_m_rs1_data_ex   );
-        checker_t("rs2_data_ex",    `CHECKER_ACTIVE, `DUT.rs2_data_ex,      dut_m_rs2_data_ex   );
-        checker_t("imm_gen_out_ex", `CHECKER_ACTIVE, `DUT.imm_gen_out_ex,   dut_m_imm_gen_out_ex);
-        checker_t("rd_addr_ex",     `CHECKER_ACTIVE, `DUT.rd_addr_ex,       dut_m_rd_addr_ex    );
-        checker_t("reg_we_ex",      `CHECKER_ACTIVE, `DUT.reg_we_ex,        dut_m_reg_we_ex     );
-        checker_t("clear_ex",       `CHECKER_ACTIVE, `DUT.clear_ex,         dut_m_clear_ex      );
+        checker_t("pc",             `CHECKER_ACTIVE, `DUT.pc,                   dut_m_pc*4              );
+        checker_t("pc_mux_out",     `CHECKER_ACTIVE, `DUT.pc_mux_out,           dut_m_pc_mux_out*4      );
+        // ID_Stage     
+        checker_t("inst_id",        `CHECKER_ACTIVE, `DUT.inst_id,              dut_m_inst_id           );
+        checker_t("rs1_data_id",    `CHECKER_ACTIVE, `DUT.rs1_data_id,          dut_m_rs1_data_id       );
+        checker_t("rs2_data_id",    `CHECKER_ACTIVE, `DUT.rs2_data_id,          dut_m_rs2_data_id       );
+        checker_t("imm_gen_out_id", `CHECKER_ACTIVE, `DUT.imm_gen_out_id,       dut_m_imm_gen_out_id    );
+        checker_t("clear_id",       `CHECKER_ACTIVE, `DUT.clear_id,             dut_m_clear_id          );
+        // EX_Stage     
+        checker_t("inst_ex",        `CHECKER_ACTIVE, `DUT.inst_ex,              dut_m_inst_ex           );
+        checker_t("pc_ex",          `CHECKER_ACTIVE, `DUT.pc_ex,                dut_m_pc_ex*4           );
+        checker_t("rs1_data_ex",    `CHECKER_ACTIVE, `DUT.rs1_data_ex,          dut_m_rs1_data_ex       );
+        checker_t("rs2_data_ex",    `CHECKER_ACTIVE, `DUT.rs2_data_ex,          dut_m_rs2_data_ex       );
+        checker_t("imm_gen_out_ex", `CHECKER_ACTIVE, `DUT.imm_gen_out_ex,       dut_m_imm_gen_out_ex    );
+        checker_t("rd_addr_ex",     `CHECKER_ACTIVE, `DUT.rd_addr_ex,           dut_m_rd_addr_ex        );
+        checker_t("reg_we_ex",      `CHECKER_ACTIVE, `DUT.reg_we_ex,            dut_m_reg_we_ex         );
+        checker_t("clear_ex",       `CHECKER_ACTIVE, `DUT.clear_ex,             dut_m_clear_ex          );
         
         
         // Decoder
-        checker_t("pc_sel",         `CHECKER_ACTIVE, `DUT.pc_sel,           dut_m_pc_sel        );
-        checker_t("pc_we",          `CHECKER_ACTIVE, `DUT.pc_we,            dut_m_pc_we         );
-        checker_t("branch_inst_id", `CHECKER_ACTIVE, `DUT.branch_inst_id,   dut_m_branch_inst   );
-        checker_t("jump_inst_id",   `CHECKER_ACTIVE, `DUT.jump_inst_id,     dut_m_jump_inst     );
-        checker_t("store_inst_id",  `CHECKER_ACTIVE, `DUT.store_inst_id,    dut_m_store_inst    );
-        checker_t("alu_op_sel",     `CHECKER_ACTIVE, `DUT.alu_op_sel,       dut_m_alu_op_sel    );
-        checker_t("imm_gen_sel",    `CHECKER_ACTIVE, `DUT.imm_gen_sel,      dut_m_imm_gen_sel   );
-        checker_t("bc_uns",         `CHECKER_ACTIVE, `DUT.bc_uns,           dut_m_bc_uns        );
-        checker_t("dmem_en",        `CHECKER_ACTIVE, `DUT.dmem_en,          dut_m_dmem_en       );
-        checker_t("load_sm_en",     `CHECKER_ACTIVE, `DUT.load_sm_en,       dut_m_load_sm_en    );
-        checker_t("wb_sel",         `CHECKER_ACTIVE, `DUT.wb_sel,           dut_m_wb_sel        );
-        checker_t("reg_we_id",      `CHECKER_ACTIVE, `DUT.reg_we_id,        dut_m_reg_we_id     );
-        /*
-        checker_t("alu_a_sel_fwd",  `CHECKER_ACTIVE, `DUT.alu_a_sel_fwd,    dut_m_alu_a_sel_fwd );
-        checker_t("alu_b_sel_fwd",  `CHECKER_ACTIVE, `DUT.alu_b_sel_fwd,    dut_m_alu_b_sel_fwd );
-        checker_t("bc_a_sel_fwd",   `CHECKER_ACTIVE, `DUT.bc_a_sel_fwd,     dut_m_bc_a_sel_fwd  );
-        checker_t("bcs_b_sel_fwd",  `CHECKER_ACTIVE, `DUT.bcs_b_sel_fwd,    dut_m_bcs_b_sel_fwd );
-        checker_t("dmem_we",        `CHECKER_ACTIVE, `DUT.dmem_we,          dut_m_dmem_we       );
-        */
+        checker_t("pc_sel",         `CHECKER_ACTIVE, `DUT.pc_sel_if,            dut_m_pc_sel_if         );
+        checker_t("pc_we",          `CHECKER_ACTIVE, `DUT.pc_we_if,             dut_m_pc_we_if          );
+        checker_t("branch_inst_id", `CHECKER_ACTIVE, `DUT.branch_inst_id,       dut_m_branch_inst_id    );
+        checker_t("jump_inst_id",   `CHECKER_ACTIVE, `DUT.jump_inst_id,         dut_m_jump_inst_id      );
+        checker_t("store_inst_id",  `CHECKER_ACTIVE, `DUT.store_inst_id,        dut_m_store_inst_id     );
+        checker_t("alu_op_sel",     `CHECKER_ACTIVE, `DUT.alu_op_sel_id,        dut_m_alu_op_sel_id     );
+        checker_t("imm_gen_sel",    `CHECKER_ACTIVE, `DUT.imm_gen_sel_id,       dut_m_imm_gen_sel_id    );
+        checker_t("bc_uns",         `CHECKER_ACTIVE, `DUT.bc_uns_id,            dut_m_bc_uns_id         );
+        checker_t("dmem_en",        `CHECKER_ACTIVE, `DUT.dmem_en_id,           dut_m_dmem_en_id        );
+        checker_t("load_sm_en",     `CHECKER_ACTIVE, `DUT.load_sm_en_id,        dut_m_load_sm_en_id     );
+        checker_t("wb_sel",         `CHECKER_ACTIVE, `DUT.wb_sel_id,            dut_m_wb_sel_id         );
+        checker_t("reg_we_id",      `CHECKER_ACTIVE, `DUT.reg_we_id,            dut_m_reg_we_id         );
+        checker_t("alu_a_sel_fwd",  `CHECKER_ACTIVE, `DUT.alu_a_sel_fwd_id,     dut_m_alu_a_sel_fwd_id  );
+        checker_t("alu_b_sel_fwd",  `CHECKER_ACTIVE, `DUT.alu_b_sel_fwd_id,     dut_m_alu_b_sel_fwd_id  );
+        checker_t("bc_a_sel_fwd",   `CHECKER_ACTIVE, `DUT.bc_a_sel_fwd_id,      dut_m_bc_a_sel_fwd_id   );
+        checker_t("bcs_b_sel_fwd",  `CHECKER_ACTIVE, `DUT.bcs_b_sel_fwd_id,     dut_m_bcs_b_sel_fwd_id  );
+        checker_t("dmem_we",        `CHECKER_INACTIVE, `DUT.dmem_we_id,           dut_m_dmem_we_id        );
     
     end // main task body */
 endtask // run_checkers
@@ -397,157 +405,157 @@ task dut_m_decode;
     
         case (inst_id[6:0])
             'b011_0011: begin   // R-type instruction
-                dut_m_pc_sel      = `PC_SEL_INC4;
-                dut_m_pc_we       = 1'b1;
-                dut_m_branch_inst = 1'b0;
-                dut_m_jump_inst   = 1'b0;
-                dut_m_store_inst  = 1'b0;
-                dut_m_alu_op_sel  = ({inst_id[30], inst_id[14:12]});
-                dut_m_alu_a_sel   = `ALU_A_SEL_RS1;
-                dut_m_alu_b_sel   = `ALU_B_SEL_RS2;
-                dut_m_imm_gen_sel = `IG_DISABLED;
-                // dut_m_bc_uns      = 1'b0;
-                dut_m_dmem_en     = 1'b0;
-                dut_m_load_sm_en  = 1'b0;
-                dut_m_wb_sel      = `WB_SEL_ALU;
-                dut_m_reg_we_id   = 1'b1;
+                dut_m_pc_sel_if      = `PC_SEL_INC4;
+                dut_m_pc_we_if       = 1'b1;
+                dut_m_branch_inst_id = 1'b0;
+                dut_m_jump_inst_id   = 1'b0;
+                dut_m_store_inst_id  = 1'b0;
+                dut_m_alu_op_sel_id  = ({inst_id[30], inst_id[14:12]});
+                dut_m_alu_a_sel_id   = `ALU_A_SEL_RS1;
+                dut_m_alu_b_sel_id   = `ALU_B_SEL_RS2;
+                dut_m_imm_gen_sel_id = `IG_DISABLED;
+                // dut_m_bc_uns_id      = 1'b0;
+                dut_m_dmem_en_id     = 1'b0;
+                dut_m_load_sm_en_id  = 1'b0;
+                dut_m_wb_sel_id      = `WB_SEL_ALU;
+                dut_m_reg_we_id      = 1'b1;
             end
             
             'b001_0011: begin   // I-type instruction
-                dut_m_pc_sel      = `PC_SEL_INC4;
-                dut_m_pc_we       = 1'b1;
-                dut_m_branch_inst = 1'b0;
-                dut_m_jump_inst   = 1'b0;
-                dut_m_store_inst  = 1'b0;
-                dut_m_alu_op_sel  = (inst_id[13:12] == 2'b01)  ? 
+                dut_m_pc_sel_if      = `PC_SEL_INC4;
+                dut_m_pc_we_if       = 1'b1;
+                dut_m_branch_inst_id = 1'b0;
+                dut_m_jump_inst_id   = 1'b0;
+                dut_m_store_inst_id  = 1'b0;
+                dut_m_alu_op_sel_id  = (inst_id[13:12] == 2'b01)  ? 
                                     {inst_id[30], inst_id[14:12]} : {1'b0, inst_id[14:12]};
-                dut_m_alu_a_sel   = `ALU_A_SEL_RS1;
-                dut_m_alu_b_sel   = `ALU_B_SEL_IMM;
-                dut_m_imm_gen_sel = `IG_I_TYPE;
-                // dut_m_bc_uns      = 1'b0;
-                dut_m_dmem_en     = 1'b0;
-                dut_m_load_sm_en  = 1'b0;
-                dut_m_wb_sel      = `WB_SEL_ALU;
-                dut_m_reg_we_id   = 1'b1;
+                dut_m_alu_a_sel_id   = `ALU_A_SEL_RS1;
+                dut_m_alu_b_sel_id   = `ALU_B_SEL_IMM;
+                dut_m_imm_gen_sel_id = `IG_I_TYPE;
+                // dut_m_bc_uns_id      = 1'b0;
+                dut_m_dmem_en_id     = 1'b0;
+                dut_m_load_sm_en_id  = 1'b0;
+                dut_m_wb_sel_id      = `WB_SEL_ALU;
+                dut_m_reg_we_id      = 1'b1;
             end
             
             'b000_0011: begin   // Load instruction
-                dut_m_pc_sel      = `PC_SEL_INC4;
-                dut_m_pc_we       = 1'b1;
-                dut_m_branch_inst = 1'b0;
-                dut_m_jump_inst   = 1'b0;
-                dut_m_store_inst  = 1'b0;
-                dut_m_alu_op_sel  = 4'b0000;    // add
-                dut_m_alu_a_sel   = `ALU_A_SEL_RS1;
-                dut_m_alu_b_sel   = `ALU_B_SEL_IMM;
-                dut_m_imm_gen_sel = `IG_I_TYPE;
-                // dut_m_bc_uns      = 1'b0;
-                dut_m_dmem_en     = 1'b1;
-                dut_m_load_sm_en  = 1'b1;
-                dut_m_wb_sel      = `WB_SEL_DMEM;
-                dut_m_reg_we_id   = 1'b1;
+                dut_m_pc_sel_if      = `PC_SEL_INC4;
+                dut_m_pc_we_if       = 1'b1;
+                dut_m_branch_inst_id = 1'b0;
+                dut_m_jump_inst_id   = 1'b0;
+                dut_m_store_inst_id  = 1'b0;
+                dut_m_alu_op_sel_id  = 4'b0000;    // add
+                dut_m_alu_a_sel_id   = `ALU_A_SEL_RS1;
+                dut_m_alu_b_sel_id   = `ALU_B_SEL_IMM;
+                dut_m_imm_gen_sel_id = `IG_I_TYPE;
+                // dut_m_bc_uns_id      = 1'b0;
+                dut_m_dmem_en_id     = 1'b1;
+                dut_m_load_sm_en_id  = 1'b1;
+                dut_m_wb_sel_id      = `WB_SEL_DMEM;
+                dut_m_reg_we_id      = 1'b1;
             end
             
             'b010_0011: begin   // Store instruction
-                dut_m_pc_sel      = `PC_SEL_INC4;
-                dut_m_pc_we       = 1'b1;
-                dut_m_branch_inst = 1'b0;
-                dut_m_jump_inst   = 1'b0;
-                dut_m_store_inst  = 1'b1;
-                dut_m_alu_op_sel  = 4'b0000;    // add
-                dut_m_alu_a_sel   = `ALU_A_SEL_RS1;
-                dut_m_alu_b_sel   = `ALU_B_SEL_IMM;
-                dut_m_imm_gen_sel = `IG_S_TYPE;
-                // dut_m_bc_uns      = 1'b0;
-                dut_m_dmem_en     = 1'b1;
-                dut_m_load_sm_en  = 1'b0;
-                // dut_m_wb_sel      = `WB_SEL_DMEM;
-                dut_m_reg_we_id   = 1'b0;
+                dut_m_pc_sel_if      = `PC_SEL_INC4;
+                dut_m_pc_we_if       = 1'b1;
+                dut_m_branch_inst_id = 1'b0;
+                dut_m_jump_inst_id   = 1'b0;
+                dut_m_store_inst_id  = 1'b1;
+                dut_m_alu_op_sel_id  = 4'b0000;    // add
+                dut_m_alu_a_sel_id   = `ALU_A_SEL_RS1;
+                dut_m_alu_b_sel_id   = `ALU_B_SEL_IMM;
+                dut_m_imm_gen_sel_id = `IG_S_TYPE;
+                // dut_m_bc_uns_id      = 1'b0;
+                dut_m_dmem_en_id     = 1'b1;
+                dut_m_load_sm_en_id  = 1'b0;
+                // dut_m_wb_sel_id      = `WB_SEL_DMEM;
+                dut_m_reg_we_id      = 1'b0;
             end
             
             'b110_0011: begin   // Branch instruction
-                dut_m_pc_sel      = `PC_SEL_INC4;
-                dut_m_pc_we       = 1'b0;
-                dut_m_branch_inst = 1'b1;
-                dut_m_jump_inst   = 1'b0;
-                dut_m_store_inst  = 1'b0;
-                dut_m_alu_op_sel  = 4'b0000;    // add
-                dut_m_alu_a_sel   = `ALU_A_SEL_PC;
-                dut_m_alu_b_sel   = `ALU_B_SEL_IMM;
-                dut_m_imm_gen_sel = `IG_B_TYPE;
-                dut_m_bc_uns      = inst_id[13];
-                dut_m_dmem_en     = 1'b0;
-                dut_m_load_sm_en  = 1'b0;
-                // dut_m_wb_sel      = `WB_SEL_DMEM;
-                dut_m_reg_we_id   = 1'b0;
+                dut_m_pc_sel_if      = `PC_SEL_INC4;
+                dut_m_pc_we_if       = 1'b0;
+                dut_m_branch_inst_id = 1'b1;
+                dut_m_jump_inst_id   = 1'b0;
+                dut_m_store_inst_id  = 1'b0;
+                dut_m_alu_op_sel_id  = 4'b0000;    // add
+                dut_m_alu_a_sel_id   = `ALU_A_SEL_PC;
+                dut_m_alu_b_sel_id   = `ALU_B_SEL_IMM;
+                dut_m_imm_gen_sel_id = `IG_B_TYPE;
+                dut_m_bc_uns_id      = inst_id[13];
+                dut_m_dmem_en_id     = 1'b0;
+                dut_m_load_sm_en_id  = 1'b0;
+                // dut_m_wb_sel_id      = `WB_SEL_DMEM;
+                dut_m_reg_we_id      = 1'b0;
             end
             
             'b110_0111: begin   // JALR instruction
-                dut_m_pc_sel      = `PC_SEL_ALU;
-                dut_m_pc_we       = 1'b0;
-                dut_m_branch_inst = 1'b0;
-                dut_m_jump_inst   = 1'b1;
-                dut_m_store_inst  = 1'b0;
-                dut_m_alu_op_sel  = 4'b0000;    // add
-                dut_m_alu_a_sel   = `ALU_A_SEL_RS1;
-                dut_m_alu_b_sel   = `ALU_B_SEL_IMM;
-                dut_m_imm_gen_sel = `IG_I_TYPE;
-                // dut_m_bc_uns      = *;
-                dut_m_dmem_en     = 1'b0;
-                // dut_m_load_sm_en  = *;
-                dut_m_wb_sel      = `WB_SEL_INC4;
-                dut_m_reg_we_id   = 1'b1;
+                dut_m_pc_sel_if      = `PC_SEL_ALU;
+                dut_m_pc_we_if       = 1'b0;
+                dut_m_branch_inst_id = 1'b0;
+                dut_m_jump_inst_id   = 1'b1;
+                dut_m_store_inst_id  = 1'b0;
+                dut_m_alu_op_sel_id  = 4'b0000;    // add
+                dut_m_alu_a_sel_id   = `ALU_A_SEL_RS1;
+                dut_m_alu_b_sel_id   = `ALU_B_SEL_IMM;
+                dut_m_imm_gen_sel_id = `IG_I_TYPE;
+                // dut_m_bc_uns_id      = *;
+                dut_m_dmem_en_id     = 1'b0;
+                // dut_m_load_sm_en_id  = *;
+                dut_m_wb_sel_id      = `WB_SEL_INC4;
+                dut_m_reg_we_id      = 1'b1;
             end
             
             'b110_1111: begin   // JAL instruction
-                dut_m_pc_sel      = `PC_SEL_ALU;
-                dut_m_pc_we       = 1'b0;
-                dut_m_branch_inst = 1'b0;
-                dut_m_jump_inst   = 1'b1;
-                dut_m_store_inst  = 1'b0;
-                dut_m_alu_op_sel  = 4'b0000;    // add
-                dut_m_alu_a_sel   = `ALU_A_SEL_PC;
-                dut_m_alu_b_sel   = `ALU_B_SEL_IMM;
-                dut_m_imm_gen_sel = `IG_J_TYPE;
-                // dut_m_bc_uns      = *;
-                dut_m_dmem_en     = 1'b0;
-                // dut_m_load_sm_en  = *;
-                dut_m_wb_sel      = `WB_SEL_INC4;
-                dut_m_reg_we_id   = 1'b1;
+                dut_m_pc_sel_if      = `PC_SEL_ALU;
+                dut_m_pc_we_if       = 1'b0;
+                dut_m_branch_inst_id = 1'b0;
+                dut_m_jump_inst_id   = 1'b1;
+                dut_m_store_inst_id  = 1'b0;
+                dut_m_alu_op_sel_id  = 4'b0000;    // add
+                dut_m_alu_a_sel_id   = `ALU_A_SEL_PC;
+                dut_m_alu_b_sel_id   = `ALU_B_SEL_IMM;
+                dut_m_imm_gen_sel_id = `IG_J_TYPE;
+                // dut_m_bc_uns_id      = *;
+                dut_m_dmem_en_id     = 1'b0;
+                // dut_m_load_sm_en_id  = *;
+                dut_m_wb_sel_id      = `WB_SEL_INC4;
+                dut_m_reg_we_id      = 1'b1;
             end
             
             'b011_0111: begin   // LUI instruction
-                dut_m_pc_sel      = `PC_SEL_INC4;
-                dut_m_pc_we       = 1'b1;
-                dut_m_branch_inst = 1'b0;
-                dut_m_jump_inst   = 1'b0;
-                dut_m_store_inst  = 1'b0;
-                dut_m_alu_op_sel  = 4'b1111;    // pass b
-                // dut_m_alu_a_sel   = *;
-                dut_m_alu_b_sel   = `ALU_B_SEL_IMM;
-                dut_m_imm_gen_sel = `IG_U_TYPE;
-                // dut_m_bc_uns      = *;
-                dut_m_dmem_en     = 1'b0;
-                // dut_m_load_sm_en  = *;
-                dut_m_wb_sel      = `WB_SEL_ALU;
-                dut_m_reg_we_id   = 1'b1;
+                dut_m_pc_sel_if      = `PC_SEL_INC4;
+                dut_m_pc_we_if       = 1'b1;
+                dut_m_branch_inst_id = 1'b0;
+                dut_m_jump_inst_id   = 1'b0;
+                dut_m_store_inst_id  = 1'b0;
+                dut_m_alu_op_sel_id  = 4'b1111;    // pass b
+                // dut_m_alu_a_sel_id   = *;
+                dut_m_alu_b_sel_id   = `ALU_B_SEL_IMM;
+                dut_m_imm_gen_sel_id = `IG_U_TYPE;
+                // dut_m_bc_uns_id      = *;
+                dut_m_dmem_en_id     = 1'b0;
+                // dut_m_load_sm_en_id  = *;
+                dut_m_wb_sel_id      = `WB_SEL_ALU;
+                dut_m_reg_we_id      = 1'b1;
             end
             
             'b001_0111: begin   // AUIPC instruction
-                dut_m_pc_sel      = `PC_SEL_INC4;
-                dut_m_pc_we       = 1'b1;
-                dut_m_branch_inst = 1'b0;
-                dut_m_jump_inst   = 1'b0;
-                dut_m_store_inst  = 1'b0;
-                dut_m_alu_op_sel  = 4'b0000;    // add
-                dut_m_alu_a_sel   = `ALU_A_SEL_PC;
-                dut_m_alu_b_sel   = `ALU_B_SEL_IMM;
-                dut_m_imm_gen_sel = `IG_U_TYPE;
-                // dut_m_bc_uns      = *;
-                dut_m_dmem_en     = 1'b0;
-                // dut_m_load_sm_en  = *;
-                dut_m_wb_sel      = `WB_SEL_ALU;
-                dut_m_reg_we_id   = 1'b1;
+                dut_m_pc_sel_if      = `PC_SEL_INC4;
+                dut_m_pc_we_if       = 1'b1;
+                dut_m_branch_inst_id = 1'b0;
+                dut_m_jump_inst_id   = 1'b0;
+                dut_m_store_inst_id  = 1'b0;
+                dut_m_alu_op_sel_id  = 4'b0000;    // add
+                dut_m_alu_a_sel_id   = `ALU_A_SEL_PC;
+                dut_m_alu_b_sel_id   = `ALU_B_SEL_IMM;
+                dut_m_imm_gen_sel_id = `IG_U_TYPE;
+                // dut_m_bc_uns_id      = *;
+                dut_m_dmem_en_id     = 1'b0;
+                // dut_m_load_sm_en_id  = *;
+                dut_m_wb_sel_id      = `WB_SEL_ALU;
+                dut_m_reg_we_id      = 1'b1;
             end
             
             default: begin
@@ -559,58 +567,59 @@ task dut_m_decode;
         
         // Override if rst == 1
         if (rst) begin
-            dut_m_pc_sel      = 2'b11;
-            dut_m_pc_we       = 1'b1;
-            dut_m_branch_inst = 1'b0;
-            dut_m_jump_inst   = 1'b0;
-            dut_m_store_inst  = 1'b0;
-            dut_m_alu_op_sel  = 4'b0000;
-            dut_m_alu_a_sel   = `ALU_A_SEL_RS1;
-            dut_m_alu_b_sel   = `ALU_B_SEL_RS2;
-            dut_m_imm_gen_sel = `IG_DISABLED;
-            dut_m_bc_uns      = 1'b0;
-            dut_m_dmem_en     = 1'b0;
-            dut_m_load_sm_en  = 1'b0;
-            dut_m_wb_sel      = `WB_SEL_DMEM;
-            dut_m_reg_we_id   = 1'b0;
+            dut_m_pc_sel_if      = 2'b11;
+            dut_m_pc_we_if       = 1'b1;
+            dut_m_branch_inst_id = 1'b0;
+            dut_m_jump_inst_id   = 1'b0;
+            dut_m_store_inst_id  = 1'b0;
+            dut_m_alu_op_sel_id  = 4'b0000;
+            dut_m_alu_a_sel_id   = `ALU_A_SEL_RS1;
+            dut_m_alu_b_sel_id   = `ALU_B_SEL_RS2;
+            dut_m_imm_gen_sel_id = `IG_DISABLED;
+            dut_m_bc_uns_id      = 1'b0;
+            dut_m_dmem_en_id     = 1'b0;
+            dut_m_load_sm_en_id  = 1'b0;
+            dut_m_wb_sel_id      = `WB_SEL_DMEM;
+            dut_m_reg_we_id      = 1'b0;
         end
         
         // check if instruction will stall
-        dut_m_stall_if = (dut_m_branch_inst || dut_m_jump_inst);
+        dut_m_stall_if = (dut_m_branch_inst_id || dut_m_jump_inst_id);
         
         // if it stalls, we = 0
-        dut_m_pc_we = dut_m_pc_we && (!dut_m_stall_if);
+        dut_m_pc_we_if = dut_m_pc_we_if && (!dut_m_stall_if);
         
-        /* 
+        
         // Operand Forwarding
         // Operand A
-        if ((dut_m_rs1_id != `RF_X0_ZERO) && (dut_m_rs1_id == dut_m_rd_ex) && (dut_m_reg_we_ex) && (!dut_m_alu_a_sel))
-            dut_m_alu_a_sel_fwd = `ALU_A_SEL_FWD_ALU;           // forward previous ALU result
+        if ((dut_m_rs1_addr_id != `RF_X0_ZERO) && (dut_m_rs1_addr_id == dut_m_rd_addr_ex) && (dut_m_reg_we_ex) && (!dut_m_alu_a_sel_id))
+            dut_m_alu_a_sel_fwd_id = `ALU_A_SEL_FWD_ALU;            // forward previous ALU result
         else
-            dut_m_alu_a_sel_fwd = {1'b0, dut_m_alu_a_sel};      // don't forward
+            dut_m_alu_a_sel_fwd_id = {1'b0, dut_m_alu_a_sel_id};    // don't forward
         
         // Operand B
-        if ((dut_m_rs2_id != `RF_X0_ZERO) && (dut_m_rs2_id == dut_m_rd_ex) && (dut_m_reg_we_ex) && (!dut_m_alu_b_sel))
-            dut_m_alu_b_sel_fwd = `ALU_B_SEL_FWD_ALU;           // forward previous ALU result
+        if ((dut_m_rs2_addr_id != `RF_X0_ZERO) && (dut_m_rs2_addr_id == dut_m_rd_addr_ex) && (dut_m_reg_we_ex) && (!dut_m_alu_b_sel_id))
+            dut_m_alu_b_sel_fwd_id = `ALU_B_SEL_FWD_ALU;            // forward previous ALU result
         else
-            dut_m_alu_b_sel_fwd = {1'b0, dut_m_alu_b_sel};      // don't forward
+            dut_m_alu_b_sel_fwd_id = {1'b0, dut_m_alu_b_sel_id};    // don't forward
         
         // BC A
-        dut_m_bc_a_sel_fwd  = ((dut_m_rs1_id != `RF_X0_ZERO) && (dut_m_rs1_id == dut_m_rd_ex) && (dut_m_reg_we_ex) && (dut_m_branch_inst));
+        dut_m_bc_a_sel_fwd_id  = ((dut_m_rs1_addr_id != `RF_X0_ZERO) && (dut_m_rs1_addr_id == dut_m_rd_addr_ex) && (dut_m_reg_we_ex) && (dut_m_branch_inst_id));
         
         // BC B / DMEM din
-        dut_m_bcs_b_sel_fwd = ((dut_m_rs2_id != `RF_X0_ZERO) && (dut_m_rs2_id == dut_m_rd_ex) && (dut_m_reg_we_ex) && (dut_m_store_inst || dut_m_branch_inst));
-         */
+        dut_m_bcs_b_sel_fwd_id = ((dut_m_rs2_addr_id != `RF_X0_ZERO) && (dut_m_rs2_addr_id == dut_m_rd_addr_ex) && (dut_m_reg_we_ex) && (dut_m_store_inst_id || dut_m_branch_inst_id));
+        
         /* // Dependency counters:
-        alu_a_sel_fwd_cnt  = alu_a_sel_fwd_cnt + dut_m_alu_a_sel_fwd[1];
-        alu_b_sel_fwd_cnt  = alu_b_sel_fwd_cnt + dut_m_alu_b_sel_fwd[1];
+        alu_a_sel_fwd_cnt  = alu_a_sel_fwd_cnt + dut_m_alu_a_sel_fwd_id[1];
+        alu_b_sel_fwd_cnt  = alu_b_sel_fwd_cnt + dut_m_alu_b_sel_fwd_id[1];
         bc_a_sel_fwd_cnt   = bc_a_sel_fwd_cnt  + dut_m_bc_a_sel_fwd ;
         bcs_b_sel_fwd_cnt  = bcs_b_sel_fwd_cnt + dut_m_bcs_b_sel_fwd; 
         
         print_forwarding_counters();*/
+        
         /* 
         // Store Mask
-        if(dut_m_store_inst_ex) begin                   // store mask enable
+        if(dut_m_store_inst_id_ex) begin                   // store mask enable
             case(funct3_ex[1:0])                        // store mask width
                 5'd0:   // byte
                     case (dut_m_store_mask_offset)      // store mask offset, valid for byte and half
@@ -677,7 +686,7 @@ task dut_m_decode;
                 end
             endcase
         end
-        else /*(dut_m_store_inst_ex) begin
+        else /*(dut_m_store_inst_id_ex) begin
             dut_m_dmem_we = 4'b0000;
         end
          */
@@ -713,7 +722,7 @@ task dut_m_decode;
         */
         
         // flow change instructions use ALU out as destination address
-        // if(dut_m_branch_taken || dut_m_jump_taken) dut_m_pc_sel = 2'b01; // alu input
+        // if(dut_m_branch_taken || dut_m_jump_taken) dut_m_pc_sel_if = 2'b01; // alu input
         
         // $display("\nBranch used inst ex: %8h, branch_instr: %1b ", dut_m_inst_ex, dut_m_branch_inst_ex);
         
@@ -722,13 +731,13 @@ endtask // dut_m_decode
 
 task dut_m_pc_mux_update;
     begin
-        case (dut_m_pc_sel)   // use DUT or model?
+        case (dut_m_pc_sel_if)   // use DUT or model?
             2'd0: begin
                 dut_m_pc_mux_out =  dut_m_pc + 1;
             end
             
             2'd1: begin
-                dut_m_pc_mux_out =  dut_m_alu;
+                dut_m_pc_mux_out =  dut_m_alu_ex;
             end
             
             2'd2: begin
@@ -757,7 +766,7 @@ endtask
 task dut_m_pc_update;
     begin
         dut_m_pc = (!rst)         ? 
-                   (dut_m_pc_we)  ? dut_m_pc_mux_out   :   // mux
+                   (dut_m_pc_we_if)  ? dut_m_pc_mux_out   :   // mux
                                     dut_m_pc           :   // pc_we = 0
                                     'h0;                   // rst = 1
     end
@@ -802,7 +811,7 @@ task dut_m_imm_gen_update;
     
     begin
         dut_m_imm_gen_in = dut_m_inst_id[31: 7];
-            case (dut_m_imm_gen_sel)
+            case (dut_m_imm_gen_sel_id)
                 `IG_I_TYPE: begin
                     imm_temp_12          = dut_m_inst_id[31:20];
                     dut_m_imm_gen_out_id = $signed({imm_temp_12, 20'h0}) >>> 20;    // shift 12 MSBs to 12 LSBs, keep sign
@@ -881,7 +890,7 @@ task dut_m_id_pipeline_update;
         dut_m_imm_gen_out_ex = (!rst && !dut_m_clear_id) ? dut_m_imm_gen_out_id    : 'h0;
         
         // internal only
-        dut_m_store_inst_ex  = (!rst && !dut_m_clear_id) ? dut_m_store_inst        : 'b0;
+        dut_m_store_inst_id_ex  = (!rst && !dut_m_clear_id) ? dut_m_store_inst_id        : 'b0;
     end
 endtask
 
