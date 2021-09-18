@@ -19,6 +19,7 @@
 //      2021-09-18  AL  0.8.2 - Fix PC notation - match RTL
 //      2021-09-18  AL  0.9.0 - Add ID/EX pipeline signals and Branch Compare model
 //      2021-09-18  AL 0.10.0 - Add ALU and Branch Resolution models and checkers
+//      2021-09-18  AL 0.11.0 - Add DMEM model and checkers
 //
 //-----------------------------------------------------------------------------
 
@@ -144,6 +145,9 @@ reg  [31:0] dut_m_imm_gen_out_ex    ;
 // out
 reg  [31:0] dut_m_alu_out           ;
 reg  [ 1:0] dut_m_load_sm_offset_ex ;
+reg  [13:0] dut_m_dmem_addr         ;
+reg  [31:0] dut_m_dmem_write_data   ;
+reg  [31:0] dut_m_dmem_read_data_mem;
 // to control
 reg         dut_m_bc_a_eq_b         ;
 reg         dut_m_bc_a_lt_b         ;
@@ -167,38 +171,38 @@ reg         dut_m_clear_mem     ;
 
 // Control Outputs
 // for IF stage
-reg  [ 1:0] dut_m_pc_sel_if        ;
-reg         dut_m_pc_we_if         ;
-// for ID stage
-reg         dut_m_store_inst_id    ;
-reg         dut_m_branch_inst_id   ;
-reg         dut_m_jump_inst_id     ;
-reg  [ 3:0] dut_m_alu_op_sel_id    ;
-reg  [ 2:0] dut_m_imm_gen_sel_id   ;
-reg         dut_m_reg_we_id     ;
-reg  [ 1:0] dut_m_alu_a_sel_fwd_id ;
-reg  [ 1:0] dut_m_alu_b_sel_fwd_id ;
-// for EX stage
-reg         dut_m_bc_uns_id        ;
-reg         dut_m_dmem_en_id       ;
-reg         dut_m_bc_a_sel_fwd_id  ;
-reg         dut_m_bcs_b_sel_fwd_id ;
-reg  [ 3:0] dut_m_dmem_we_ex       ;
-// for MEM stage
-reg         dut_m_load_sm_en_id    ;
-reg  [ 1:0] dut_m_wb_sel_id        ;
+reg  [ 1:0] dut_m_pc_sel_if         ;
+reg         dut_m_pc_we_if          ;
+// for ID stage 
+reg         dut_m_store_inst_id     ;
+reg         dut_m_branch_inst_id    ;
+reg         dut_m_jump_inst_id      ;
+reg  [ 3:0] dut_m_alu_op_sel_id     ;
+reg  [ 2:0] dut_m_imm_gen_sel_id    ;
+reg         dut_m_reg_we_id         ;
+reg  [ 1:0] dut_m_alu_a_sel_fwd_id  ;
+reg  [ 1:0] dut_m_alu_b_sel_fwd_id  ;
+// for EX stage 
+reg         dut_m_bc_uns_id         ;
+reg         dut_m_dmem_en_id        ;
+reg         dut_m_bc_a_sel_fwd_id   ;
+reg         dut_m_bcs_b_sel_fwd_id  ;
+reg  [ 3:0] dut_m_dmem_we_ex        ;
+// for MEM stage    
+reg         dut_m_load_sm_en_id     ;
+reg  [ 1:0] dut_m_wb_sel_id         ;
 
 // Control Outputs in datapath
 // in EX stage
-reg         dut_m_bc_uns_ex        ;
-reg         dut_m_bc_a_sel_fwd_ex  ;
-reg         dut_m_bcs_b_sel_fwd_ex ;
-reg  [ 1:0] dut_m_alu_a_sel_fwd_ex ;
-reg  [ 1:0] dut_m_alu_b_sel_fwd_ex ;
-reg  [ 3:0] dut_m_alu_op_sel_ex    ;
-reg         dut_m_dmem_en_ex       ;
-reg         dut_m_load_sm_en_ex    ;
-reg  [ 1:0] dut_m_wb_sel_ex        ;
+reg         dut_m_bc_uns_ex         ;
+reg         dut_m_bc_a_sel_fwd_ex   ;
+reg         dut_m_bcs_b_sel_fwd_ex  ;
+reg  [ 1:0] dut_m_alu_a_sel_fwd_ex  ;
+reg  [ 1:0] dut_m_alu_b_sel_fwd_ex  ;
+reg  [ 3:0] dut_m_alu_op_sel_ex     ;
+reg         dut_m_dmem_en_ex        ;
+reg         dut_m_load_sm_en_ex     ;
+reg  [ 1:0] dut_m_wb_sel_ex         ;
 // in MEM stage
 
 
@@ -234,8 +238,9 @@ reg    [ 3:0] rst_pulses = 4'd3;
 // file read
 integer       fd;
 integer       status;
-reg  [  31:0] test_values_inst_hex [`TEST_CASES-1:0];
+reg  [  31:0] test_values_inst_hex [`TEST_CASES-1:0];       // imem sim
 reg  [  31:0] test_values_inst_hex_nop;
+reg  [  31:0] test_values_dmem [`TEST_CASES-1:0];           // dmem sim
 reg  [30*7:0] str;
 reg  [30*7:0] test_values_inst_asm [`TEST_CASES-1:0];
 reg  [30*7:0] test_values_inst_asm_nop  ;
@@ -378,50 +383,55 @@ task run_checkers;
     begin
         // Datapath        
         // IF_stage
-        checker_t("pc",             `CHECKER_ACTIVE,    `DUT.pc,                    dut_m_pc                );
-        checker_t("pc_mux_out",     `CHECKER_ACTIVE,    `DUT.pc_mux_out,            dut_m_pc_mux_out        );
-        // ID_Stage
-        checker_t("inst_id",        `CHECKER_ACTIVE,    `DUT.inst_id,               dut_m_inst_id           );
-        checker_t("rs1_data_id",    `CHECKER_ACTIVE,    `DUT.rs1_data_id,           dut_m_rs1_data_id       );
-        checker_t("rs2_data_id",    `CHECKER_ACTIVE,    `DUT.rs2_data_id,           dut_m_rs2_data_id       );
-        checker_t("imm_gen_out_id", `CHECKER_ACTIVE,    `DUT.imm_gen_out_id,        dut_m_imm_gen_out_id    );
-        checker_t("clear_id",       `CHECKER_ACTIVE,    `DUT.clear_id,              dut_m_clear_id          );
-        // EX_Stage
-        checker_t("inst_ex",        `CHECKER_ACTIVE,    `DUT.inst_ex,               dut_m_inst_ex           );
-        checker_t("pc_ex",          `CHECKER_ACTIVE,    `DUT.pc_ex,                 dut_m_pc_ex             );
-        checker_t("rs1_data_ex",    `CHECKER_ACTIVE,    `DUT.rs1_data_ex,           dut_m_rs1_data_ex       );
-        checker_t("rs2_data_ex",    `CHECKER_ACTIVE,    `DUT.rs2_data_ex,           dut_m_rs2_data_ex       );
-        checker_t("imm_gen_out_ex", `CHECKER_ACTIVE,    `DUT.imm_gen_out_ex,        dut_m_imm_gen_out_ex    );
-        checker_t("rd_addr_ex",     `CHECKER_ACTIVE,    `DUT.rd_addr_ex,            dut_m_rd_addr_ex        );
-        checker_t("reg_we_ex",      `CHECKER_ACTIVE,    `DUT.reg_we_ex,             dut_m_reg_we_ex         );
-        
-        checker_t("bc_a_eq_b",      `CHECKER_ACTIVE,    `DUT.bc_out_a_eq_b,         dut_m_bc_a_eq_b         );
-        checker_t("bc_a_lt_b",      `CHECKER_ACTIVE,    `DUT.bc_out_a_lt_b,         dut_m_bc_a_lt_b         );
-        checker_t("alu_out",        `CHECKER_ACTIVE,    `DUT.alu_out,               dut_m_alu_out           );
-        
-        checker_t("clear_ex",       `CHECKER_ACTIVE,    `DUT.clear_ex,              dut_m_clear_ex          );
+        checker_t("pc",                 `CHECKER_ACTIVE,    `DUT.pc,                    dut_m_pc                );
+        checker_t("pc_mux_out",         `CHECKER_ACTIVE,    `DUT.pc_mux_out,            dut_m_pc_mux_out        );
+        // ID_Stage 
+        checker_t("inst_id",            `CHECKER_ACTIVE,    `DUT.inst_id,               dut_m_inst_id           );
+        checker_t("rs1_data_id",        `CHECKER_ACTIVE,    `DUT.rs1_data_id,           dut_m_rs1_data_id       );
+        checker_t("rs2_data_id",        `CHECKER_ACTIVE,    `DUT.rs2_data_id,           dut_m_rs2_data_id       );
+        checker_t("imm_gen_out_id",     `CHECKER_ACTIVE,    `DUT.imm_gen_out_id,        dut_m_imm_gen_out_id    );
+        checker_t("clear_id",           `CHECKER_ACTIVE,    `DUT.clear_id,              dut_m_clear_id          );
+        // EX_Stage 
+        checker_t("inst_ex",            `CHECKER_ACTIVE,    `DUT.inst_ex,               dut_m_inst_ex           );
+        checker_t("pc_ex",              `CHECKER_ACTIVE,    `DUT.pc_ex,                 dut_m_pc_ex             );
+        checker_t("rs1_data_ex",        `CHECKER_ACTIVE,    `DUT.rs1_data_ex,           dut_m_rs1_data_ex       );
+        checker_t("rs2_data_ex",        `CHECKER_ACTIVE,    `DUT.rs2_data_ex,           dut_m_rs2_data_ex       );
+        checker_t("imm_gen_out_ex",     `CHECKER_ACTIVE,    `DUT.imm_gen_out_ex,        dut_m_imm_gen_out_ex    );
+        checker_t("rd_addr_ex",         `CHECKER_ACTIVE,    `DUT.rd_addr_ex,            dut_m_rd_addr_ex        );
+        checker_t("reg_we_ex",          `CHECKER_ACTIVE,    `DUT.reg_we_ex,             dut_m_reg_we_ex         );
+            
+        checker_t("bc_a_eq_b",          `CHECKER_ACTIVE,    `DUT.bc_out_a_eq_b,         dut_m_bc_a_eq_b         );
+        checker_t("bc_a_lt_b",          `CHECKER_ACTIVE,    `DUT.bc_out_a_lt_b,         dut_m_bc_a_lt_b         );
+        checker_t("alu_out",            `CHECKER_ACTIVE,    `DUT.alu_out,               dut_m_alu_out           );
+            
+        checker_t("clear_ex",           `CHECKER_ACTIVE,    `DUT.clear_ex,              dut_m_clear_ex          );
+            
+        checker_t("dmem_addr",          `CHECKER_ACTIVE,    `DUT.dmem_addr,             dut_m_dmem_addr         );
+        checker_t("dmem_write_data",    `CHECKER_ACTIVE,    `DUT.dmem_write_data,       dut_m_dmem_write_data   );
+        checker_t("dmem_read_data_mem", `CHECKER_ACTIVE,    `DUT.dmem_read_data_mem,    dut_m_dmem_read_data_mem);
+        // MEM_Stage
         
         
         // Decoder
-        checker_t("pc_sel",         `CHECKER_ACTIVE,    `DUT.pc_sel_if,             dut_m_pc_sel_if         );
-        checker_t("pc_we",          `CHECKER_ACTIVE,    `DUT.pc_we_if,              dut_m_pc_we_if          );
-        checker_t("branch_inst_id", `CHECKER_ACTIVE,    `DUT.branch_inst_id,        dut_m_branch_inst_id    );
-        checker_t("jump_inst_id",   `CHECKER_ACTIVE,    `DUT.jump_inst_id,          dut_m_jump_inst_id      );
-        checker_t("store_inst_id",  `CHECKER_ACTIVE,    `DUT.store_inst_id,         dut_m_store_inst_id     );
-        checker_t("alu_op_sel",     `CHECKER_ACTIVE,    `DUT.alu_op_sel_id,         dut_m_alu_op_sel_id     );
-        checker_t("imm_gen_sel",    `CHECKER_ACTIVE,    `DUT.imm_gen_sel_id,        dut_m_imm_gen_sel_id    );
-        checker_t("bc_uns",         `CHECKER_ACTIVE,    `DUT.bc_uns_id,             dut_m_bc_uns_id         );
-        checker_t("dmem_en",        `CHECKER_ACTIVE,    `DUT.dmem_en_id,            dut_m_dmem_en_id        );
-        checker_t("load_sm_en",     `CHECKER_ACTIVE,    `DUT.load_sm_en_id,         dut_m_load_sm_en_id     );
-        checker_t("wb_sel",         `CHECKER_ACTIVE,    `DUT.wb_sel_id,             dut_m_wb_sel_id         );
-        checker_t("reg_we_id",      `CHECKER_ACTIVE,    `DUT.reg_we_id,             dut_m_reg_we_id         );
-        checker_t("alu_a_sel_fwd",  `CHECKER_ACTIVE,    `DUT.alu_a_sel_fwd_id,      dut_m_alu_a_sel_fwd_id  );
-        checker_t("alu_b_sel_fwd",  `CHECKER_ACTIVE,    `DUT.alu_b_sel_fwd_id,      dut_m_alu_b_sel_fwd_id  );
-        checker_t("bc_a_sel_fwd",   `CHECKER_ACTIVE,    `DUT.bc_a_sel_fwd_id,       dut_m_bc_a_sel_fwd_id   );
-        checker_t("bcs_b_sel_fwd",  `CHECKER_ACTIVE,    `DUT.bcs_b_sel_fwd_id,      dut_m_bcs_b_sel_fwd_id  );
-        checker_t("dmem_we",        `CHECKER_INACTIVE,    `DUT.dmem_we_ex,            dut_m_dmem_we_ex        );
-        // internal
-        checker_t("branch_taken",   `CHECKER_ACTIVE,    dut_internal_branch_taken,  dut_m_branch_taken      );
+        checker_t("pc_sel",             `CHECKER_ACTIVE,    `DUT.pc_sel_if,             dut_m_pc_sel_if         );
+        checker_t("pc_we",              `CHECKER_ACTIVE,    `DUT.pc_we_if,              dut_m_pc_we_if          );
+        checker_t("branch_inst_id",     `CHECKER_ACTIVE,    `DUT.branch_inst_id,        dut_m_branch_inst_id    );
+        checker_t("jump_inst_id",       `CHECKER_ACTIVE,    `DUT.jump_inst_id,          dut_m_jump_inst_id      );
+        checker_t("store_inst_id",      `CHECKER_ACTIVE,    `DUT.store_inst_id,         dut_m_store_inst_id     );
+        checker_t("alu_op_sel",         `CHECKER_ACTIVE,    `DUT.alu_op_sel_id,         dut_m_alu_op_sel_id     );
+        checker_t("imm_gen_sel",        `CHECKER_ACTIVE,    `DUT.imm_gen_sel_id,        dut_m_imm_gen_sel_id    );
+        checker_t("bc_uns",             `CHECKER_ACTIVE,    `DUT.bc_uns_id,             dut_m_bc_uns_id         );
+        checker_t("dmem_en",            `CHECKER_ACTIVE,    `DUT.dmem_en_id,            dut_m_dmem_en_id        );
+        checker_t("load_sm_en",         `CHECKER_ACTIVE,    `DUT.load_sm_en_id,         dut_m_load_sm_en_id     );
+        checker_t("wb_sel",             `CHECKER_ACTIVE,    `DUT.wb_sel_id,             dut_m_wb_sel_id         );
+        checker_t("reg_we_id",          `CHECKER_ACTIVE,    `DUT.reg_we_id,             dut_m_reg_we_id         );
+        checker_t("alu_a_sel_fwd",      `CHECKER_ACTIVE,    `DUT.alu_a_sel_fwd_id,      dut_m_alu_a_sel_fwd_id  );
+        checker_t("alu_b_sel_fwd",      `CHECKER_ACTIVE,    `DUT.alu_b_sel_fwd_id,      dut_m_alu_b_sel_fwd_id  );
+        checker_t("bc_a_sel_fwd",       `CHECKER_ACTIVE,    `DUT.bc_a_sel_fwd_id,       dut_m_bc_a_sel_fwd_id   );
+        checker_t("bcs_b_sel_fwd",      `CHECKER_ACTIVE,    `DUT.bcs_b_sel_fwd_id,      dut_m_bcs_b_sel_fwd_id  );
+        checker_t("dmem_we",            `CHECKER_ACTIVE,    `DUT.dmem_we_ex,            dut_m_dmem_we_ex        );
+        // internal 
+        checker_t("branch_taken",       `CHECKER_ACTIVE,    dut_internal_branch_taken,  dut_m_branch_taken      );
     
     end // main task body */
 endtask // run_checkers
@@ -645,19 +655,20 @@ task dut_m_decode;
         dut_m_bcs_b_sel_fwd_id = ((dut_m_rs2_addr_id != `RF_X0_ZERO) && (dut_m_rs2_addr_id == dut_m_rd_addr_ex) && (dut_m_reg_we_ex) && (dut_m_store_inst_id || dut_m_branch_inst_id));
                 
          
-      /*  // Store Mask
-        if(dut_m_store_inst_id_ex) begin                   // store mask enable
-            case(funct3_ex[1:0])                        // store mask width
+       // Store Mask
+       dut_m_store_mask_offset = dut_m_alu_out[15:2];
+        if(dut_m_store_inst_id_ex) begin                    // store mask enable
+            case(funct3_ex[1:0])                            // store mask width
                 5'd0:   // byte
-                    case (dut_m_store_mask_offset)      // store mask offset, valid for byte and half
+                    case (dut_m_store_mask_offset)          // store mask offset, valid for byte and half
                         2'd0:
-                            dut_m_dmem_we = 4'b0001;
+                            dut_m_dmem_we_ex = 4'b0001;
                         2'd1:
-                            dut_m_dmem_we = 4'b0010;
+                            dut_m_dmem_we_ex = 4'b0010;
                         2'd2:
-                            dut_m_dmem_we = 4'b0100;
+                            dut_m_dmem_we_ex = 4'b0100;
                         2'd3:
-                            dut_m_dmem_we = 4'b1000;
+                            dut_m_dmem_we_ex = 4'b1000;
                         default: begin
                             $write("*WARNING @ %0t. Store Mask model offset 'default' case. Input inst_id: 'h%8h  %0s",
                             $time, dut_m_inst_id, dut_m_inst_id_asm);
@@ -668,16 +679,16 @@ task dut_m_decode;
                 5'd1:   // half
                     case (dut_m_store_mask_offset)
                         2'd0:
-                            dut_m_dmem_we = 4'b0011;
+                            dut_m_dmem_we_ex = 4'b0011;
                         2'd1:
-                            dut_m_dmem_we = 4'b0110;
+                            dut_m_dmem_we_ex = 4'b0110;
                         2'd2:
-                            dut_m_dmem_we = 4'b1100;
+                            dut_m_dmem_we_ex = 4'b1100;
                         2'd3: begin 
                             $write("*WARNING @ %0t. Store Mask model offset unaligned access - half. Input inst_id: 'h%8h  %0s",
                             $time, dut_m_inst_id, dut_m_inst_id_asm);
                             warnings = warnings + 1;
-                            dut_m_dmem_we = 4'b0000;
+                            dut_m_dmem_we_ex = 4'b0000;
                         end
                         default: begin
                             $write("*WARNING @ %0t. Store Mask model offset 'default' case. Input inst_id: 'h%8h  %0s",
@@ -689,14 +700,14 @@ task dut_m_decode;
                 5'd2:   // word
                     case (dut_m_store_mask_offset)
                         2'd0:
-                            dut_m_dmem_we = 4'b1111;
+                            dut_m_dmem_we_ex = 4'b1111;
                         2'd1,
                         2'd2,
                         2'd3: begin
                             $write("*WARNING @ %0t. Store Mask model offset unaligned access - word. Input inst_id: 'h%8h  %0s",
                             $time, dut_m_inst_id, dut_m_inst_id_asm);
                             warnings = warnings + 1;
-                            dut_m_dmem_we = 4'b0000;
+                            dut_m_dmem_we_ex = 4'b0000;
                         end
                         default: begin
                             $write("*WARNING @ %0t. Store Mask model offset 'default' case. Input inst_id: 'h%8h  %0s",
@@ -709,14 +720,14 @@ task dut_m_decode;
                     $write("*WARNING @ %0t. Store Mask model width 'default' case. Input inst_id: 'h%8h  %0s",
                     $time, dut_m_inst_id, dut_m_inst_id_asm);
                     warnings = warnings + 1;
-                    dut_m_dmem_we = 4'b0000;
+                    dut_m_dmem_we_ex = 4'b0000;
                 end
             endcase
         end
-        else /*(dut_m_store_inst_id_ex) begin
-            dut_m_dmem_we = 4'b0000;
+        else /*(!dut_m_store_inst_id_ex)*/ begin
+            dut_m_dmem_we_ex = 4'b0000;
         end
-         */
+        
         
        // branch resolution
         case ({dut_m_inst_ex[14], dut_m_inst_ex[12]})
@@ -987,11 +998,19 @@ task dut_m_alu_update;
     end
 endtask
 
-/* task dut_m_dmem_update;
+task dut_m_dmem_update;
     begin
-        
+        dut_m_dmem_addr = dut_m_alu_out[15:2];
+        dut_m_dmem_write_data = dut_m_bcs_b_sel_fwd_id ? dut_m_writeback : dut_m_rs2_data_ex;
+        if(dut_m_dmem_en_ex) begin
+            dut_m_dmem_read_data_mem = test_values_dmem[dut_m_dmem_addr];
+            if(dut_m_dmem_we_ex[0]) test_values_dmem[dut_m_dmem_addr][ 7: 0] = dut_m_dmem_write_data[ 7: 0];
+            if(dut_m_dmem_we_ex[1]) test_values_dmem[dut_m_dmem_addr][15: 8] = dut_m_dmem_write_data[15: 8];
+            if(dut_m_dmem_we_ex[2]) test_values_dmem[dut_m_dmem_addr][23:16] = dut_m_dmem_write_data[23:16];
+            if(dut_m_dmem_we_ex[3]) test_values_dmem[dut_m_dmem_addr][31:24] = dut_m_dmem_write_data[31:24];
+        end
     end
-endtask */
+endtask
 
 task dut_m_nop_id_update;
     begin
@@ -1036,11 +1055,11 @@ task dut_m_id_ex_pipeline_update;
     end
 endtask
 
-/* task dut_m_ex_mem_pipeline_update;
+task dut_m_ex_mem_pipeline_update;
     begin
-        
+        dut_m_dmem_update();
     end
-endtask */
+endtask
 
 task dut_m_rst_sequence_update;
     reg   [ 2:0] reset_seq  ;
@@ -1062,25 +1081,22 @@ endtask
 
 task dut_m_seq_update;
     begin
-        //----- WB stage updates
+        //----- MEM/WB stage updates
         dut_m_reg_file_write_update();
-        
-        //----- MEM stage updates
-        //
-        
-        //----- EX stage updates
-        // dut_m_ex_mem_pipeline_update();
+                
+        //----- EX/MEM stage updates
+        dut_m_ex_mem_pipeline_update();
         // $write  ("inst_ex - FF :     'h%8h    %0s", dut_env_inst_ex, dut_env_inst_ex_asm);
         // $display("dut_env_rd_ex:       %0d", dut_env_rd_ex     );
         // $display("dut_env_reg_we_ex: 'b%0b", dut_env_reg_we_ex );
         
-        //----- ID stage updates
+        //----- ID/EX stage updates
         dut_m_imm_gen_seq_update();
         dut_m_id_ex_pipeline_update();
         dut_m_rst_sequence_update();
         // $write("inst_id - IMEM read: 'h%8h    %0s", dut_m_inst_id, dut_m_inst_id_asm);
         
-        //----- IF stage updates
+        //----- IF/ID stage updates
         dut_m_imem_update();
         dut_m_pc_update();
         dut_m_if_pipeline_update();
