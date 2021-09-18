@@ -13,6 +13,7 @@
 //      2021-09-18  AL  0.3.0 - Finish ID/EX pipeline
 //      2021-09-18  AL  0.4.0 - Add EX stage
 //      2021-09-18  AL  0.4.1 - Fix dmem_we
+//      2021-09-18  AL  0.4.2 - Fix dmem_addr
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -356,14 +357,14 @@ assign store_mask_offset = alu_out[1:0];
 wire [ 1:0] load_sm_offset_ex = store_mask_offset;
 
 // DMEM
-wire [13:0] dmem_write_addr = alu_out[15:2];
+wire [13:0] dmem_addr = alu_out[15:2];
 wire [31:0] dmem_read_data_mem  ;
 
 ama_riscv_dmem ama_riscv_dmem_i (
     .clk    (clk                ),
     .en     (dmem_en_ex         ),
     .we     (dmem_we_ex         ),
-    .addr   (dmem_write_addr    ),
+    .addr   (dmem_addr          ),
     .din    (dmem_write_data    ),
     .dout   (dmem_read_data_mem )
 );
