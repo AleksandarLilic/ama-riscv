@@ -11,6 +11,7 @@
 //      2021-09-13  AL  0.1.1 - Fix IMEM address signal
 //      2021-09-14  AL  0.2.0 - Add ID stage
 //      2021-09-18  AL  0.3.0 - Finish ID/EX pipeline
+//      2021-09-18  AL  0.4.0 - Add EX stage
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -38,8 +39,8 @@ reg         reg_we_ex               ;
 reg  [ 4:0] rd_addr_ex              ;
 reg         store_inst_ex           ;
 // from datapath
-wire        bc_a_eq_b               ;
-wire        bc_a_lt_b               ;
+wire        bc_out_a_eq_b           ;
+wire        bc_out_a_lt_b           ;
 wire [ 1:0] store_mask_offset       ;
 
 // Signals - ID stage
@@ -73,8 +74,8 @@ ama_riscv_control ama_riscv_control_i (
     .rst                (rst            ),
     // inputs
     .inst_id            (inst_id        ),
-    .bc_a_eq_b          (bc_a_eq_b      ),
-    .bc_a_lt_b          (bc_a_lt_b      ),
+    .bc_a_eq_b          (bc_out_a_eq_b  ),
+    .bc_a_lt_b          (bc_out_a_lt_b  ),
     // .bp_taken           (bp_taken       ),
     // .bp_clear           (bp_clear       ),
     .store_mask_offset  (store_mask_offset),
@@ -311,6 +312,116 @@ end
 //-----------------------------------------------------------------------------
 // EX stage
 
+// Branch Compare
+// wire        bc_uns_id     ;     // defined previously
+wire [31:0] bc_in_a  = bc_a_sel_fwd_ex  ? writeback : rs1_data_ex;
+wire [31:0] bcs_in_b = bcs_b_sel_fwd_ex ? writeback : rs2_data_ex;
+// wire        bc_out_a_eq_b   ;   // defined previously
+// wire        bc_out_a_lt_b   ;   // defined previously
 
+// control mux is shared between bc and dmem din
+wire [31:0] dmem_write_data =  bcs_in_b ;
+
+ama_riscv_branch_compare ama_riscv_branch_compare_i (
+    // inputs
+    .op_uns     (bc_uns_id      ),
+    .in_a       (bc_in_a        ),
+    .in_b       (bcs_in_b       ),
+    // outputs
+    .op_a_eq_b  (bc_out_a_eq_b  ),
+    .op_a_lt_b  (bc_out_a_lt_b  )
+);
+
+// ALU
+// wire [ 3:0] alu_op_sel_ex ;     // defined previously
+wire [31:0] alu_in_a =  (alu_a_sel_fwd_ex == 2'd0) ?    rs1_data_ex     :
+                        (alu_a_sel_fwd_ex == 2'd1) ?    pc_ex           :
+                     /* (alu_a_sel_fwd_ex == 2'd2) ? */ writeback      ;
+
+wire [31:0] alu_in_b =  (alu_b_sel_fwd_ex == 2'd0) ?    rs2_data_ex     :
+                        (alu_b_sel_fwd_ex == 2'd1) ?    imm_gen_out_ex  :
+                     /* (alu_b_sel_fwd_ex == 2'd2) ? */ writeback      ;
+
+// wire [31:0] alu_out  ;          // defined previously
+
+ama_riscv_alu ama_riscv_alu_i (
+    // inputs
+    .op_sel     (alu_op_sel_ex  ),
+    .in_a       (alu_in_a       ),
+    .in_b       (alu_in_b       ),
+    // outputs
+    .out_s      (alu_out        )
+);
+
+assign store_mask_offset = alu_out[1:0];
+wire [ 1:0] load_sm_offset_ex = store_mask_offset;
+
+// DMEM
+wire [13:0] dmem_write_addr = alu_out[15:2];
+wire [31:0] dmem_read_data_mem  ;
+
+ama_riscv_dmem ama_riscv_dmem_i (
+    .clk    (clk                ),
+    .en     (dmem_en_ex         ),
+    .we     (dmem_we_ex         ),
+    .addr   (dmem_write_addr    ),
+    .din    (dmem_write_data    ),
+    .dout   (dmem_read_data_mem )
+);
+
+//-----------------------------------------------------------------------------
+// Pipeline FF EX/MEM
+// Signals
+reg  [31:0] pc_mem              ; 
+reg  [31:0] alu_out_mem         ; 
+// wire [31:0] dmem_read_data_mem  ;   // defined previously
+reg  [ 1:0] load_sm_offset_mem  ;
+reg  [31:0] inst_mem            ;
+reg         load_sm_en_mem      ;
+reg  [ 1:0] wb_sel_mem          ;
+// reg  [ 4:0] rd_addr_mem         ;   // defined previously
+// reg         reg_we_mem          ;   // defined previously
+
+always @ (posedge clk) begin
+    if (rst) begin
+        // datapath
+        pc_mem              <= 32'h0;
+        alu_out_mem         <= 32'h0;
+        // dmem_read_data_mem          // sync memory
+        load_sm_offset_mem  <=  2'h0;
+        inst_mem            <= 32'h0;
+        rd_addr_mem         <=  5'h0;
+        // control
+        load_sm_en_mem      <=  1'b0;
+        wb_sel_mem          <=  2'h0;
+        reg_we_mem          <=  1'b0;
+    end
+    else if (clear_ex) begin
+        // datapath
+        pc_mem              <= 32'h0;
+        alu_out_mem         <= 32'h0;
+        // dmem_read_data_mem          // sync memory
+        load_sm_offset_mem  <=  2'h0;
+        inst_mem            <= 32'h0;
+        rd_addr_mem         <=  5'h0;
+        // control
+        load_sm_en_mem      <=  1'b0;
+        wb_sel_mem          <=  2'h0;
+        reg_we_mem          <=  1'b0;
+    end
+    else begin
+        // datapath
+        pc_mem              <= pc_ex            ;
+        alu_out_mem         <= alu_out          ;
+        // dmem_read_data_mem          // sync memory
+        load_sm_offset_mem  <= load_sm_offset_ex;
+        inst_mem            <= inst_ex          ;
+        rd_addr_mem         <= rd_addr_ex       ;
+        // control
+        load_sm_en_mem      <= load_sm_en_ex    ;
+        wb_sel_mem          <= wb_sel_ex        ;
+        reg_we_mem          <= reg_we_ex        ;
+    end
+end
 
 endmodule
