@@ -16,6 +16,7 @@
 //      2021-09-17  AL  0.7.0 - Rework checkers
 //      2021-09-17  AL  0.8.0 - Add ID/EX stage FF checkers
 //      2021-09-18  AL  0.8.1 - Fix ID stage names
+//      2021-09-18  AL  0.8.2 - Fix PC notation - match RTL
 //
 //-----------------------------------------------------------------------------
 
@@ -181,11 +182,12 @@ reg         dut_m_load_sm_en_id    ;
 reg  [ 1:0] dut_m_wb_sel_id        ;
 
 // Model internal signals
+reg  [31:0] dut_m_pc_mux_out_div4       ;
 reg  [31:0] dut_m_inst_id_read          ;
 reg[30*7:0] dut_m_inst_id_read_asm      ;
 reg  [31:0] dut_m_imm_gen_out_id_prev   ;
-reg         dut_m_alu_a_sel_id             ;
-reg         dut_m_alu_b_sel_id             ;
+reg         dut_m_alu_a_sel_id          ;
+reg         dut_m_alu_b_sel_id          ;
 reg         dut_m_branch_taken          ;
 reg         dut_m_jump_taken            ;
 reg         dut_m_branch_inst_ex        ;
@@ -349,9 +351,9 @@ endtask
 task run_checkers;
     begin
         // Datapath        
-        // IF_stage                                         // *4 is offset, different arrays used
-        checker_t("pc",             `CHECKER_ACTIVE, `DUT.pc,                   dut_m_pc*4              );
-        checker_t("pc_mux_out",     `CHECKER_ACTIVE, `DUT.pc_mux_out,           dut_m_pc_mux_out*4      );
+        // IF_stage
+        checker_t("pc",             `CHECKER_ACTIVE, `DUT.pc,                   dut_m_pc                );
+        checker_t("pc_mux_out",     `CHECKER_ACTIVE, `DUT.pc_mux_out,           dut_m_pc_mux_out        );
         // ID_Stage     
         checker_t("inst_id",        `CHECKER_ACTIVE, `DUT.inst_id,              dut_m_inst_id           );
         checker_t("rs1_data_id",    `CHECKER_ACTIVE, `DUT.rs1_data_id,          dut_m_rs1_data_id       );
@@ -360,7 +362,7 @@ task run_checkers;
         checker_t("clear_id",       `CHECKER_ACTIVE, `DUT.clear_id,             dut_m_clear_id          );
         // EX_Stage     
         checker_t("inst_ex",        `CHECKER_ACTIVE, `DUT.inst_ex,              dut_m_inst_ex           );
-        checker_t("pc_ex",          `CHECKER_ACTIVE, `DUT.pc_ex,                dut_m_pc_ex*4           );
+        checker_t("pc_ex",          `CHECKER_ACTIVE, `DUT.pc_ex,                dut_m_pc_ex             );
         checker_t("rs1_data_ex",    `CHECKER_ACTIVE, `DUT.rs1_data_ex,          dut_m_rs1_data_ex       );
         checker_t("rs2_data_ex",    `CHECKER_ACTIVE, `DUT.rs2_data_ex,          dut_m_rs2_data_ex       );
         checker_t("imm_gen_out_ex", `CHECKER_ACTIVE, `DUT.imm_gen_out_ex,       dut_m_imm_gen_out_ex    );
@@ -733,7 +735,7 @@ task dut_m_pc_mux_update;
     begin
         case (dut_m_pc_sel_if)   // use DUT or model?
             2'd0: begin
-                dut_m_pc_mux_out =  dut_m_pc + 1;
+                dut_m_pc_mux_out =  dut_m_pc + 4;
             end
             
             2'd1: begin
@@ -760,22 +762,25 @@ task dut_m_pc_mux_update;
                 end
             end
         endcase
+        // used for all accesses
+        // arch is byte addressable, memory is word addressable
+        dut_m_pc_mux_out_div4 = dut_m_pc_mux_out>>2;
     end
 endtask
 
 task dut_m_pc_update;
     begin
-        dut_m_pc = (!rst)         ? 
-                   (dut_m_pc_we_if)  ? dut_m_pc_mux_out   :   // mux
-                                    dut_m_pc           :   // pc_we = 0
-                                    'h0;                   // rst = 1
+        dut_m_pc = (!rst)           ? 
+                   (dut_m_pc_we_if) ? dut_m_pc_mux_out   :   // mux
+                                      dut_m_pc           :   // pc_we = 0
+                                      'h0;                   // rst = 1
     end
 endtask
 
 task dut_m_imem_update;
     begin
-        dut_m_inst_id_read      = test_values_inst_hex[dut_m_pc_mux_out];
-        dut_m_inst_id_read_asm  = test_values_inst_asm[dut_m_pc_mux_out];
+        dut_m_inst_id_read      = test_values_inst_hex[dut_m_pc_mux_out_div4];
+        dut_m_inst_id_read_asm  = test_values_inst_asm[dut_m_pc_mux_out_div4];
     end
 endtask
 
@@ -1061,8 +1066,8 @@ initial begin
     //-----------------------------------------------------------------------------
     // Test 1: R-type
     $display("\nTest  1: Hit specific case [R-type]: Start \n");
-    run_test_pc_target  = dut_m_pc_mux_out + `R_TYPE_TESTS;
-    while(dut_m_pc_mux_out < run_test_pc_target) begin
+    run_test_pc_target  = (dut_m_pc_mux_out_div4) + `R_TYPE_TESTS;
+    while(dut_m_pc_mux_out_div4 < run_test_pc_target) begin
         @(posedge clk); #1;
         dut_m_seq_update();
         dut_m_comb_update();
