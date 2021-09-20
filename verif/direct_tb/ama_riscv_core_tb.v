@@ -1,11 +1,15 @@
 //-----------------------------------------------------------------------------
 // Project:         AMA-RISCV
-// Module:          Control Testbench
+// Module:          Core Testbench
 // File:            ama_riscv_core_tb.v
 // Date created:    2021-09-11
 // Author:          Aleksandar Lilic
-// Description:     Test covers following scenarios:
+// Description:     Testbench and model for ama_riscv_core module
 //
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// Test covers following scenarios:
+// 
 // Version history:
 //      2021-09-11  AL  0.1.0 - Initial - IF stage
 //      2021-09-13  AL  0.2.0 - Add model - IF stage
@@ -19,7 +23,8 @@
 //      2021-09-18  AL  0.8.2 - Fix PC notation - match RTL
 //      2021-09-18  AL  0.9.0 - Add ID/EX pipeline signals and Branch Compare model
 //      2021-09-18  AL 0.10.0 - Add ALU and Branch Resolution models and checkers
-//      2021-09-18  AL 0.11.0 - Add DMEM model and checkers
+//      2021-09-19  AL 0.11.0 - Add DMEM model and checkers
+//      2021-09-20  AL 0.12.0 - Add core 0.1.0 test arrays
 //
 //-----------------------------------------------------------------------------
 
@@ -28,8 +33,9 @@
 `define CLK_PERIOD               8
 //`define CLOCK_FREQ    125_000_000
 //`define SIM_TIME     `CLOCK_FREQ*0.0009 // 900us
-`define RST_TEST                 1
-`define R_TYPE_TESTS            10
+// `define RST_TEST                 1
+`define STARTUP_TESTS            4
+`define R_TYPE_TESTS            10 + 1 // add the 'or' inst from previous hex
 `define I_TYPE_TESTS             9
 `define LOAD_TESTS               5
 `define STORE_TESTS              3
@@ -39,7 +45,7 @@
 `define LUI_TEST                 1
 `define AUIPC_TEST               1
 `define BRANCH_TESTS_NOPS_PAD    4+1    // 4 nops + 1 branch back instruction
-`define TEST_CASES_DEC           `RST_TEST + `R_TYPE_TESTS + `I_TYPE_TESTS + `LOAD_TESTS + `STORE_TESTS + `BRANCH_TESTS + `JALR_TEST + `JAL_TEST + `LUI_TEST + `AUIPC_TEST + `BRANCH_TESTS_NOPS_PAD
+`define TEST_CASES_DEC           /* `RST_TEST + */ `STARTUP_TESTS + `R_TYPE_TESTS + `I_TYPE_TESTS + `LOAD_TESTS + `STORE_TESTS + `BRANCH_TESTS + `JALR_TEST + `JAL_TEST + `LUI_TEST + `AUIPC_TEST + `BRANCH_TESTS_NOPS_PAD
 `define LABEL_TGT                `TEST_CASES_DEC - 1 // location to which to branch
 
 `define NFND_TEST                5           // No Forwarding No Dependency
@@ -220,6 +226,10 @@ reg         dut_m_branch_inst_ex        ;
 reg         dut_m_jump_inst_ex          ;
 reg         dut_m_store_inst_id_ex      ;
 
+reg  [31:0] dut_m_alu_in_a;
+reg  [31:0] dut_m_alu_in_b;
+reg  [ 4:0] dut_m_alu_shamt;
+
 // DUT internals for checkers only
 wire dut_internal_branch_taken = `DUT_DEC.branch_res && `DUT_DEC.branch_inst_ex;
 
@@ -297,8 +307,8 @@ endtask
 task read_test_instructions;
     begin
         // Instructions HEX
-        // From decoder test
-        fd = $fopen({`PROJECT_PATH, "verif/direct_tb/inst/decoder_inst_hex.txt"}, "r");    
+        // Core test
+        fd = $fopen({`PROJECT_PATH, "verif/direct_tb/inst/core_inst_hex.txt"}, "r");    
         if (fd == 0) begin
             $display("fd handle was NULL");        
         end    
@@ -310,44 +320,16 @@ task read_test_instructions;
         end
         $fclose(fd);
         
-        // From op fwd test, concat to same array
-        fd = $fopen({`PROJECT_PATH, "verif/direct_tb/inst/op_fwd_inst_hex.txt"}, "r");    
-        if (fd == 0) begin
-            $display("fd handle was NULL");        
-        end    
-        while(!$feof(fd)) begin
-            $fscanf (fd, "%h", test_values_inst_hex[i]);
-            // $display("'h%h", test_values_inst_hex[i]);
-            i = i + 1;
-        end
-        $fclose(fd);
         test_values_inst_hex_nop = 'h0000_0013;
         
+        
         // Instructions ASM
-        // From decoder test
-        fd = $fopen({`PROJECT_PATH, "verif/direct_tb/inst/decoder_inst_asm.txt"}, "r");
+        // Core test
+        fd = $fopen({`PROJECT_PATH, "verif/direct_tb/inst/core_inst_asm.txt"}, "r");
         if (fd == 0) begin
             $display("fd handle was NULL");        
         end
         i = 0;
-        while(!$feof(fd)) begin
-            status = $fgets(str, fd);
-            // $write("%0s", str);
-            test_values_inst_asm[i] = str;
-            // $write("%0s", test_values_inst_asm[i]);
-            i = i + 1;
-        end
-        $fclose(fd);
-        
-        // From op fwd test, concat to same array
-        // asm txt has empty newline at the end
-        // decrement counter by one to overwrite it with actual instruction
-        // to match hex txt
-        i = i - 1;
-        fd = $fopen({`PROJECT_PATH, "verif/direct_tb/inst/op_fwd_inst_asm.txt"}, "r");    
-        if (fd == 0) begin
-            $display("fd handle was NULL");        
-        end    
         while(!$feof(fd)) begin
             status = $fgets(str, fd);
             // $write("%0s", str);
@@ -358,6 +340,7 @@ task read_test_instructions;
         $fclose(fd);
         
         test_values_inst_asm_nop = "addi  x0 x0 0 \n";
+        
     end
 endtask
 
@@ -656,7 +639,7 @@ task dut_m_decode;
                 
          
        // Store Mask
-       dut_m_store_mask_offset = dut_m_alu_out[15:2];
+       dut_m_store_mask_offset = dut_m_alu_out[1:0];
         if(dut_m_store_inst_id_ex) begin                    // store mask enable
             case(funct3_ex[1:0])                            // store mask width
                 5'd0:   // byte
@@ -928,64 +911,61 @@ task dut_m_bc_update;
 endtask
 
 task dut_m_alu_update;
-    reg [31:0] alu_in_a;
-    reg [31:0] alu_in_b;
-    reg [ 4:0] shamt;
     
     begin
-        alu_in_a =  (dut_m_alu_a_sel_fwd_ex == 2'd0) ?    dut_m_rs1_data_ex     :
-                    (dut_m_alu_a_sel_fwd_ex == 2'd1) ?    dut_m_pc_ex           :
-                 /* (dut_m_alu_a_sel_fwd_ex == 2'd2) ? */ dut_m_writeback      ;
+        dut_m_alu_in_a =  (dut_m_alu_a_sel_fwd_ex == 2'd0) ?    dut_m_rs1_data_ex     :
+                          (dut_m_alu_a_sel_fwd_ex == 2'd1) ?    dut_m_pc_ex           :
+                       /* (dut_m_alu_a_sel_fwd_ex == 2'd2) ? */ dut_m_writeback      ;
         
-        alu_in_b =  (dut_m_alu_b_sel_fwd_ex == 2'd0) ?    dut_m_rs2_data_ex     :
-                    (dut_m_alu_b_sel_fwd_ex == 2'd1) ?    dut_m_imm_gen_out_ex  :
-                 /* (dut_m_alu_b_sel_fwd_ex == 2'd2) ? */ dut_m_writeback      ;
+        dut_m_alu_in_b =  (dut_m_alu_b_sel_fwd_ex == 2'd0) ?    dut_m_rs2_data_ex     :
+                          (dut_m_alu_b_sel_fwd_ex == 2'd1) ?    dut_m_imm_gen_out_ex  :
+                       /* (dut_m_alu_b_sel_fwd_ex == 2'd2) ? */ dut_m_writeback      ;
         
-        shamt = alu_in_b[4:0];
+        dut_m_alu_shamt = dut_m_alu_in_b[4:0];
         
         case (dut_m_alu_op_sel_ex)
             `ALU_ADD: begin
-                dut_m_alu_out = alu_in_a + alu_in_b;
+                dut_m_alu_out = dut_m_alu_in_a + dut_m_alu_in_b;
             end
             
             `ALU_SUB: begin
-                dut_m_alu_out = alu_in_a - alu_in_b;
+                dut_m_alu_out = dut_m_alu_in_a - dut_m_alu_in_b;
             end
             
             `ALU_SLL: begin
-                dut_m_alu_out = alu_in_a << shamt;
+                dut_m_alu_out = dut_m_alu_in_a << dut_m_alu_shamt;
             end
             
             `ALU_SRL: begin
-                dut_m_alu_out = alu_in_a >> shamt;
+                dut_m_alu_out = dut_m_alu_in_a >> dut_m_alu_shamt;
             end
             
             `ALU_SRA: begin
-                dut_m_alu_out = $signed(alu_in_a) >>> shamt;
+                dut_m_alu_out = $signed(dut_m_alu_in_a) >>> dut_m_alu_shamt;
             end
             
             `ALU_SLT: begin
-                dut_m_alu_out = ($signed(alu_in_a) < $signed(alu_in_b)) ? 32'h0001 : 32'h0000;
+                dut_m_alu_out = ($signed(dut_m_alu_in_a) < $signed(dut_m_alu_in_b)) ? 32'h0001 : 32'h0000;
             end
             
             `ALU_SLTU: begin
-                dut_m_alu_out = (alu_in_a < alu_in_b) ? 32'h0001 : 32'h0000;
+                dut_m_alu_out = (dut_m_alu_in_a < dut_m_alu_in_b) ? 32'h0001 : 32'h0000;
             end
             
             `ALU_XOR: begin
-                dut_m_alu_out = alu_in_a ^ alu_in_b;
+                dut_m_alu_out = dut_m_alu_in_a ^ dut_m_alu_in_b;
             end
             
             `ALU_OR: begin
-                dut_m_alu_out = alu_in_a | alu_in_b;
+                dut_m_alu_out = dut_m_alu_in_a | dut_m_alu_in_b;
             end
             
             `ALU_AND: begin
-                dut_m_alu_out = alu_in_a & alu_in_b;
+                dut_m_alu_out = dut_m_alu_in_a & dut_m_alu_in_b;
             end
             
             `ALU_PASS_B: begin
-                dut_m_alu_out = alu_in_b;
+                dut_m_alu_out = dut_m_alu_in_b;
             end
             
             default: begin  // invalid operation
@@ -995,12 +975,16 @@ task dut_m_alu_update;
                 dut_m_alu_out = 32'h0000;
             end
         endcase
+        
+        // dmem address here as it's comb path
+        dut_m_dmem_addr = dut_m_alu_out[15:2];
+        
     end
 endtask
 
 task dut_m_dmem_update;
     begin
-        dut_m_dmem_addr = dut_m_alu_out[15:2];
+        // dut_m_dmem_addr = dut_m_alu_out[15:2];
         dut_m_dmem_write_data = dut_m_bcs_b_sel_fwd_id ? dut_m_writeback : dut_m_rs2_data_ex;
         if(dut_m_dmem_en_ex) begin
             dut_m_dmem_read_data_mem = test_values_dmem[dut_m_dmem_addr];
@@ -1119,8 +1103,8 @@ task dut_m_comb_update;
         
         //----- ID stage updates
         dut_m_nop_id_update();
-        dut_m_decode();
         dut_m_reg_file_read_update();
+        dut_m_decode();
         dut_m_imm_gen_update();
         
         //----- IF stage updates
@@ -1160,11 +1144,17 @@ initial begin
     //Prints %t scaled in ns (-9), with 2 precision digits, with the " ns" string
     $timeformat(-9, 2, " ns", 20);
     // load IMEM
-    $readmemh({`PROJECT_PATH, "verif/direct_tb/inst/decoder_inst_hex.txt"}, DUT_ama_riscv_core_i.ama_riscv_imem_i.mem, 0, 4095);
+    $readmemh({`PROJECT_PATH, "verif/direct_tb/inst/core_inst_hex.txt"}, DUT_ama_riscv_core_i.ama_riscv_imem_i.mem, 0, 4095);
     read_test_instructions();
     errors            = 0;
     warnings          = 0;
     // clear_forwarding_counters();
+end
+
+// Fix until datapath is done:
+initial begin 
+    dut_m_writeback = 'h5; 
+    force `DUT.writeback  = 'h5;
 end
 
 // Timestamp print
@@ -1196,7 +1186,7 @@ initial begin
         end
     end
     $display("Reset done, time: %0t \n", $time);
-    
+    /* 
     // wait for DUT to actually go out of reset
     @(posedge clk); #1; 
     $display("Checking reset exit, time: %0t \n", $time);
@@ -1206,7 +1196,21 @@ initial begin
     run_checkers();
     print_single_instruction_results();
     // clear_forwarding_counters();
-    $display("\nTest  0: Wait for reset: Done \n");
+    $display("\nTest  0: Wait for reset: Done \n"); */
+    
+    //-----------------------------------------------------------------------------
+    // Test 0: Start-up
+    $display("\nTest  0: [Start-up]: Start \n");
+    run_test_pc_target  = (dut_m_pc_mux_out_div4) + `STARTUP_TESTS;
+    while(dut_m_pc_mux_out_div4 < run_test_pc_target) begin
+        @(posedge clk); #1;
+        dut_m_seq_update();
+        dut_m_comb_update();
+        // dut_m_decode();
+        run_checkers();
+        print_single_instruction_results();
+    end
+    $display("\nTest  0: [Start-up]: Done \n");
     
     //-----------------------------------------------------------------------------
     // Test 1: R-type
