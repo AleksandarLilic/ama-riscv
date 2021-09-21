@@ -27,6 +27,7 @@
 //      2021-09-20  AL 0.12.0 - Add core 0.1.0 test arrays
 //      2021-09-21  AL 0.12.1 - Fix store_inst_ex
 //      2021-09-21  AL 0.13.0 - Add EX/MEM pipeline signals
+//      2021-09-21  AL 0.14.0 - Add MEM stage and Writeback
 //
 //-----------------------------------------------------------------------------
 
@@ -166,6 +167,8 @@ reg  [31:0] dut_m_dmem_read_data_mem;
 reg  [ 1:0] dut_m_load_sm_offset_mem;
 reg  [31:0] dut_m_inst_mem          ;
 reg  [ 4:0] dut_m_rd_addr_mem       ;
+// out
+reg  [31:0] dut_m_load_sm_data_out  ;
 reg  [31:0] dut_m_writeback         ;
 
 
@@ -233,9 +236,49 @@ reg         dut_m_branch_inst_ex        ;
 reg         dut_m_jump_inst_ex          ;
 reg         dut_m_store_inst_ex         ;
 
-reg  [31:0] dut_m_alu_in_a;
-reg  [31:0] dut_m_alu_in_b;
-reg  [ 4:0] dut_m_alu_shamt;
+reg  [31:0] dut_m_alu_in_a              ;
+reg  [31:0] dut_m_alu_in_b              ;
+reg  [ 4:0] dut_m_alu_shamt             ;
+
+reg  [ 2:0] dut_m_load_sm_width         ;
+reg  [31:0] dut_m_load_sm_data_out_prev ;
+
+wire [31:0] dut_m_rd_data = dut_m_writeback ;
+
+// RF named
+// name: register_abi-name                   // Description
+wire [31:0] dut_m_x0_zero = dut_m_rf32[0];   // hard-wired zero
+wire [31:0] dut_m_x1_ra   = dut_m_rf32[1];   // return address
+wire [31:0] dut_m_x2_sp   = dut_m_rf32[2];   // stack pointer 
+wire [31:0] dut_m_x3_gp   = dut_m_rf32[3];   // global pointer
+wire [31:0] dut_m_x4_tp   = dut_m_rf32[4];   // thread pointer
+wire [31:0] dut_m_x5_t0   = dut_m_rf32[5];   // temporary/alternate link register
+wire [31:0] dut_m_x6_t1   = dut_m_rf32[6];   // temporary
+wire [31:0] dut_m_x7_t2   = dut_m_rf32[7];   // temporary
+wire [31:0] dut_m_x8_s0   = dut_m_rf32[8];   // saved register/frame pointer
+wire [31:0] dut_m_x9_s1   = dut_m_rf32[9];   // saved register
+wire [31:0] dut_m_x10_a0  = dut_m_rf32[10];  // function argument/return value
+wire [31:0] dut_m_x11_a1  = dut_m_rf32[11];  // function argument/return value
+wire [31:0] dut_m_x12_a2  = dut_m_rf32[12];  // function argument
+wire [31:0] dut_m_x13_a3  = dut_m_rf32[13];  // function argument
+wire [31:0] dut_m_x14_a4  = dut_m_rf32[14];  // function argument
+wire [31:0] dut_m_x15_a5  = dut_m_rf32[15];  // function argument
+wire [31:0] dut_m_x16_a6  = dut_m_rf32[16];  // function argument
+wire [31:0] dut_m_x17_a7  = dut_m_rf32[17];  // function argument
+wire [31:0] dut_m_x18_s2  = dut_m_rf32[18];  // saved register
+wire [31:0] dut_m_x19_s3  = dut_m_rf32[19];  // saved register
+wire [31:0] dut_m_x20_s4  = dut_m_rf32[20];  // saved register
+wire [31:0] dut_m_x21_s5  = dut_m_rf32[21];  // saved register
+wire [31:0] dut_m_x22_s6  = dut_m_rf32[22];  // saved register
+wire [31:0] dut_m_x23_s7  = dut_m_rf32[23];  // saved register
+wire [31:0] dut_m_x24_s8  = dut_m_rf32[24];  // saved register
+wire [31:0] dut_m_x25_s9  = dut_m_rf32[25];  // saved register
+wire [31:0] dut_m_x26_s10 = dut_m_rf32[26];  // saved register
+wire [31:0] dut_m_x27_s11 = dut_m_rf32[27];  // saved register
+wire [31:0] dut_m_x28_t3  = dut_m_rf32[28];  // temporary
+wire [31:0] dut_m_x29_t4  = dut_m_rf32[29];  // temporary
+wire [31:0] dut_m_x30_t5  = dut_m_rf32[30];  // temporary
+wire [31:0] dut_m_x31_t6  = dut_m_rf32[31];  // temporary
 
 // DUT internals for checkers only
 wire dut_internal_branch_taken = `DUT_DEC.branch_res && `DUT_DEC.branch_inst_ex;
@@ -402,7 +445,7 @@ task run_checkers;
         checker_t("dmem_write_data",    `CHECKER_ACTIVE,    `DUT.dmem_write_data,       dut_m_dmem_write_data   );
         // MEM_Stage
         checker_t("dmem_read_data_mem", `CHECKER_ACTIVE,    `DUT.dmem_read_data_mem,    dut_m_dmem_read_data_mem);
-        checker_t("writeback",          `CHECKER_INACTIVE,    `DUT.writeback,             dut_m_writeback         );
+        checker_t("writeback",          `CHECKER_ACTIVE,    `DUT.writeback,             dut_m_writeback         );
         
         
         
@@ -829,9 +872,9 @@ task dut_m_reg_file_write_update;
                 dut_m_rf32[i] = 'h0;
             end
         end
-        // else if (reg_we_mem && (dut_m_rd_addr_mem != 5'd0)) begin    // no writes to x0
-            // dut_m_rf32[dut_m_rd_addr_mem] = dut_m_rd_data;
-        // end
+        else if (dut_m_reg_we_mem && (dut_m_rd_addr_mem != 5'd0)) begin     // no writes to x0
+            dut_m_rf32[dut_m_rd_addr_mem] = dut_m_rd_data;
+        end
     end
 endtask
 
@@ -986,18 +1029,19 @@ task dut_m_alu_update;
                 dut_m_alu_out = 32'h0000;
             end
         endcase
-        
-        // dmem address & mask here as it's comb path
+    end
+endtask
+
+task dut_m_dmem_inputs_update;
+    begin
+        dut_m_dmem_write_data   = dut_m_bcs_b_sel_fwd_id ? dut_m_writeback : dut_m_rs2_data_ex;
         dut_m_dmem_addr         = dut_m_alu_out[15:2];
         dut_m_load_sm_offset_ex = dut_m_alu_out[1:0];
-        
     end
 endtask
 
 task dut_m_dmem_update;
     begin
-        // dut_m_dmem_addr = dut_m_alu_out[15:2];
-        dut_m_dmem_write_data = dut_m_bcs_b_sel_fwd_id ? dut_m_writeback : dut_m_rs2_data_ex;
         if(dut_m_dmem_en_ex) begin
             dut_m_dmem_read_data_mem = test_values_dmem[dut_m_dmem_addr];
             if(dut_m_dmem_we_ex[0]) test_values_dmem[dut_m_dmem_addr][ 7: 0] = dut_m_dmem_write_data[ 7: 0];
@@ -1005,6 +1049,99 @@ task dut_m_dmem_update;
             if(dut_m_dmem_we_ex[2]) test_values_dmem[dut_m_dmem_addr][23:16] = dut_m_dmem_write_data[23:16];
             if(dut_m_dmem_we_ex[3]) test_values_dmem[dut_m_dmem_addr][31:24] = dut_m_dmem_write_data[31:24];
         end
+    end
+endtask
+
+task dut_m_load_sm_update;
+    reg [31:0] task_din;
+    reg [ 0:0] task_sign_bit;
+    begin
+        task_din            = dut_m_dmem_read_data_mem;
+        dut_m_load_sm_width = dut_m_inst_mem[14:12];
+        task_sign_bit       = dut_m_load_sm_width[2];
+        
+        if (dut_m_load_sm_en_mem) begin
+            case (dut_m_load_sm_width[1:0])
+            2'd0:   // byte
+                case (dut_m_load_sm_offset_mem)
+                2'd0:
+                    dut_m_load_sm_data_out = task_sign_bit ? {{24{       1'b0 }}, task_din[ 7: 0]} : 
+                                                             {{24{task_din[ 7]}}, task_din[ 7: 0]};
+                2'd1:
+                    dut_m_load_sm_data_out = task_sign_bit ? {{24{       1'b0 }}, task_din[15: 8]} : 
+                                                             {{24{task_din[15]}}, task_din[15: 8]};
+                2'd2:
+                    dut_m_load_sm_data_out = task_sign_bit ? {{24{       1'b0 }}, task_din[23:16]} : 
+                                                             {{24{task_din[23]}}, task_din[23:16]};
+                2'd3:
+                    dut_m_load_sm_data_out = task_sign_bit ? {{24{       1'b0 }}, task_din[31:24]} : 
+                                                             {{24{task_din[31]}}, task_din[31:24]};
+                // default: 
+                    // $display("Offset input not valid");
+                endcase
+            
+            2'd1:   // half
+                case (dut_m_load_sm_offset_mem)
+                 2'd0:
+                    dut_m_load_sm_data_out = task_sign_bit ? {{16{       1'b0 }}, task_din[15: 0]} : 
+                                                             {{16{task_din[15]}}, task_din[15: 0]};
+                2'd1:
+                    dut_m_load_sm_data_out = task_sign_bit ? {{16{       1'b0 }}, task_din[23: 8]} : 
+                                                             {{16{task_din[23]}}, task_din[23: 8]};
+                2'd2:
+                    dut_m_load_sm_data_out = task_sign_bit ? {{16{       1'b0 }}, task_din[31:16]} : 
+                                                             {{16{task_din[31]}}, task_din[31:16]};
+                2'd3: 
+                begin
+                    // $display("Unaligned access not supported");
+                    dut_m_load_sm_data_out = dut_m_load_sm_data_out_prev;
+                end
+                // default: 
+                    // $display("Offset input not valid");
+                endcase
+           
+            2'd2:   // word
+                case (dut_m_load_sm_offset_mem)
+                2'd0:
+                    dut_m_load_sm_data_out = task_din;
+                2'd1,
+                2'd2,
+                2'd3:
+                begin
+                    // $display("Unaligned access not supported");
+                    dut_m_load_sm_data_out = dut_m_load_sm_data_out_prev;
+                end
+                // default: 
+                    // $display("Offset input not valid");
+                endcase
+            
+            default: 
+            begin
+                // $display("Width input not valid");
+                dut_m_load_sm_data_out = dut_m_load_sm_data_out_prev;
+            end
+            endcase
+        end
+        else /*dut_m_load_sm_en_mem = 0*/ begin
+            dut_m_load_sm_data_out = dut_m_load_sm_data_out_prev;
+        end
+    end
+endtask
+
+task dut_m_load_sm_seq_update;
+    begin
+        if (rst) 
+            dut_m_load_sm_data_out_prev = 'h0;
+        else
+            dut_m_load_sm_data_out_prev = dut_m_load_sm_data_out;
+    end
+endtask
+
+task dut_m_writeback_update;
+    begin
+        dut_m_writeback = (dut_m_wb_sel_mem == `WB_SEL_DMEM) ?    dut_m_load_sm_data_out  :
+                          (dut_m_wb_sel_mem == `WB_SEL_ALU ) ?    dut_m_alu_out_mem       :
+                       /* (dut_m_wb_sel_mem == `WB_SEL_INC4) ? */ dut_m_pc_mem + 32'd4   ;
     end
 endtask
 
@@ -1023,7 +1160,7 @@ endtask
 
 task dut_m_id_ex_pipeline_update;
     begin
-        // instruction update env
+        // instruction update
         // datapath
         dut_m_pc_ex             = (!rst && !dut_m_clear_id) ? dut_m_pc                  : 'h0;
         dut_m_rd_addr_ex        = (!rst && !dut_m_clear_id) ? dut_m_rd_addr_id          : 'h0;
@@ -1055,7 +1192,7 @@ task dut_m_ex_mem_pipeline_update;
     begin
         dut_m_pc_mem             = (!rst && !dut_m_clear_ex) ? dut_m_pc_ex              : 'h0;
         dut_m_alu_out_mem        = (!rst && !dut_m_clear_ex) ? dut_m_alu_out            : 'h0;
-        dut_m_dmem_update();                                                            
+        dut_m_dmem_update();
         dut_m_load_sm_offset_mem = (!rst && !dut_m_clear_ex) ? dut_m_load_sm_offset_ex  : 'h0;
         dut_m_inst_mem           = (!rst && !dut_m_clear_ex) ? dut_m_inst_ex            : 'h0;
         dut_m_inst_mem_asm       = (!rst && !dut_m_clear_ex) ? dut_m_inst_ex_asm        : 'h0;
@@ -1091,6 +1228,7 @@ task dut_m_seq_update;
         dut_m_reg_file_write_update();
                 
         //----- EX/MEM stage updates
+        dut_m_load_sm_seq_update();
         dut_m_ex_mem_pipeline_update();
         // $write  ("inst_ex - FF :     'h%8h    %0s", dut_env_inst_ex, dut_env_inst_ex_asm);
         // $display("dut_env_rd_ex:       %0d", dut_env_rd_ex     );
@@ -1119,9 +1257,14 @@ task dut_m_comb_update;
         // env_alu_out_update(alu_out_update);
         // $display("ALU out: %0d ", dut_env_alu);
         
+        //----- MEM stage updates
+        dut_m_load_sm_update();
+        dut_m_writeback_update();
+        
         //----- EX stage updates
         dut_m_bc_update();
         dut_m_alu_update();
+        dut_m_dmem_inputs_update();
         
         //----- ID stage updates
         dut_m_nop_id_update();
@@ -1171,12 +1314,6 @@ initial begin
     errors            = 0;
     warnings          = 0;
     // clear_forwarding_counters();
-end
-
-// Fix until datapath is done:
-initial begin 
-    dut_m_writeback = 'h5; 
-    force `DUT.writeback  = 'h5;
 end
 
 // Timestamp print
