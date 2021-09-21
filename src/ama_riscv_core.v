@@ -17,6 +17,7 @@
 //      2021-09-18  AL  0.4.1 - Fix dmem_we
 //      2021-09-18  AL  0.4.2 - Fix dmem_addr
 //      2021-09-21  AL  0.4.3 - Fix store_inst_ex
+//      2021-09-21  AL  0.5.0 - Add MEM stage and Writeback
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -202,20 +203,17 @@ wire [31:0] imm_gen_out_id  ;
 
 // Register File
 ama_riscv_reg_file ama_riscv_reg_file_i(
-    .clk    (clk        ),
-    .rst    (rst        ),
+    .clk    (clk            ),
+    .rst    (rst            ),
     // inputs
-    // .we     (reg_we_mem ),
-    .we     (1'b0 ),
-    .addr_a (rs1_addr     ),
-    .addr_b (rs2_addr     ),
-    // .addr_d (rd_addr_mem ),
-    .addr_d (5'd0       ),
-    // .data_d (rd_data     ),
-    .data_d (32'd0      ),
+    .we     (reg_we_mem     ),
+    .addr_a (rs1_addr       ),
+    .addr_b (rs2_addr       ),
+    .addr_d (rd_addr_mem    ),
+    .data_d (rd_data        ),
     // outputs
-    .data_a (rs1_data_id     ),
-    .data_b (rs2_data_id     )
+    .data_a (rs1_data_id    ),
+    .data_b (rs2_data_id    )
 );
 
 // Imm Gen
@@ -340,13 +338,13 @@ ama_riscv_branch_compare ama_riscv_branch_compare_i (
 
 // ALU
 // wire [ 3:0] alu_op_sel_ex ;     // defined previously
-wire [31:0] alu_in_a =  (alu_a_sel_fwd_ex == 2'd0) ?    rs1_data_ex     :
-                        (alu_a_sel_fwd_ex == 2'd1) ?    pc_ex           :
-                     /* (alu_a_sel_fwd_ex == 2'd2) ? */ writeback      ;
+wire [31:0] alu_in_a =  (alu_a_sel_fwd_ex == `ALU_A_SEL_RS1)     ?    rs1_data_ex     :
+                        (alu_a_sel_fwd_ex == `ALU_A_SEL_PC )     ?    pc_ex           :
+                     /* (alu_a_sel_fwd_ex == `ALU_A_SEL_FWD_ALU) ? */ writeback      ;
 
-wire [31:0] alu_in_b =  (alu_b_sel_fwd_ex == 2'd0) ?    rs2_data_ex     :
-                        (alu_b_sel_fwd_ex == 2'd1) ?    imm_gen_out_ex  :
-                     /* (alu_b_sel_fwd_ex == 2'd2) ? */ writeback      ;
+wire [31:0] alu_in_b =  (alu_b_sel_fwd_ex == `ALU_B_SEL_RS2)     ?    rs2_data_ex     :
+                        (alu_b_sel_fwd_ex == `ALU_B_SEL_IMM)     ?    imm_gen_out_ex  :
+                     /* (alu_b_sel_fwd_ex == `ALU_B_SEL_FWD_ALU) ? */ writeback      ;
 
 // wire [31:0] alu_out  ;          // defined previously
 
@@ -429,5 +427,35 @@ always @ (posedge clk) begin
         reg_we_mem          <= reg_we_ex        ;
     end
 end
+
+//-----------------------------------------------------------------------------
+// MEM stage
+wire [ 2:0] funct3_mem  = inst_mem[14:12];
+
+// Load Shift & Mask
+// wire        load_sm_en_mem      ;   // defined previously
+// wire [ 1:0] load_sm_offset_mem  ;   // defined previously
+wire [ 2:0] load_sm_width = funct3_mem;
+// wire [31:0] load_sm_data_in     ;   // defined previously as dmem_read_data_mem
+wire [31:0] load_sm_data_out    ;
+
+ama_riscv_load_shift_mask ama_riscv_load_shift_mask_i (
+    .clk        (clk                ),
+    .rst        (rst                ),
+    // inputs
+    .en         (load_sm_en_mem     ),
+    .offset     (load_sm_offset_mem ),
+    .width      (load_sm_width      ),
+    .data_in    (dmem_read_data_mem ),
+    // outputs
+    .data_out   (load_sm_data_out   )
+);
+
+//-----------------------------------------------------------------------------
+// Writeback
+assign writeback = (wb_sel_mem == `WB_SEL_DMEM) ?    load_sm_data_out  :
+                   (wb_sel_mem == `WB_SEL_ALU ) ?    alu_out_mem       :
+                /* (wb_sel_mem == `WB_SEL_INC4) ? */ pc_mem + 32'd4   ;
+
 
 endmodule
