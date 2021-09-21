@@ -25,6 +25,7 @@
 //      2021-09-18  AL 0.10.0 - Add ALU and Branch Resolution models and checkers
 //      2021-09-19  AL 0.11.0 - Add DMEM model and checkers
 //      2021-09-20  AL 0.12.0 - Add core 0.1.0 test arrays
+//      2021-09-21  AL 0.12.1 - Fix store_inst_ex
 //
 //-----------------------------------------------------------------------------
 
@@ -224,7 +225,7 @@ reg         dut_m_branch_taken          ;
 reg         dut_m_jump_taken            ;
 reg         dut_m_branch_inst_ex        ;
 reg         dut_m_jump_inst_ex          ;
-reg         dut_m_store_inst_id_ex      ;
+reg         dut_m_store_inst_ex         ;
 
 reg  [31:0] dut_m_alu_in_a;
 reg  [31:0] dut_m_alu_in_b;
@@ -241,6 +242,7 @@ integer       clocks_to_execute   ;
 integer       run_test_pc_target  ;
 integer       errors              ;
 integer       warnings            ;
+integer       pre_rst_warnings    ;
 
 // Reset hold for
 reg    [ 3:0] rst_pulses = 4'd3;
@@ -285,8 +287,9 @@ task print_test_status;
             $display("Passed");
         else
             $display("Failed");
-        $display("Warnings: %2d", warnings);
-        $display("Errors:   %2d", errors);
+        $display("Pre RST Warnings: %2d", pre_rst_warnings);
+        $display("Warnings:         %2d", warnings);
+        $display("Errors:           %2d", errors);
         $display("--------------------- End of the simulation ----------------------\n");
     end
 endtask
@@ -640,7 +643,7 @@ task dut_m_decode;
          
        // Store Mask
        dut_m_store_mask_offset = dut_m_alu_out[1:0];
-        if(dut_m_store_inst_id_ex) begin                    // store mask enable
+        if(dut_m_store_inst_ex) begin                    // store mask enable
             case(funct3_ex[1:0])                            // store mask width
                 5'd0:   // byte
                     case (dut_m_store_mask_offset)          // store mask offset, valid for byte and half
@@ -707,7 +710,7 @@ task dut_m_decode;
                 end
             endcase
         end
-        else /*(!dut_m_store_inst_id_ex)*/ begin
+        else /*(!dut_m_store_inst_ex)*/ begin
             dut_m_dmem_we_ex = 4'b0000;
         end
         
@@ -1033,7 +1036,7 @@ task dut_m_id_ex_pipeline_update;
         dut_m_reg_we_ex         = (!rst && !dut_m_clear_id) ? dut_m_reg_we_id           : 'b0;
         
         // internal only
-        dut_m_store_inst_id_ex  = (!rst && !dut_m_clear_id) ? dut_m_store_inst_id       : 'b0;
+        dut_m_store_inst_ex     = (!rst && !dut_m_clear_id) ? dut_m_store_inst_id       : 'b0;
         dut_m_branch_inst_ex    = (!rst && !dut_m_clear_id) ? dut_m_branch_inst_id      : 'b0;
         dut_m_jump_inst_ex      = (!rst && !dut_m_clear_id) ? dut_m_jump_inst_id        : 'b0;
     end
@@ -1186,17 +1189,8 @@ initial begin
         end
     end
     $display("Reset done, time: %0t \n", $time);
-    /* 
-    // wait for DUT to actually go out of reset
-    @(posedge clk); #1; 
-    $display("Checking reset exit, time: %0t \n", $time);
-    dut_m_seq_update();
-    dut_m_comb_update();
-    // dut_m_decode();
-    run_checkers();
-    print_single_instruction_results();
-    // clear_forwarding_counters();
-    $display("\nTest  0: Wait for reset: Done \n"); */
+    
+    pre_rst_warnings = warnings;
     
     //-----------------------------------------------------------------------------
     // Test 0: Start-up
@@ -1225,22 +1219,21 @@ initial begin
         print_single_instruction_results();
     end
     $display("\nTest  1: Hit specific case [R-type]: Done \n");
-    /*
+    
     //-----------------------------------------------------------------------------
     // Test 2: I-type
     $display("\nTest  2: Hit specific case [I-type]: Start \n");
-    run_test_pc_target  = dut_m_pc_mux_out + `I_TYPE_TESTS;
-    while(dut_m_pc_mux_out < run_test_pc_target) begin
+    run_test_pc_target  = (dut_m_pc_mux_out_div4) + `I_TYPE_TESTS;
+    while(dut_m_pc_mux_out_div4 < run_test_pc_target) begin
         @(posedge clk); #1;
-        env_update_seq();
-        tb_driver();
-        dut_m_decode();
-        #1; run_checkers();
+        dut_m_seq_update();
+        dut_m_comb_update();
+        // dut_m_decode();
+        run_checkers();
         print_single_instruction_results();
-        env_update_comb('h0, 'b0);
     end
     $display("\nTest  2: Hit specific case [I-type]: Done \n");
-    
+    /*
     //-----------------------------------------------------------------------------
     // Test 3: Load
     $display("\nTest  3: Hit specific case [Load]: Start \n");
