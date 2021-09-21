@@ -6,6 +6,8 @@
 // Author:          Aleksandar Lilic
 // Description:     CPU Core - Control & Datapath
 //
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
 // Version history:
 //      2021-09-11  AL  0.1.0 - Initial - IF stage
 //      2021-09-13  AL  0.1.1 - Fix IMEM address signal
@@ -14,6 +16,7 @@
 //      2021-09-18  AL  0.4.0 - Add EX stage
 //      2021-09-18  AL  0.4.1 - Fix dmem_we
 //      2021-09-18  AL  0.4.2 - Fix dmem_addr
+//      2021-09-21  AL  0.4.3 - Fix store_inst_ex
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -256,6 +259,7 @@ always @ (posedge clk) begin
         imm_gen_out_ex   <= 32'h0;
         inst_ex          <= 32'h0;
         // control       
+        store_inst_ex    <=  1'b0;
         bc_a_sel_fwd_ex  <=  1'b0;
         bcs_b_sel_fwd_ex <=  1'b0;
         bc_uns_ex        <=  1'b0;
@@ -276,6 +280,7 @@ always @ (posedge clk) begin
         imm_gen_out_ex   <= 32'h0;
         inst_ex          <= 32'h0;
         // control       
+        store_inst_ex    <=  1'b0;
         bc_a_sel_fwd_ex  <=  1'b0;
         bcs_b_sel_fwd_ex <=  1'b0;
         bc_uns_ex        <=  1'b0;
@@ -296,6 +301,7 @@ always @ (posedge clk) begin
         imm_gen_out_ex   <= imm_gen_out_id  ;
         inst_ex          <= inst_id         ;        
         // control
+        store_inst_ex    <= store_inst_id   ;
         bc_a_sel_fwd_ex  <= bc_a_sel_fwd_id ;
         bcs_b_sel_fwd_ex <= bcs_b_sel_fwd_id;
         bc_uns_ex        <= bc_uns_id       ;
