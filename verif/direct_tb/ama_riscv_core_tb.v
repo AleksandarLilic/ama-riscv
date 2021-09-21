@@ -26,14 +26,15 @@
 //      2021-09-19  AL 0.11.0 - Add DMEM model and checkers
 //      2021-09-20  AL 0.12.0 - Add core 0.1.0 test arrays
 //      2021-09-21  AL 0.12.1 - Fix store_inst_ex
+//      2021-09-21  AL 0.13.0 - Add EX/MEM pipeline signals
 //
 //-----------------------------------------------------------------------------
 
 `timescale 1ns/1ps
 
 `define CLK_PERIOD               8
-//`define CLOCK_FREQ    125_000_000
-//`define SIM_TIME     `CLOCK_FREQ*0.0009 // 900us
+// `define CLOCK_FREQ    125_000_000
+// `define SIM_TIME     `CLOCK_FREQ*0.0009 // 900us
 // `define RST_TEST                 1
 `define STARTUP_TESTS            4
 `define R_TYPE_TESTS            10 + 1 // add the 'or' inst from previous hex
@@ -47,7 +48,7 @@
 `define AUIPC_TEST               1
 `define BRANCH_TESTS_NOPS_PAD    4+1    // 4 nops + 1 branch back instruction
 `define TEST_CASES_DEC           /* `RST_TEST + */ `STARTUP_TESTS + `R_TYPE_TESTS + `I_TYPE_TESTS + `LOAD_TESTS + `STORE_TESTS + `BRANCH_TESTS + `JALR_TEST + `JAL_TEST + `LUI_TEST + `AUIPC_TEST + `BRANCH_TESTS_NOPS_PAD
-`define LABEL_TGT                `TEST_CASES_DEC - 1 // location to which to branch
+// `define LABEL_TGT                `TEST_CASES_DEC - 1 // location to which to branch
 
 `define NFND_TEST                5           // No Forwarding No Dependency
 `define FDRT_TEST                12*2 + 3*2  // Forwarding with Dependency R-type
@@ -145,8 +146,6 @@ reg  [31:0] dut_m_pc_ex             ;
 reg  [31:0] dut_m_inst_ex           ;
 reg  [31:0] dut_m_rs1_data_ex       ;
 reg  [31:0] dut_m_rs2_data_ex       ;
-reg         dut_m_reg_we_ex         ;
-reg         dut_m_bc_uns_ex         ;
 reg  [ 4:0] dut_m_rd_addr_ex        ;
 reg  [31:0] dut_m_imm_gen_out_ex    ;
 // out
@@ -154,7 +153,6 @@ reg  [31:0] dut_m_alu_out           ;
 reg  [ 1:0] dut_m_load_sm_offset_ex ;
 reg  [13:0] dut_m_dmem_addr         ;
 reg  [31:0] dut_m_dmem_write_data   ;
-reg  [31:0] dut_m_dmem_read_data_mem;
 // to control
 reg         dut_m_bc_a_eq_b         ;
 reg         dut_m_bc_a_lt_b         ;
@@ -163,7 +161,11 @@ reg  [ 1:0] dut_m_store_mask_offset ;
 // MEM stage
 // in
 reg  [31:0] dut_m_pc_mem            ;
+reg  [31:0] dut_m_alu_out_mem       ;
+reg  [31:0] dut_m_dmem_read_data_mem;
+reg  [ 1:0] dut_m_load_sm_offset_mem;
 reg  [31:0] dut_m_inst_mem          ;
+reg  [ 4:0] dut_m_rd_addr_mem       ;
 reg  [31:0] dut_m_writeback         ;
 
 
@@ -201,6 +203,7 @@ reg  [ 1:0] dut_m_wb_sel_id         ;
 
 // Control Outputs in datapath
 // in EX stage
+reg         dut_m_reg_we_ex         ;
 reg         dut_m_bc_uns_ex         ;
 reg         dut_m_bc_a_sel_fwd_ex   ;
 reg         dut_m_bcs_b_sel_fwd_ex  ;
@@ -211,6 +214,9 @@ reg         dut_m_dmem_en_ex        ;
 reg         dut_m_load_sm_en_ex     ;
 reg  [ 1:0] dut_m_wb_sel_ex         ;
 // in MEM stage
+reg         dut_m_reg_we_mem        ;
+reg         dut_m_load_sm_en_mem    ;
+reg  [ 1:0] dut_m_wb_sel_mem        ;
 
 
 
@@ -394,8 +400,10 @@ task run_checkers;
             
         checker_t("dmem_addr",          `CHECKER_ACTIVE,    `DUT.dmem_addr,             dut_m_dmem_addr         );
         checker_t("dmem_write_data",    `CHECKER_ACTIVE,    `DUT.dmem_write_data,       dut_m_dmem_write_data   );
-        checker_t("dmem_read_data_mem", `CHECKER_ACTIVE,    `DUT.dmem_read_data_mem,    dut_m_dmem_read_data_mem);
         // MEM_Stage
+        checker_t("dmem_read_data_mem", `CHECKER_ACTIVE,    `DUT.dmem_read_data_mem,    dut_m_dmem_read_data_mem);
+        checker_t("writeback",          `CHECKER_INACTIVE,    `DUT.writeback,             dut_m_writeback         );
+        
         
         
         // Decoder
@@ -979,8 +987,9 @@ task dut_m_alu_update;
             end
         endcase
         
-        // dmem address here as it's comb path
-        dut_m_dmem_addr = dut_m_alu_out[15:2];
+        // dmem address & mask here as it's comb path
+        dut_m_dmem_addr         = dut_m_alu_out[15:2];
+        dut_m_load_sm_offset_ex = dut_m_alu_out[1:0];
         
     end
 endtask
@@ -1020,19 +1029,19 @@ task dut_m_id_ex_pipeline_update;
         dut_m_rd_addr_ex        = (!rst && !dut_m_clear_id) ? dut_m_rd_addr_id          : 'h0;
         dut_m_rs1_data_ex       = (!rst && !dut_m_clear_id) ? dut_m_rs1_data_id         : 'h0;
         dut_m_rs2_data_ex       = (!rst && !dut_m_clear_id) ? dut_m_rs2_data_id         : 'h0;
-        dut_m_imm_gen_out_ex    = (!rst && !dut_m_clear_id) ? dut_m_imm_gen_out_id      : 'h0;        
+        dut_m_imm_gen_out_ex    = (!rst && !dut_m_clear_id) ? dut_m_imm_gen_out_id      : 'h0;
         dut_m_inst_ex           = (!rst && !dut_m_clear_id) ? dut_m_inst_id             : 'h0;
         dut_m_inst_ex_asm       = (!rst && !dut_m_clear_id) ? dut_m_inst_id_asm         : 'h0;
         // control
         dut_m_bc_uns_ex         = (!rst && !dut_m_clear_id) ? dut_m_bc_uns_id           : 'b0;
         dut_m_bc_a_sel_fwd_ex   = (!rst && !dut_m_clear_id) ? dut_m_bc_a_sel_fwd_id     : 'b0;
-        dut_m_bcs_b_sel_fwd_ex  = (!rst && !dut_m_clear_id) ? dut_m_bcs_b_sel_fwd_ex    : 'b0;        
+        dut_m_bcs_b_sel_fwd_ex  = (!rst && !dut_m_clear_id) ? dut_m_bcs_b_sel_fwd_ex    : 'b0;
         dut_m_alu_a_sel_fwd_ex  = (!rst && !dut_m_clear_id) ? dut_m_alu_a_sel_fwd_id    : 'h0;
         dut_m_alu_b_sel_fwd_ex  = (!rst && !dut_m_clear_id) ? dut_m_alu_b_sel_fwd_id    : 'h0;
         dut_m_alu_op_sel_ex     = (!rst && !dut_m_clear_id) ? dut_m_alu_op_sel_id       : 'h0;
         dut_m_dmem_en_ex        = (!rst && !dut_m_clear_id) ? dut_m_dmem_en_id          : 'b0;
         dut_m_load_sm_en_ex     = (!rst && !dut_m_clear_id) ? dut_m_load_sm_en_id       : 'b0;
-        dut_m_wb_sel_ex         = (!rst && !dut_m_clear_id) ? dut_m_wb_sel_id           : 'h0;        
+        dut_m_wb_sel_ex         = (!rst && !dut_m_clear_id) ? dut_m_wb_sel_id           : 'h0;
         dut_m_reg_we_ex         = (!rst && !dut_m_clear_id) ? dut_m_reg_we_id           : 'b0;
         
         // internal only
@@ -1044,7 +1053,17 @@ endtask
 
 task dut_m_ex_mem_pipeline_update;
     begin
-        dut_m_dmem_update();
+        dut_m_pc_mem             = (!rst && !dut_m_clear_ex) ? dut_m_pc_ex              : 'h0;
+        dut_m_alu_out_mem        = (!rst && !dut_m_clear_ex) ? dut_m_alu_out            : 'h0;
+        dut_m_dmem_update();                                                            
+        dut_m_load_sm_offset_mem = (!rst && !dut_m_clear_ex) ? dut_m_load_sm_offset_ex  : 'h0;
+        dut_m_inst_mem           = (!rst && !dut_m_clear_ex) ? dut_m_inst_ex            : 'h0;
+        dut_m_inst_mem_asm       = (!rst && !dut_m_clear_ex) ? dut_m_inst_ex_asm        : 'h0;
+        dut_m_rd_addr_mem        = (!rst && !dut_m_clear_ex) ? dut_m_rd_addr_ex         : 'h0;
+        dut_m_load_sm_en_mem     = (!rst && !dut_m_clear_ex) ? dut_m_load_sm_en_ex      : 'b0;
+        dut_m_wb_sel_mem         = (!rst && !dut_m_clear_ex) ? dut_m_wb_sel_ex          : 'h0;
+        dut_m_reg_we_mem         = (!rst && !dut_m_clear_ex) ? dut_m_reg_we_ex          : 'b0;
+        
     end
 endtask
 
