@@ -28,6 +28,10 @@
 //      2021-09-21  AL 0.12.1 - Fix store_inst_ex
 //      2021-09-21  AL 0.13.0 - Add EX/MEM pipeline signals
 //      2021-09-21  AL 0.14.0 - Add MEM stage and Writeback
+//      2021-09-22  AL 0.15.0 - Add RF forwarding - pending proper implementation
+//      
+//      note: implement 1:1 rf forwarding
+//      note: add checker IDs, print on exit number of samples checked and results
 //
 //-----------------------------------------------------------------------------
 
@@ -855,13 +859,29 @@ endtask
 
 task dut_m_reg_file_read_update;
     begin
+        // move to pipeline task
         dut_m_rs1_addr_id = dut_m_inst_id[19:15];
         dut_m_rs2_addr_id = dut_m_inst_id[24:20];
         dut_m_rd_addr_id  = dut_m_inst_id[11: 7];
         
+        // this logic in decoder for forwarding
         //dut_m_rf32
-        dut_m_rs1_data_id = dut_m_rf32[dut_m_rs1_addr_id];
-        dut_m_rs2_data_id = dut_m_rf32[dut_m_rs2_addr_id];
+        if ((dut_m_rs1_addr_id != `RF_X0_ZERO) && (dut_m_rs1_addr_id == dut_m_rd_addr_mem) && (dut_m_reg_we_mem) && (!dut_m_alu_a_sel_id))
+            dut_m_rs1_data_id = dut_m_writeback;                    // forward previous ALU result
+        else
+            dut_m_rs1_data_id = dut_m_rf32[dut_m_rs1_addr_id];      // don't forward
+        
+        if ((dut_m_rs2_addr_id != `RF_X0_ZERO) && (dut_m_rs2_addr_id == dut_m_rd_addr_mem) && (dut_m_reg_we_mem) && (!dut_m_alu_b_sel_id))
+            dut_m_rs2_data_id = dut_m_writeback;                    // forward previous ALU result
+        else
+            dut_m_rs2_data_id = dut_m_rf32[dut_m_rs2_addr_id];      // don't forward
+        
+        // here just read from rf
+        // dut_m_rs1_data_id = dut_m_rf32[dut_m_rs1_addr_id];
+        // dut_m_rs2_data_id = dut_m_rf32[dut_m_rs2_addr_id];
+        
+        // then also here add muxes for forwarding
+        // this task needs to go after decoder -> has to be after forwarding logic
     end
 endtask
 
@@ -1349,6 +1369,24 @@ initial begin
     pre_rst_warnings = warnings;
     
     //-----------------------------------------------------------------------------
+    // Test All:
+    $display("\nTest  All: Start \n");
+    // run_test_pc_target  = (dut_m_pc_mux_out_div4) + `STARTUP_TESTS;
+    // while(dut_m_pc_mux_out_div4 < run_test_pc_target) begin
+    repeat(100) begin
+        @(posedge clk); #1;
+        dut_m_seq_update();
+        dut_m_comb_update();
+        // dut_m_decode();
+        run_checkers();
+        print_single_instruction_results();
+    end
+    $display("\nTnTest  All: Done \n");
+    
+    
+    
+    /*
+    //-----------------------------------------------------------------------------
     // Test 0: Start-up
     $display("\nTest  0: [Start-up]: Start \n");
     run_test_pc_target  = (dut_m_pc_mux_out_div4) + `STARTUP_TESTS;
@@ -1389,7 +1427,7 @@ initial begin
         print_single_instruction_results();
     end
     $display("\nTest  2: Hit specific case [I-type]: Done \n");
-    /*
+    
     //-----------------------------------------------------------------------------
     // Test 3: Load
     $display("\nTest  3: Hit specific case [Load]: Start \n");
