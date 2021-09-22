@@ -18,6 +18,7 @@
 //      2021-09-18  AL  0.4.2 - Fix dmem_addr
 //      2021-09-21  AL  0.4.3 - Fix store_inst_ex
 //      2021-09-21  AL  0.5.0 - Add MEM stage and Writeback
+//      2021-09-22  AL  0.6.0 - Add RF forwarding
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -37,7 +38,9 @@ wire        clear_id                ;
 wire        clear_ex                ;
 wire        clear_mem               ;
     
-// Signals - MEM stage  
+// Signals - MEM stage
+reg         reg_we_mem              ;
+reg  [ 4:0] rd_addr_mem             ;
     
 // Signals - EX stage   
 reg  [31:0] inst_ex                 ;
@@ -62,6 +65,8 @@ wire [ 1:0] alu_a_sel_fwd_id        ;
 wire [ 1:0] alu_b_sel_fwd_id        ;
 wire        bc_a_sel_fwd_id         ;
 wire        bcs_b_sel_fwd_id        ;
+wire        rf_a_sel_fwd_id         ;
+wire        rf_b_sel_fwd_id         ;
 wire        bc_uns_id               ;
 wire        dmem_en_id              ;
 wire        load_sm_en_id           ;
@@ -90,7 +95,9 @@ ama_riscv_control ama_riscv_control_i (
     // pipeline inputs
     .inst_ex            (inst_ex        ),
     .reg_we_ex          (reg_we_ex      ),
+    .reg_we_mem         (reg_we_mem     ),
     .rd_ex              (rd_addr_ex     ),
+    .rd_mem             (rd_addr_mem    ),
     .store_inst_ex      (store_inst_ex  ),
     // pipeline outputs
     .stall_if           (stall_if       ),
@@ -118,6 +125,8 @@ ama_riscv_control ama_riscv_control_i (
     .alu_b_sel_fwd      (alu_b_sel_fwd_id   ),
     .bc_a_sel_fwd       (bc_a_sel_fwd_id    ),
     .bcs_b_sel_fwd      (bcs_b_sel_fwd_id   ),
+    .rf_a_sel_fwd       (rf_a_sel_fwd_id    ),
+    .rf_b_sel_fwd       (rf_b_sel_fwd_id    ),
     .dmem_we            (dmem_we_ex         )
 );
 
@@ -184,9 +193,9 @@ end
 assign inst_id = (stall_if_q1) ? `NOP : inst_id_read;
 
 // Signals - MEM stage
-reg         reg_we_mem  ;
+// reg         reg_we_mem  ;       // defined previously
 wire [31:0] writeback   ;
-reg  [ 4:0] rd_addr_mem ;
+// reg  [ 4:0] rd_addr_mem ;       // defined previously
 
 // Signals - ID stage
 wire [31:0] pc_id = pc;
@@ -294,8 +303,8 @@ always @ (posedge clk) begin
         // datapath
         pc_ex            <= pc_id           ;
         rd_addr_ex       <= rd_addr_id      ;
-        rs1_data_ex      <= rs1_data_id     ;
-        rs2_data_ex      <= rs2_data_id     ;
+        rs1_data_ex      <= rf_a_sel_fwd_id ? writeback : rs1_data_id;
+        rs2_data_ex      <= rf_b_sel_fwd_id ? writeback : rs2_data_id;
         imm_gen_out_ex   <= imm_gen_out_id  ;
         inst_ex          <= inst_id         ;        
         // control

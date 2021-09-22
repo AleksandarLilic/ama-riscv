@@ -6,6 +6,8 @@
 // Author:          Aleksandar Lilic
 // Description:     Instruction Decoder
 //
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
 // Version history:
 //      2021-07-16  AL  0.1.0 - Initial - Support for R-type
 //      2021-07-16  AL  0.1.1 - Add imem_en signal
@@ -25,6 +27,7 @@
 //      2021-08-12  AL  0.9.0 - Add support for AUIPC
 //      2021-09-08  AL 0.10.0 - Remove imem_en and branch prediction I/O
 //      2021-09-16  AL 0.11.0 - Add reset sequence
+//      2021-09-22  AL 0.12.0 - Add default values in Decoder case
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -131,7 +134,22 @@ assign clear_mem = rst_seq_mem  ;
 
 //-----------------------------------------------------------------------------
 // Decoder
-always @ (*) begin    
+always @ (*) begin
+    pc_sel_r      = pc_sel_prev      ;
+    pc_we_r       = pc_we_prev       ;
+    store_inst_r  = store_inst_prev  ;
+    branch_inst_r = branch_inst_prev ;
+    jump_inst_r   = jump_inst_prev   ;
+    alu_op_sel_r  = alu_op_sel_prev  ;
+    alu_a_sel_r   = alu_a_sel_prev   ;
+    alu_b_sel_r   = alu_b_sel_prev   ;
+    ig_sel_r      = ig_sel_prev      ;
+    bc_uns_r      = bc_uns_prev      ;
+    dmem_en_r     = dmem_en_prev     ;
+    load_sm_en_r  = load_sm_en_prev  ;
+    wb_sel_r      = wb_sel_prev      ;
+    reg_we_r      = reg_we_prev      ;
+    
     case (opc7_id)
         `OPC7_R_TYPE: begin
             pc_sel_r      = `PC_SEL_INC4;
