@@ -4,12 +4,15 @@
 // File:            ama_riscv_control.v
 // Date created:    2021-09-07
 // Author:          Aleksandar Lilic
-// Description:     Control module, including Decoder, Operand Forwarding,
-//                  Store Mask
+// Description:     Control module, includes sub-modules:
+//                  Decoder, Operand Forwarding and Store Mask
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Version history:
 //      2021-09-07  AL  0.1.0 - Initial
 //      2021-09-16  AL  0.1.1 - Fix - add clear_ex signal
+//      2021-09-22  AL  0.2.0 - Add RF forwarding
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -27,7 +30,9 @@ module ama_riscv_control (
     // pipeline inputs
     input   wire [31:0] inst_ex             ,
     input   wire        reg_we_ex           ,
+    input   wire        reg_we_mem          ,
     input   wire [ 4:0] rd_ex               ,
+    input   wire [ 4:0] rd_mem              ,
     input   wire        store_inst_ex       ,
     // pipeline outputs
     output  wire        stall_if            ,
@@ -55,6 +60,8 @@ module ama_riscv_control (
     output  wire [ 1:0] alu_b_sel_fwd       ,
     output  wire        bc_a_sel_fwd        ,
     output  wire        bcs_b_sel_fwd       ,
+    output  wire        rf_a_sel_fwd        ,
+    output  wire        rf_b_sel_fwd        ,
     output  wire [ 3:0] dmem_we  
 );
 
@@ -103,18 +110,22 @@ ama_riscv_decoder ama_riscv_decoder_i (
 ama_riscv_operand_forwarding ama_riscv_operand_forwarding_i (
     // inputs    
     .reg_we_ex      (reg_we_ex      ),
+    .reg_we_mem     (reg_we_mem     ),
     .store_inst_id  (store_inst     ),
     .branch_inst_id (branch_inst    ),
     .rs1_id         (rs1_id         ),
     .rs2_id         (rs2_id         ),
     .rd_ex          (rd_ex          ),
+    .rd_mem         (rd_mem         ),
     .alu_a_sel      (alu_a_sel      ),
     .alu_b_sel      (alu_b_sel      ),
     // outputs                      
     .alu_a_sel_fwd  (alu_a_sel_fwd  ),
     .alu_b_sel_fwd  (alu_b_sel_fwd  ),
     .bc_a_sel_fwd   (bc_a_sel_fwd   ),
-    .bcs_b_sel_fwd  (bcs_b_sel_fwd  )
+    .bcs_b_sel_fwd  (bcs_b_sel_fwd  ),
+    .rf_a_sel_fwd   (rf_a_sel_fwd   ),
+    .rf_b_sel_fwd   (rf_b_sel_fwd   )
 );
 
 ama_riscv_store_mask ama_riscv_store_mask_i (
