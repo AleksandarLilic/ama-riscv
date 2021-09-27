@@ -29,8 +29,8 @@
 //      2021-09-21  AL 0.13.0 - Add EX/MEM pipeline signals
 //      2021-09-21  AL 0.14.0 - Add MEM stage and Writeback
 //      2021-09-22  AL 0.15.0 - Add RF forwarding - pending proper implementation
-//      
-//      note: implement 1:1 rf forwarding
+//      2021-09-27  AL 0.16.0 - Add RF forwarding and checkers
+//
 //      note: add checker IDs, print on exit number of samples checked and results
 //
 //-----------------------------------------------------------------------------
@@ -203,6 +203,8 @@ reg         dut_m_bc_uns_id         ;
 reg         dut_m_dmem_en_id        ;
 reg         dut_m_bc_a_sel_fwd_id   ;
 reg         dut_m_bcs_b_sel_fwd_id  ;
+reg         dut_m_rf_a_sel_fwd_id   ;
+reg         dut_m_rf_b_sel_fwd_id   ;
 reg  [ 3:0] dut_m_dmem_we_ex        ;
 // for MEM stage    
 reg         dut_m_load_sm_en_id     ;
@@ -470,6 +472,8 @@ task run_checkers;
         checker_t("alu_b_sel_fwd",      `CHECKER_ACTIVE,    `DUT.alu_b_sel_fwd_id,      dut_m_alu_b_sel_fwd_id  );
         checker_t("bc_a_sel_fwd",       `CHECKER_ACTIVE,    `DUT.bc_a_sel_fwd_id,       dut_m_bc_a_sel_fwd_id   );
         checker_t("bcs_b_sel_fwd",      `CHECKER_ACTIVE,    `DUT.bcs_b_sel_fwd_id,      dut_m_bcs_b_sel_fwd_id  );
+        checker_t("rf_a_sel_fwd",       `CHECKER_ACTIVE,    `DUT.rf_a_sel_fwd_id,       dut_m_rf_a_sel_fwd_id   );
+        checker_t("rf_b_sel_fwd",       `CHECKER_ACTIVE,    `DUT.rf_b_sel_fwd_id,       dut_m_rf_b_sel_fwd_id   );
         checker_t("dmem_we",            `CHECKER_ACTIVE,    `DUT.dmem_we_ex,            dut_m_dmem_we_ex        );
         // internal 
         checker_t("branch_taken",       `CHECKER_ACTIVE,    dut_internal_branch_taken,  dut_m_branch_taken      );
@@ -694,7 +698,12 @@ task dut_m_decode;
         
         // BC B / DMEM din
         dut_m_bcs_b_sel_fwd_id = ((dut_m_rs2_addr_id != `RF_X0_ZERO) && (dut_m_rs2_addr_id == dut_m_rd_addr_ex) && (dut_m_reg_we_ex) && (dut_m_store_inst_id || dut_m_branch_inst_id));
-                
+        
+        // RF A
+        dut_m_rf_a_sel_fwd_id = ((dut_m_rs1_addr_id != `RF_X0_ZERO) && (dut_m_rs1_addr_id == dut_m_rd_addr_mem) && (dut_m_reg_we_mem) && (!dut_m_alu_a_sel_id));
+        
+        // RF B
+        dut_m_rf_b_sel_fwd_id = ((dut_m_rs2_addr_id != `RF_X0_ZERO) && (dut_m_rs2_addr_id == dut_m_rd_addr_mem) && (dut_m_reg_we_mem) && (!dut_m_alu_b_sel_id));
          
        // Store Mask
        dut_m_store_mask_offset = dut_m_alu_out[1:0];
@@ -864,24 +873,9 @@ task dut_m_reg_file_read_update;
         dut_m_rs2_addr_id = dut_m_inst_id[24:20];
         dut_m_rd_addr_id  = dut_m_inst_id[11: 7];
         
-        // this logic in decoder for forwarding
-        //dut_m_rf32
-        if ((dut_m_rs1_addr_id != `RF_X0_ZERO) && (dut_m_rs1_addr_id == dut_m_rd_addr_mem) && (dut_m_reg_we_mem) && (!dut_m_alu_a_sel_id))
-            dut_m_rs1_data_id = dut_m_writeback;                    // forward previous ALU result
-        else
-            dut_m_rs1_data_id = dut_m_rf32[dut_m_rs1_addr_id];      // don't forward
+        dut_m_rs1_data_id = dut_m_rf32[dut_m_rs1_addr_id];
+        dut_m_rs2_data_id = dut_m_rf32[dut_m_rs2_addr_id];
         
-        if ((dut_m_rs2_addr_id != `RF_X0_ZERO) && (dut_m_rs2_addr_id == dut_m_rd_addr_mem) && (dut_m_reg_we_mem) && (!dut_m_alu_b_sel_id))
-            dut_m_rs2_data_id = dut_m_writeback;                    // forward previous ALU result
-        else
-            dut_m_rs2_data_id = dut_m_rf32[dut_m_rs2_addr_id];      // don't forward
-        
-        // here just read from rf
-        // dut_m_rs1_data_id = dut_m_rf32[dut_m_rs1_addr_id];
-        // dut_m_rs2_data_id = dut_m_rf32[dut_m_rs2_addr_id];
-        
-        // then also here add muxes for forwarding
-        // this task needs to go after decoder -> has to be after forwarding logic
     end
 endtask
 
@@ -1183,12 +1177,19 @@ task dut_m_id_ex_pipeline_update;
         // instruction update
         // datapath
         dut_m_pc_ex             = (!rst && !dut_m_clear_id) ? dut_m_pc                  : 'h0;
-        dut_m_rd_addr_ex        = (!rst && !dut_m_clear_id) ? dut_m_rd_addr_id          : 'h0;
-        dut_m_rs1_data_ex       = (!rst && !dut_m_clear_id) ? dut_m_rs1_data_id         : 'h0;
-        dut_m_rs2_data_ex       = (!rst && !dut_m_clear_id) ? dut_m_rs2_data_id         : 'h0;
+        dut_m_rd_addr_ex        = (!rst && !dut_m_clear_id) ? dut_m_rd_addr_id          : 'h0;        
+        dut_m_rs1_data_ex       = (!rst && !dut_m_clear_id) ? 
+                                   dut_m_rf_a_sel_fwd_id    ? dut_m_writeback           : 
+                                                              dut_m_rs1_data_id         : 
+                                            /*rst or clear*/  'h0                            ;
+        dut_m_rs2_data_ex       = (!rst && !dut_m_clear_id) ? 
+                                   dut_m_rf_b_sel_fwd_id    ? dut_m_writeback           : 
+                                                              dut_m_rs2_data_id         : 
+                                            /*rst or clear*/  'h0                            ;        
         dut_m_imm_gen_out_ex    = (!rst && !dut_m_clear_id) ? dut_m_imm_gen_out_id      : 'h0;
         dut_m_inst_ex           = (!rst && !dut_m_clear_id) ? dut_m_inst_id             : 'h0;
         dut_m_inst_ex_asm       = (!rst && !dut_m_clear_id) ? dut_m_inst_id_asm         : 'h0;
+        
         // control
         dut_m_bc_uns_ex         = (!rst && !dut_m_clear_id) ? dut_m_bc_uns_id           : 'b0;
         dut_m_bc_a_sel_fwd_ex   = (!rst && !dut_m_clear_id) ? dut_m_bc_a_sel_fwd_id     : 'b0;
@@ -1381,7 +1382,7 @@ initial begin
         run_checkers();
         print_single_instruction_results();
     end
-    $display("\nTnTest  All: Done \n");
+    $display("\nTest  All: Done \n");
     
     
     
