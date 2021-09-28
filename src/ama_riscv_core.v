@@ -19,6 +19,7 @@
 //      2021-09-21  AL  0.4.3 - Fix store_inst_ex
 //      2021-09-21  AL  0.5.0 - Add MEM stage and Writeback
 //      2021-09-22  AL  0.6.0 - Add RF forwarding
+//      2021-09-28  AL  0.7.0 - Add support for CSRRW and CSRRWI
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -59,6 +60,9 @@ wire [31:0] inst_id                 ;
 wire        store_inst_id           ;
 wire        branch_inst_id          ;
 wire        jump_inst_id            ;
+wire        csr_en_id               ;
+wire        csr_we_id               ;
+wire        csr_ui_id               ;
 wire [ 2:0] imm_gen_sel_id          ;
 wire [ 3:0] alu_op_sel_id           ;
 wire [ 1:0] alu_a_sel_fwd_id        ;
@@ -114,6 +118,9 @@ ama_riscv_control ama_riscv_control_i (
     .store_inst         (store_inst_id      ),
     .branch_inst        (branch_inst_id     ),
     .jump_inst          (jump_inst_id       ),
+    .csr_en             (csr_en_id          ),
+    .csr_we             (csr_we_id          ),
+    .csr_ui             (csr_ui_id          ),
     .alu_op_sel         (alu_op_sel_id      ),
     .ig_sel             (imm_gen_sel_id     ),
     .bc_uns             (bc_uns_id          ),
@@ -200,8 +207,8 @@ wire [31:0] writeback   ;
 // Signals - ID stage
 wire [31:0] pc_id = pc;
 // Reg file
-wire [ 4:0] rs1_addr    = inst_id[19:15];
-wire [ 4:0] rs2_addr    = inst_id[24:20];
+wire [ 4:0] rs1_addr_id = inst_id[19:15];
+wire [ 4:0] rs2_addr_id = inst_id[24:20];
 wire [ 4:0] rd_addr_id  = inst_id[11: 7];
 wire [31:0] rd_data     = writeback;
 wire [31:0] rs1_data_id ;
@@ -216,8 +223,8 @@ ama_riscv_reg_file ama_riscv_reg_file_i(
     .rst    (rst            ),
     // inputs
     .we     (reg_we_mem     ),
-    .addr_a (rs1_addr       ),
-    .addr_b (rs2_addr       ),
+    .addr_a (rs1_addr_id    ),
+    .addr_b (rs2_addr_id    ),
     .addr_d (rd_addr_mem    ),
     .data_d (rd_data        ),
     // outputs
@@ -236,6 +243,38 @@ ama_riscv_imm_gen ama_riscv_imm_gen_i(
    .ig_out  (imm_gen_out_id )
 );
 
+// CSR
+// reg         csr_en_id           ;   // defined previously
+// reg         csr_we_id           ;   // defined previously
+reg         csr_we_ex           ;
+reg         csr_we_mem          ;
+// reg         csr_ui_id           ;   // defined previously
+reg         csr_ui_ex           ;
+reg         csr_ui_mem          ;
+reg  [31:0] tohost              ; 
+reg  [31:0] csr_data_id         ; 
+
+reg  [ 4:0] rs1_addr_ex         ;
+reg  [ 4:0] rs1_addr_mem        ;
+// Immediate Zero-Extend
+wire [31:0] csr_din_imm = {27'h0, rs1_addr_mem};
+
+// tohost write
+always @ (posedge clk) begin
+    if (rst) 
+        tohost  <= 32'h00000000;
+    else if (csr_we_mem)
+        tohost  <= csr_ui_mem ? csr_din_imm : writeback;
+end
+
+// tohost read
+always @ (*) begin
+    if (csr_en_id) 
+        csr_data_id = tohost;
+    else
+        csr_data_id = 32'h00000000;
+end
+
 //-----------------------------------------------------------------------------
 // Pipeline FF ID/EX
 // Signals
@@ -243,6 +282,7 @@ reg  [31:0] pc_ex               ;
 // reg  [ 4:0] rd_addr_ex          ;   // defined previously
 reg  [31:0] rs1_data_ex         ;
 reg  [31:0] rs2_data_ex         ;
+reg  [31:0] csr_data_ex         ; 
 reg  [31:0] imm_gen_out_ex      ;
 // reg  [31:0] inst_ex             ;   // defined previously
 reg         bc_a_sel_fwd_ex     ;
@@ -265,6 +305,8 @@ always @ (posedge clk) begin
         rs2_data_ex      <= 32'h0;
         imm_gen_out_ex   <= 32'h0;
         inst_ex          <= 32'h0;
+        rs1_addr_ex      <=  5'h0;
+        csr_data_ex      <= 32'h0;
         // control       
         store_inst_ex    <=  1'b0;
         bc_a_sel_fwd_ex  <=  1'b0;
@@ -277,6 +319,8 @@ always @ (posedge clk) begin
         load_sm_en_ex    <=  1'b0;
         wb_sel_ex        <=  2'h0;
         reg_we_ex        <=  1'b0;
+        csr_we_ex        <=  1'b0;
+        csr_ui_ex        <=  1'b0;
     end
     else if (clear_id) begin
         // datapath
@@ -286,6 +330,8 @@ always @ (posedge clk) begin
         rs2_data_ex      <= 32'h0;
         imm_gen_out_ex   <= 32'h0;
         inst_ex          <= 32'h0;
+        rs1_addr_ex      <=  5'h0;
+        csr_data_ex      <= 32'h0;
         // control       
         store_inst_ex    <=  1'b0;
         bc_a_sel_fwd_ex  <=  1'b0;
@@ -298,6 +344,8 @@ always @ (posedge clk) begin
         load_sm_en_ex    <=  1'b0;
         wb_sel_ex        <=  2'h0;
         reg_we_ex        <=  1'b0;
+        csr_we_ex        <=  1'b0;
+        csr_ui_ex        <=  1'b0;
     end
     else begin
         // datapath
@@ -306,7 +354,9 @@ always @ (posedge clk) begin
         rs1_data_ex      <= rf_a_sel_fwd_id ? writeback : rs1_data_id;
         rs2_data_ex      <= rf_b_sel_fwd_id ? writeback : rs2_data_id;
         imm_gen_out_ex   <= imm_gen_out_id  ;
-        inst_ex          <= inst_id         ;        
+        inst_ex          <= inst_id         ;
+        rs1_addr_ex      <= rs1_addr_id     ;
+        csr_data_ex      <= csr_data_id     ;
         // control
         store_inst_ex    <= store_inst_id   ;
         bc_a_sel_fwd_ex  <= bc_a_sel_fwd_id ;
@@ -319,6 +369,8 @@ always @ (posedge clk) begin
         load_sm_en_ex    <= load_sm_en_id   ;
         wb_sel_ex        <= wb_sel_id       ;
         reg_we_ex        <= reg_we_id       ;
+        csr_we_ex        <= csr_we_id       ;
+        csr_ui_ex        <= csr_ui_id       ;
     end
 end      
 
@@ -390,6 +442,7 @@ reg  [31:0] alu_out_mem         ;
 // wire [31:0] dmem_read_data_mem  ;   // defined previously
 reg  [ 1:0] load_sm_offset_mem  ;
 reg  [31:0] inst_mem            ;
+reg  [31:0] csr_data_mem        ; 
 reg         load_sm_en_mem      ;
 reg  [ 1:0] wb_sel_mem          ;
 // reg  [ 4:0] rd_addr_mem         ;   // defined previously
@@ -404,10 +457,14 @@ always @ (posedge clk) begin
         load_sm_offset_mem  <=  2'h0;
         inst_mem            <= 32'h0;
         rd_addr_mem         <=  5'h0;
+        rs1_addr_mem        <=  5'h0;
+        csr_data_mem        <= 32'h0;
         // control
         load_sm_en_mem      <=  1'b0;
         wb_sel_mem          <=  2'h0;
         reg_we_mem          <=  1'b0;
+        csr_we_mem          <=  1'b0;
+        csr_ui_mem          <=  1'b0;
     end
     else if (clear_ex) begin
         // datapath
@@ -417,10 +474,14 @@ always @ (posedge clk) begin
         load_sm_offset_mem  <=  2'h0;
         inst_mem            <= 32'h0;
         rd_addr_mem         <=  5'h0;
+        rs1_addr_mem        <=  5'h0;
+        csr_data_mem        <= 32'h0;
         // control
         load_sm_en_mem      <=  1'b0;
         wb_sel_mem          <=  2'h0;
         reg_we_mem          <=  1'b0;
+        csr_we_mem          <=  1'b0;
+        csr_ui_mem          <=  1'b0;
     end
     else begin
         // datapath
@@ -430,10 +491,14 @@ always @ (posedge clk) begin
         load_sm_offset_mem  <= load_sm_offset_ex;
         inst_mem            <= inst_ex          ;
         rd_addr_mem         <= rd_addr_ex       ;
+        rs1_addr_mem        <= rs1_addr_ex     ;
+        csr_data_mem        <= csr_data_ex     ;
         // control
         load_sm_en_mem      <= load_sm_en_ex    ;
         wb_sel_mem          <= wb_sel_ex        ;
         reg_we_mem          <= reg_we_ex        ;
+        csr_we_mem          <= csr_we_ex        ;
+        csr_ui_mem          <= csr_ui_ex        ;
     end
 end
 
@@ -464,7 +529,7 @@ ama_riscv_load_shift_mask ama_riscv_load_shift_mask_i (
 // Writeback
 assign writeback = (wb_sel_mem == `WB_SEL_DMEM) ?    load_sm_data_out  :
                    (wb_sel_mem == `WB_SEL_ALU ) ?    alu_out_mem       :
-                /* (wb_sel_mem == `WB_SEL_INC4) ? */ pc_mem + 32'd4   ;
-
+                   (wb_sel_mem == `WB_SEL_INC4) ?    pc_mem + 32'd4    :
+                /* (wb_sel_mem == `WB_SEL_CSR ) ? */ csr_data_mem     ;
 
 endmodule

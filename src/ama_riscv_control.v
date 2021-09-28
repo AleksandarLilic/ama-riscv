@@ -13,6 +13,7 @@
 //      2021-09-07  AL  0.1.0 - Initial
 //      2021-09-16  AL  0.1.1 - Fix - add clear_ex signal
 //      2021-09-22  AL  0.2.0 - Add RF forwarding
+//      2021-09-28  AL  0.3.0 - Add support for CSRRW and CSRRWI
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -49,6 +50,9 @@ module ama_riscv_control (
     output  wire        store_inst          ,
     output  wire        branch_inst         ,
     output  wire        jump_inst           ,
+    output  wire        csr_en              ,
+    output  wire        csr_we              ,
+    output  wire        csr_ui              ,
     output  wire [ 3:0] alu_op_sel          ,
     output  wire [ 2:0] ig_sel              ,
     output  wire        bc_uns              ,
@@ -96,6 +100,9 @@ ama_riscv_decoder ama_riscv_decoder_i (
     .store_inst     (store_inst     ),
     .branch_inst    (branch_inst    ),
     .jump_inst      (jump_inst      ),
+    .csr_en         (csr_en         ),
+    .csr_we         (csr_we         ),
+    .csr_ui         (csr_ui         ),
     .alu_op_sel     (alu_op_sel     ),
     .alu_a_sel      (alu_a_sel      ),
     .alu_b_sel      (alu_b_sel      ),
