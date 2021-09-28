@@ -31,9 +31,14 @@
 `define OPC7_JAL        7'b110_1111     // J-type
 `define OPC7_LUI        7'b011_0111     // U-type
 `define OPC7_AUIPC      7'b001_0111     // U-type
+`define OPC7_SYSTEM     7'b111_0011     // System, I-format
 
+//-----------------------------------------------------------------------------
 // NOP
 `define NOP             32'h13          // addi x0 x0 0 
+//-----------------------------------------------------------------------------
+// CSR
+`define CSR_TOHOST      12'h51E
 
 //-----------------------------------------------------------------------------
 // MUX select signals
@@ -57,6 +62,7 @@
 `define WB_SEL_DMEM         2'd0  // Reg[rd] = DMEM[ALU]
 `define WB_SEL_ALU          2'd1  // Reg[rd] = ALU
 `define WB_SEL_INC4         2'd2  // Reg[rd] = PC + 4
+`define WB_SEL_CSR          2'd3  // Reg[rd] = CSR data
 
 // Branch Resolution
 `define BR_SEL_BEQ          2'd0  // Branch Equal

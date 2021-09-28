@@ -28,6 +28,7 @@
 //      2021-09-08  AL 0.10.0 - Remove imem_en and branch prediction I/O
 //      2021-09-16  AL 0.11.0 - Add reset sequence
 //      2021-09-22  AL 0.12.0 - Add default values in Decoder case
+//      2021-09-28  AL 0.13.0 - Add support for CSRRW and CSRRWI
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -55,6 +56,9 @@ module ama_riscv_decoder (
     output  wire        store_inst  ,
     output  wire        branch_inst ,
     output  wire        jump_inst   ,
+    output  wire        csr_en      ,
+    output  wire        csr_we      ,
+    output  wire        csr_ui      ,
     output  wire [ 3:0] alu_op_sel  ,
     output  wire        alu_a_sel   ,
     output  wire        alu_b_sel   ,
@@ -68,7 +72,10 @@ module ama_riscv_decoder (
 
 //-----------------------------------------------------------------------------
 // Signals
-
+// ID stage CSR addresses
+wire  [11:0] csr_addr    =  inst_id[31:20];
+// ID stage register addresses
+wire  [ 4:0] rs1_addr_id =  inst_id[19:15];
 // ID stage functions
 wire  [ 6:0] opc7_id     =  inst_id[ 6: 0];
 wire  [ 2:0] funct3_id   =  inst_id[14:12];
@@ -85,6 +92,9 @@ reg          pc_we_r            ;
 reg          store_inst_r       ;
 reg          branch_inst_r      ;
 reg          jump_inst_r        ;
+reg          csr_en_r           ;
+reg          csr_we_r           ;
+reg          csr_ui_r           ;
 reg   [ 3:0] alu_op_sel_r       ;
 reg          alu_a_sel_r        ;
 reg          alu_b_sel_r        ;
@@ -102,6 +112,9 @@ reg          pc_we_prev         ;
 reg          store_inst_prev    ;
 reg          branch_inst_prev   ;
 reg          jump_inst_prev     ;
+reg          csr_en_prev        ;
+reg          csr_we_prev        ;
+reg          csr_ui_prev        ;
 reg   [ 3:0] alu_op_sel_prev    ;
 reg          alu_a_sel_prev     ;
 reg          alu_b_sel_prev     ;
@@ -140,6 +153,9 @@ always @ (*) begin
     store_inst_r  = store_inst_prev  ;
     branch_inst_r = branch_inst_prev ;
     jump_inst_r   = jump_inst_prev   ;
+    csr_en_r      = csr_en_prev      ;
+    csr_we_r      = csr_we_prev      ;
+    csr_ui_r      = csr_ui_prev      ;
     alu_op_sel_r  = alu_op_sel_prev  ;
     alu_a_sel_r   = alu_a_sel_prev   ;
     alu_b_sel_r   = alu_b_sel_prev   ;
@@ -157,6 +173,9 @@ always @ (*) begin
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
+            csr_en_r      = 1'b0;
+            csr_we_r      = 1'b0;
+            csr_ui_r      = 1'b0;
             alu_op_sel_r  = {funct7_id[5],funct3_id};
             alu_a_sel_r   = `ALU_A_SEL_RS1;
             alu_b_sel_r   = `ALU_B_SEL_RS2;
@@ -174,6 +193,9 @@ always @ (*) begin
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
+            csr_en_r      = 1'b0;
+            csr_we_r      = 1'b0;
+            csr_ui_r      = 1'b0;
             //                                           --------- shift -------- : ------ imm ------
             alu_op_sel_r  = (funct3_id[1:0] == 2'b01) ? {funct7_id[5], funct3_id} : {1'b0, funct3_id};
             alu_a_sel_r   = `ALU_A_SEL_RS1;
@@ -192,6 +214,9 @@ always @ (*) begin
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
+            csr_en_r      = 1'b0;
+            csr_we_r      = 1'b0;
+            csr_ui_r      = 1'b0;
             alu_op_sel_r  = `ALU_ADD;
             alu_a_sel_r   = `ALU_A_SEL_RS1;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
@@ -209,6 +234,9 @@ always @ (*) begin
             store_inst_r  = 1'b1;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
+            csr_en_r      = 1'b0;
+            csr_we_r      = 1'b0;
+            csr_ui_r      = 1'b0;
             alu_op_sel_r  = `ALU_ADD;
             alu_a_sel_r   = `ALU_A_SEL_RS1;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
@@ -226,6 +254,9 @@ always @ (*) begin
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b1;
             jump_inst_r   = 1'b0;
+            csr_en_r      = 1'b0;
+            csr_we_r      = 1'b0;
+            csr_ui_r      = 1'b0;
             alu_op_sel_r  = `ALU_ADD;
             alu_a_sel_r   = `ALU_A_SEL_PC;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
@@ -243,6 +274,9 @@ always @ (*) begin
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b1;
+            csr_en_r      = 1'b0;
+            csr_we_r      = 1'b0;
+            csr_ui_r      = 1'b0;
             alu_op_sel_r  = `ALU_ADD;
             alu_a_sel_r   = `ALU_A_SEL_RS1;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
@@ -260,6 +294,9 @@ always @ (*) begin
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b1;
+            csr_en_r      = 1'b0;
+            csr_we_r      = 1'b0;
+            csr_ui_r      = 1'b0;
             alu_op_sel_r  = `ALU_ADD;
             alu_a_sel_r   = `ALU_A_SEL_PC;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
@@ -277,6 +314,9 @@ always @ (*) begin
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
+            csr_en_r      = 1'b0;
+            csr_we_r      = 1'b0;
+            csr_ui_r      = 1'b0;
             alu_op_sel_r  = `ALU_PASS_B;
             // alu_a_sel_r   = *;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
@@ -294,6 +334,9 @@ always @ (*) begin
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
+            csr_en_r      = 1'b0;
+            csr_we_r      = 1'b0;
+            csr_ui_r      = 1'b0;
             alu_op_sel_r  = `ALU_ADD;
             alu_a_sel_r   = `ALU_A_SEL_PC;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
@@ -305,12 +348,35 @@ always @ (*) begin
             reg_we_r      = 1'b1;
         end
         
+        `OPC7_SYSTEM: begin     // supports only CSRRW and CSRRWI
+            pc_sel_r      = `PC_SEL_INC4;
+            pc_we_r       = 1'b1;       
+            store_inst_r  = 1'b0;
+            branch_inst_r = 1'b0;
+            jump_inst_r   = 1'b0;
+            csr_en_r      = (csr_addr == `CSR_TOHOST) && (rs1_addr_id != `RF_X0_ZERO);
+            csr_we_r      = 1'b1;
+            csr_ui_r      = funct3_id[2];
+            // alu_op_sel_r  = *;
+            alu_a_sel_r   = `ALU_A_SEL_RS1;
+            // alu_b_sel_r   = *;
+            // ig_sel_r      = *;
+            // bc_uns_r      = *;
+            dmem_en_r     = 1'b0;
+            // load_sm_en_r  = *;
+            wb_sel_r      = `WB_SEL_CSR;
+            reg_we_r      = (rs1_addr_id != `RF_X0_ZERO);
+        end
+        
         default: begin
             pc_sel_r      = pc_sel_prev      ;
             pc_we_r       = pc_we_prev       ;
             store_inst_r  = store_inst_prev  ;
             branch_inst_r = branch_inst_prev ;
             jump_inst_r   = jump_inst_prev   ;
+            csr_en_r      = csr_en_prev      ;
+            csr_we_r      = csr_we_prev      ;
+            csr_ui_r      = csr_ui_prev      ;
             alu_op_sel_r  = alu_op_sel_prev  ;
             alu_a_sel_r   = alu_a_sel_prev   ;
             alu_b_sel_r   = alu_b_sel_prev   ;
@@ -367,7 +433,7 @@ end
 
 //-----------------------------------------------------------------------------
 // Flow change
-wire flow_change = (branch_res && branch_inst_ex) | (jump_inst_ex);
+wire flow_change    = (branch_res && branch_inst_ex) | (jump_inst_ex);
 
 //-----------------------------------------------------------------------------
 // Stall
@@ -381,6 +447,9 @@ assign pc_we        = (stall_if)    ? 1'b0 : pc_we_r       ; // ... (1) overwrit
 assign store_inst   = store_inst_r  ;
 assign branch_inst  = branch_inst_r ;
 assign jump_inst    = jump_inst_r   ;
+assign csr_en       = csr_en_r      ;
+assign csr_we       = csr_we_r      ;
+assign csr_ui       = csr_ui_r      ;
 assign alu_op_sel   = alu_op_sel_r  ;
 assign alu_a_sel    = alu_a_sel_r   ;
 assign alu_b_sel    = alu_b_sel_r   ;
@@ -403,6 +472,9 @@ always @ (posedge clk) begin
         store_inst_prev  <= 1'b0;
         branch_inst_prev <= 1'b0;
         jump_inst_prev   <= 1'b0;
+        csr_en_prev      <= 1'b0;
+        csr_we_prev      <= 1'b0;
+        csr_ui_prev      <= 1'b0;
         alu_op_sel_prev  <= `ALU_ADD;
         alu_a_sel_prev   <= `ALU_A_SEL_RS1;
         alu_b_sel_prev   <= `ALU_B_SEL_RS2;
@@ -420,6 +492,9 @@ always @ (posedge clk) begin
         store_inst_prev  <= store_inst ;
         branch_inst_prev <= branch_inst;
         jump_inst_prev   <= jump_inst  ;
+        csr_en_prev      <= csr_en     ;
+        csr_we_prev      <= csr_we     ;
+        csr_ui_prev      <= csr_ui     ;
         alu_op_sel_prev  <= alu_op_sel ;
         alu_a_sel_prev   <= alu_a_sel  ;
         alu_b_sel_prev   <= alu_b_sel  ;
