@@ -20,6 +20,7 @@
 //      2021-09-21  AL  0.5.0 - Add MEM stage and Writeback
 //      2021-09-22  AL  0.6.0 - Add RF forwarding
 //      2021-09-28  AL  0.7.0 - Add support for CSRRW and CSRRWI
+//      2021-09-28  AL  0.7.1 - Fix tohost write
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -256,6 +257,9 @@ reg  [31:0] csr_data_id         ;
 
 reg  [ 4:0] rs1_addr_ex         ;
 reg  [ 4:0] rs1_addr_mem        ;
+
+reg  [31:0] alu_in_a_mem        ;
+
 // Immediate Zero-Extend
 wire [31:0] csr_din_imm = {27'h0, rs1_addr_mem};
 
@@ -264,7 +268,7 @@ always @ (posedge clk) begin
     if (rst) 
         tohost  <= 32'h00000000;
     else if (csr_we_mem)
-        tohost  <= csr_ui_mem ? csr_din_imm : writeback;
+        tohost  <= csr_ui_mem ? csr_din_imm : alu_in_a_mem;
 end
 
 // tohost read
@@ -439,6 +443,7 @@ ama_riscv_dmem ama_riscv_dmem_i (
 // Signals
 reg  [31:0] pc_mem              ; 
 reg  [31:0] alu_out_mem         ; 
+// reg  [31:0] alu_in_a_mem        ;   // defined previously
 // wire [31:0] dmem_read_data_mem  ;   // defined previously
 reg  [ 1:0] load_sm_offset_mem  ;
 reg  [31:0] inst_mem            ;
@@ -453,6 +458,7 @@ always @ (posedge clk) begin
         // datapath
         pc_mem              <= 32'h0;
         alu_out_mem         <= 32'h0;
+        alu_in_a_mem        <= 32'h0;
         // dmem_read_data_mem          // sync memory
         load_sm_offset_mem  <=  2'h0;
         inst_mem            <= 32'h0;
@@ -470,6 +476,7 @@ always @ (posedge clk) begin
         // datapath
         pc_mem              <= 32'h0;
         alu_out_mem         <= 32'h0;
+        alu_in_a_mem        <= 32'h0;
         // dmem_read_data_mem          // sync memory
         load_sm_offset_mem  <=  2'h0;
         inst_mem            <= 32'h0;
@@ -487,6 +494,7 @@ always @ (posedge clk) begin
         // datapath
         pc_mem              <= pc_ex            ;
         alu_out_mem         <= alu_out          ;
+        alu_in_a_mem        <= alu_in_a         ;
         // dmem_read_data_mem          // sync memory
         load_sm_offset_mem  <= load_sm_offset_ex;
         inst_mem            <= inst_ex          ;
