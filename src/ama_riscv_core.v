@@ -21,6 +21,7 @@
 //      2021-09-22  AL  0.6.0 - Add RF forwarding
 //      2021-09-28  AL  0.7.0 - Add support for CSRRW and CSRRWI
 //      2021-09-28  AL  0.7.1 - Fix tohost write
+//      2021-09-29  AL  0.7.2 - Fix Store Mask for sb and sh
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -389,7 +390,7 @@ wire [31:0] bcs_in_b = bcs_b_sel_fwd_ex ? writeback : rs2_data_ex;
 // wire        bc_out_a_lt_b   ;   // defined previously
 
 // control mux is shared between bc and dmem din
-wire [31:0] dmem_write_data =  bcs_in_b ;
+// wire [31:0] dmem_write_data =  bcs_in_b ;
 
 ama_riscv_branch_compare ama_riscv_branch_compare_i (
     // inputs
@@ -426,6 +427,9 @@ assign store_mask_offset = alu_out[1:0];
 wire [ 1:0] load_sm_offset_ex = store_mask_offset;
 
 // DMEM
+wire [ 4:0] store_byte_shift = (store_mask_offset << 3);        // store_mask converted to byte shifts
+wire [31:0] dmem_write_data  =  bcs_in_b << store_byte_shift;   // shifts 1, 2 or 3 bytes
+
 wire [13:0] dmem_addr = alu_out[15:2];
 wire [31:0] dmem_read_data_mem  ;
 
