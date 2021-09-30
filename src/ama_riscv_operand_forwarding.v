@@ -12,12 +12,13 @@
 //      2021-08-12  AL  0.1.0 - Initial - Add forwarding
 //      2021-08-16  AL  0.2.0 - Add DMEM data input forwarding
 //                            - Change select signal names
-//                            - Add b_op condition to avoid forwarding rs2 for store
+//                            - Add b_op condition to avoid forwarding rs2 for Store
 //      2021-08-17  AL  0.2.1 - Fix forwarding when imm/pc was selected
 //      2021-08-18  AL  0.2.2 - Add muxes for branch compare/dmem din
 //      2021-08-19  AL  0.2.3 - Remove store inst check for B select
 //      2021-09-08  AL  0.2.4 - Fix register address signal width
 //      2021-09-22  AL  0.3.0 - Add RF forwarding
+//      2021-09-29  AL  0.3.1 - Fix RF forwarding for Branch and Store
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -74,10 +75,10 @@ assign bcs_b_sel_fwd = ((rs2_id != `RF_X0_ZERO) && (rs2_id == rd_ex) && (reg_we_
 
 //-----------------------------------------------------------------------------
 // RF A operand forward
-assign rf_a_sel_fwd  = ((rs1_id != `RF_X0_ZERO) && (rs1_id == rd_mem) && (reg_we_mem) && (!alu_a_sel));
+assign rf_a_sel_fwd  = ((rs1_id != `RF_X0_ZERO) && (rs1_id == rd_mem) && (reg_we_mem) && ((!alu_a_sel) || (branch_inst_id)));
 
 //-----------------------------------------------------------------------------
 // RF B operand forward
-assign rf_b_sel_fwd  = ((rs2_id != `RF_X0_ZERO) && (rs2_id == rd_mem) && (reg_we_mem) && (!alu_b_sel));
+assign rf_b_sel_fwd  = ((rs2_id != `RF_X0_ZERO) && (rs2_id == rd_mem) && (reg_we_mem) && ((!alu_b_sel) || (branch_inst_id) || (store_inst_id)));
 
 endmodule
