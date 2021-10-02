@@ -22,6 +22,7 @@
 //      2021-09-28  AL  0.7.0 - Add support for CSRRW and CSRRWI
 //      2021-09-28  AL  0.7.1 - Fix tohost write
 //      2021-09-29  AL  0.7.2 - Fix Store Mask for sb and sh
+//      2021-09-01  AL  0.7.3 - Fix stall_if_q1 reset value
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -190,7 +191,7 @@ ama_riscv_imem ama_riscv_imem_i (
 reg         stall_if_q1;
 always @ (posedge clk) begin
     if (rst)
-        stall_if_q1 <= 32'h0;
+        stall_if_q1 <= 1'b1;
     else
         stall_if_q1 <= stall_if;
 end
@@ -389,9 +390,6 @@ wire [31:0] bcs_in_b = bcs_b_sel_fwd_ex ? writeback : rs2_data_ex;
 // wire        bc_out_a_eq_b   ;   // defined previously
 // wire        bc_out_a_lt_b   ;   // defined previously
 
-// control mux is shared between bc and dmem din
-// wire [31:0] dmem_write_data =  bcs_in_b ;
-
 ama_riscv_branch_compare ama_riscv_branch_compare_i (
     // inputs
     .op_uns     (bc_uns_id      ),
@@ -423,12 +421,12 @@ ama_riscv_alu ama_riscv_alu_i (
     .out_s      (alu_out        )
 );
 
+// DMEM
 assign store_mask_offset = alu_out[1:0];
 wire [ 1:0] load_sm_offset_ex = store_mask_offset;
 
-// DMEM
 wire [ 4:0] store_byte_shift = (store_mask_offset << 3);        // store_mask converted to byte shifts
-wire [31:0] dmem_write_data  =  bcs_in_b << store_byte_shift;   // shifts 1, 2 or 3 bytes
+wire [31:0] dmem_write_data  =  bcs_in_b << store_byte_shift;   // shifts 0, 1, 2 or 3 bytes
 
 wire [13:0] dmem_addr = alu_out[15:2];
 wire [31:0] dmem_read_data_mem  ;
