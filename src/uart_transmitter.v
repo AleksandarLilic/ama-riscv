@@ -1,14 +1,17 @@
 //-----------------------------------------------------------------------------
 // Project:         AMA-RISCV
-// Module:          UART Transmitter RTL
+// Module:          UART Transmitter
 // File:            uart_transmitter.v
 // Date created:    2021-06-06
 // Author:          Aleksandar Lilic
 // Description:     UART Transmitter module
 //
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
 // Version history:
 //      2021-06-06  AL  0.1.0 - Initial
 //      2021-06-06  AL  1.0.0 - Release
+//
 //-----------------------------------------------------------------------------
 
 module uart_transmitter #(

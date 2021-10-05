@@ -1,19 +1,23 @@
 //-----------------------------------------------------------------------------
 // Project:         AMA-RISCV
-// Module:          UART Core RTL
+// Module:          UART Core
 // File:            uart_core.v
 // Date created:    2021-06-06
 // Author:          Aleksandar Lilic
-// Description:     UART Core module using 
-//                  one uart_transmitter and one uart_receiver
+// Description:     UART Core module comprised of 
+//                  - one uart_transmitter
+//                  - one uart_receiver
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Version history:
 //      2021-06-06  AL  0.1.0 - Initial
 //      2021-06-06  AL  1.0.0 - Release
+//      2021-10-05  AL  1.0.1 - Update comments - integration
 //
 // Open items: 
 //  1. Counters are working non-stop in both rx and tx modules
-//  2. Issue with simulation where data_out_valid is not removed immediately
+//
 //-----------------------------------------------------------------------------
 
 module uart_core #(
@@ -42,11 +46,6 @@ reg     serial_out_reg;
 wire    serial_out_tx;
 
 //-----------------------------------------------------------------------------
-
-// always @ (posedge clk) begin
-    // serial_out_reg <= rst ? 1'b1 : serial_out_tx;
-    // serial_in_reg  <= rst ? 1'b1 : serial_in;
-// end
 
 always @ (posedge clk) begin
     if (rst) begin
@@ -84,4 +83,5 @@ uart_receiver #(
     .data_out_ready (data_out_ready),
     .serial_in      (serial_in_reg)
 );
+
 endmodule

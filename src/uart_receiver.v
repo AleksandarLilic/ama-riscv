@@ -1,14 +1,17 @@
 //-----------------------------------------------------------------------------
 // Project:         AMA-RISCV
-// Module:          UART Receiver RTL
+// Module:          UART Receiver
 // File:            uart_receiver.v
 // Date created:    2021-06-06
 // Author:          Aleksandar Lilic
 // Description:     UART Receiver module
 //
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
 // Version history:
 //      2021-06-06  AL  0.1.0 - Initial
 //      2021-06-06  AL  1.0.0 - Release
+//
 //-----------------------------------------------------------------------------
 
 module uart_receiver #(
