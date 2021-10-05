@@ -5,14 +5,17 @@
 // Date created:    2021-06-06
 // Author:          Aleksandar Lilic
 // Description:     
-//  Module instantiates 2 UART Core sub-modules and connects them via 
-//  RX/TX lines. Flow is as follows:
-//  Testbench -> UART_Core_1_TX -> Serial line -> UART_Core_2_RX -> Testbench
-//  Testbench drives some data to TX and than compares it with the RX side
+//      Module instantiates 2 UART Core sub-modules and connects them via RX/TX lines. 
+//      Data Flow: Testbench -> UART_Core_1_TX -> Serial line -> UART_Core_2_RX -> Testbench
+//      Testbench drives some data to TX and than compares it with the RX side
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Version history:
 //      2021-06-06  AL  0.1.0 - Initial
 //      2021-06-06  AL  1.0.0 - Sign-off
+//      2021-10-05  AL  1.1.0 - Add longer wait times for data_out_ready
+//
 //-----------------------------------------------------------------------------
 
 `timescale 1ns/1ps
@@ -118,8 +121,9 @@ initial begin
         begin
             for (i = 0; i < 10; i = i + 1) begin
                 // Wait until the DUT_uart_core_i transmitter is ready
-                while (data_in_ready == 1'b0) 
+                while (data_in_ready == 1'b0) begin 
                     @(posedge clk); #1;
+                end
 
                 // Send a character to the DUT_uart_core_i transmitter to transmit over the serial line
                 payload         = 8'h11 + i;
@@ -129,8 +133,9 @@ initial begin
                 data_in_valid   = 1'b0;
                 
                 // Wait until the DUT_uart_core_j receiver indicates that is has valid data
-                while (data_out_valid == 1'b0) 
+                while (data_out_valid == 1'b0) begin
                     @(posedge clk); #1;
+                end
                 
                 $display("Status val-%0d @ time t=%0t: DUT_uart_core_j got data: %h, expected: %h", i, $time, data_out, payload); 
                 
@@ -138,6 +143,11 @@ initial begin
                 if (data_out !== payload) begin
                     $display("Failure 1-%0d @ time t=%0t: DUT_uart_core_j got data: %h, but expected: %h", i, $time, data_out, payload);
                 end                
+                
+                // wait a few cycles
+                repeat(1*i) begin 
+                    @(posedge clk); #1; 
+                end
                 
                 // Consume data
                 data_out_ready = 1'b1;
