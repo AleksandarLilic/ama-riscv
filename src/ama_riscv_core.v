@@ -22,14 +22,24 @@
 //      2021-09-28  AL  0.7.0 - Add support for CSRRW and CSRRWI
 //      2021-09-28  AL  0.7.1 - Fix tohost write
 //      2021-09-29  AL  0.7.2 - Fix Store Mask for sb and sh
-//      2021-09-01  AL  0.7.3 - Fix stall_if_q1 reset value
+//      2021-10-01  AL  0.7.3 - Fix stall_if_q1 reset value
+//      2021-10-06  AL  0.8.0 - Add MM I/O locations
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
+// `define ISA_TESTS
 
 module ama_riscv_core (
-    input   wire        clk  ,
-    input   wire        rst
+    input   wire         clk                    ,
+    input   wire         rst                    ,
+    input   wire  [31:0] mmio_instr_cnt         ,
+    input   wire  [31:0] mmio_cycle_cnt         ,
+    input   wire  [ 7:0] mmio_uart_data_out     ,
+    input   wire         mmio_data_out_valid    ,
+    input   wire         mmio_data_in_ready     ,
+    
+    output  reg          mmio_reset_cnt         ,
+    output  reg   [ 7:0] mmio_uart_data_in
 );
 
 //-----------------------------------------------------------------------------
@@ -246,6 +256,9 @@ ama_riscv_imm_gen ama_riscv_imm_gen_i(
    .ig_out  (imm_gen_out_id )
 );
 
+reg  [31:0] alu_in_a_mem        ;
+
+// `ifdef ISA_TESTS
 // CSR
 // reg         csr_en_id           ;   // defined previously
 // reg         csr_we_id           ;   // defined previously
@@ -260,7 +273,6 @@ reg  [31:0] csr_data_id         ;
 reg  [ 4:0] rs1_addr_ex         ;
 reg  [ 4:0] rs1_addr_mem        ;
 
-reg  [31:0] alu_in_a_mem        ;
 
 // Immediate Zero-Extend
 wire [31:0] csr_din_imm = {27'h0, rs1_addr_mem};
@@ -280,6 +292,7 @@ always @ (*) begin
     else
         csr_data_id = 32'h00000000;
 end
+// `endif
 
 //-----------------------------------------------------------------------------
 // Pipeline FF ID/EX
@@ -421,24 +434,73 @@ ama_riscv_alu ama_riscv_alu_i (
     .out_s      (alu_out        )
 );
 
+
+// Data Memory Space
+// Comprised of DMEM and MM I/O
+assign store_mask_offset        = alu_out[1:0];
+wire [ 4:0] store_byte_shift    = store_mask_offset << 3;           // store_mask converted to byte shifts
+wire [31:0] dms_write_data      = bcs_in_b << store_byte_shift;     // shifts 0, 1, 2 or 3 bytes
+
+// MM I/O
+// reg          mmio_reset_cnt     ;   // write    // defined as port
+// reg   [ 7:0] mmio_uart_data_in  ;   // write    // defined as port
+
+wire [31:0] mmio_write_data = dms_write_data;
+wire [13:0] mmio_addr       = alu_out[ 4:2];
+wire        mmio_en         = alu_out[31] && dmem_en_ex;
+wire [ 3:0] mmio_we         = {4{alu_out[31]}} & dmem_we_ex;
+reg  [31:0] mmio_read_data;
+
+// mmio sync write
+always @(posedge clk) begin
+    if(rst) begin
+        mmio_uart_data_in   <= 8'd0;
+        mmio_reset_cnt      <= 1'b0;
+    end
+    else begin 
+        if(mmio_en && mmio_we[0]) begin
+            case (mmio_addr)
+                3'd0    :   mmio_uart_data_in   <= mmio_write_data[7:0];
+                3'd4    :   mmio_reset_cnt      <= mmio_write_data[0];
+            endcase
+        end
+    end
+end
+
+// mmio sync read
+always @(posedge clk) begin
+    if(rst) begin
+        mmio_read_data <= 32'd0;
+    end
+    else if(mmio_en) begin
+        case (mmio_addr)
+            3'd0    :   mmio_read_data <= {30'd0, mmio_data_out_valid, mmio_data_in_ready};
+            3'd1    :   mmio_read_data <= {24'd0, mmio_uart_data_out};
+            3'd5    :   mmio_read_data <= mmio_cycle_cnt;
+            3'd6    :   mmio_read_data <= mmio_instr_cnt;
+            default :   mmio_read_data <= 32'd0;
+        endcase
+    end
+end
+
+
 // DMEM
-assign store_mask_offset = alu_out[1:0];
-wire [ 1:0] load_sm_offset_ex = store_mask_offset;
-
-wire [ 4:0] store_byte_shift = (store_mask_offset << 3);        // store_mask converted to byte shifts
-wire [31:0] dmem_write_data  =  bcs_in_b << store_byte_shift;   // shifts 0, 1, 2 or 3 bytes
-
-wire [13:0] dmem_addr = alu_out[15:2];
-wire [31:0] dmem_read_data_mem  ;
+wire [31:0] dmem_write_data     = dms_write_data;
+wire [13:0] dmem_addr           = alu_out[15:2];
+wire        dmem_en             = !alu_out[31] && dmem_en_ex;
+wire [ 3:0] dmem_we             = {4{!alu_out[31]}} & dmem_we_ex;
+wire [31:0] dmem_read_data_mem;
 
 ama_riscv_dmem ama_riscv_dmem_i (
     .clk    (clk                ),
-    .en     (dmem_en_ex         ),
-    .we     (dmem_we_ex         ),
+    .en     (dmem_en            ),
+    .we     (dmem_we            ),
     .addr   (dmem_addr          ),
     .din    (dmem_write_data    ),
     .dout   (dmem_read_data_mem )
 );
+
+wire [ 1:0] load_sm_offset_ex   = store_mask_offset;
 
 //-----------------------------------------------------------------------------
 // Pipeline FF EX/MEM
@@ -541,5 +603,22 @@ assign writeback = (wb_sel_mem == `WB_SEL_DMEM) ?    load_sm_data_out  :
                    (wb_sel_mem == `WB_SEL_ALU ) ?    alu_out_mem       :
                    (wb_sel_mem == `WB_SEL_INC4) ?    pc_mem + 32'd4    :
                 /* (wb_sel_mem == `WB_SEL_CSR ) ? */ csr_data_mem     ;
+
+//-----------------------------------------------------------------------------
+// Pipeline FF MEM/WB
+// Signals
+reg  [31:0] inst_wb ;
+
+always @ (posedge clk) begin
+    if (rst) begin
+        inst_wb <= 32'h0    ;
+    end
+    else if (clear_mem) begin
+        inst_wb <= 32'h0    ;
+    end
+    else begin
+        inst_wb <= inst_mem ;
+    end
+end
 
 endmodule
