@@ -29,6 +29,7 @@
 //      2021-09-16  AL 0.11.0 - Add reset sequence
 //      2021-09-22  AL 0.12.0 - Add default values in Decoder case
 //      2021-09-28  AL 0.13.0 - Add support for CSRRW and CSRRWI
+//      2021-10-09  AL 0.14.0 - Add load_inst_ex
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -53,6 +54,7 @@ module ama_riscv_decoder (
     output  wire [ 1:0] pc_sel      ,
     output  wire        pc_we       ,
     // output  wire        imem_en     ,
+    output  wire        load_inst   ,
     output  wire        store_inst  ,
     output  wire        branch_inst ,
     output  wire        jump_inst   ,
@@ -89,6 +91,7 @@ wire  [ 6:0] funct7_ex   =  inst_ex[31:25];
 // Switch-Case outputs
 reg   [ 1:0] pc_sel_r           ;
 reg          pc_we_r            ;
+reg          load_inst_r        ;
 reg          store_inst_r       ;
 reg          branch_inst_r      ;
 reg          jump_inst_r        ;
@@ -109,6 +112,7 @@ reg          reg_we_r           ;
 reg          pc_sel_rst         ;
 reg   [ 1:0] pc_sel_prev        ;
 reg          pc_we_prev         ;
+reg          load_inst_prev     ;
 reg          store_inst_prev    ;
 reg          branch_inst_prev   ;
 reg          jump_inst_prev     ;
@@ -150,6 +154,7 @@ assign clear_mem = rst_seq_mem  ;
 always @ (*) begin
     pc_sel_r      = pc_sel_prev      ;
     pc_we_r       = pc_we_prev       ;
+    load_inst_r   = load_inst_prev   ;
     store_inst_r  = store_inst_prev  ;
     branch_inst_r = branch_inst_prev ;
     jump_inst_r   = jump_inst_prev   ;
@@ -170,6 +175,7 @@ always @ (*) begin
         `OPC7_R_TYPE: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
+            load_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
@@ -190,6 +196,7 @@ always @ (*) begin
         `OPC7_I_TYPE: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
+            load_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
@@ -211,6 +218,7 @@ always @ (*) begin
         `OPC7_LOAD: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
+            load_inst_r   = 1'b1;
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
@@ -231,6 +239,7 @@ always @ (*) begin
         `OPC7_STORE: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
+            load_inst_r   = 1'b0;
             store_inst_r  = 1'b1;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
@@ -251,6 +260,7 @@ always @ (*) begin
         `OPC7_BRANCH: begin
             pc_sel_r      = `PC_SEL_INC4;   // to change to branch predictor
             pc_we_r       = 1'b1;           // assumes branch predictor ... (1)
+            load_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b1;
             jump_inst_r   = 1'b0;
@@ -271,6 +281,7 @@ always @ (*) begin
         `OPC7_JALR: begin
             pc_sel_r      = `PC_SEL_ALU;    // to change to branch predictor
             pc_we_r       = 1'b1;           // assumes branch predictor ... (1)
+            load_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b1;
@@ -291,6 +302,7 @@ always @ (*) begin
         `OPC7_JAL: begin
             pc_sel_r      = `PC_SEL_ALU;    // to change to branch predictor
             pc_we_r       = 1'b1;           // assumes branch predictor ... (1)
+            load_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b1;
@@ -310,7 +322,8 @@ always @ (*) begin
         
         `OPC7_LUI: begin
             pc_sel_r      = `PC_SEL_INC4;
-            pc_we_r       = 1'b1;       
+            pc_we_r       = 1'b1;
+            load_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
@@ -330,7 +343,8 @@ always @ (*) begin
         
         `OPC7_AUIPC: begin
             pc_sel_r      = `PC_SEL_INC4;
-            pc_we_r       = 1'b1;       
+            pc_we_r       = 1'b1;
+            load_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
@@ -350,7 +364,8 @@ always @ (*) begin
         
         `OPC7_SYSTEM: begin     // supports only CSRRW and CSRRWI
             pc_sel_r      = `PC_SEL_INC4;
-            pc_we_r       = 1'b1;       
+            pc_we_r       = 1'b1;
+            load_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
@@ -371,6 +386,7 @@ always @ (*) begin
         default: begin
             pc_sel_r      = pc_sel_prev      ;
             pc_we_r       = pc_we_prev       ;
+            load_inst_r   = load_inst_prev   ;
             store_inst_r  = store_inst_prev  ;
             branch_inst_r = branch_inst_prev ;
             jump_inst_r   = jump_inst_prev   ;
@@ -444,6 +460,7 @@ assign stall_if     = branch_inst_r || jump_inst_r; // PC stall directly; IMEM s
 assign pc_sel       = (pc_sel_rst)  ? `PC_SEL_START_ADDR  :
                       (flow_change) ? `PC_SEL_ALU         : pc_sel_r;
 assign pc_we        = (stall_if)    ? 1'b0 : pc_we_r       ; // ... (1) overwritten for now
+assign load_inst    = load_inst_r   ;
 assign store_inst   = store_inst_r  ;
 assign branch_inst  = branch_inst_r ;
 assign jump_inst    = jump_inst_r   ;
@@ -469,6 +486,7 @@ always @ (posedge clk) begin
         // disable or some defaults for others
         pc_sel_prev      <= `PC_SEL_START_ADDR;
         pc_we_prev       <= 1'b1;   // it'll increment start_address always after rst -> fine
+        load_inst_prev   <= 1'b0;
         store_inst_prev  <= 1'b0;
         branch_inst_prev <= 1'b0;
         jump_inst_prev   <= 1'b0;
@@ -489,6 +507,7 @@ always @ (posedge clk) begin
         pc_sel_rst       <= 1'b0;
         pc_sel_prev      <= pc_sel     ;
         pc_we_prev       <= pc_we      ;
+        load_inst_prev   <= load_inst  ;
         store_inst_prev  <= store_inst ;
         branch_inst_prev <= branch_inst;
         jump_inst_prev   <= jump_inst  ;

@@ -24,6 +24,7 @@
 //      2021-09-29  AL  0.7.2 - Fix Store Mask for sb and sh
 //      2021-10-01  AL  0.7.3 - Fix stall_if_q1 reset value
 //      2021-10-06  AL  0.8.0 - Add MM I/O locations
+//      2021-10-09  AL  0.9.0 - Add load_inst_ex
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -38,6 +39,8 @@ module ama_riscv_core (
     input   wire         mmio_data_out_valid    ,
     input   wire         mmio_data_in_ready     ,
     
+    output  reg          store_inst_ex          ,
+    output  reg          load_inst_ex           ,
     output  reg          mmio_reset_cnt         ,
     output  reg   [ 7:0] mmio_uart_data_in
 );
@@ -60,7 +63,8 @@ reg  [ 4:0] rd_addr_mem             ;
 reg  [31:0] inst_ex                 ;
 reg         reg_we_ex               ;
 reg  [ 4:0] rd_addr_ex              ;
-reg         store_inst_ex           ;
+// reg         store_inst_ex           ;
+// reg         load_inst_ex            ;
 // from datapath
 wire        bc_out_a_eq_b           ;
 wire        bc_out_a_lt_b           ;
@@ -70,6 +74,7 @@ wire [ 1:0] store_mask_offset       ;
 wire [31:0] inst_id                 ;
 // wire        bp_taken               ;
 // wire        bp_clear               ;
+wire        load_inst_id            ;
 wire        store_inst_id           ;
 wire        branch_inst_id          ;
 wire        jump_inst_id            ;
@@ -128,6 +133,7 @@ ama_riscv_control ama_riscv_control_i (
     .pc_sel             (pc_sel_if          ),
     .pc_we              (pc_we_if           ),
     // .imem_en            (imem_en           ),
+    .load_inst          (load_inst_id       ),
     .store_inst         (store_inst_id      ),
     .branch_inst        (branch_inst_id     ),
     .jump_inst          (jump_inst_id       ),
@@ -158,6 +164,7 @@ wire [31:0] pc_inc4     ;
 wire [13:0] imem_addr   ;
 wire [31:0] alu_out     ;
 
+//-----------------------------------------------------------------------------
 // PC select mux
 always @ (*) begin
     case (pc_sel_if)
@@ -174,6 +181,7 @@ always @ (*) begin
     endcase
 end
 
+//-----------------------------------------------------------------------------
 // PC
 always @ (posedge clk) begin
     if (rst)
@@ -184,6 +192,7 @@ end
 
 assign pc_inc4 = pc + 32'd4;
 
+//-----------------------------------------------------------------------------
 // IMEM
 wire [31:0] inst_id_read    ;
 assign imem_addr = pc_mux_out[15:2];
@@ -197,6 +206,7 @@ ama_riscv_imem ama_riscv_imem_i (
     .doutb (inst_id_read)
 );
 
+//-----------------------------------------------------------------------------
 // stall_if delay
 reg         stall_if_q1;
 always @ (posedge clk) begin
@@ -213,9 +223,9 @@ end
 assign inst_id = (stall_if_q1) ? `NOP : inst_id_read;
 
 // Signals - MEM stage
-// reg         reg_we_mem  ;       // defined previously
+// reg         reg_we_mem  ;
 wire [31:0] writeback   ;
-// reg  [ 4:0] rd_addr_mem ;       // defined previously
+// reg  [ 4:0] rd_addr_mem ;
 
 // Signals - ID stage
 wire [31:0] pc_id = pc;
@@ -230,6 +240,7 @@ wire [31:0] rs2_data_id ;
 wire [24:0] imm_gen_in  = inst_id[31: 7];
 wire [31:0] imm_gen_out_id  ;
 
+//-----------------------------------------------------------------------------
 // Register File
 ama_riscv_reg_file ama_riscv_reg_file_i(
     .clk    (clk            ),
@@ -245,6 +256,7 @@ ama_riscv_reg_file ama_riscv_reg_file_i(
     .data_b (rs2_data_id    )
 );
 
+//-----------------------------------------------------------------------------
 // Imm Gen
 ama_riscv_imm_gen ama_riscv_imm_gen_i(
    .clk     (clk            ),
@@ -259,16 +271,17 @@ ama_riscv_imm_gen ama_riscv_imm_gen_i(
 reg  [31:0] alu_in_a_mem        ;
 
 // `ifdef ISA_TESTS
+//-----------------------------------------------------------------------------
 // CSR
-// reg         csr_en_id           ;   // defined previously
-// reg         csr_we_id           ;   // defined previously
+// reg         csr_en_id           ;
+// reg         csr_we_id           ;
 reg         csr_we_ex           ;
 reg         csr_we_mem          ;
-// reg         csr_ui_id           ;   // defined previously
+// reg         csr_ui_id           ;
 reg         csr_ui_ex           ;
 reg         csr_ui_mem          ;
-reg  [31:0] tohost              ; 
-reg  [31:0] csr_data_id         ; 
+reg  [31:0] tohost              ;
+reg  [31:0] csr_data_id         ;
 
 reg  [ 4:0] rs1_addr_ex         ;
 reg  [ 4:0] rs1_addr_mem        ;
@@ -298,12 +311,12 @@ end
 // Pipeline FF ID/EX
 // Signals
 reg  [31:0] pc_ex               ; 
-// reg  [ 4:0] rd_addr_ex          ;   // defined previously
+// reg  [ 4:0] rd_addr_ex          ;
 reg  [31:0] rs1_data_ex         ;
 reg  [31:0] rs2_data_ex         ;
 reg  [31:0] csr_data_ex         ; 
 reg  [31:0] imm_gen_out_ex      ;
-// reg  [31:0] inst_ex             ;   // defined previously
+// reg  [31:0] inst_ex             ;
 reg         bc_a_sel_fwd_ex     ;
 reg         bcs_b_sel_fwd_ex    ;
 reg         bc_uns_ex           ;
@@ -313,7 +326,7 @@ reg  [ 3:0] alu_op_sel_ex       ;
 reg         dmem_en_ex          ;
 reg         load_sm_en_ex       ;
 reg  [ 1:0] wb_sel_ex           ;
-// reg         reg_we_ex           ;   // defined previously
+// reg         reg_we_ex           ;
 
 always @ (posedge clk) begin
     if (rst) begin
@@ -327,6 +340,7 @@ always @ (posedge clk) begin
         rs1_addr_ex      <=  5'h0;
         csr_data_ex      <= 32'h0;
         // control       
+        load_inst_ex     <=  1'b0;
         store_inst_ex    <=  1'b0;
         bc_a_sel_fwd_ex  <=  1'b0;
         bcs_b_sel_fwd_ex <=  1'b0;
@@ -352,6 +366,7 @@ always @ (posedge clk) begin
         rs1_addr_ex      <=  5'h0;
         csr_data_ex      <= 32'h0;
         // control       
+        load_inst_ex     <=  1'b0;
         store_inst_ex    <=  1'b0;
         bc_a_sel_fwd_ex  <=  1'b0;
         bcs_b_sel_fwd_ex <=  1'b0;
@@ -377,6 +392,7 @@ always @ (posedge clk) begin
         rs1_addr_ex      <= rs1_addr_id     ;
         csr_data_ex      <= csr_data_id     ;
         // control
+        load_inst_ex     <= load_inst_id    ;
         store_inst_ex    <= store_inst_id   ;
         bc_a_sel_fwd_ex  <= bc_a_sel_fwd_id ;
         bcs_b_sel_fwd_ex <= bcs_b_sel_fwd_id;
@@ -396,12 +412,13 @@ end
 //-----------------------------------------------------------------------------
 // EX stage
 
+//-----------------------------------------------------------------------------
 // Branch Compare
-// wire        bc_uns_id     ;     // defined previously
+// wire        bc_uns_id     ;
 wire [31:0] bc_in_a  = bc_a_sel_fwd_ex  ? writeback : rs1_data_ex;
 wire [31:0] bcs_in_b = bcs_b_sel_fwd_ex ? writeback : rs2_data_ex;
-// wire        bc_out_a_eq_b   ;   // defined previously
-// wire        bc_out_a_lt_b   ;   // defined previously
+// wire        bc_out_a_eq_b   ;
+// wire        bc_out_a_lt_b   ;
 
 ama_riscv_branch_compare ama_riscv_branch_compare_i (
     // inputs
@@ -413,8 +430,9 @@ ama_riscv_branch_compare ama_riscv_branch_compare_i (
     .op_a_lt_b  (bc_out_a_lt_b  )
 );
 
+//-----------------------------------------------------------------------------
 // ALU
-// wire [ 3:0] alu_op_sel_ex ;     // defined previously
+// wire [ 3:0] alu_op_sel_ex ;
 wire [31:0] alu_in_a =  (alu_a_sel_fwd_ex == `ALU_A_SEL_RS1)     ?    rs1_data_ex     :
                         (alu_a_sel_fwd_ex == `ALU_A_SEL_PC )     ?    pc_ex           :
                      /* (alu_a_sel_fwd_ex == `ALU_A_SEL_FWD_ALU) ? */ writeback      ;
@@ -423,7 +441,7 @@ wire [31:0] alu_in_b =  (alu_b_sel_fwd_ex == `ALU_B_SEL_RS2)     ?    rs2_data_e
                         (alu_b_sel_fwd_ex == `ALU_B_SEL_IMM)     ?    imm_gen_out_ex  :
                      /* (alu_b_sel_fwd_ex == `ALU_B_SEL_FWD_ALU) ? */ writeback      ;
 
-// wire [31:0] alu_out  ;          // defined previously
+// wire [31:0] alu_out  ;
 
 ama_riscv_alu ama_riscv_alu_i (
     // inputs
@@ -435,12 +453,14 @@ ama_riscv_alu ama_riscv_alu_i (
 );
 
 
+//-----------------------------------------------------------------------------
 // Data Memory Space
 // Comprised of DMEM and MM I/O
 assign store_mask_offset        = alu_out[1:0];
 wire [ 4:0] store_byte_shift    = store_mask_offset << 3;           // store_mask converted to byte shifts
 wire [31:0] dms_write_data      = bcs_in_b << store_byte_shift;     // shifts 0, 1, 2 or 3 bytes
 
+//-----------------------------------------------------------------------------
 // MM I/O
 // reg          mmio_reset_cnt     ;   // write    // defined as port
 // reg   [ 7:0] mmio_uart_data_in  ;   // write    // defined as port
@@ -483,7 +503,7 @@ always @(posedge clk) begin
     end
 end
 
-
+//-----------------------------------------------------------------------------
 // DMEM
 wire [31:0] dmem_write_data     = dms_write_data;
 wire [13:0] dmem_addr           = alu_out[15:2];
@@ -507,15 +527,15 @@ wire [ 1:0] load_sm_offset_ex   = store_mask_offset;
 // Signals
 reg  [31:0] pc_mem              ; 
 reg  [31:0] alu_out_mem         ; 
-// reg  [31:0] alu_in_a_mem        ;   // defined previously
-// wire [31:0] dmem_read_data_mem  ;   // defined previously
+// reg  [31:0] alu_in_a_mem        ;
+// wire [31:0] dmem_read_data_mem  ;
 reg  [ 1:0] load_sm_offset_mem  ;
 reg  [31:0] inst_mem            ;
 reg  [31:0] csr_data_mem        ; 
 reg         load_sm_en_mem      ;
 reg  [ 1:0] wb_sel_mem          ;
-// reg  [ 4:0] rd_addr_mem         ;   // defined previously
-// reg         reg_we_mem          ;   // defined previously
+// reg  [ 4:0] rd_addr_mem         ;
+// reg         reg_we_mem          ;
 
 always @ (posedge clk) begin
     if (rst) begin
@@ -579,10 +599,10 @@ end
 wire [ 2:0] funct3_mem  = inst_mem[14:12];
 
 // Load Shift & Mask
-// wire        load_sm_en_mem      ;   // defined previously
-// wire [ 1:0] load_sm_offset_mem  ;   // defined previously
+// wire        load_sm_en_mem      ;
+// wire [ 1:0] load_sm_offset_mem  ;
 wire [ 2:0] load_sm_width = funct3_mem;
-// wire [31:0] load_sm_data_in     ;   // defined previously as dmem_read_data_mem
+// wire [31:0] load_sm_data_in     ; // as dmem_read_data_mem
 wire [31:0] load_sm_data_out    ;
 
 ama_riscv_load_shift_mask ama_riscv_load_shift_mask_i (
