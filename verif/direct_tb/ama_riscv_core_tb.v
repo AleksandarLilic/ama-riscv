@@ -36,6 +36,7 @@
 //                              Fix bcs_fwd in ID/EX FF
 //                              Add RF checkers
 //                              Add tohost checker
+//      2021-10-09  AL 0.18.0 - Add load_inst_ex
 //
 //      note: add basic disassembler to convert back instructions to asm format
 //      note: add checker IDs, print on exit number of samples checked and results
@@ -205,6 +206,7 @@ reg  [ 1:0] dut_m_pc_sel_if         ;
 reg         dut_m_pc_we_if          ;
 // for ID stage 
 reg         dut_m_store_inst_id     ;
+reg         dut_m_load_inst_id      ;
 reg         dut_m_branch_inst_id    ;
 reg         dut_m_jump_inst_id      ;
 reg         dut_m_csr_en_id         ;
@@ -266,6 +268,7 @@ reg         dut_m_jump_taken            ;
 reg         dut_m_branch_inst_ex        ;
 reg         dut_m_jump_inst_ex          ;
 reg         dut_m_store_inst_ex         ;
+reg         dut_m_load_inst_ex          ;
 
 reg  [31:0] dut_m_alu_in_a              ;
 reg  [31:0] dut_m_alu_in_b              ;
@@ -389,7 +392,7 @@ task print_test_status;
                 $display("    Failed test # : %0d", dut_m_tohost[31:1]);
             end
             
-            $display("\nStatus - DUT check against Model");
+            $display("\nStatus - DUT check against Model:");
             if(!errors)
                 $display("    Passed");
             else
@@ -477,7 +480,7 @@ task checker_t;
         if (checker_active == 1) begin
             if (checker_dut_signal !== checker_model_signal) begin
                 $display("*ERROR @ %0t. Checker: \"%0s\"; DUT: %5d, Model: %5d ", 
-                    $time-`CHECK_D, checker_name, checker_dut_signal, checker_model_signal); // sub checker delay
+                    $time-`CHECK_D, checker_name, checker_dut_signal, checker_model_signal);
                 errors = errors + 1;
             end // checker compare
         end // checker valid
@@ -529,6 +532,7 @@ task run_checkers;
         checker_t("imm_gen_sel",        `CHECKER_ACTIVE,    `DUT.imm_gen_sel_id,        dut_m_imm_gen_sel_id    );
         checker_t("bc_uns",             `CHECKER_ACTIVE,    `DUT.bc_uns_id,             dut_m_bc_uns_id         );
         checker_t("dmem_en",            `CHECKER_ACTIVE,    `DUT.dmem_en_id,            dut_m_dmem_en_id        );
+        checker_t("dmem_en_mmio",            `CHECKER_ACTIVE,    `DUT.dmem_en,            dut_m_dmem_en_ex        );
         checker_t("load_sm_en",         `CHECKER_ACTIVE,    `DUT.load_sm_en_id,         dut_m_load_sm_en_id     );
         checker_t("wb_sel",             `CHECKER_ACTIVE,    `DUT.wb_sel_id,             dut_m_wb_sel_id         );
         checker_t("reg_we_id",          `CHECKER_ACTIVE,    `DUT.reg_we_id,             dut_m_reg_we_id         );
@@ -539,6 +543,9 @@ task run_checkers;
         checker_t("rf_a_sel_fwd",       `CHECKER_ACTIVE,    `DUT.rf_a_sel_fwd_id,       dut_m_rf_a_sel_fwd_id   );
         checker_t("rf_b_sel_fwd",       `CHECKER_ACTIVE,    `DUT.rf_b_sel_fwd_id,       dut_m_rf_b_sel_fwd_id   );
         checker_t("dmem_we",            `CHECKER_ACTIVE,    `DUT.dmem_we_ex,            dut_m_dmem_we_ex        );
+        checker_t("dmem_we_mmio",            `CHECKER_ACTIVE,    `DUT.dmem_we,            dut_m_dmem_we_ex        );
+        // in ex stage
+        checker_t("load_inst_ex",       `CHECKER_ACTIVE,    `DUT.load_inst_ex,          dut_m_load_inst_ex      );
         // internal 
         checker_t("branch_taken",       `CHECKER_ACTIVE,    dut_internal_branch_taken,  dut_m_branch_taken      );
         
@@ -601,6 +608,7 @@ task dut_m_decode;
                 dut_m_branch_inst_id = 1'b0;
                 dut_m_jump_inst_id   = 1'b0;
                 dut_m_store_inst_id  = 1'b0;
+                dut_m_load_inst_id   = 1'b0;
                 dut_m_csr_en_id      = 1'b0;
                 dut_m_csr_we_id      = 1'b0;
                 dut_m_csr_ui_id      = 1'b0;
@@ -621,6 +629,7 @@ task dut_m_decode;
                 dut_m_branch_inst_id = 1'b0;
                 dut_m_jump_inst_id   = 1'b0;
                 dut_m_store_inst_id  = 1'b0;
+                dut_m_load_inst_id   = 1'b0;
                 dut_m_csr_en_id      = 1'b0;
                 dut_m_csr_we_id      = 1'b0;
                 dut_m_csr_ui_id      = 1'b0;
@@ -642,6 +651,7 @@ task dut_m_decode;
                 dut_m_branch_inst_id = 1'b0;
                 dut_m_jump_inst_id   = 1'b0;
                 dut_m_store_inst_id  = 1'b0;
+                dut_m_load_inst_id   = 1'b1;
                 dut_m_csr_en_id      = 1'b0;
                 dut_m_csr_we_id      = 1'b0;
                 dut_m_csr_ui_id      = 1'b0;
@@ -662,6 +672,7 @@ task dut_m_decode;
                 dut_m_branch_inst_id = 1'b0;
                 dut_m_jump_inst_id   = 1'b0;
                 dut_m_store_inst_id  = 1'b1;
+                dut_m_load_inst_id   = 1'b0;
                 dut_m_csr_en_id      = 1'b0;
                 dut_m_csr_we_id      = 1'b0;
                 dut_m_csr_ui_id      = 1'b0;
@@ -682,6 +693,7 @@ task dut_m_decode;
                 dut_m_branch_inst_id = 1'b1;
                 dut_m_jump_inst_id   = 1'b0;
                 dut_m_store_inst_id  = 1'b0;
+                dut_m_load_inst_id   = 1'b0;
                 dut_m_csr_en_id      = 1'b0;
                 dut_m_csr_we_id      = 1'b0;
                 dut_m_csr_ui_id      = 1'b0;
@@ -702,6 +714,7 @@ task dut_m_decode;
                 dut_m_branch_inst_id = 1'b0;
                 dut_m_jump_inst_id   = 1'b1;
                 dut_m_store_inst_id  = 1'b0;
+                dut_m_load_inst_id   = 1'b0;
                 dut_m_csr_en_id      = 1'b0;
                 dut_m_csr_we_id      = 1'b0;
                 dut_m_csr_ui_id      = 1'b0;
@@ -722,6 +735,7 @@ task dut_m_decode;
                 dut_m_branch_inst_id = 1'b0;
                 dut_m_jump_inst_id   = 1'b1;
                 dut_m_store_inst_id  = 1'b0;
+                dut_m_load_inst_id   = 1'b0;
                 dut_m_csr_en_id      = 1'b0;
                 dut_m_csr_we_id      = 1'b0;
                 dut_m_csr_ui_id      = 1'b0;
@@ -742,6 +756,7 @@ task dut_m_decode;
                 dut_m_branch_inst_id = 1'b0;
                 dut_m_jump_inst_id   = 1'b0;
                 dut_m_store_inst_id  = 1'b0;
+                dut_m_load_inst_id   = 1'b0;
                 dut_m_csr_en_id      = 1'b0;
                 dut_m_csr_we_id      = 1'b0;
                 dut_m_csr_ui_id      = 1'b0;
@@ -762,6 +777,7 @@ task dut_m_decode;
                 dut_m_branch_inst_id = 1'b0;
                 dut_m_jump_inst_id   = 1'b0;
                 dut_m_store_inst_id  = 1'b0;
+                dut_m_load_inst_id   = 1'b0;
                 dut_m_csr_en_id      = 1'b0;
                 dut_m_csr_we_id      = 1'b0;
                 dut_m_csr_ui_id      = 1'b0;
@@ -782,6 +798,7 @@ task dut_m_decode;
                 dut_m_branch_inst_id = 1'b0;
                 dut_m_jump_inst_id   = 1'b0;
                 dut_m_store_inst_id  = 1'b0;
+                dut_m_load_inst_id   = 1'b0;
                 dut_m_csr_en_id      = (dut_m_csr_addr == `CSR_TOHOST) && (dut_m_rs1_addr_id != `RF_X0_ZERO);
                 dut_m_csr_we_id      = 1'b1;
                 dut_m_csr_ui_id      = inst_id[13];     // funct3[2]
@@ -810,6 +827,7 @@ task dut_m_decode;
             dut_m_branch_inst_id = 1'b0;
             dut_m_jump_inst_id   = 1'b0;
             dut_m_store_inst_id  = 1'b0;
+            dut_m_load_inst_id   = 1'b0;
             dut_m_alu_op_sel_id  = 4'b0000;
             dut_m_alu_a_sel_id   = `ALU_A_SEL_RS1;
             dut_m_alu_b_sel_id   = `ALU_B_SEL_RS2;
@@ -1384,6 +1402,7 @@ task dut_m_id_ex_pipeline_update;
         
         // internal only
         dut_m_store_inst_ex      = (!rst && !dut_m_clear_id) ? dut_m_store_inst_id       : 'b0;
+        dut_m_load_inst_ex       = (!rst && !dut_m_clear_id) ? dut_m_load_inst_id        : 'b0;
         dut_m_branch_inst_ex     = (!rst && !dut_m_clear_id) ? dut_m_branch_inst_id      : 'b0;
         dut_m_jump_inst_ex       = (!rst && !dut_m_clear_id) ? dut_m_jump_inst_id        : 'b0;
     end
