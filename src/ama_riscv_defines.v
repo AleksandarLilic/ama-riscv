@@ -6,6 +6,8 @@
 // Author:          Aleksandar Lilic
 // Description:     Macro defines
 //
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
 // Version history:
 //      2021-07-11  AL  0.1.0 - Add ALU defines
 //      2021-07-11  AL  0.2.0 - Add Imm Gen defines
@@ -19,7 +21,10 @@
 //      2021-07-18  AL  0.8.0 - Add Branch Resolution MUX
 //      2021-08-12  AL  0.9.0 - Change name for operand forwarding MUX
 //      2021-09-12  AL 0.10.0 - Add NOP
+//      2021-09-28  AL 0.11.0 - Add CSR_TOHOST
 //
+//-----------------------------------------------------------------------------
+
 //-----------------------------------------------------------------------------
 // Opcodes
 `define OPC7_R_TYPE     7'b011_0011     // R-type
@@ -35,7 +40,8 @@
 
 //-----------------------------------------------------------------------------
 // NOP
-`define NOP             32'h13          // addi x0 x0 0 
+`define NOP             32'h13          // addi x0 x0 0
+
 //-----------------------------------------------------------------------------
 // CSR
 `define CSR_TOHOST      12'h51E
@@ -141,5 +147,5 @@
 `define IG_J_TYPE   3'b100
 `define IG_U_TYPE   3'b101
 
-//-----------------------------------------------------------------------------
+
 // End of defines
