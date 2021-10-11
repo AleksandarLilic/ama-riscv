@@ -38,18 +38,20 @@
 //                              Add tohost checker
 //      2021-10-09  AL 0.18.0 - Add load_inst_ex
 //      2021-10-10  AL 0.19.0 - Add inst and cycle counters, performance evaluation
+//      2021-10-11  AL 0.20.0 - Add Branch Compare inputs as global signals
 //
 //      To Do list:
 //       - add basic disassembler to convert back instructions to asm format
 //       - add checker IDs, print on exit number of samples checked and results
 //       - add counters in model
+//       - move model to include file or similar, to use in different testbenches 
 //
 //-----------------------------------------------------------------------------
 
 `timescale 1ns/1ps
 
 `define CLK_PERIOD          8
-`define TEST_NAME           "sh.hex"
+`define TEST_NAME           "bltu.hex"
 
 // Memories
 `define MEM_SIZE            16384
@@ -175,6 +177,9 @@ reg  [31:0] dut_m_alu_out           ;
 reg  [ 1:0] dut_m_load_sm_offset_ex ;
 reg  [13:0] dut_m_dmem_addr         ;
 reg  [31:0] dut_m_dmem_write_data   ;
+// branch compare inputs
+reg  [31:0] dut_m_bc_in_a           ;
+reg  [31:0] dut_m_bc_in_b           ;
 // to control
 reg         dut_m_bc_a_eq_b         ;
 reg         dut_m_bc_a_lt_b         ;
@@ -1166,21 +1171,19 @@ task dut_m_csr_write_update;
 endtask
 
 task dut_m_bc_update;
-    reg [31:0] bc_in_a;
-    reg [31:0] bc_in_b;
     begin
-        bc_in_a = dut_m_bc_a_sel_fwd_ex  ? dut_m_writeback : dut_m_rs1_data_ex;
-        bc_in_b = dut_m_bcs_b_sel_fwd_ex ? dut_m_writeback : dut_m_rs2_data_ex;
+        dut_m_bc_in_a = dut_m_bc_a_sel_fwd_ex  ? dut_m_writeback : dut_m_rs1_data_ex;
+        dut_m_bc_in_b = dut_m_bcs_b_sel_fwd_ex ? dut_m_writeback : dut_m_rs2_data_ex;
         
         case (dut_m_bc_uns_ex)
             1'b0: begin     // signed
-                dut_m_bc_a_eq_b = ($signed(bc_in_a) == $signed(bc_in_b));
-                dut_m_bc_a_lt_b = ($signed(bc_in_a) <  $signed(bc_in_b));
+                dut_m_bc_a_eq_b = ($signed(dut_m_bc_in_a) == $signed(dut_m_bc_in_b));
+                dut_m_bc_a_lt_b = ($signed(dut_m_bc_in_a) <  $signed(dut_m_bc_in_b));
             end
             
             1'b1: begin     // unsigned
-                dut_m_bc_a_eq_b = (bc_in_a == bc_in_b);
-                dut_m_bc_a_lt_b = (bc_in_a <  bc_in_b);
+                dut_m_bc_a_eq_b = (dut_m_bc_in_a == dut_m_bc_in_b);
+                dut_m_bc_a_lt_b = (dut_m_bc_in_a <  dut_m_bc_in_b);
             end
             
             default: begin
@@ -1274,7 +1277,9 @@ endtask
 task dut_m_dmem_update;
     begin
         if(dut_m_dmem_en_ex) begin
+            // read
             dut_m_dmem_read_data_mem = test_values_dmem[dut_m_dmem_addr];
+            // write
             if(dut_m_dmem_we_ex[0]) test_values_dmem[dut_m_dmem_addr][ 7: 0] = dut_m_dmem_write_data[ 7: 0];
             if(dut_m_dmem_we_ex[1]) test_values_dmem[dut_m_dmem_addr][15: 8] = dut_m_dmem_write_data[15: 8];
             if(dut_m_dmem_we_ex[2]) test_values_dmem[dut_m_dmem_addr][23:16] = dut_m_dmem_write_data[23:16];
@@ -1615,7 +1620,7 @@ initial begin
             while (`DUT.tohost[0] !== 1'b1) begin
                 @(posedge clk);
                 dut_m_seq_update();
-                dut_m_comb_update(); 
+                dut_m_comb_update();
                 #`CHECK_D; run_checkers();
                 print_single_instruction_results();
             end
