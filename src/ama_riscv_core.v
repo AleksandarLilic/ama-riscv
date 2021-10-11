@@ -26,6 +26,7 @@
 //      2021-10-06  AL  0.8.0 - Add MM I/O locations
 //      2021-10-09  AL  0.9.0 - Add load_inst_ex
 //      2021-10-09  AL 0.10.0 - Change to load/store uart signals
+//      2021-10-11  AL 0.10.1 - Fix Branch Compare op_uns input
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -416,7 +417,7 @@ end
 
 //-----------------------------------------------------------------------------
 // Branch Compare
-// wire        bc_uns_id     ;
+// wire        bc_uns_ex     ;
 wire [31:0] bc_in_a  = bc_a_sel_fwd_ex  ? writeback : rs1_data_ex;
 wire [31:0] bcs_in_b = bcs_b_sel_fwd_ex ? writeback : rs2_data_ex;
 // wire        bc_out_a_eq_b   ;
@@ -424,7 +425,7 @@ wire [31:0] bcs_in_b = bcs_b_sel_fwd_ex ? writeback : rs2_data_ex;
 
 ama_riscv_branch_compare ama_riscv_branch_compare_i (
     // inputs
-    .op_uns     (bc_uns_id      ),
+    .op_uns     (bc_uns_ex      ),
     .in_a       (bc_in_a        ),
     .in_b       (bcs_in_b       ),
     // outputs
