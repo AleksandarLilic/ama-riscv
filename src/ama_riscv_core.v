@@ -25,6 +25,7 @@
 //      2021-10-01  AL  0.7.3 - Fix stall_if_q1 reset value
 //      2021-10-06  AL  0.8.0 - Add MM I/O locations
 //      2021-10-09  AL  0.9.0 - Add load_inst_ex
+//      2021-10-09  AL 0.10.0 - Change to load/store uart signals
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -39,8 +40,9 @@ module ama_riscv_core (
     input   wire         mmio_data_out_valid    ,
     input   wire         mmio_data_in_ready     ,
     
-    output  reg          store_inst_ex          ,
-    output  reg          load_inst_ex           ,
+    output  wire         store_to_uart          ,
+    output  wire         load_from_uart         ,
+    output  wire         inst_wb_nop_or_clear   ,
     output  reg          mmio_reset_cnt         ,
     output  reg   [ 7:0] mmio_uart_data_in
 );
@@ -63,15 +65,15 @@ reg  [ 4:0] rd_addr_mem             ;
 reg  [31:0] inst_ex                 ;
 reg         reg_we_ex               ;
 reg  [ 4:0] rd_addr_ex              ;
-// reg         store_inst_ex           ;
-// reg         load_inst_ex            ;
+reg         store_inst_ex           ;
+reg         load_inst_ex            ;
 // from datapath
 wire        bc_out_a_eq_b           ;
 wire        bc_out_a_lt_b           ;
 wire [ 1:0] store_mask_offset       ;
 
 // Signals - ID stage
-wire [31:0] inst_id                 ;
+(* dont_touch = "true" *) wire [31:0] inst_id                 ;
 // wire        bp_taken               ;
 // wire        bp_clear               ;
 wire        load_inst_id            ;
@@ -162,7 +164,7 @@ reg  [31:0] pc_mux_out  ;
 reg  [31:0] pc          ;
 wire [31:0] pc_inc4     ;
 wire [13:0] imem_addr   ;
-wire [31:0] alu_out     ;
+(* dont_touch = "true" *) wire [31:0] alu_out     ;
 
 //-----------------------------------------------------------------------------
 // PC select mux
@@ -471,6 +473,9 @@ wire        mmio_en         = alu_out[31] && dmem_en_ex;
 wire [ 3:0] mmio_we         = {4{alu_out[31]}} & dmem_we_ex;
 reg  [31:0] mmio_read_data;
 
+assign store_to_uart   = ((store_inst_ex) && (mmio_addr == 3'd0) && (mmio_en) && (mmio_we[0]));
+assign load_from_uart  = ((load_inst_ex ) && (mmio_addr == 3'd1) && (mmio_en)                );
+
 // mmio sync write
 always @(posedge clk) begin
     if(rst) begin
@@ -509,7 +514,7 @@ wire [31:0] dmem_write_data     = dms_write_data;
 wire [13:0] dmem_addr           = alu_out[15:2];
 wire        dmem_en             = !alu_out[31] && dmem_en_ex;
 wire [ 3:0] dmem_we             = {4{!alu_out[31]}} & dmem_we_ex;
-wire [31:0] dmem_read_data_mem;
+(* dont_touch = "true" *) wire [31:0] dmem_read_data_mem;
 
 ama_riscv_dmem ama_riscv_dmem_i (
     .clk    (clk                ),
@@ -640,5 +645,7 @@ always @ (posedge clk) begin
         inst_wb <= inst_mem ;
     end
 end
+
+assign inst_wb_nop_or_clear = ((inst_wb == `NOP) || (inst_wb[6:0] == 7'd0));
 
 endmodule
