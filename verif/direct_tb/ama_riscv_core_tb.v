@@ -37,9 +37,12 @@
 //                              Add RF checkers
 //                              Add tohost checker
 //      2021-10-09  AL 0.18.0 - Add load_inst_ex
+//      2021-10-10  AL 0.19.0 - Add inst and cycle counters, performance evaluation
 //
-//      note: add basic disassembler to convert back instructions to asm format
-//      note: add checker IDs, print on exit number of samples checked and results
+//      To Do list:
+//       - add basic disassembler to convert back instructions to asm format
+//       - add checker IDs, print on exit number of samples checked and results
+//       - add counters in model
 //
 //-----------------------------------------------------------------------------
 
@@ -128,8 +131,10 @@ module ama_riscv_core_tb();
 
 //-----------------------------------------------------------------------------
 // DUT I/O
-reg         clk = 0;
-reg         rst;
+reg          clk = 0;
+reg          rst;
+wire         inst_wb_nop_or_clear   ;
+wire         mmio_reset_cnt         ;
 
 //-----------------------------------------------------------------------------
 // Model
@@ -354,9 +359,60 @@ integer       rst_done = 0;
 //-----------------------------------------------------------------------------
 // DUT instance
 ama_riscv_core DUT_ama_riscv_core_i (
-    .clk                (clk         ),
-    .rst                (rst         )
+    .clk    (clk    ),
+    .rst    (rst    ),
+    // outputs
+    .inst_wb_nop_or_clear   (inst_wb_nop_or_clear   ),
+    .mmio_reset_cnt         (mmio_reset_cnt         )
 );
+
+//-----------------------------------------------------------------------------
+// Cycle counter
+reg   [31:0] mmio_cycle_cnt         ;
+always @ (posedge clk) begin
+    if (rst)
+        mmio_cycle_cnt <= 32'd0;
+    else if (mmio_reset_cnt)
+        mmio_cycle_cnt <= 32'd0;
+    else
+        mmio_cycle_cnt <= mmio_cycle_cnt + 32'd1;
+end
+
+//-----------------------------------------------------------------------------
+// Instruction counter
+reg   [31:0] mmio_instr_cnt         ;
+always @ (posedge clk) begin
+    if (rst)
+        mmio_instr_cnt <= 32'd0;
+    else if (mmio_reset_cnt)
+        mmio_instr_cnt <= 32'd0;
+    else if (!inst_wb_nop_or_clear)        // prevent counting nop and pipe clear
+        mmio_instr_cnt <= mmio_instr_cnt + 32'd1;
+end
+
+//-----------------------------------------------------------------------------
+// Count inserted Clears and NOPs
+reg   [31:0] hw_inserted_nop_or_clear_cnt         ;
+always @ (posedge clk) begin
+    if (rst)
+        hw_inserted_nop_or_clear_cnt <= 32'd0;
+    else if (mmio_reset_cnt)
+        hw_inserted_nop_or_clear_cnt <= 32'd0;
+    else if (`DUT.stall_if_q1 || `DUT.clear_mem)    // clear_mem is enough in this implementation, predictor may change this
+        hw_inserted_nop_or_clear_cnt <= hw_inserted_nop_or_clear_cnt + 32'd1;
+end
+
+//-----------------------------------------------------------------------------
+// Count all Clears and NOPs
+reg   [31:0] hw_all_nop_or_clear_cnt         ;
+always @ (posedge clk) begin
+    if (rst)
+        hw_all_nop_or_clear_cnt <= 32'd0;
+    else if (mmio_reset_cnt)
+        hw_all_nop_or_clear_cnt <= 32'd0;
+    else if (inst_wb_nop_or_clear)
+        hw_all_nop_or_clear_cnt <= hw_all_nop_or_clear_cnt + 32'd1;
+end
 
 //-----------------------------------------------------------------------------
 // Clock gen: 125 MHz
@@ -374,7 +430,7 @@ task print_test_status;
         else begin 
             $display("\nTest ran to completion");
             
-            $display("\nStatus - DUT check against ISA: ");
+            $display("\nStatus - DUT-ISA: ");
             if(isa_passed_dut == 1) begin
                 $display("    Passed");
             end
@@ -383,7 +439,7 @@ task print_test_status;
                 $display("    Failed test # : %0d", `DUT.tohost[31:1]);
             end
             
-            $display("\nStatus - Model check against ISA: ");
+            $display("\nStatus - Model-ISA: ");
             if(isa_passed_model == 1) begin
                 $display("    Passed");
             end
@@ -392,15 +448,24 @@ task print_test_status;
                 $display("    Failed test # : %0d", dut_m_tohost[31:1]);
             end
             
-            $display("\nStatus - DUT check against Model:");
+            $display("\nStatus - DUT-Model:");
             if(!errors)
                 $display("    Passed");
             else
                 $display("    Failed");
             
-            $display("    Pre RST Warnings: %2d", pre_rst_warnings);
-            $display("    Warnings:         %2d", warnings);
-            $display("    Errors:           %2d", errors);
+            // $display("    Pre RST Warnings: %2d", pre_rst_warnings);
+            $display("    Warnings: %2d", warnings - pre_rst_warnings);
+            $display("    Errors:   %2d", errors);
+            
+            $display("\n\n-------------------------- Performance ---------------------------\n");
+            $display("Cycle counter: %0d", mmio_cycle_cnt);
+            $display("Instr counter: %0d", mmio_instr_cnt);
+            $display("Empty cycles:  %0d", mmio_cycle_cnt - mmio_instr_cnt);
+            $display("          CPI: %0.3f", real(mmio_cycle_cnt)/real(mmio_instr_cnt));
+            $display("\nHW Inserted NOPs and Clears: %0d", hw_inserted_nop_or_clear_cnt);
+            $display(  "All NOPs and Clears:         %0d", hw_all_nop_or_clear_cnt);
+            $display(  "Compiler Inserted NOPs:      %0d", hw_all_nop_or_clear_cnt - hw_inserted_nop_or_clear_cnt);
         end
         $display("\n--------------------- End of the simulation ----------------------\n");
     end
@@ -419,53 +484,6 @@ task print_single_instruction_results;
         $display  ("EX  stage: HEX: 'h%8h", dut_m_inst_ex);
         $display  ("MEM stage: HEX: 'h%8h", dut_m_inst_mem);
         last_pc = dut_m_pc;
-    end
-endtask
-/* 
-task read_test_instructions;
-    begin
-        // Instructions HEX
-        // Core test
-        fd = $fopen({`PROJECT_PATH, "verif/direct_tb/inst/add.txt"}, "r");    
-        if (fd == 0) begin
-            $display("fd handle was NULL");        
-        end    
-        i = 0;
-        while(!$feof(fd)) begin
-            $fscanf (fd, "%h", test_values_inst_hex[i]);
-            // $display("'h%h", test_values_inst_hex[i]);
-            i = i + 1;
-        end
-        $fclose(fd);
-        
-        test_values_inst_hex_nop = 'h0000_0013;
-        
-        
-        // Instructions ASM
-        // Core test
-        fd = $fopen({`PROJECT_PATH, "verif/direct_tb/inst/add.txt"}, "r");
-        if (fd == 0) begin
-            $display("fd handle was NULL");        
-        end
-        i = 0;
-        while(!$feof(fd)) begin
-            status = $fgets(str, fd);
-            // $write("%0s", str);
-            test_values_inst_asm[i] = str;
-            // $write("%0s", test_values_inst_asm[i]);
-            i = i + 1;
-        end
-        $fclose(fd);
-        
-        test_values_inst_asm_nop = "addi  x0 x0 0 \n";
-        
-    end
-endtask */
-
-task read_test_instructions;
-    begin
-        $readmemh({`PROJECT_PATH, "verif/direct_tb/inst/", `TEST_NAME}, test_values_inst_hex, 0, 16384-1);
-        $readmemh({`PROJECT_PATH, "verif/direct_tb/inst/", `TEST_NAME}, test_values_dmem,     0, 16384-1);
     end
 endtask
 
@@ -590,6 +608,13 @@ endtask // run_checkers
 
 //-----------------------------------------------------------------------------
 // DUT model tasks
+task dut_m_read_test_instructions;
+    begin
+        $readmemh({`PROJECT_PATH, "verif/direct_tb/inst/", `TEST_NAME}, test_values_inst_hex, 0, 16384-1);
+        $readmemh({`PROJECT_PATH, "verif/direct_tb/inst/", `TEST_NAME}, test_values_dmem,     0, 16384-1);
+    end
+endtask
+
 task dut_m_decode;
     reg  [31:0] inst_id;
     reg  [31:0] inst_ex;
@@ -1517,7 +1542,7 @@ endtask
 initial begin
     // sync this thread with events from main thread
     @(ev_rst[0]); // #1;
-    $display("\nReset Sequence start \n");    
+    // $display("\nReset Sequence start \n");    
     rst = 1'b0;
     
     @(ev_rst[0]); // @(posedge clk); #1;
@@ -1529,7 +1554,7 @@ initial begin
     rst = 1'b0;
     // @(ev_rst[0]); //@(posedge clk); #1;  
     // ->ev_rst_done;
-    $display("\nReset Sequence end \n");
+    // $display("\nReset Sequence end \n");
     rst_done = 1;
     
 end
@@ -1541,7 +1566,7 @@ end
 initial begin
     //Prints %t scaled in ns (-9), with 2 precision digits, with the " ns" string
     $timeformat(-9, 2, " ns", 20);
-    read_test_instructions();
+    dut_m_read_test_instructions();
     errors              = 0;
     warnings            = 0;
     done                = 0;
@@ -1563,7 +1588,7 @@ initial begin
     $display("\n----------------------- Simulation started -----------------------\n");
     load_memories();
     // Test 0: Wait for reset
-    $display("\nTest  0: Wait for reset: Start \n");
+    $display("\n Resetting DUT... \n");
     @(posedge clk); #1;
     while (!rst_done) begin
         // $display("Reset not done, time: %0t \n", $time);
@@ -1574,7 +1599,6 @@ initial begin
             @(posedge clk); #1; 
             dut_m_seq_update();
             dut_m_comb_update();
-            // dut_m_decode();
         end
     end
     $display("Reset done, time: %0t \n", $time);
@@ -1621,7 +1645,7 @@ initial begin
         isa_passed_model = 0;
     
     
-    $display("\nTest Done \n");
+    $display("\n\nTest Done \n");
     
     repeat (1) @(posedge clk);
     print_test_status(done);
