@@ -27,6 +27,7 @@
 //      2021-10-09  AL  0.9.0 - Add load_inst_ex
 //      2021-10-09  AL 0.10.0 - Change to load/store uart signals
 //      2021-10-11  AL 0.10.1 - Fix Branch Compare op_uns input
+//      2021-10-28  AL 0.10.2 - Fix IMEM ports and MMIO address
 //
 //-----------------------------------------------------------------------------
 `include "ama_riscv_defines.v"
@@ -74,7 +75,7 @@ wire        bc_out_a_lt_b           ;
 wire [ 1:0] store_mask_offset       ;
 
 // Signals - ID stage
-(* dont_touch = "true" *) wire [31:0] inst_id                 ;
+ wire [31:0] inst_id                 ;
 // wire        bp_taken               ;
 // wire        bp_clear               ;
 wire        load_inst_id            ;
@@ -165,7 +166,7 @@ reg  [31:0] pc_mux_out  ;
 reg  [31:0] pc          ;
 wire [31:0] pc_inc4     ;
 wire [13:0] imem_addr   ;
-(* dont_touch = "true" *) wire [31:0] alu_out     ;
+wire [31:0] alu_out     ;
 
 //-----------------------------------------------------------------------------
 // PC select mux
@@ -201,10 +202,6 @@ wire [31:0] inst_id_read    ;
 assign imem_addr = pc_mux_out[15:2];
 ama_riscv_imem ama_riscv_imem_i (
     .clk   (clk         ),
-    .ena   (1'b0        ),
-    .wea   (4'd0        ),
-    .addra (14'd0       ),
-    .dina  (32'd0       ),
     .addrb (imem_addr   ),
     .doutb (inst_id_read)
 );
@@ -474,7 +471,7 @@ wire        mmio_en         = alu_out[31] && dmem_en_ex;
 wire [ 3:0] mmio_we         = {4{alu_out[31]}} & dmem_we_ex;
 reg  [31:0] mmio_read_data;
 
-assign store_to_uart   = ((store_inst_ex) && (mmio_addr == 3'd0) && (mmio_en) && (mmio_we[0]));
+assign store_to_uart   = ((store_inst_ex) && (mmio_addr == 3'd2) && (mmio_en) && (mmio_we[0]));
 assign load_from_uart  = ((load_inst_ex ) && (mmio_addr == 3'd1) && (mmio_en)                );
 
 // mmio sync write
@@ -486,7 +483,7 @@ always @(posedge clk) begin
     else begin 
         if(mmio_en && mmio_we[0]) begin
             case (mmio_addr)
-                3'd0    :   mmio_uart_data_in   <= mmio_write_data[7:0];
+                3'd2    :   mmio_uart_data_in   <= mmio_write_data[7:0];
                 3'd4    :   mmio_reset_cnt      <= mmio_write_data[0];
             endcase
         end
@@ -515,7 +512,7 @@ wire [31:0] dmem_write_data     = dms_write_data;
 wire [13:0] dmem_addr           = alu_out[15:2];
 wire        dmem_en             = !alu_out[31] && dmem_en_ex;
 wire [ 3:0] dmem_we             = {4{!alu_out[31]}} & dmem_we_ex;
-(* dont_touch = "true" *) wire [31:0] dmem_read_data_mem;
+wire [31:0] dmem_read_data_mem;
 
 ama_riscv_dmem ama_riscv_dmem_i (
     .clk    (clk                ),
@@ -608,7 +605,7 @@ wire [ 2:0] funct3_mem  = inst_mem[14:12];
 // wire        load_sm_en_mem      ;
 // wire [ 1:0] load_sm_offset_mem  ;
 wire [ 2:0] load_sm_width = funct3_mem;
-// wire [31:0] load_sm_data_in     ; // as dmem_read_data_mem
+wire [31:0] load_sm_data_in = alu_out_mem[31] ? mmio_read_data : dmem_read_data_mem;
 wire [31:0] load_sm_data_out    ;
 
 ama_riscv_load_shift_mask ama_riscv_load_shift_mask_i (
@@ -618,7 +615,7 @@ ama_riscv_load_shift_mask ama_riscv_load_shift_mask_i (
     .en         (load_sm_en_mem     ),
     .offset     (load_sm_offset_mem ),
     .width      (load_sm_width      ),
-    .data_in    (dmem_read_data_mem ),
+    .data_in    (load_sm_data_in    ),
     // outputs
     .data_out   (load_sm_data_out   )
 );
@@ -650,3 +647,4 @@ end
 assign inst_wb_nop_or_clear = ((inst_wb == `NOP) || (inst_wb[6:0] == 7'd0));
 
 endmodule
+
