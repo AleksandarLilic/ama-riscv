@@ -5,4 +5,5 @@
 *.sim
 *.xpr
 *.wcfg
+*.swp
 local/
