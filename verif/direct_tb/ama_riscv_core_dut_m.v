@@ -12,6 +12,7 @@
 // Version history:
 //      2021-10-25  AL  0.1.0 - Initial
 //      2021-10-29  AL  0.2.0 - WIP - Add disassembler - R-type
+//      2021-10-30  AL        - WIP - DASM - add I-type
 //
 //-----------------------------------------------------------------------------
 
@@ -244,12 +245,6 @@ integer       perf_cnt_compiler_nops;
 
 integer       warnings              ;
 
-// TODO: disassembler for wave and console print
-reg  [30*7:0] dut_m_inst_id_asm  = 'h0;
-reg  [30*7:0] dut_m_inst_ex_asm  = 'h0;
-reg  [30*7:0] dut_m_inst_mem_asm = 'h0;
-
-
 /* TODO: Make these counters SW only
 
 //-----------------------------------------------------------------------------
@@ -304,35 +299,39 @@ end
 //-----------------------------------------------------------------------------
 // Disassembler functions
 
-function [4:0] dasm_rs1 (input [31:0] inst); begin dasm_rs1 = ((inst & 32'h000f_8000)>>15); end endfunction
-function [4:0] dasm_rs2 (input [31:0] inst); begin dasm_rs2 = ((inst & 32'h01f0_8000)>>20); end endfunction
-function [4:0] dasm_rd  (input [31:0] inst); begin dasm_rd  = ((inst & 32'h0000_0f80)>>7);  end endfunction
-function [4:0] dasm_opc (input [31:0] inst); begin dasm_opc =  (inst & 32'h0000_007f);      end endfunction
-function [4:0] dasm_fn3 (input [31:0] inst); begin dasm_fn3 = ((inst & 32'h0007_0000)>>12); end endfunction
-function [4:0] dasm_fn7 (input [31:0] inst); begin dasm_fn7 = ((inst & 32'hfe00_0000)>>25); end endfunction
+// TODO: disassembler for wave and console print
+reg  [30*7:0] dut_m_inst_id_asm  = 'h0;
+reg  [30*7:0] dut_m_inst_ex_asm  = 'h0;
+reg  [30*7:0] dut_m_inst_mem_asm = 'h0;
+
+reg  [ 5*8:0] dasm_r_type_list [0:15] = {"add", "sll", "slt", "sltu", "xor", "srl", "or", "and", 
+                                         "sub", "",    "",    "",     "",    "sra", "",   ""    };
+
+reg  [ 5*8:0] dasm_i_type_list [0:15] = {"addi", "slli", "slti", "sltiu", "xori", "srli", "ori", "andi", 
+                                         "",     "",     "",     "",      "",     "srai", "",    ""     };
+
+function [ 4:0] dasm_rs1 (input [31:0] inst); begin dasm_rs1 = ((inst & 32'h000f_8000)>>15); end endfunction
+function [ 4:0] dasm_rs2 (input [31:0] inst); begin dasm_rs2 = ((inst & 32'h01f0_8000)>>20); end endfunction
+function [ 4:0] dasm_rd  (input [31:0] inst); begin dasm_rd  = ((inst & 32'h0000_0f80)>>7);  end endfunction
+function [ 6:0] dasm_opc (input [31:0] inst); begin dasm_opc =  (inst & 32'h0000_007f);      end endfunction
+function [ 2:0] dasm_fn3 (input [31:0] inst); begin dasm_fn3 = ((inst & 32'h0000_7000)>>12); end endfunction
+function [ 6:0] dasm_fn7 (input [31:0] inst); begin dasm_fn7 = ((inst & 32'hfe00_0000)>>25); end endfunction
+function dasm_fn7_b5 (input [31:0] inst); begin dasm_fn7_b5 = ((inst & 32'h4000_0000)>>30); end endfunction
+
+function [31:0] dasm_imm_i (input [31:0] inst); 
+    begin dasm_imm_i = $signed(inst) >>> 20; end 
+endfunction
+
+function [3:0] dasm_r_type_idx (input [31:0] inst); 
+    begin dasm_r_type_idx = {dasm_fn7_b5(inst), dasm_fn3(inst)}; end 
+endfunction
+
+function [3:0] dasm_i_type_idx (input [31:0] inst); 
+    begin dasm_i_type_idx = ((dasm_fn3(inst)) == 3'b101) ? {dasm_fn7_b5(inst), dasm_fn3(inst)} : 
+                                                           {1'b0,              dasm_fn3(inst)}; end 
+endfunction
 
 /*    
-`define dasm_get_rs1_m(inst, rs1)           \
-    rs1 = ((inst & 32'h000f_8000)>>15);     \
-
-`define dasm_get_rs2_m(inst, rs2)           \
-    rs2 = ((inst & 32'h01f0_8000)>>20);     \
-
-`define dasm_get_rd_m(inst, rd)             \
-    rd = ((inst & 32'h0000_0f80)>>7);       \
-
-`define dasm_get_opc(inst, opc)             \
-    opc = (inst & 32'h0000_007f);           \
-
-`define dasm_get_funct3(inst, fucnt3)       \
-    funct3 = ((inst & 32'h0007_0000)>>12);  \
-
-`define dasm_get_funct7(inst, fucnt7)       \
-    funct7 = ((inst & 32'hfe00_0000)>>25);  \
-
-`define dasm_get_imm_i(inst, imm_i)         \
-    imm_i = $signed(inst) >>> 20;           \
-
 `define dasm_get_imm_s(inst, imm_s)                         \
     imm_s = (($signed(inst) >>> 20) & 32'hffff_ffe0) |      \
             ((inst >> 7) & 32'h0000_001f);                  \
@@ -402,7 +401,7 @@ task dut_m_decode_r_type();
         dut_m_load_sm_en_id  = 1'b0;
         dut_m_wb_sel_id      = `WB_SEL_ALU;
         dut_m_reg_we_id      = 1'b1;
-        $sformat(dut_m_inst_id_asm, "add x%0d, x%0d, x%0d", 
+        $sformat(dut_m_inst_id_asm, "%0s x%0d, x%0d, x%0d", dasm_r_type_list[dasm_r_type_idx(dut_m_inst_id)], 
             dasm_rd(dut_m_inst_id), dasm_rs1(dut_m_inst_id), dasm_rs2(dut_m_inst_id));
     end
 endtask
@@ -428,6 +427,8 @@ task dut_m_decode_i_type();
         dut_m_load_sm_en_id  = 1'b0;
         dut_m_wb_sel_id      = `WB_SEL_ALU;
         dut_m_reg_we_id      = 1'b1;
+        $sformat(dut_m_inst_id_asm, "%0s x%0d, x%0d, %0d", dasm_i_type_list[dasm_i_type_idx(dut_m_inst_id)], 
+            dasm_rd(dut_m_inst_id), dasm_rs1(dut_m_inst_id), $signed(dasm_imm_i(dut_m_inst_id)));
     end
 endtask
 
@@ -456,24 +457,24 @@ endtask
 
 task dut_m_decode_store();
     begin
-            dut_m_pc_sel_if      = `PC_SEL_INC4;
-            dut_m_pc_we_if       = 1'b1;
-            dut_m_branch_inst_id = 1'b0;
-            dut_m_jump_inst_id   = 1'b0;
-            dut_m_store_inst_id  = 1'b1;
-            dut_m_load_inst_id   = 1'b0;
-            dut_m_csr_en_id      = 1'b0;
-            dut_m_csr_we_id      = 1'b0;
-            dut_m_csr_ui_id      = 1'b0;
-            dut_m_alu_op_sel_id  = 4'b0000;    // add
-            dut_m_alu_a_sel_id   = `ALU_A_SEL_RS1;
-            dut_m_alu_b_sel_id   = `ALU_B_SEL_IMM;
-            dut_m_imm_gen_sel_id = `IG_S_TYPE;
-            // dut_m_bc_uns_id      = 1'b0;
-            dut_m_dmem_en_id     = 1'b1;
-            dut_m_load_sm_en_id  = 1'b0;
-            // dut_m_wb_sel_id      = `WB_SEL_DMEM;
-            dut_m_reg_we_id      = 1'b0;
+        dut_m_pc_sel_if      = `PC_SEL_INC4;
+        dut_m_pc_we_if       = 1'b1;
+        dut_m_branch_inst_id = 1'b0;
+        dut_m_jump_inst_id   = 1'b0;
+        dut_m_store_inst_id  = 1'b1;
+        dut_m_load_inst_id   = 1'b0;
+        dut_m_csr_en_id      = 1'b0;
+        dut_m_csr_we_id      = 1'b0;
+        dut_m_csr_ui_id      = 1'b0;
+        dut_m_alu_op_sel_id  = 4'b0000;    // add
+        dut_m_alu_a_sel_id   = `ALU_A_SEL_RS1;
+        dut_m_alu_b_sel_id   = `ALU_B_SEL_IMM;
+        dut_m_imm_gen_sel_id = `IG_S_TYPE;
+        // dut_m_bc_uns_id      = 1'b0;
+        dut_m_dmem_en_id     = 1'b1;
+        dut_m_load_sm_en_id  = 1'b0;
+        // dut_m_wb_sel_id      = `WB_SEL_DMEM;
+        dut_m_reg_we_id      = 1'b0;
     end
 endtask
 
