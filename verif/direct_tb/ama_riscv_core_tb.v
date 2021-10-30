@@ -41,6 +41,7 @@
 //      2021-10-11  AL 0.20.0 - Add Branch Compare inputs as global signals
 //      2021-10-26  AL 0.21.0 - Add model as include
 //      2021-10-29  AL 0.22.0 - WIP - Add disassembler - R-type
+//      2021-10-30  AL        - WIP - DASM - add I-type
 //
 //      TODO list:
 //       - add basic disassembler to convert back instructions to asm format
@@ -53,7 +54,7 @@
 `include "../../src/ama_riscv_defines.v"
 
 `define CLK_PERIOD          8
-`define TEST_NAME           add.hex
+`define TEST_NAME           addi.hex
 
 // TB
 `define CHECKER_ACTIVE      1'b1        // TODO: Consider moving checkers to different file
@@ -239,7 +240,7 @@ task print_single_instruction_results;
     reg     stalled;
     begin
         stalled = (last_pc == dut_m_pc);
-        $display("Instruction at PC# %2d %s ", dut_m_pc, stalled ? "stalled " : "executed"); 
+        $display("Instruction at PC# %2d, 0x%4h,  %s ", dut_m_pc, dut_m_pc, stalled ? "stalled " : "executed"); 
         $display("ID  stage: HEX: 'h%8h, ASM: %0s", dut_m_inst_id , dut_m_inst_id_asm );
         $display("EX  stage: HEX: 'h%8h, ASM: %0s", dut_m_inst_ex , dut_m_inst_ex_asm );
         $display("MEM stage: HEX: 'h%8h, ASM: %0s", dut_m_inst_mem, dut_m_inst_mem_asm);
