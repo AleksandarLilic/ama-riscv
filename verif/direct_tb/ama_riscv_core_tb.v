@@ -43,6 +43,7 @@
 //      2021-10-29  AL 0.22.0 - WIP - Add disassembler - R-type
 //      2021-10-30  AL        - WIP - DASM - add I-type
 //      2021-10-31  AL        - WIP - DASM - add Load, S-type, B-type
+//      2021-11-01  AL 0.22.1 - Fix model calls - separate block
 //
 //      TODO list:
 //       - add basic disassembler to convert back instructions to asm format
@@ -417,6 +418,20 @@ initial begin
     end
 end
 
+initial begin
+    // wait for reset done, reset handled in rst thread
+    while (!rst_done) begin
+        @(posedge clk);
+        if(rst_done) dut_m_update();    // handle first case when going out of reset
+    end
+
+    // run model at every clk
+    while (rst_done) begin
+        @(posedge clk); 
+        dut_m_update();
+    end
+end
+
 //-----------------------------------------------------------------------------
 // Test
 initial begin
@@ -447,7 +462,6 @@ initial begin
         begin
             while (`DUT.tohost[0] !== 1'b1) begin
                 @(posedge clk);
-                dut_m_update();
                 #`CHECK_D; run_checkers();
                 print_single_instruction_results();
             end
@@ -478,7 +492,6 @@ initial begin
     
     repeat (6) begin 
         @(posedge clk);
-        dut_m_update();
         #`CHECK_D; run_checkers();
     end
 
