@@ -14,6 +14,9 @@
 //      2021-10-29  AL  0.2.0 - WIP - Add disassembler - R-type
 //      2021-10-30  AL        - WIP - DASM - add I-type
 //      2021-10-31  AL        - WIP - DASM - add Load, S-type, B-type
+//      2021-11-01  AL  0.3.0 - Add dependency detection as separate logic
+//
+//      TODO: Disable forwarding in EX on Load - Critical Path
 //
 //-----------------------------------------------------------------------------
 
@@ -170,9 +173,9 @@ reg  [ 1:0] dut_m_wb_sel_mem        ;
 
 
 // Model internal signals
+// decoder
 reg  [31:0] dut_m_pc_mux_out_div4       ;
 reg  [31:0] dut_m_inst_id_read          ;
-// reg[30*7:0] dut_m_inst_id_read_asm      ;
 reg  [31:0] dut_m_imm_gen_out_id_prev   ;
 reg  [31:0] dut_m_csr_din_imm           ;
 reg         dut_m_alu_a_sel_id          ;
@@ -183,6 +186,11 @@ reg         dut_m_branch_inst_ex        ;
 reg         dut_m_jump_inst_ex          ;
 reg         dut_m_store_inst_ex         ;
 reg         dut_m_load_inst_ex          ;
+// detect dependencies
+reg         dut_m_dd_rs1_ex             ;
+reg         dut_m_dd_rs2_ex             ;
+reg         dut_m_dd_rs1_mem             ;
+reg         dut_m_dd_rs2_mem             ;
 // branch compare inputs
 reg  [31:0] dut_m_bc_in_a               ;
 reg  [31:0] dut_m_bc_in_b               ;
@@ -386,6 +394,8 @@ task dut_m_decode();
         // if it stalls, we = 0
         dut_m_pc_we_if = dut_m_pc_we_if && (!dut_m_stall_if);
          
+        // Detect Dependencies
+        dut_m_decode_dd();
         // Operand Forwarding
         dut_m_decode_op_fwd_alu();
         dut_m_decode_op_fwd_bcs();
@@ -679,63 +689,63 @@ task dut_m_decode_reset();
     end
 endtask
 
+task dut_m_decode_dd();
+    begin
+        // EX stage
+        dut_m_dd_rs1_ex = ( (dut_m_rs1_addr_id != `RF_X0_ZERO       ) && 
+                            (dut_m_rs1_addr_id == dut_m_rd_addr_ex  ) && 
+                            (dut_m_reg_we_ex                        )    );
+        dut_m_dd_rs2_ex = ( (dut_m_rs2_addr_id != `RF_X0_ZERO       ) && 
+                            (dut_m_rs2_addr_id == dut_m_rd_addr_ex  ) && 
+                            (dut_m_reg_we_ex                        )    );
+        
+        // MEM stage
+        dut_m_dd_rs1_mem = ( (dut_m_rs1_addr_id != `RF_X0_ZERO        ) && 
+                             (dut_m_rs1_addr_id == dut_m_rd_addr_mem  ) && 
+                             (dut_m_reg_we_mem                        )    );
+        dut_m_dd_rs2_mem = ( (dut_m_rs2_addr_id != `RF_X0_ZERO        ) && 
+                             (dut_m_rs2_addr_id == dut_m_rd_addr_mem  ) && 
+                             (dut_m_reg_we_mem                        )    );
+    end
+endtask
+
 task dut_m_decode_op_fwd_alu();
     begin
         // Operand A
-        if ( (dut_m_rs1_addr_id != `RF_X0_ZERO       ) && 
-             (dut_m_rs1_addr_id == dut_m_rd_addr_ex  ) && 
-             (dut_m_reg_we_ex                        ) && 
-             (!dut_m_alu_a_sel_id                    )    ) begin
+        if ((dut_m_dd_rs1_ex) && (!dut_m_alu_a_sel_id))
             dut_m_alu_a_sel_fwd_id = `ALU_A_SEL_FWD_ALU;            // forward previous ALU result
-        end
-        else begin
+        else
             dut_m_alu_a_sel_fwd_id = {1'b0, dut_m_alu_a_sel_id};    // don't forward
-        end
         
         // Operand B
-        if ( (dut_m_rs2_addr_id != `RF_X0_ZERO       ) && 
-             (dut_m_rs2_addr_id == dut_m_rd_addr_ex  ) && 
-             (dut_m_reg_we_ex                        ) && 
-             (!dut_m_alu_b_sel_id                    )    ) begin
+        if ((dut_m_dd_rs2_ex) && (!dut_m_alu_b_sel_id))
             dut_m_alu_b_sel_fwd_id = `ALU_B_SEL_FWD_ALU;            // forward previous ALU result
-        end
-        else begin
+        else
             dut_m_alu_b_sel_fwd_id = {1'b0, dut_m_alu_b_sel_id};    // don't forward
-        end
     end
 endtask
 
 task dut_m_decode_op_fwd_bcs();
     begin
         // BC A
-        dut_m_bc_a_sel_fwd_id  = ( (dut_m_rs1_addr_id != `RF_X0_ZERO                ) && 
-                                   (dut_m_rs1_addr_id == dut_m_rd_addr_ex           ) && 
-                                   (dut_m_reg_we_ex                                 ) && 
-                                   (dut_m_branch_inst_id                            )    );
+        dut_m_bc_a_sel_fwd_id  = ((dut_m_dd_rs1_ex) && (dut_m_branch_inst_id));
         
         // BC B or DMEM din for store
-        dut_m_bcs_b_sel_fwd_id = ( (dut_m_rs2_addr_id != `RF_X0_ZERO                ) && 
-                                   (dut_m_rs2_addr_id == dut_m_rd_addr_ex           ) && 
-                                   (dut_m_reg_we_ex                                 ) && 
-                                   (dut_m_store_inst_id || dut_m_branch_inst_id     )    );
-        
+        dut_m_bcs_b_sel_fwd_id = ((dut_m_dd_rs2_ex) && (dut_m_store_inst_id || dut_m_branch_inst_id));
     end
 endtask
 
 task dut_m_decode_op_fwd_rf();
     begin
-        dut_m_rf_a_sel_fwd_id  = ( (dut_m_rs1_addr_id != `RF_X0_ZERO                ) && 
-                                   (dut_m_rs1_addr_id == dut_m_rd_addr_mem          ) && 
-                                   (dut_m_reg_we_mem                                ) && 
-                                   ((!dut_m_alu_a_sel_id) || (dut_m_branch_inst_id) )    );
+        dut_m_rf_a_sel_fwd_id  = ((dut_m_dd_rs1_mem)            && 
+                                  ( (!dut_m_alu_a_sel_id  ) || 
+                                    (dut_m_branch_inst_id )    )    );
         
         // RF B
-        dut_m_rf_b_sel_fwd_id  = ( (dut_m_rs2_addr_id != `RF_X0_ZERO                ) && 
-                                   (dut_m_rs2_addr_id == dut_m_rd_addr_mem          ) && 
-                                   (dut_m_reg_we_mem                                ) && 
-                                   ( (!dut_m_alu_b_sel_id  ) || 
-                                     (dut_m_branch_inst_id ) || 
-                                     (dut_m_store_inst_id  )                        )     );
+        dut_m_rf_b_sel_fwd_id  = ((dut_m_dd_rs2_mem)             && 
+                                  ( (!dut_m_alu_b_sel_id  ) || 
+                                    (dut_m_branch_inst_id ) || 
+                                    (dut_m_store_inst_id  )    )     );
         
     end
 endtask
