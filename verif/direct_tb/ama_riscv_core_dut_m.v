@@ -13,6 +13,7 @@
 //      2021-10-25  AL  0.1.0 - Initial
 //      2021-10-29  AL  0.2.0 - WIP - Add disassembler - R-type
 //      2021-10-30  AL        - WIP - DASM - add I-type
+//      2021-10-31  AL        - WIP - DASM - add Load, S-type, B-type
 //
 //-----------------------------------------------------------------------------
 
@@ -300,15 +301,23 @@ end
 // Disassembler functions
 
 // TODO: disassembler for wave and console print
-reg  [30*7:0] dut_m_inst_id_asm  = 'h0;
-reg  [30*7:0] dut_m_inst_ex_asm  = 'h0;
-reg  [30*7:0] dut_m_inst_mem_asm = 'h0;
+reg  [24*7:0] dut_m_inst_id_asm  = 'h0;
+reg  [24*7:0] dut_m_inst_ex_asm  = 'h0;
+reg  [24*7:0] dut_m_inst_mem_asm = 'h0;
 
-reg  [ 5*8:0] dasm_r_type_list [0:15] = {"add", "sll", "slt", "sltu", "xor", "srl", "or", "and", 
-                                         "sub", "",    "",    "",     "",    "sra", "",   ""    };
+`define INNA     "INNA" // INstruction Not Available
 
-reg  [ 5*8:0] dasm_i_type_list [0:15] = {"addi", "slli", "slti", "sltiu", "xori", "srli", "ori", "andi", 
-                                         "",     "",     "",     "",      "",     "srai", "",    ""     };
+reg  [ 5*7:0] dasm_r_type_list [0:15] = {"add", "sll", "slt", "sltu", "xor", "srl", "or" , "and", 
+                                         "sub", `INNA, `INNA, `INNA,  `INNA, "sra", `INNA, `INNA };
+
+reg  [ 5*7:0] dasm_i_type_list [0:15] = {"addi", "slli", "slti", "sltiu", "xori", "srli", "ori", "andi", 
+                                         `INNA,  `INNA,  `INNA,  `INNA,   `INNA,  "srai", `INNA, `INNA   };
+
+reg  [ 5*7:0] dasm_load_list [0: 7] = {"lb", "lh", "lw", "lbu", "lhu", `INNA, `INNA, `INNA };
+
+reg  [ 5*7:0] dasm_store_list [0: 7] = {"sb", "sh", "sw", `INNA, `INNA, `INNA, `INNA, `INNA };
+
+reg  [ 5*7:0] dasm_branch_list [0: 7] = {"beq", "bne", "blt", "bge", "bltu", "bgeu", `INNA, `INNA };
 
 function [ 4:0] dasm_rs1 (input [31:0] inst); begin dasm_rs1 = ((inst & 32'h000f_8000)>>15); end endfunction
 function [ 4:0] dasm_rs2 (input [31:0] inst); begin dasm_rs2 = ((inst & 32'h01f0_8000)>>20); end endfunction
@@ -322,6 +331,22 @@ function [31:0] dasm_imm_i (input [31:0] inst);
     begin dasm_imm_i = $signed(inst) >>> 20; end 
 endfunction
 
+function [31:0] dasm_imm_s (input [31:0] inst); 
+    begin dasm_imm_s = (($signed(inst) >>> 20) & 32'hffff_ffe0) | ((inst >> 7) & 32'h0000_001f); end 
+endfunction
+
+function [31:0] dasm_imm_b (input [31:0] inst);
+    // all masks have to be casted to signed for some weird reason
+    // only sign bit (inst[31]) is used for imm_b sign
+    begin dasm_imm_b = ( ($signed(inst & 32'h8000_0000) >>> 19)     |    // move sign bit
+                         ($signed(inst & 32'h0000_0f00) >> 7)       |    // move [4:1]
+                         ($signed(inst & 32'h0000_0080) << 4)       |    // move [11]
+                         ($signed(inst & 32'h7e00_0000) >> 20)        ); // move [30:25]
+    end
+endfunction
+
+
+// Indexing into lists
 function [3:0] dasm_r_type_idx (input [31:0] inst); 
     begin dasm_r_type_idx = {dasm_fn7_b5(inst), dasm_fn3(inst)}; end 
 endfunction
@@ -330,12 +355,6 @@ function [3:0] dasm_i_type_idx (input [31:0] inst);
     begin dasm_i_type_idx = ((dasm_fn3(inst)) == 3'b101) ? {dasm_fn7_b5(inst), dasm_fn3(inst)} : 
                                                            {1'b0,              dasm_fn3(inst)}; end 
 endfunction
-
-/*    
-`define dasm_get_imm_s(inst, imm_s)                         \
-    imm_s = (($signed(inst) >>> 20) & 32'hffff_ffe0) |      \
-            ((inst >> 7) & 32'h0000_001f);                  \
-*/
 
 //-----------------------------------------------------------------------------
 // DUT model tasks
@@ -429,6 +448,10 @@ task dut_m_decode_i_type();
         dut_m_reg_we_id      = 1'b1;
         $sformat(dut_m_inst_id_asm, "%0s x%0d, x%0d, %0d", dasm_i_type_list[dasm_i_type_idx(dut_m_inst_id)], 
             dasm_rd(dut_m_inst_id), dasm_rs1(dut_m_inst_id), $signed(dasm_imm_i(dut_m_inst_id)));
+        // re-label as NOP if needed    
+        if (dut_m_inst_id == `NOP) $sformat(dut_m_inst_id_asm, "nop");
+        // re-label if rs1 is x0
+        // if (dasm_rs1(dut_m_inst_id) == `RF_X0_ZERO) 
     end
 endtask
 
@@ -452,6 +475,8 @@ task dut_m_decode_load();
         dut_m_load_sm_en_id  = 1'b1;
         dut_m_wb_sel_id      = `WB_SEL_DMEM;
         dut_m_reg_we_id      = 1'b1;
+        $sformat(dut_m_inst_id_asm, "%0s x%0d, %0d(x%0d)", dasm_load_list[dasm_fn3(dut_m_inst_id)], 
+            dasm_rd(dut_m_inst_id), $signed(dasm_imm_i(dut_m_inst_id)), dasm_rs1(dut_m_inst_id) );
     end
 endtask
 
@@ -475,6 +500,8 @@ task dut_m_decode_store();
         dut_m_load_sm_en_id  = 1'b0;
         // dut_m_wb_sel_id      = `WB_SEL_DMEM;
         dut_m_reg_we_id      = 1'b0;
+        $sformat(dut_m_inst_id_asm, "%0s x%0d, %0d(x%0d)", dasm_store_list[dasm_fn3(dut_m_inst_id)], 
+            dasm_rs2(dut_m_inst_id), $signed(dasm_imm_s(dut_m_inst_id)), dasm_rs1(dut_m_inst_id) );
     end
 endtask
 
@@ -498,6 +525,8 @@ task dut_m_decode_branch();
         dut_m_load_sm_en_id  = 1'b0;
         // dut_m_wb_sel_id      = `WB_SEL_DMEM;
         dut_m_reg_we_id      = 1'b0;
+        $sformat(dut_m_inst_id_asm, "%0s x%0d, x%0d, %8h", dasm_branch_list[dasm_fn3(dut_m_inst_id)], 
+            dasm_rs1(dut_m_inst_id), dasm_rs2(dut_m_inst_id), (dut_m_pc + $signed(dasm_imm_b(dut_m_inst_id))) );
     end
 endtask
 
@@ -521,6 +550,7 @@ task dut_m_decode_jalr();
         // dut_m_load_sm_en_id  = *;
         dut_m_wb_sel_id      = `WB_SEL_INC4;
         dut_m_reg_we_id      = 1'b1;
+        $sformat(dut_m_inst_id_asm, "N/A - jalr");
     end
 endtask
 
@@ -544,6 +574,7 @@ task dut_m_decode_jal();
         // dut_m_load_sm_en_id  = *;
         dut_m_wb_sel_id      = `WB_SEL_INC4;
         dut_m_reg_we_id      = 1'b1;
+        $sformat(dut_m_inst_id_asm, "N/A - jal");
     end
 endtask
 
@@ -567,6 +598,7 @@ task dut_m_decode_lui();
         // dut_m_load_sm_en_id  = *;
         dut_m_wb_sel_id      = `WB_SEL_ALU;
         dut_m_reg_we_id      = 1'b1;
+        $sformat(dut_m_inst_id_asm, "N/A - lui");   // print imm as hex
     end
 endtask
 
@@ -590,6 +622,7 @@ task dut_m_decode_auipc();
         // dut_m_load_sm_en_id  = *;
         dut_m_wb_sel_id      = `WB_SEL_ALU;
         dut_m_reg_we_id      = 1'b1;
+        $sformat(dut_m_inst_id_asm, "N/A - auipc"); // print imm as hex
     end
 endtask
 
@@ -613,6 +646,7 @@ task dut_m_decode_system();
         // dut_m_load_sm_en_id  = *;
         dut_m_wb_sel_id      = `WB_SEL_CSR;
         dut_m_reg_we_id      = (dut_m_rs1_addr_id != `RF_X0_ZERO);
+        $sformat(dut_m_inst_id_asm, "N/A - system");
     end
 endtask
 
@@ -621,6 +655,27 @@ task dut_m_decode_unsupported();
         $display("*WARNING @ %0t. Decoder model 'default' case. Input inst_id: 'h%8h", // %0s",
         $time, dut_m_inst_id, /* dut_m_inst_id_asm */);
         warnings = warnings + 1;
+    end
+endtask
+
+task dut_m_decode_reset();
+    begin
+        dut_m_pc_sel_if      = 2'b11;
+        dut_m_pc_we_if       = 1'b1;
+        dut_m_branch_inst_id = 1'b0;
+        dut_m_jump_inst_id   = 1'b0;
+        dut_m_store_inst_id  = 1'b0;
+        dut_m_load_inst_id   = 1'b0;
+        dut_m_alu_op_sel_id  = 4'b0000;
+        dut_m_alu_a_sel_id   = `ALU_A_SEL_RS1;
+        dut_m_alu_b_sel_id   = `ALU_B_SEL_RS2;
+        dut_m_imm_gen_sel_id = `IG_DISABLED;
+        dut_m_bc_uns_id      = 1'b0;
+        dut_m_dmem_en_id     = 1'b0;
+        dut_m_load_sm_en_id  = 1'b0;
+        dut_m_wb_sel_id      = `WB_SEL_DMEM;
+        dut_m_reg_we_id      = 1'b0;
+        $sformat(dut_m_inst_id_asm, "CPU in reset");
     end
 endtask
 
@@ -762,25 +817,6 @@ task dut_m_decode_branch_resolution();
     end
 endtask
 
-task dut_m_decode_reset();
-    begin
-        dut_m_pc_sel_if      = 2'b11;
-        dut_m_pc_we_if       = 1'b1;
-        dut_m_branch_inst_id = 1'b0;
-        dut_m_jump_inst_id   = 1'b0;
-        dut_m_store_inst_id  = 1'b0;
-        dut_m_load_inst_id   = 1'b0;
-        dut_m_alu_op_sel_id  = 4'b0000;
-        dut_m_alu_a_sel_id   = `ALU_A_SEL_RS1;
-        dut_m_alu_b_sel_id   = `ALU_B_SEL_RS2;
-        dut_m_imm_gen_sel_id = `IG_DISABLED;
-        dut_m_bc_uns_id      = 1'b0;
-        dut_m_dmem_en_id     = 1'b0;
-        dut_m_load_sm_en_id  = 1'b0;
-        dut_m_wb_sel_id      = `WB_SEL_DMEM;
-        dut_m_reg_we_id      = 1'b0;
-    end
-endtask
 
 /*
 task dut_m_decode_temp();

@@ -42,9 +42,12 @@
 //      2021-10-26  AL 0.21.0 - Add model as include
 //      2021-10-29  AL 0.22.0 - WIP - Add disassembler - R-type
 //      2021-10-30  AL        - WIP - DASM - add I-type
+//      2021-10-31  AL        - WIP - DASM - add Load, S-type, B-type
 //
 //      TODO list:
 //       - add basic disassembler to convert back instructions to asm format
+//          - handling pseudo ops? other than NOP
+//       - merge regr test to this one
 //       - add checker IDs, print on exit number of samples checked and results
 //       - add counters in model
 //
@@ -54,7 +57,7 @@
 `include "../../src/ama_riscv_defines.v"
 
 `define CLK_PERIOD          8
-`define TEST_NAME           addi.hex
+`define TEST_NAME           sw.hex
 
 // TB
 `define CHECKER_ACTIVE      1'b1        // TODO: Consider moving checkers to different file
