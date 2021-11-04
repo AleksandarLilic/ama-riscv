@@ -16,8 +16,7 @@
 //      2021-10-31  AL        - WIP - DASM - add Load, S-type, B-type
 //      2021-11-01  AL  0.3.0 - Add dependency detection as separate logic
 //      2021-11-04  AL  0.4.0 - Add stall on forwarding from load
-//
-//      TODO: Disable forwarding in EX on Load - Critical Path
+//      2021-11-04  AL  0.5.0 - Add regr for all ISA tests
 //
 //-----------------------------------------------------------------------------
 
@@ -109,6 +108,7 @@ reg  [31:0] dut_m_load_sm_data_out  ;
 reg  [31:0] dut_m_writeback         ;
 
 // reset sequence
+reg  [ 2:0] dut_m_reset_seq         ;
 reg         dut_m_rst_seq_id        ;
 reg         dut_m_rst_seq_ex        ;
 reg         dut_m_rst_seq_mem       ;
@@ -325,17 +325,17 @@ reg  [24*7:0] dut_m_inst_mem_asm = 'h0;
 
 `define INNA     "INNA" // INstruction Not Available
 
-reg  [ 5*7:0] dasm_r_type_list [0:15] = {"add", "sll", "slt", "sltu", "xor", "srl", "or" , "and", 
+reg  [ 6*7:0] dasm_r_type_list [0:15] = {"add", "sll", "slt", "sltu", "xor", "srl", "or" , "and", 
                                          "sub", `INNA, `INNA, `INNA,  `INNA, "sra", `INNA, `INNA };
 
-reg  [ 5*7:0] dasm_i_type_list [0:15] = {"addi", "slli", "slti", "sltiu", "xori", "srli", "ori", "andi", 
+reg  [ 6*7:0] dasm_i_type_list [0:15] = {"addi", "slli", "slti", "sltiu", "xori", "srli", "ori", "andi", 
                                          `INNA,  `INNA,  `INNA,  `INNA,   `INNA,  "srai", `INNA, `INNA   };
 
-reg  [ 5*7:0] dasm_load_list [0: 7] = {"lb", "lh", "lw", "lbu", "lhu", `INNA, `INNA, `INNA };
+reg  [ 6*7:0] dasm_load_list [0: 7] = {"lb", "lh", "lw", "lbu", "lhu", `INNA, `INNA, `INNA };
 
-reg  [ 5*7:0] dasm_store_list [0: 7] = {"sb", "sh", "sw", `INNA, `INNA, `INNA, `INNA, `INNA };
+reg  [ 6*7:0] dasm_store_list [0: 7] = {"sb", "sh", "sw", `INNA, `INNA, `INNA, `INNA, `INNA };
 
-reg  [ 5*7:0] dasm_branch_list [0: 7] = {"beq", "bne", "blt", "bge", "bltu", "bgeu", `INNA, `INNA };
+reg  [ 6*7:0] dasm_branch_list [0: 7] = {"beq", "bne", "blt", "bge", "bltu", "bgeu", `INNA, `INNA };
 
 function [ 4:0] dasm_rs1 (input [31:0] inst); begin dasm_rs1 = ((inst & 32'h000f_8000)>>15); end endfunction
 function [ 4:0] dasm_rs2 (input [31:0] inst); begin dasm_rs2 = ((inst & 32'h01f0_8000)>>20); end endfunction
@@ -1298,13 +1298,11 @@ task dut_m_ex_mem_pipeline_update();
 endtask
 
 task dut_m_rst_sequence_update();
-    reg   [ 2:0] reset_seq  ;
     begin
-        reset_seq       = (!dut_m_rst) ? {reset_seq[1:0],1'b0} : 3'b111;
-        dut_m_rst_seq_id      = reset_seq[0];
-        dut_m_rst_seq_ex      = reset_seq[1];
-        dut_m_rst_seq_mem     = reset_seq[2];
-        
+        dut_m_reset_seq       = (!dut_m_rst) ? {dut_m_reset_seq[1:0],1'b0} : 3'b111;
+        dut_m_rst_seq_id      = dut_m_reset_seq[0];
+        dut_m_rst_seq_ex      = dut_m_reset_seq[1];
+        dut_m_rst_seq_mem     = dut_m_reset_seq[2];
     end
 endtask
 

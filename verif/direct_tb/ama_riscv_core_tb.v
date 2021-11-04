@@ -45,13 +45,19 @@
 //      2021-10-31  AL        - WIP - DASM - add Load, S-type, B-type
 //      2021-11-01  AL 0.22.1 - Fix model calls - separate block
 //      2021-11-04  AL 0.23.0 - Add stall on forwarding from load
+//      2021-11-04  AL 0.24.0 - Add regr for all ISA tests
 //
 //      TODO list:
 //       - add basic disassembler to convert back instructions to asm format
 //          - handling pseudo ops? other than NOP
 //       - merge regr test to this one
+//          - add switch between regr and single run
+//          - add switch for groups (r-type, i-type, branches, etc)
+//       - add print levels, so it can be disabled on regr runs
 //       - add checker IDs, print on exit number of samples checked and results
 //       - add counters in model
+//       - split regr performance per instruction type (r-type, i-type, load, store, branch, jump etc)
+//       - add array to keep all pass/fail flags for each regr test
 //
 //-----------------------------------------------------------------------------
 
@@ -80,12 +86,55 @@
 
 `define MEM_SIZE            16384
 
-// Macro is used as function to allow passing string as argument, has to be enclosed with begin/end when called
+// Macro is used as function to allow passing string as argument
+// has to be enclosed with begin/end when called
 `define load_memories_m(name)                                                          \
     $readmemh({`PROJECT_PATH, `INST_PATH, `"name`"}, `DUT_IMEM,    0, `MEM_SIZE-1);    \
     $readmemh({`PROJECT_PATH, `INST_PATH, `"name`"}, `DUT_DMEM,    0, `MEM_SIZE-1);    \
     $readmemh({`PROJECT_PATH, `INST_PATH, `"name`"}, dut_m_imem,   0, `MEM_SIZE-1);    \
     $readmemh({`PROJECT_PATH, `INST_PATH, `"name`"}, dut_m_dmem,   0, `MEM_SIZE-1);    \
+
+`define NUMBER_OF_TESTS     38
+
+// Test names
+`define TEST_SIMPLE         simple.hex
+`define TEST_ADD            add.hex
+`define TEST_SUB            sub.hex
+`define TEST_SLL            sll.hex
+`define TEST_SLT            slt.hex
+`define TEST_SLTU           sltu.hex
+`define TEST_XOR            xor.hex
+`define TEST_SRL            srl.hex
+`define TEST_SRA            sra.hex
+`define TEST_OR             or.hex
+`define TEST_AND            and.hex
+`define TEST_ADDI           addi.hex
+`define TEST_SLTI           slti.hex
+`define TEST_SLTIU          sltiu.hex
+`define TEST_XORI           xori.hex
+`define TEST_ORI            ori.hex
+`define TEST_ANDI           andi.hex
+`define TEST_SLLI           slli.hex
+`define TEST_SRLI           srli.hex
+`define TEST_SRAI           srai.hex
+`define TEST_LB             lb.hex
+`define TEST_LH             lh.hex
+`define TEST_LW             lw.hex
+`define TEST_LBU            lbu.hex
+`define TEST_LHU            lhu.hex
+`define TEST_SB             sb.hex
+`define TEST_SH             sh.hex
+`define TEST_SW             sw.hex
+`define TEST_BEQ            beq.hex
+`define TEST_BNE            bne.hex
+`define TEST_BLT            blt.hex
+`define TEST_BGE            bge.hex
+`define TEST_BLTU           bltu.hex
+`define TEST_BGEU           bgeu.hex
+`define TEST_JALR           jalr.hex
+`define TEST_JAL            jal.hex
+`define TEST_LUI            lui.hex
+`define TEST_AUIPC          auipc.hex
 
 module ama_riscv_core_tb();
 
@@ -120,9 +169,22 @@ integer       warnings              ;
 integer       pre_rst_warnings      ;
 reg           errors_for_wave       ;
 wire          tohost_source         ;
+// regr flags
+reg           dut_regr_status       ;
+reg           model_regr_status     ;
+// performance counters
+integer       perf_cnt_cycle        ;
+integer       perf_cnt_instr        ;
+integer       perf_cnt_empty_cycles ;
+integer       perf_cnt_all_nops     ;
+integer       perf_cnt_hw_nops      ;
+integer       perf_cnt_compiler_nops;
 
 // Reset hold for
 reg    [ 3:0] rst_pulses = 4'd3;
+
+// for printing current test name
+reg [16*7:0]  current_test_string   ;
 
 // events
 event         ev_rst    [1:0];
@@ -191,6 +253,52 @@ always #(`CLK_PERIOD/2) clk = ~clk;
 
 //-----------------------------------------------------------------------------
 // Testbench tasks
+task load_test;
+    input integer t_in_test_num;
+    begin
+        case(t_in_test_num)
+            0 : begin  `load_memories_m(`TEST_SIMPLE);  current_test_string = "TEST_SIMPLE";  end
+            1 : begin  `load_memories_m(`TEST_ADD   );  current_test_string = "TEST_ADD   ";  end
+            2 : begin  `load_memories_m(`TEST_SUB   );  current_test_string = "TEST_SUB   ";  end
+            3 : begin  `load_memories_m(`TEST_SLL   );  current_test_string = "TEST_SLL   ";  end
+            4 : begin  `load_memories_m(`TEST_SLT   );  current_test_string = "TEST_SLT   ";  end
+            5 : begin  `load_memories_m(`TEST_SLTU  );  current_test_string = "TEST_SLTU  ";  end
+            6 : begin  `load_memories_m(`TEST_XOR   );  current_test_string = "TEST_XOR   ";  end
+            7 : begin  `load_memories_m(`TEST_SRL   );  current_test_string = "TEST_SRL   ";  end
+            8 : begin  `load_memories_m(`TEST_SRA   );  current_test_string = "TEST_SRA   ";  end
+            9 : begin  `load_memories_m(`TEST_OR    );  current_test_string = "TEST_OR    ";  end
+            10: begin  `load_memories_m(`TEST_AND   );  current_test_string = "TEST_AND   ";  end
+            11: begin  `load_memories_m(`TEST_ADDI  );  current_test_string = "TEST_ADDI  ";  end
+            12: begin  `load_memories_m(`TEST_SLTI  );  current_test_string = "TEST_SLTI  ";  end
+            13: begin  `load_memories_m(`TEST_SLTIU );  current_test_string = "TEST_SLTIU ";  end
+            14: begin  `load_memories_m(`TEST_XORI  );  current_test_string = "TEST_XORI  ";  end
+            15: begin  `load_memories_m(`TEST_ORI   );  current_test_string = "TEST_ORI   ";  end
+            16: begin  `load_memories_m(`TEST_ANDI  );  current_test_string = "TEST_ANDI  ";  end
+            17: begin  `load_memories_m(`TEST_SLLI  );  current_test_string = "TEST_SLLI  ";  end
+            18: begin  `load_memories_m(`TEST_SRLI  );  current_test_string = "TEST_SRLI  ";  end
+            19: begin  `load_memories_m(`TEST_SRAI  );  current_test_string = "TEST_SRAI  ";  end
+            20: begin  `load_memories_m(`TEST_LB    );  current_test_string = "TEST_LB    ";  end
+            21: begin  `load_memories_m(`TEST_LH    );  current_test_string = "TEST_LH    ";  end
+            22: begin  `load_memories_m(`TEST_LW    );  current_test_string = "TEST_LW    ";  end
+            23: begin  `load_memories_m(`TEST_LBU   );  current_test_string = "TEST_LBU   ";  end
+            24: begin  `load_memories_m(`TEST_LHU   );  current_test_string = "TEST_LHU   ";  end
+            25: begin  `load_memories_m(`TEST_SB    );  current_test_string = "TEST_SB    ";  end
+            26: begin  `load_memories_m(`TEST_SH    );  current_test_string = "TEST_SH    ";  end
+            27: begin  `load_memories_m(`TEST_SW    );  current_test_string = "TEST_SW    ";  end
+            28: begin  `load_memories_m(`TEST_BEQ   );  current_test_string = "TEST_BEQ   ";  end
+            29: begin  `load_memories_m(`TEST_BNE   );  current_test_string = "TEST_BNE   ";  end
+            30: begin  `load_memories_m(`TEST_BLT   );  current_test_string = "TEST_BLT   ";  end
+            31: begin  `load_memories_m(`TEST_BGE   );  current_test_string = "TEST_BGE   ";  end
+            32: begin  `load_memories_m(`TEST_BLTU  );  current_test_string = "TEST_BLTU  ";  end
+            33: begin  `load_memories_m(`TEST_BGEU  );  current_test_string = "TEST_BGEU  ";  end
+            34: begin  `load_memories_m(`TEST_JALR  );  current_test_string = "TEST_JALR  ";  end
+            35: begin  `load_memories_m(`TEST_JAL   );  current_test_string = "TEST_JAL   ";  end
+            36: begin  `load_memories_m(`TEST_LUI   );  current_test_string = "TEST_LUI   ";  end
+            37: begin  `load_memories_m(`TEST_AUIPC );  current_test_string = "TEST_AUIPC ";  end
+        endcase
+    end
+endtask
+
 task print_test_status;
     input test_run_success;
     begin
@@ -234,11 +342,49 @@ task print_test_status;
             $display("Instr counter: %0d", mmio_instr_cnt);
             $display("Empty cycles:  %0d", mmio_cycle_cnt - mmio_instr_cnt);
             $display("          CPI: %0.3f", real(mmio_cycle_cnt)/real(mmio_instr_cnt));
+            $display("  HW only CPI: %0.3f", real(mmio_cycle_cnt - (hw_all_nop_or_clear_cnt - hw_inserted_nop_or_clear_cnt))/real(mmio_instr_cnt));
             $display("\nHW Inserted NOPs and Clears: %0d", hw_inserted_nop_or_clear_cnt);
             $display(  "All NOPs and Clears:         %0d", hw_all_nop_or_clear_cnt);
             $display(  "Compiler Inserted NOPs:      %0d", hw_all_nop_or_clear_cnt - hw_inserted_nop_or_clear_cnt);
         end
         $display("\n--------------------- End of the simulation ----------------------\n");
+    end
+endtask
+
+task print_perf_status;
+    begin
+        $display("\n\n----------------------- Performance regr -------------------------\n");
+        $display("Cycle counter: %0d", perf_cnt_cycle);
+        $display("Instr counter: %0d", perf_cnt_instr);
+        $display("Empty cycles:  %0d", perf_cnt_empty_cycles);
+        $display("          CPI: %0.3f", real(perf_cnt_cycle)/real(perf_cnt_instr));
+        $display("  HW only CPI: %0.3f", real(perf_cnt_cycle - perf_cnt_compiler_nops)/real(perf_cnt_instr));
+        $display("\nHW Inserted NOPs and Clears: %0d", perf_cnt_hw_nops);
+        $display(  "All NOPs and Clears:         %0d", perf_cnt_all_nops);
+        $display(  "Compiler Inserted NOPs:      %0d", perf_cnt_compiler_nops);
+        $display("\n--------------------- End of the simulation ----------------------\n");
+    end
+endtask
+
+task print_regr_status;
+    begin
+        $display("\n\n------------------------- Regr status ----------------------------\n");
+        $display("DUT regr status:   %0s", dut_regr_status   ? "Passed" : "Failed");
+        $display("Model regr status: %0s", model_regr_status ? "Passed" : "Failed");
+        $display("\n-------------------- End of the Regr status ----------------------\n");
+    end
+endtask
+
+task store_perf_counters;
+    begin
+        perf_cnt_cycle          = perf_cnt_cycle + mmio_cycle_cnt;
+        perf_cnt_instr          = perf_cnt_instr + mmio_instr_cnt;
+        
+        perf_cnt_empty_cycles   = perf_cnt_empty_cycles + (mmio_cycle_cnt - mmio_instr_cnt);
+        
+        perf_cnt_all_nops       = perf_cnt_all_nops + hw_all_nop_or_clear_cnt;
+        perf_cnt_hw_nops        = perf_cnt_hw_nops + hw_inserted_nop_or_clear_cnt;
+        perf_cnt_compiler_nops  = perf_cnt_compiler_nops + (hw_all_nop_or_clear_cnt - hw_inserted_nop_or_clear_cnt);
     end
 endtask
 
@@ -379,28 +525,43 @@ task run_checkers;
     end // main task body */
 endtask // run_checkers
 
+task reset_tb_vars;
+    begin
+        rst_done            = 0;
+        errors              = 0;
+        errors_for_wave     = 1'b0;
+        warnings            = 0;
+        done                = 0;
+        isa_passed_dut      = 0;
+        isa_passed_model    = 0;
+    end
+endtask
+
 //-----------------------------------------------------------------------------
 // Reset
 initial begin
     // sync this thread with events from main thread
-    @(ev_rst[0]); // #1;
-    // $display("\nReset Sequence start \n");    
-    rst = 1'b0;
-    dut_m_rst = 1'b0;
-    
-    @(ev_rst[0]); // @(posedge clk); #1;
-    
-    rst = 1'b1;
-    dut_m_rst = 1'b1;
-    repeat (rst_pulses) begin
-        @(ev_rst[0]); //@(posedge clk); #1;          
+    // each time new test is loaded
+    repeat(`NUMBER_OF_TESTS) begin
+        @(ev_rst[0]); // #1;
+        // $display("\nReset Sequence start \n");    
+        rst = 1'b0;
+        dut_m_rst = 1'b0;
+        
+        @(ev_rst[0]); // @(posedge clk); #1;
+        
+        rst = 1'b1;
+        dut_m_rst = 1'b1;
+        repeat (rst_pulses) begin
+            @(ev_rst[0]); //@(posedge clk); #1;          
+        end
+        rst = 1'b0;
+        dut_m_rst = 1'b0;
+        // @(ev_rst[0]); //@(posedge clk); #1;  
+        // ->ev_rst_done;
+        // $display("\nReset Sequence end \n");
+        rst_done = 1;
     end
-    rst = 1'b0;
-    dut_m_rst = 1'b0;
-    // @(ev_rst[0]); //@(posedge clk); #1;  
-    // ->ev_rst_done;
-    // $display("\nReset Sequence end \n");
-    rst_done = 1;
 end
 
 //-----------------------------------------------------------------------------
@@ -410,34 +571,39 @@ end
 initial begin
     //Prints %t scaled in ns (-9), with 2 precision digits, with the " ns" string
     $timeformat(-9, 2, " ns", 20);
-    `load_memories_m(`TEST_NAME);
-    errors              = 0;
-    errors_for_wave     = 1'b0;
-    warnings            = 0;
-    done                = 0;
-    isa_passed_dut      = 0;
-    isa_passed_model    = 0;
+    i = 0;
+    perf_cnt_cycle         = 0;
+    perf_cnt_instr         = 0;
+    perf_cnt_empty_cycles  = 0;
+    perf_cnt_all_nops      = 0;
+    perf_cnt_hw_nops       = 0;
+    perf_cnt_compiler_nops = 0;
+    dut_regr_status        = 1'b1; 
+    model_regr_status      = 1'b1;
+    reset_tb_vars();
 end
 
 // Timestamp print
+// initial begin
+//     forever begin
+//         $display("\n\n\n --- Sim time : %0t ---\n", $time);
+//         @(posedge clk);
+//     end
+// end
+
 initial begin
     forever begin
-        $display("\n\n\n --- Sim time : %0t ---\n", $time);
-        @(posedge clk);
-    end
-end
+        // wait for reset done, reset handled in rst thread
+        while (!rst_done) begin
+            @(posedge clk);
+            if(rst_done) dut_m_update();    // handle first case when going out of reset
+        end
 
-initial begin
-    // wait for reset done, reset handled in rst thread
-    while (!rst_done) begin
-        @(posedge clk);
-        if(rst_done) dut_m_update();    // handle first case when going out of reset
-    end
-
-    // run model at every clk
-    while (rst_done) begin
-        @(posedge clk); 
-        dut_m_update();
+        // run model at every clk
+        while (rst_done) begin
+            @(posedge clk); 
+            dut_m_update();
+        end
     end
 end
 
@@ -452,70 +618,89 @@ end
 // Test
 initial begin
     $display("\n----------------------- Simulation started -----------------------\n");
-    // Test 0: Wait for reset
-    $display("\n Resetting DUT... \n");
-    @(posedge clk); #1;
-    while (!rst_done) begin
-        // $display("Reset not done, time: %0t \n", $time);
-         ->ev_rst[0]; #1;
+    
+    while(i < `NUMBER_OF_TESTS) begin
+        load_test(i);
+        i = i + 1;
+    
+        // Test 0: Wait for reset
+        // $display("\n Resetting DUT... \n");
+        @(posedge clk); #1;
+        while (!rst_done) begin
+            // $display("Reset not done, time: %0t \n", $time);
+             ->ev_rst[0]; #1;
+            
+            // if still not done, wait for next clk else exit
+            if(!rst_done) begin 
+                @(posedge clk); #1; 
+                dut_m_update();
+            end
+        end
+        //$display("Reset done, time: %0t \n", $time);
+        pre_rst_warnings = warnings;
         
-        // if still not done, wait for next clk else exit
-        if(!rst_done) begin 
-            @(posedge clk); #1; 
-            dut_m_update();
-        end
-    end
-    $display("Reset done, time: %0t \n", $time);
-    
-    pre_rst_warnings = warnings;
-    
-    //-----------------------------------------------------------------------------
-    // Test
-    $display("\nTest Start \n");
+        //-----------------------------------------------------------------------------
+        // Test
+        $display("\n\n\nTest Start: %0s ", current_test_string);
 
-    // catch timeout
-    fork
-        begin
-            while (tohost_source !== 1'b1) begin
-                @(posedge clk);
-                #`CHECK_D; run_checkers();
-                print_single_instruction_results();
+        // catch timeout
+        fork
+            begin
+                while (tohost_source !== 1'b1) begin
+                    @(posedge clk);
+                    #`CHECK_D; run_checkers();
+                    print_single_instruction_results();
+                end
+                done = 1;
             end
-            done = 1;
+            begin
+                repeat(`TIMEOUT_CLOCKS) begin
+                    if (!done) @(posedge clk);
+                end
+                if (!done) begin    // timed-out
+                    print_test_status(done);
+                    $finish();
+                end
+            end
+        join
+        
+        // DUT passed ISA?
+        if (`DUT.tohost === `TOHOST_PASS)
+            isa_passed_dut = 1;
+        else
+            isa_passed_dut = 0;
+        
+        // Model passed ISA?
+        if (dut_m_tohost === `TOHOST_PASS)
+            isa_passed_model = 1;
+        else
+            isa_passed_model = 0;
+        
+        // store regr flags
+        dut_regr_status     = dut_regr_status   && isa_passed_dut  ;
+        model_regr_status   = model_regr_status && isa_passed_model;
+        
+        repeat (6) begin 
+            @(posedge clk);
+            #`CHECK_D; run_checkers();
+            print_single_instruction_results();
         end
-        begin
-            repeat(`TIMEOUT_CLOCKS) begin
-                if (!done) @(posedge clk);
-            end
-            if (!done) begin    // timed-out
-                print_test_status(done);
-                $finish();
-            end
-        end
-    join
-    
-    // DUT passed ISA?
-    if (`DUT.tohost === `TOHOST_PASS)
-        isa_passed_dut = 1;
-    else
-        isa_passed_dut = 0;
-    
-    // Model passed ISA?
-    if (dut_m_tohost === `TOHOST_PASS)
-        isa_passed_model = 1;
-    else
-        isa_passed_model = 0;
-    
-    repeat (6) begin 
-        @(posedge clk);
-        #`CHECK_D; run_checkers();
-        print_single_instruction_results();
-    end
 
-    $display("\n\nTest Done \n");
+        print_test_status(done);
+
+        $display("Test Done: %0s ", current_test_string); 
+        
+        store_perf_counters();
+        
+        reset_tb_vars();
+        
+    end // end looping thru tests
     
-    repeat (1) @(posedge clk);
-    print_test_status(done);
+    $display("\n-------------------------- Regr Done -----------------------------\n");
+    print_regr_status();
+    // CPI print
+    print_perf_status();
+    
     $finish();
     
 end // test
