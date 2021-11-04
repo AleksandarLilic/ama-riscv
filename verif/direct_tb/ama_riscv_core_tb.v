@@ -46,6 +46,7 @@
 //      2021-11-01  AL 0.22.1 - Fix model calls - separate block
 //      2021-11-04  AL 0.23.0 - Add stall on forwarding from load
 //      2021-11-04  AL 0.24.0 - Add regr for all ISA tests
+//      2021-11-04  AL 0.25.0 - Add single test option
 //
 //      TODO list:
 //       - add basic disassembler to convert back instructions to asm format
@@ -53,6 +54,7 @@
 //       - merge regr test to this one
 //          - add switch between regr and single run
 //          - add switch for groups (r-type, i-type, branches, etc)
+//       - use indexing for load_test task, array for tests like disasembler uses
 //       - add print levels, so it can be disabled on regr runs
 //       - add checker IDs, print on exit number of samples checked and results
 //       - add counters in model
@@ -65,7 +67,11 @@
 `include "../../src/ama_riscv_defines.v"
 
 `define CLK_PERIOD          8
+`define SINGLE_TEST         1
 `define TEST_NAME           lw.hex
+`define STRINGIFY(x)        `"x`"
+
+`define NUMBER_OF_TESTS     38
 
 // TB
 `define CHECKER_ACTIVE      1'b0        // TODO: Consider moving checkers to different file
@@ -93,8 +99,6 @@
     $readmemh({`PROJECT_PATH, `INST_PATH, `"name`"}, `DUT_DMEM,    0, `MEM_SIZE-1);    \
     $readmemh({`PROJECT_PATH, `INST_PATH, `"name`"}, dut_m_imem,   0, `MEM_SIZE-1);    \
     $readmemh({`PROJECT_PATH, `INST_PATH, `"name`"}, dut_m_dmem,   0, `MEM_SIZE-1);    \
-
-`define NUMBER_OF_TESTS     38
 
 // Test names
 `define TEST_SIMPLE         simple.hex
@@ -169,6 +173,7 @@ integer       warnings              ;
 integer       pre_rst_warnings      ;
 reg           errors_for_wave       ;
 wire          tohost_source         ;
+integer       regr_num = (`SINGLE_TEST) ? 1 : `NUMBER_OF_TESTS;
 // regr flags
 reg           dut_regr_status       ;
 reg           model_regr_status     ;
@@ -253,6 +258,13 @@ always #(`CLK_PERIOD/2) clk = ~clk;
 
 //-----------------------------------------------------------------------------
 // Testbench tasks
+task load_single_test;
+    begin
+        `load_memories_m(`TEST_NAME); current_test_string = `STRINGIFY(`TEST_NAME);
+    end
+endtask
+
+
 task load_test;
     input integer t_in_test_num;
     begin
@@ -542,7 +554,7 @@ endtask
 initial begin
     // sync this thread with events from main thread
     // each time new test is loaded
-    repeat(`NUMBER_OF_TESTS) begin
+    repeat(regr_num) begin
         @(ev_rst[0]); // #1;
         // $display("\nReset Sequence start \n");    
         rst = 1'b0;
@@ -619,8 +631,10 @@ end
 initial begin
     $display("\n----------------------- Simulation started -----------------------\n");
     
-    while(i < `NUMBER_OF_TESTS) begin
-        load_test(i);
+    while(i < regr_num) begin
+        if (regr_num == 1) load_single_test();
+        else load_test(i);
+
         i = i + 1;
     
         // Test 0: Wait for reset
