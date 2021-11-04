@@ -44,6 +44,7 @@
 //      2021-10-30  AL        - WIP - DASM - add I-type
 //      2021-10-31  AL        - WIP - DASM - add Load, S-type, B-type
 //      2021-11-01  AL 0.22.1 - Fix model calls - separate block
+//      2021-11-04  AL 0.23.0 - Add stall on forwarding from load
 //
 //      TODO list:
 //       - add basic disassembler to convert back instructions to asm format
@@ -58,10 +59,10 @@
 `include "../../src/ama_riscv_defines.v"
 
 `define CLK_PERIOD          8
-`define TEST_NAME           sw.hex
+`define TEST_NAME           lw.hex
 
 // TB
-`define CHECKER_ACTIVE      1'b1        // TODO: Consider moving checkers to different file
+`define CHECKER_ACTIVE      1'b0        // TODO: Consider moving checkers to different file
 `define CHECKER_INACTIVE    1'b0
 `define CHECK_D             1
 `define TIMEOUT_CLOCKS      5000
@@ -117,6 +118,8 @@ integer       run_test_pc_target    ;
 integer       errors                ;
 integer       warnings              ;
 integer       pre_rst_warnings      ;
+reg           errors_for_wave       ;
+wire          tohost_source         ;
 
 // Reset hold for
 reg    [ 3:0] rst_pulses = 4'd3;
@@ -136,7 +139,7 @@ ama_riscv_core DUT_ama_riscv_core_i (
 );
 
 //-----------------------------------------------------------------------------
-// Performance counters
+// Performance counters - HW
 
 // Cycle counter
 reg   [31:0] mmio_cycle_cnt         ;
@@ -271,7 +274,10 @@ task checker_t;
 endtask
 
 task run_checkers;
+    integer checker_errors_prev;
     begin
+        checker_errors_prev = errors;
+
         // Datapath        
         // IF_stage
         checker_t("pc",                 `CHECKER_ACTIVE,    `DUT.pc,                    dut_m_pc                );
@@ -367,7 +373,9 @@ task run_checkers;
         checker_t("x31_t6 ",            `CHECKER_ACTIVE,    `DUT_RF.x31_t6 ,            dut_m_x31_t6            );
         
         checker_t("tohost",             `CHECKER_ACTIVE,    `DUT.tohost,                dut_m_tohost            );
-    
+        
+        errors_for_wave = (errors != checker_errors_prev);
+
     end // main task body */
 endtask // run_checkers
 
@@ -404,6 +412,7 @@ initial begin
     $timeformat(-9, 2, " ns", 20);
     `load_memories_m(`TEST_NAME);
     errors              = 0;
+    errors_for_wave     = 1'b0;
     warnings            = 0;
     done                = 0;
     isa_passed_dut      = 0;
@@ -432,6 +441,13 @@ initial begin
     end
 end
 
+// choose which tohost CSR to use for simulation end
+`ifdef DUT_TEST
+    assign tohost_source = `DUT.tohost[0];
+`else   // MODEL_TEST
+    assign tohost_source = dut_m_tohost[0];
+`endif
+
 //-----------------------------------------------------------------------------
 // Test
 initial begin
@@ -456,11 +472,11 @@ initial begin
     //-----------------------------------------------------------------------------
     // Test
     $display("\nTest Start \n");
-    
+
     // catch timeout
     fork
         begin
-            while (`DUT.tohost[0] !== 1'b1) begin
+            while (tohost_source !== 1'b1) begin
                 @(posedge clk);
                 #`CHECK_D; run_checkers();
                 print_single_instruction_results();
@@ -471,7 +487,7 @@ initial begin
             repeat(`TIMEOUT_CLOCKS) begin
                 if (!done) @(posedge clk);
             end
-            if (!done) begin
+            if (!done) begin    // timed-out
                 print_test_status(done);
                 $finish();
             end
@@ -493,6 +509,7 @@ initial begin
     repeat (6) begin 
         @(posedge clk);
         #`CHECK_D; run_checkers();
+        print_single_instruction_results();
     end
 
     $display("\n\nTest Done \n");
@@ -504,5 +521,4 @@ initial begin
 end // test
 
 endmodule
-
 

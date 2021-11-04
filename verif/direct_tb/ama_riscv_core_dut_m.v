@@ -15,6 +15,7 @@
 //      2021-10-30  AL        - WIP - DASM - add I-type
 //      2021-10-31  AL        - WIP - DASM - add Load, S-type, B-type
 //      2021-11-01  AL  0.3.0 - Add dependency detection as separate logic
+//      2021-11-04  AL  0.4.0 - Add stall on forwarding from load
 //
 //      TODO: Disable forwarding in EX on Load - Critical Path
 //
@@ -107,15 +108,21 @@ reg  [31:0] dut_m_csr_data_mem      ;
 reg  [31:0] dut_m_load_sm_data_out  ;
 reg  [31:0] dut_m_writeback         ;
 
+// reset sequence
+reg         dut_m_rst_seq_id        ;
+reg         dut_m_rst_seq_ex        ;
+reg         dut_m_rst_seq_mem       ;
 
 // Control Outputs - Pipeline Registers
 reg         dut_m_stall_if          ;
-reg         dut_m_stall_if_q1       ;
 reg         dut_m_clear_if          ;
+reg         dut_m_clear_if_q1       ;
+reg         dut_m_stall_id          ;
 reg         dut_m_clear_id          ;
+reg         dut_m_stall_ex          ;
 reg         dut_m_clear_ex          ;
+reg         dut_m_stall_mem         ;
 reg         dut_m_clear_mem         ;
-
 
 // Control Outputs
 // for IF stage
@@ -186,11 +193,14 @@ reg         dut_m_branch_inst_ex        ;
 reg         dut_m_jump_inst_ex          ;
 reg         dut_m_store_inst_ex         ;
 reg         dut_m_load_inst_ex          ;
-// detect dependencies
+// dependency detection
 reg         dut_m_dd_rs1_ex             ;
 reg         dut_m_dd_rs2_ex             ;
-reg         dut_m_dd_rs1_mem             ;
-reg         dut_m_dd_rs2_mem             ;
+reg         dut_m_dd_rs1_mem            ;
+reg         dut_m_dd_rs2_mem            ;
+reg         dut_m_dd_bubble_ex          ;
+// bubbles
+reg         dut_m_bubble_load           ;
 // branch compare inputs
 reg  [31:0] dut_m_bc_in_a               ;
 reg  [31:0] dut_m_bc_in_b               ;
@@ -388,19 +398,29 @@ task dut_m_decode();
         end
         else /*if (dut_m_rst)*/ begin dut_m_decode_reset();       end
         
-        // check if instruction will stall
-        dut_m_stall_if = (dut_m_branch_inst_id || dut_m_jump_inst_id);
-        
-        // if it stalls, we = 0
-        dut_m_pc_we_if = dut_m_pc_we_if && (!dut_m_stall_if);
-         
         // Detect Dependencies
         dut_m_decode_dd();
         // Operand Forwarding
         dut_m_decode_op_fwd_alu();
         dut_m_decode_op_fwd_bcs();
         dut_m_decode_op_fwd_rf();
+        
+        // pipeline controls
+        dut_m_stall_if = dut_m_branch_inst_id || dut_m_jump_inst_id || dut_m_dd_bubble_ex;
+        dut_m_clear_if = dut_m_branch_inst_id || dut_m_jump_inst_id;
          
+        dut_m_stall_id = 1'b0;
+        dut_m_clear_id  = dut_m_rst_seq_id || dut_m_dd_bubble_ex  ;
+
+        dut_m_stall_ex = 1'b0;
+        dut_m_clear_ex  = dut_m_rst_seq_ex   ;
+
+        dut_m_stall_mem = 1'b0;
+        dut_m_clear_mem = dut_m_rst_seq_mem  ;
+        
+        // update pc if stall
+        dut_m_pc_we_if = dut_m_pc_we_if && (!dut_m_stall_if);
+
         // Store Mask
         dut_m_decode_store_mask();
          
@@ -691,6 +711,9 @@ endtask
 
 task dut_m_decode_dd();
     begin
+        // Bubbles
+        dut_m_bubble_load = dut_m_load_inst_ex;
+
         // EX stage
         dut_m_dd_rs1_ex = ( (dut_m_rs1_addr_id != `RF_X0_ZERO       ) && 
                             (dut_m_rs1_addr_id == dut_m_rd_addr_ex  ) && 
@@ -706,19 +729,21 @@ task dut_m_decode_dd();
         dut_m_dd_rs2_mem = ( (dut_m_rs2_addr_id != `RF_X0_ZERO        ) && 
                              (dut_m_rs2_addr_id == dut_m_rd_addr_mem  ) && 
                              (dut_m_reg_we_mem                        )    );
+        
+        dut_m_dd_bubble_ex = (dut_m_dd_rs1_ex || dut_m_dd_rs2_ex) && dut_m_bubble_load;
     end
 endtask
 
 task dut_m_decode_op_fwd_alu();
     begin
         // Operand A
-        if ((dut_m_dd_rs1_ex) && (!dut_m_alu_a_sel_id))
+        if ((dut_m_dd_rs1_ex) && (!dut_m_alu_a_sel_id) && (!dut_m_bubble_load))
             dut_m_alu_a_sel_fwd_id = `ALU_A_SEL_FWD_ALU;            // forward previous ALU result
         else
             dut_m_alu_a_sel_fwd_id = {1'b0, dut_m_alu_a_sel_id};    // don't forward
         
         // Operand B
-        if ((dut_m_dd_rs2_ex) && (!dut_m_alu_b_sel_id))
+        if ((dut_m_dd_rs2_ex) && (!dut_m_alu_b_sel_id) && (!dut_m_bubble_load))
             dut_m_alu_b_sel_fwd_id = `ALU_B_SEL_FWD_ALU;            // forward previous ALU result
         else
             dut_m_alu_b_sel_fwd_id = {1'b0, dut_m_alu_b_sel_id};    // don't forward
@@ -728,10 +753,10 @@ endtask
 task dut_m_decode_op_fwd_bcs();
     begin
         // BC A
-        dut_m_bc_a_sel_fwd_id  = ((dut_m_dd_rs1_ex) && (dut_m_branch_inst_id));
+        dut_m_bc_a_sel_fwd_id  = ((dut_m_dd_rs1_ex) && (dut_m_branch_inst_id) && (!dut_m_bubble_load));
         
         // BC B or DMEM din for store
-        dut_m_bcs_b_sel_fwd_id = ((dut_m_dd_rs2_ex) && (dut_m_store_inst_id || dut_m_branch_inst_id));
+        dut_m_bcs_b_sel_fwd_id = ((dut_m_dd_rs2_ex) && (dut_m_store_inst_id || dut_m_branch_inst_id)) && (!dut_m_bubble_load);
     end
 endtask
 
@@ -840,7 +865,7 @@ task dut_m_pc_mux_update();
     begin
         case (dut_m_pc_sel_if)
             2'd0: begin
-                dut_m_pc_mux_out =  dut_m_pc + 4;
+                dut_m_pc_mux_out =  dut_m_stall_if ? dut_m_pc : dut_m_pc + 4;
             end
             
             2'd1: begin
@@ -1199,13 +1224,13 @@ endtask
 
 task dut_m_nop_id_update();
     begin
-        dut_m_inst_id           = (dut_m_stall_if_q1) ? `NOP : dut_m_inst_id_read;
+        dut_m_inst_id           = (dut_m_clear_if_q1) ? `NOP : dut_m_inst_id_read;
     end
 endtask
 
 task dut_m_if_pipeline_update();
     begin
-        dut_m_stall_if_q1       = (!dut_m_rst) ? dut_m_stall_if : 'b1;
+        dut_m_clear_if_q1       = (!dut_m_rst) ? dut_m_clear_if : 'b1;
     end
 endtask
 
@@ -1226,8 +1251,8 @@ task dut_m_id_ex_pipeline_update();
                                              /*dut_m_rst or clear*/  'h0                      ;        
         dut_m_imm_gen_out_ex     = (!dut_m_rst && !dut_m_clear_id) ? dut_m_imm_gen_out_id      : 'h0;
         dut_m_csr_data_ex        = (!dut_m_rst && !dut_m_clear_id) ? dut_m_csr_data_id         : 'h0;
-        dut_m_inst_ex            = (!dut_m_rst && !dut_m_clear_id) ? dut_m_inst_id             : 'h0;
-        dut_m_inst_ex_asm        = (!dut_m_rst && !dut_m_clear_id) ? dut_m_inst_id_asm         : 'h0;
+        dut_m_inst_ex            = (!dut_m_rst && !dut_m_clear_id) ? dut_m_inst_id             : `NOP;
+        dut_m_inst_ex_asm        = (!dut_m_rst && !dut_m_clear_id) ? dut_m_inst_id_asm         : "nop";
         
         // control
         dut_m_bc_uns_ex          = (!dut_m_rst && !dut_m_clear_id) ? dut_m_bc_uns_id           : 'b0;
@@ -1258,8 +1283,8 @@ task dut_m_ex_mem_pipeline_update();
         dut_m_alu_in_a_mem       = (!dut_m_rst && !dut_m_clear_ex) ? dut_m_alu_in_a           : 'h0;
         dut_m_dmem_update();
         dut_m_load_sm_offset_mem = (!dut_m_rst && !dut_m_clear_ex) ? dut_m_load_sm_offset_ex  : 'h0;
-        dut_m_inst_mem           = (!dut_m_rst && !dut_m_clear_ex) ? dut_m_inst_ex            : 'h0;
-        dut_m_inst_mem_asm       = (!dut_m_rst && !dut_m_clear_ex) ? dut_m_inst_ex_asm        : 'h0;
+        dut_m_inst_mem           = (!dut_m_rst && !dut_m_clear_ex) ? dut_m_inst_ex            : `NOP;
+        dut_m_inst_mem_asm       = (!dut_m_rst && !dut_m_clear_ex) ? dut_m_inst_ex_asm        : "nop";
         dut_m_rd_addr_mem        = (!dut_m_rst && !dut_m_clear_ex) ? dut_m_rd_addr_ex         : 'h0;
         dut_m_rs1_addr_mem       = (!dut_m_rst && !dut_m_clear_ex) ? dut_m_rs1_addr_ex        : 'h0;
         dut_m_csr_data_mem       = (!dut_m_rst && !dut_m_clear_ex) ? dut_m_csr_data_ex        : 'h0;
@@ -1274,18 +1299,11 @@ endtask
 
 task dut_m_rst_sequence_update();
     reg   [ 2:0] reset_seq  ;
-    reg          dut_m_rst_seq_id ;
-    reg          dut_m_rst_seq_ex ;
-    reg          dut_m_rst_seq_mem;
     begin
         reset_seq       = (!dut_m_rst) ? {reset_seq[1:0],1'b0} : 3'b111;
         dut_m_rst_seq_id      = reset_seq[0];
         dut_m_rst_seq_ex      = reset_seq[1];
         dut_m_rst_seq_mem     = reset_seq[2];
-        
-        dut_m_clear_id  = dut_m_rst_seq_id   ;
-        dut_m_clear_ex  = dut_m_rst_seq_ex   ;
-        dut_m_clear_mem = dut_m_rst_seq_mem  ;
         
     end
 endtask
