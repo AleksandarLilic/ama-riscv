@@ -255,12 +255,12 @@ wire [31:0] dut_m_x31_t6  = dut_m_rf32[31];  // temporary
 // Testbench variables
 integer       dut_m_i               ;              // used for all loops
 // performance counters
-integer       perf_cnt_cycle        ;
-integer       perf_cnt_instr        ;
-integer       perf_cnt_empty_cycles ;
-integer       perf_cnt_all_nops     ;
-integer       perf_cnt_hw_nops      ;
-integer       perf_cnt_compiler_nops;
+integer       dut_m_perf_cnt_cycle        ;
+integer       dut_m_perf_cnt_instr        ;
+integer       dut_m_perf_cnt_empty_cycles ;
+integer       dut_m_perf_cnt_all_nops     ;
+integer       dut_m_perf_cnt_hw_nops      ;
+integer       dut_m_perf_cnt_compiler_nops;
 
 integer       warnings              ;
 

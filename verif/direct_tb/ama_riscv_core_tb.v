@@ -47,19 +47,15 @@
 //      2021-11-04  AL 0.23.0 - Add stall on forwarding from load
 //      2021-11-04  AL 0.24.0 - Add regr for all ISA tests
 //      2021-11-04  AL 0.25.0 - Add single test option
+//      2021-11-05  AL 0.26.0 - Add regr test status arrays, verbosity switch
 //
 //      TODO list:
 //       - add basic disassembler to convert back instructions to asm format
 //          - handling pseudo ops? other than NOP
-//       - merge regr test to this one
-//          - add switch between regr and single run
-//          - add switch for groups (r-type, i-type, branches, etc)
-//       - use indexing for load_test task, array for tests like disasembler uses
-//       - add print levels, so it can be disabled on regr runs
+//       - add switch for groups (r-type, i-type, branches, etc)
 //       - add checker IDs, print on exit number of samples checked and results
 //       - add counters in model
 //       - split regr performance per instruction type (r-type, i-type, load, store, branch, jump etc)
-//       - add array to keep all pass/fail flags for each regr test
 //
 //-----------------------------------------------------------------------------
 
@@ -67,10 +63,10 @@
 `include "../../src/ama_riscv_defines.v"
 
 `define CLK_PERIOD          8
-`define SINGLE_TEST         1
+`define SINGLE_TEST         0
 `define TEST_NAME           lw.hex
-`define STRINGIFY(x)        `"x`"
 
+`define VERBOSITY           1           // TODO: keep up to 5, add list of choices?, dbg & perf levels?
 `define NUMBER_OF_TESTS     38
 
 // TB
@@ -92,7 +88,8 @@
 
 `define MEM_SIZE            16384
 
-// Macro is used as function to allow passing string as argument
+// Macro functions
+`define STRINGIFY(x)        `"x`"
 // has to be enclosed with begin/end when called
 `define load_memories_m(name)                                                          \
     $readmemh({`PROJECT_PATH, `INST_PATH, `"name`"}, `DUT_IMEM,    0, `MEM_SIZE-1);    \
@@ -177,6 +174,10 @@ integer       regr_num = (`SINGLE_TEST) ? 1 : `NUMBER_OF_TESTS;
 // regr flags
 reg           dut_regr_status       ;
 reg           model_regr_status     ;
+reg  [12*7:0] dut_regr_array [`NUMBER_OF_TESTS-1:0];
+reg  [12*7:0] model_regr_array [`NUMBER_OF_TESTS-1:0];
+integer       isa_failed_dut_cnt    ;
+integer       isa_failed_model_cnt  ;
 // performance counters
 integer       perf_cnt_cycle        ;
 integer       perf_cnt_instr        ;
@@ -189,7 +190,7 @@ integer       perf_cnt_compiler_nops;
 reg    [ 3:0] rst_pulses = 4'd3;
 
 // for printing current test name
-reg [16*7:0]  current_test_string   ;
+reg [12*7:0]  current_test_string   ;
 
 // events
 event         ev_rst    [1:0];
@@ -264,49 +265,48 @@ task load_single_test;
     end
 endtask
 
-
 task load_test;
     input integer t_in_test_num;
     begin
         case(t_in_test_num)
-            0 : begin  `load_memories_m(`TEST_SIMPLE);  current_test_string = "TEST_SIMPLE";  end
-            1 : begin  `load_memories_m(`TEST_ADD   );  current_test_string = "TEST_ADD   ";  end
-            2 : begin  `load_memories_m(`TEST_SUB   );  current_test_string = "TEST_SUB   ";  end
-            3 : begin  `load_memories_m(`TEST_SLL   );  current_test_string = "TEST_SLL   ";  end
-            4 : begin  `load_memories_m(`TEST_SLT   );  current_test_string = "TEST_SLT   ";  end
-            5 : begin  `load_memories_m(`TEST_SLTU  );  current_test_string = "TEST_SLTU  ";  end
-            6 : begin  `load_memories_m(`TEST_XOR   );  current_test_string = "TEST_XOR   ";  end
-            7 : begin  `load_memories_m(`TEST_SRL   );  current_test_string = "TEST_SRL   ";  end
-            8 : begin  `load_memories_m(`TEST_SRA   );  current_test_string = "TEST_SRA   ";  end
-            9 : begin  `load_memories_m(`TEST_OR    );  current_test_string = "TEST_OR    ";  end
-            10: begin  `load_memories_m(`TEST_AND   );  current_test_string = "TEST_AND   ";  end
-            11: begin  `load_memories_m(`TEST_ADDI  );  current_test_string = "TEST_ADDI  ";  end
-            12: begin  `load_memories_m(`TEST_SLTI  );  current_test_string = "TEST_SLTI  ";  end
-            13: begin  `load_memories_m(`TEST_SLTIU );  current_test_string = "TEST_SLTIU ";  end
-            14: begin  `load_memories_m(`TEST_XORI  );  current_test_string = "TEST_XORI  ";  end
-            15: begin  `load_memories_m(`TEST_ORI   );  current_test_string = "TEST_ORI   ";  end
-            16: begin  `load_memories_m(`TEST_ANDI  );  current_test_string = "TEST_ANDI  ";  end
-            17: begin  `load_memories_m(`TEST_SLLI  );  current_test_string = "TEST_SLLI  ";  end
-            18: begin  `load_memories_m(`TEST_SRLI  );  current_test_string = "TEST_SRLI  ";  end
-            19: begin  `load_memories_m(`TEST_SRAI  );  current_test_string = "TEST_SRAI  ";  end
-            20: begin  `load_memories_m(`TEST_LB    );  current_test_string = "TEST_LB    ";  end
-            21: begin  `load_memories_m(`TEST_LH    );  current_test_string = "TEST_LH    ";  end
-            22: begin  `load_memories_m(`TEST_LW    );  current_test_string = "TEST_LW    ";  end
-            23: begin  `load_memories_m(`TEST_LBU   );  current_test_string = "TEST_LBU   ";  end
-            24: begin  `load_memories_m(`TEST_LHU   );  current_test_string = "TEST_LHU   ";  end
-            25: begin  `load_memories_m(`TEST_SB    );  current_test_string = "TEST_SB    ";  end
-            26: begin  `load_memories_m(`TEST_SH    );  current_test_string = "TEST_SH    ";  end
-            27: begin  `load_memories_m(`TEST_SW    );  current_test_string = "TEST_SW    ";  end
-            28: begin  `load_memories_m(`TEST_BEQ   );  current_test_string = "TEST_BEQ   ";  end
-            29: begin  `load_memories_m(`TEST_BNE   );  current_test_string = "TEST_BNE   ";  end
-            30: begin  `load_memories_m(`TEST_BLT   );  current_test_string = "TEST_BLT   ";  end
-            31: begin  `load_memories_m(`TEST_BGE   );  current_test_string = "TEST_BGE   ";  end
-            32: begin  `load_memories_m(`TEST_BLTU  );  current_test_string = "TEST_BLTU  ";  end
-            33: begin  `load_memories_m(`TEST_BGEU  );  current_test_string = "TEST_BGEU  ";  end
-            34: begin  `load_memories_m(`TEST_JALR  );  current_test_string = "TEST_JALR  ";  end
-            35: begin  `load_memories_m(`TEST_JAL   );  current_test_string = "TEST_JAL   ";  end
-            36: begin  `load_memories_m(`TEST_LUI   );  current_test_string = "TEST_LUI   ";  end
-            37: begin  `load_memories_m(`TEST_AUIPC );  current_test_string = "TEST_AUIPC ";  end
+            0 : begin  `load_memories_m(`TEST_SIMPLE);  current_test_string = "SIMPLE";  end
+            1 : begin  `load_memories_m(`TEST_ADD   );  current_test_string = "ADD   ";  end
+            2 : begin  `load_memories_m(`TEST_SUB   );  current_test_string = "SUB   ";  end
+            3 : begin  `load_memories_m(`TEST_SLL   );  current_test_string = "SLL   ";  end
+            4 : begin  `load_memories_m(`TEST_SLT   );  current_test_string = "SLT   ";  end
+            5 : begin  `load_memories_m(`TEST_SLTU  );  current_test_string = "SLTU  ";  end
+            6 : begin  `load_memories_m(`TEST_XOR   );  current_test_string = "XOR   ";  end
+            7 : begin  `load_memories_m(`TEST_SRL   );  current_test_string = "SRL   ";  end
+            8 : begin  `load_memories_m(`TEST_SRA   );  current_test_string = "SRA   ";  end
+            9 : begin  `load_memories_m(`TEST_OR    );  current_test_string = "OR    ";  end
+            10: begin  `load_memories_m(`TEST_AND   );  current_test_string = "AND   ";  end
+            11: begin  `load_memories_m(`TEST_ADDI  );  current_test_string = "ADDI  ";  end
+            12: begin  `load_memories_m(`TEST_SLTI  );  current_test_string = "SLTI  ";  end
+            13: begin  `load_memories_m(`TEST_SLTIU );  current_test_string = "SLTIU ";  end
+            14: begin  `load_memories_m(`TEST_XORI  );  current_test_string = "XORI  ";  end
+            15: begin  `load_memories_m(`TEST_ORI   );  current_test_string = "ORI   ";  end
+            16: begin  `load_memories_m(`TEST_ANDI  );  current_test_string = "ANDI  ";  end
+            17: begin  `load_memories_m(`TEST_SLLI  );  current_test_string = "SLLI  ";  end
+            18: begin  `load_memories_m(`TEST_SRLI  );  current_test_string = "SRLI  ";  end
+            19: begin  `load_memories_m(`TEST_SRAI  );  current_test_string = "SRAI  ";  end
+            20: begin  `load_memories_m(`TEST_LB    );  current_test_string = "LB    ";  end
+            21: begin  `load_memories_m(`TEST_LH    );  current_test_string = "LH    ";  end
+            22: begin  `load_memories_m(`TEST_LW    );  current_test_string = "LW    ";  end
+            23: begin  `load_memories_m(`TEST_LBU   );  current_test_string = "LBU   ";  end
+            24: begin  `load_memories_m(`TEST_LHU   );  current_test_string = "LHU   ";  end
+            25: begin  `load_memories_m(`TEST_SB    );  current_test_string = "SB    ";  end
+            26: begin  `load_memories_m(`TEST_SH    );  current_test_string = "SH    ";  end
+            27: begin  `load_memories_m(`TEST_SW    );  current_test_string = "SW    ";  end
+            28: begin  `load_memories_m(`TEST_BEQ   );  current_test_string = "BEQ   ";  end
+            29: begin  `load_memories_m(`TEST_BNE   );  current_test_string = "BNE   ";  end
+            30: begin  `load_memories_m(`TEST_BLT   );  current_test_string = "BLT   ";  end
+            31: begin  `load_memories_m(`TEST_BGE   );  current_test_string = "BGE   ";  end
+            32: begin  `load_memories_m(`TEST_BLTU  );  current_test_string = "BLTU  ";  end
+            33: begin  `load_memories_m(`TEST_BGEU  );  current_test_string = "BGEU  ";  end
+            34: begin  `load_memories_m(`TEST_JALR  );  current_test_string = "JALR  ";  end
+            35: begin  `load_memories_m(`TEST_JAL   );  current_test_string = "JAL   ";  end
+            36: begin  `load_memories_m(`TEST_LUI   );  current_test_string = "LUI   ";  end
+            37: begin  `load_memories_m(`TEST_AUIPC );  current_test_string = "AUIPC ";  end
         endcase
     end
 endtask
@@ -349,15 +349,17 @@ task print_test_status;
             $display("    Warnings: %2d", warnings - pre_rst_warnings);
             $display("    Errors:   %2d", errors);
             
-            $display("\n\n-------------------------- Performance ---------------------------\n");
-            $display("Cycle counter: %0d", mmio_cycle_cnt);
-            $display("Instr counter: %0d", mmio_instr_cnt);
-            $display("Empty cycles:  %0d", mmio_cycle_cnt - mmio_instr_cnt);
-            $display("          CPI: %0.3f", real(mmio_cycle_cnt)/real(mmio_instr_cnt));
-            $display("  HW only CPI: %0.3f", real(mmio_cycle_cnt - (hw_all_nop_or_clear_cnt - hw_inserted_nop_or_clear_cnt))/real(mmio_instr_cnt));
-            $display("\nHW Inserted NOPs and Clears: %0d", hw_inserted_nop_or_clear_cnt);
-            $display(  "All NOPs and Clears:         %0d", hw_all_nop_or_clear_cnt);
-            $display(  "Compiler Inserted NOPs:      %0d", hw_all_nop_or_clear_cnt - hw_inserted_nop_or_clear_cnt);
+            if(`VERBOSITY >= 2) begin
+                $display("\n\n-------------------------- Performance ---------------------------\n");
+                $display("Cycle counter: %0d", mmio_cycle_cnt);
+                $display("Instr counter: %0d", mmio_instr_cnt);
+                $display("Empty cycles:  %0d", mmio_cycle_cnt - mmio_instr_cnt);
+                $display("          CPI: %0.3f", real(mmio_cycle_cnt)/real(mmio_instr_cnt));
+                $display("  HW only CPI: %0.3f", real(mmio_cycle_cnt - (hw_all_nop_or_clear_cnt - hw_inserted_nop_or_clear_cnt))/real(mmio_instr_cnt));
+                $display("\nHW Inserted NOPs and Clears: %0d", hw_inserted_nop_or_clear_cnt);
+                $display(  "All NOPs and Clears:         %0d", hw_all_nop_or_clear_cnt);
+                $display(  "Compiler Inserted NOPs:      %0d", hw_all_nop_or_clear_cnt - hw_inserted_nop_or_clear_cnt);
+            end
         end
         $display("\n--------------------- End of the simulation ----------------------\n");
     end
@@ -379,10 +381,22 @@ task print_perf_status;
 endtask
 
 task print_regr_status;
+    integer cnt;
     begin
         $display("\n\n------------------------- Regr status ----------------------------\n");
+        
         $display("DUT regr status:   %0s", dut_regr_status   ? "Passed" : "Failed");
-        $display("Model regr status: %0s", model_regr_status ? "Passed" : "Failed");
+        if(!dut_regr_status) begin
+            for(cnt = 0; cnt < isa_failed_dut_cnt; cnt = cnt + 1)
+                $display("    DUT failed test #%0d, %0s", cnt, dut_regr_array[cnt]);
+        end
+
+        $display("\nModel regr status: %0s", model_regr_status ? "Passed" : "Failed");
+        if(!model_regr_status) begin
+            for(cnt = 0; cnt < isa_failed_model_cnt; cnt = cnt + 1)
+                $display("    Model failed test #%0d, %0s", cnt, model_regr_array[cnt]);
+        end
+
         $display("\n-------------------- End of the Regr status ----------------------\n");
     end
 endtask
@@ -404,12 +418,14 @@ task print_single_instruction_results;
     integer last_pc;
     reg     stalled;
     begin
-        stalled = (last_pc == dut_m_pc);
-        $display("Instruction at PC# %2d, 0x%4h,  %s ", dut_m_pc, dut_m_pc, stalled ? "stalled " : "executed"); 
-        $display("ID  stage: HEX: 'h%8h, ASM: %0s", dut_m_inst_id , dut_m_inst_id_asm );
-        $display("EX  stage: HEX: 'h%8h, ASM: %0s", dut_m_inst_ex , dut_m_inst_ex_asm );
-        $display("MEM stage: HEX: 'h%8h, ASM: %0s", dut_m_inst_mem, dut_m_inst_mem_asm);
-        last_pc = dut_m_pc;
+        if(`VERBOSITY >= 2) begin
+            stalled = (last_pc == dut_m_pc);
+            $display("Instruction at PC# %2d, 0x%4h,  %s ", dut_m_pc, dut_m_pc, stalled ? "stalled " : "executed"); 
+            $display("ID  stage: HEX: 'h%8h, ASM: %0s", dut_m_inst_id , dut_m_inst_id_asm );
+            $display("EX  stage: HEX: 'h%8h, ASM: %0s", dut_m_inst_ex , dut_m_inst_ex_asm );
+            $display("MEM stage: HEX: 'h%8h, ASM: %0s", dut_m_inst_mem, dut_m_inst_mem_asm);
+            last_pc = dut_m_pc;
+        end
     end
 endtask
 
@@ -592,6 +608,8 @@ initial begin
     perf_cnt_compiler_nops = 0;
     dut_regr_status        = 1'b1; 
     model_regr_status      = 1'b1;
+    isa_failed_dut_cnt     = 0;     
+    isa_failed_model_cnt   = 0;
     reset_tb_vars();
 end
 
@@ -679,21 +697,29 @@ initial begin
         join
         
         // DUT passed ISA?
-        if (`DUT.tohost === `TOHOST_PASS)
+        if (`DUT.tohost === `TOHOST_PASS) begin
             isa_passed_dut = 1;
-        else
+        end
+        else begin
             isa_passed_dut = 0;
+            dut_regr_array[isa_failed_dut_cnt] = current_test_string;
+            isa_failed_dut_cnt = isa_failed_dut_cnt + 1;
+        end
         
         // Model passed ISA?
-        if (dut_m_tohost === `TOHOST_PASS)
+        if (dut_m_tohost === `TOHOST_PASS) begin
             isa_passed_model = 1;
-        else
+        end
+        else begin
             isa_passed_model = 0;
-        
+            model_regr_array[isa_failed_model_cnt] = current_test_string;
+            isa_failed_model_cnt = isa_failed_model_cnt + 1;
+        end
+
         // store regr flags
         dut_regr_status     = dut_regr_status   && isa_passed_dut  ;
         model_regr_status   = model_regr_status && isa_passed_model;
-        
+
         repeat (6) begin 
             @(posedge clk);
             #`CHECK_D; run_checkers();
