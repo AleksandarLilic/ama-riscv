@@ -48,6 +48,7 @@
 //      2021-11-04  AL 0.24.0 - Add regr for all ISA tests
 //      2021-11-04  AL 0.25.0 - Add single test option
 //      2021-11-05  AL 0.26.0 - Add regr test status arrays, verbosity switch
+//      2021-11-09  AL 0.27.0 - Add model performance counters
 //
 //      TODO list:
 //       - add basic disassembler to convert back instructions to asm format
@@ -66,7 +67,7 @@
 `define SINGLE_TEST         0
 `define TEST_NAME           lw.hex
 
-`define VERBOSITY           1           // TODO: keep up to 5, add list of choices?, dbg & perf levels?
+`define VERBOSITY           2           // TODO: keep up to 5, add list of choices?, dbg & perf levels?
 `define NUMBER_OF_TESTS     38
 
 // TB
@@ -350,7 +351,7 @@ task print_test_status;
             $display("    Errors:   %2d", errors);
             
             if(`VERBOSITY >= 2) begin
-                $display("\n\n-------------------------- Performance ---------------------------\n");
+                $display("\n\n------------------------ HW Performance --------------------------\n");
                 $display("Cycle counter: %0d", mmio_cycle_cnt);
                 $display("Instr counter: %0d", mmio_instr_cnt);
                 $display("Empty cycles:  %0d", mmio_cycle_cnt - mmio_instr_cnt);
@@ -360,14 +361,26 @@ task print_test_status;
                 $display(  "All NOPs and Clears:         %0d", hw_all_nop_or_clear_cnt);
                 $display(  "Compiler Inserted NOPs:      %0d", hw_all_nop_or_clear_cnt - hw_inserted_nop_or_clear_cnt);
             end
+            
+            if(`VERBOSITY >= 2) begin
+                $display("\n\n----------------------- Model Performance ------------------------\n");
+                $display("Cycle counter: %0d", dut_m_cnt_cycle);
+                $display("Instr counter: %0d", dut_m_cnt_instr);
+                $display("Empty cycles:  %0d", dut_m_cnt_cycle - dut_m_cnt_instr);
+                $display("          CPI: %0.3f", real(dut_m_cnt_cycle)/real(dut_m_cnt_instr));
+                $display("  HW only CPI: %0.3f", real(dut_m_cnt_cycle - (dut_m_cnt_all_nop_or_clear - dut_m_cnt_hw_inserted_nop_or_clear))/real(dut_m_cnt_instr));
+                $display("\nHW Inserted NOPs and Clears: %0d", dut_m_cnt_hw_inserted_nop_or_clear);
+                $display(  "All NOPs and Clears:         %0d", dut_m_cnt_all_nop_or_clear);
+                $display(  "Compiler Inserted NOPs:      %0d", dut_m_cnt_all_nop_or_clear - dut_m_cnt_hw_inserted_nop_or_clear);
+            end
         end
         $display("\n--------------------- End of the simulation ----------------------\n");
     end
 endtask
 
-task print_perf_status;
+task print_perf_status_hw;
     begin
-        $display("\n\n----------------------- Performance regr -------------------------\n");
+        $display("\n\n--------------------- HW Performance regr ------------------------\n");
         $display("Cycle counter: %0d", perf_cnt_cycle);
         $display("Instr counter: %0d", perf_cnt_instr);
         $display("Empty cycles:  %0d", perf_cnt_empty_cycles);
@@ -376,6 +389,21 @@ task print_perf_status;
         $display("\nHW Inserted NOPs and Clears: %0d", perf_cnt_hw_nops);
         $display(  "All NOPs and Clears:         %0d", perf_cnt_all_nops);
         $display(  "Compiler Inserted NOPs:      %0d", perf_cnt_compiler_nops);
+        $display("\n--------------------- End of the simulation ----------------------\n");
+    end
+endtask
+
+task print_perf_status_model;
+    begin
+        $display("\n\n-------------------- Model Performance regr ----------------------\n");
+        $display("Cycle counter: %0d", dut_m_perf_cnt_cycle);
+        $display("Instr counter: %0d", dut_m_perf_cnt_instr);
+        $display("Empty cycles:  %0d", dut_m_perf_cnt_empty_cycles);
+        $display("          CPI: %0.3f", real(dut_m_perf_cnt_cycle)/real(dut_m_perf_cnt_instr));
+        $display("  HW only CPI: %0.3f", real(dut_m_perf_cnt_cycle - dut_m_perf_cnt_compiler_nops)/real(dut_m_perf_cnt_instr));
+        $display("\nHW Inserted NOPs and Clears: %0d", dut_m_perf_cnt_hw_nops);
+        $display(  "All NOPs and Clears:         %0d", dut_m_perf_cnt_all_nops);
+        $display(  "Compiler Inserted NOPs:      %0d", dut_m_perf_cnt_compiler_nops);
         $display("\n--------------------- End of the simulation ----------------------\n");
     end
 endtask
@@ -411,6 +439,16 @@ task store_perf_counters;
         perf_cnt_all_nops       = perf_cnt_all_nops + hw_all_nop_or_clear_cnt;
         perf_cnt_hw_nops        = perf_cnt_hw_nops + hw_inserted_nop_or_clear_cnt;
         perf_cnt_compiler_nops  = perf_cnt_compiler_nops + (hw_all_nop_or_clear_cnt - hw_inserted_nop_or_clear_cnt);
+        
+        dut_m_perf_cnt_cycle          = dut_m_perf_cnt_cycle + dut_m_cnt_cycle;
+        dut_m_perf_cnt_instr          = dut_m_perf_cnt_instr + dut_m_cnt_instr;
+        
+        dut_m_perf_cnt_empty_cycles   = dut_m_perf_cnt_empty_cycles + (dut_m_cnt_cycle - dut_m_cnt_instr);
+        
+        dut_m_perf_cnt_all_nops       = dut_m_perf_cnt_all_nops + dut_m_cnt_all_nop_or_clear;
+        dut_m_perf_cnt_hw_nops        = dut_m_perf_cnt_hw_nops + dut_m_cnt_hw_inserted_nop_or_clear;
+        dut_m_perf_cnt_compiler_nops  = dut_m_perf_cnt_compiler_nops + (dut_m_cnt_all_nop_or_clear - dut_m_cnt_hw_inserted_nop_or_clear);
+        
     end
 endtask
 
@@ -418,7 +456,7 @@ task print_single_instruction_results;
     integer last_pc;
     reg     stalled;
     begin
-        if(`VERBOSITY >= 2) begin
+        if(`VERBOSITY >= 3) begin
             stalled = (last_pc == dut_m_pc);
             $display("Instruction at PC# %2d, 0x%4h,  %s ", dut_m_pc, dut_m_pc, stalled ? "stalled " : "executed"); 
             $display("ID  stage: HEX: 'h%8h, ASM: %0s", dut_m_inst_id , dut_m_inst_id_asm );
@@ -606,6 +644,12 @@ initial begin
     perf_cnt_all_nops      = 0;
     perf_cnt_hw_nops       = 0;
     perf_cnt_compiler_nops = 0;
+    dut_m_perf_cnt_cycle         = 0;
+    dut_m_perf_cnt_instr         = 0;
+    dut_m_perf_cnt_empty_cycles  = 0;
+    dut_m_perf_cnt_all_nops      = 0;
+    dut_m_perf_cnt_hw_nops       = 0;
+    dut_m_perf_cnt_compiler_nops = 0;
     dut_regr_status        = 1'b1; 
     model_regr_status      = 1'b1;
     isa_failed_dut_cnt     = 0;     
@@ -736,10 +780,16 @@ initial begin
         
     end // end looping thru tests
     
-    $display("\n-------------------------- Regr Done -----------------------------\n");
-    print_regr_status();
-    // CPI print
-    print_perf_status();
+    if (`SINGLE_TEST == 0) begin
+        $display("\n-------------------------- Regr Done -----------------------------\n");
+        print_regr_status();
+        // CPI print
+        print_perf_status_hw();
+        print_perf_status_model();
+    end
+    else begin
+        $display("\n-------------------------- Test Done -----------------------------\n");
+    end
     
     $finish();
     
