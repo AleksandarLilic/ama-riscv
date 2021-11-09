@@ -17,6 +17,7 @@
 //      2021-11-01  AL  0.3.0 - Add dependency detection as separate logic
 //      2021-11-04  AL  0.4.0 - Add stall on forwarding from load
 //      2021-11-04  AL  0.5.0 - Add regr for all ISA tests
+//      2021-11-09  AL  0.6.0 - Add model performance counters
 //
 //-----------------------------------------------------------------------------
 
@@ -106,6 +107,11 @@ reg  [31:0] dut_m_csr_data_mem      ;
 // out
 reg  [31:0] dut_m_load_sm_data_out  ;
 reg  [31:0] dut_m_writeback         ;
+
+// MEM stage
+// in
+reg  [31:0] dut_m_inst_wb           ;
+
 
 // reset sequence
 reg  [ 2:0] dut_m_reset_seq         ;
@@ -255,65 +261,58 @@ wire [31:0] dut_m_x31_t6  = dut_m_rf32[31];  // temporary
 // Testbench variables
 integer       dut_m_i               ;              // used for all loops
 // performance counters
+integer       dut_m_cnt_cycle        ;
+integer       dut_m_cnt_instr        ;
+integer       dut_m_cnt_hw_inserted_nop_or_clear        ;
+integer       dut_m_cnt_all_nop_or_clear        ;
+reg           dut_m_inst_wb_nop_or_clear    ;
+
 integer       dut_m_perf_cnt_cycle        ;
 integer       dut_m_perf_cnt_instr        ;
 integer       dut_m_perf_cnt_empty_cycles ;
 integer       dut_m_perf_cnt_all_nops     ;
 integer       dut_m_perf_cnt_hw_nops      ;
 integer       dut_m_perf_cnt_compiler_nops;
-
 integer       warnings              ;
 
-/* TODO: Make these counters SW only
-
 //-----------------------------------------------------------------------------
-// Cycle counter
-reg   [31:0] mmio_cycle_cnt         ;
-always @ (posedge clk) begin
-    if (dut_m_rst)
-        mmio_cycle_cnt <= 32'd0;
-    else if (mmio_reset_cnt)
-        mmio_cycle_cnt <= 32'd0;
-    else
-        mmio_cycle_cnt <= mmio_cycle_cnt + 32'd1;
-end
+// Performance counters
 
-//-----------------------------------------------------------------------------
-// Instruction counter
-reg   [31:0] mmio_instr_cnt         ;
-always @ (posedge clk) begin
-    if (dut_m_rst)
-        mmio_instr_cnt <= 32'd0;
-    else if (mmio_reset_cnt)
-        mmio_instr_cnt <= 32'd0;
-    else if (!inst_wb_nop_or_clear)        // prevent counting nop and pipe clear
-        mmio_instr_cnt <= mmio_instr_cnt + 32'd1;
-end
+task dut_m_cnt_cycle_update();
+    begin
+        dut_m_cnt_cycle = (dut_m_rst) ? 0 : dut_m_cnt_cycle + 1;
+    end
+endtask
 
-//-----------------------------------------------------------------------------
-// Count inserted Clears and NOPs
-reg   [31:0] hw_inserted_nop_or_clear_cnt         ;
-always @ (posedge clk) begin
-    if (dut_m_rst)
-        hw_inserted_nop_or_clear_cnt <= 32'd0;
-    else if (mmio_reset_cnt)
-        hw_inserted_nop_or_clear_cnt <= 32'd0;
-    else if (`DUT.stall_if_q1 || `DUT.clear_mem)    // clear_mem is enough in this implementation, predictor may change this
-        hw_inserted_nop_or_clear_cnt <= hw_inserted_nop_or_clear_cnt + 32'd1;
-end
+task dut_m_cnt_intr_update();
+    begin
+        dut_m_cnt_instr = (dut_m_rst)                  ? 0 : 
+                          (dut_m_inst_wb_nop_or_clear) ? dut_m_cnt_instr : 
+                                                         dut_m_cnt_instr + 1 ; 
+    end
+endtask
 
-//-----------------------------------------------------------------------------
-// Count all Clears and NOPs
-reg   [31:0] hw_all_nop_or_clear_cnt         ;
-always @ (posedge clk) begin
-    if (dut_m_rst)
-        hw_all_nop_or_clear_cnt <= 32'd0;
-    else if (mmio_reset_cnt)
-        hw_all_nop_or_clear_cnt <= 32'd0;
-    else if (inst_wb_nop_or_clear)
-        hw_all_nop_or_clear_cnt <= hw_all_nop_or_clear_cnt + 32'd1;
-end
-*/
+task dut_m_wb_inst_check_update();
+    begin
+        dut_m_inst_wb_nop_or_clear = (dut_m_inst_wb == `NOP) || (dut_m_inst_wb == 0);
+    end
+endtask
+
+task dut_m_hw_nop_or_clear_update();
+    begin
+        dut_m_cnt_hw_inserted_nop_or_clear = (dut_m_rst)      ? 0 : 
+                                             (dut_m_stall_if || dut_m_clear_mem) ? dut_m_cnt_hw_inserted_nop_or_clear + 1 :
+                                              dut_m_cnt_hw_inserted_nop_or_clear;
+    end
+endtask
+
+task dut_m_all_nop_or_clear_update();
+    begin
+        dut_m_cnt_all_nop_or_clear = (dut_m_rst) ? 0 : 
+                                     (dut_m_inst_wb_nop_or_clear) ? dut_m_cnt_all_nop_or_clear + 1 :
+                                      dut_m_cnt_all_nop_or_clear;
+    end
+endtask
 
 //-----------------------------------------------------------------------------
 // Disassembler functions
@@ -322,6 +321,7 @@ end
 reg  [24*7:0] dut_m_inst_id_asm  = 'h0;
 reg  [24*7:0] dut_m_inst_ex_asm  = 'h0;
 reg  [24*7:0] dut_m_inst_mem_asm = 'h0;
+reg  [24*7:0] dut_m_inst_wb_asm  = 'h0;
 
 `define INNA     "INNA" // INstruction Not Available
 
@@ -852,7 +852,6 @@ task dut_m_decode_branch_resolution();
     end
 endtask
 
-
 /*
 task dut_m_decode_temp();
     begin
@@ -1293,7 +1292,13 @@ task dut_m_ex_mem_pipeline_update();
         dut_m_reg_we_mem         = (!dut_m_rst && !dut_m_clear_ex) ? dut_m_reg_we_ex          : 'b0;
         dut_m_csr_we_mem         = (!dut_m_rst && !dut_m_clear_id) ? dut_m_csr_we_ex          : 'b0;
         dut_m_csr_ui_mem         = (!dut_m_rst && !dut_m_clear_id) ? dut_m_csr_ui_ex          : 'b0;
-        
+    end
+endtask
+
+task dut_m_mem_wb_pipeline_update();
+    begin
+        dut_m_inst_wb           = (!dut_m_rst && !dut_m_clear_mem) ? dut_m_inst_mem            : `NOP;
+        dut_m_inst_wb_asm       = (!dut_m_rst && !dut_m_clear_mem) ? dut_m_inst_mem_asm        : "nop";
     end
 endtask
 
@@ -1308,9 +1313,15 @@ endtask
 
 task dut_m_seq_update();
     begin
+        //----- perf counters
+        dut_m_cnt_cycle_update();
+        dut_m_cnt_intr_update();
+        dut_m_hw_nop_or_clear_update();
+        dut_m_all_nop_or_clear_update();
         //----- MEM/WB stage updates
         dut_m_reg_file_write_update();
         dut_m_csr_write_update();
+        dut_m_mem_wb_pipeline_update();
                 
         //----- EX/MEM stage updates
         dut_m_load_sm_seq_update();
@@ -1330,6 +1341,8 @@ endtask
 
 task dut_m_comb_update();
     begin
+        //----- perf counters
+        dut_m_wb_inst_check_update();
         //----- MEM stage updates
         dut_m_load_sm_update();
         dut_m_writeback_update();
