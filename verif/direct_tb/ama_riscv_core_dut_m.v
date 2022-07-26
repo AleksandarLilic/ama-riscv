@@ -18,6 +18,7 @@
 //      2021-11-04  AL  0.4.0 - Add stall on forwarding from load
 //      2021-11-04  AL  0.5.0 - Add regr for all ISA tests
 //      2021-11-09  AL  0.6.0 - Add model performance counters
+//      2022-07-22  AL  0.7.0 - Remove bubble on load
 //
 //-----------------------------------------------------------------------------
 
@@ -204,9 +205,9 @@ reg         dut_m_dd_rs1_ex             ;
 reg         dut_m_dd_rs2_ex             ;
 reg         dut_m_dd_rs1_mem            ;
 reg         dut_m_dd_rs2_mem            ;
-reg         dut_m_dd_bubble_ex          ;
+//reg         dut_m_dd_bubble_ex          ;
 // bubbles
-reg         dut_m_bubble_load           ;
+//reg         dut_m_bubble_load           ;
 // branch compare inputs
 reg  [31:0] dut_m_bc_in_a               ;
 reg  [31:0] dut_m_bc_in_b               ;
@@ -406,11 +407,11 @@ task dut_m_decode();
         dut_m_decode_op_fwd_rf();
         
         // pipeline controls
-        dut_m_stall_if = dut_m_branch_inst_id || dut_m_jump_inst_id || dut_m_dd_bubble_ex;
+        dut_m_stall_if = dut_m_branch_inst_id || dut_m_jump_inst_id /*|| dut_m_dd_bubble_ex*/;
         dut_m_clear_if = dut_m_branch_inst_id || dut_m_jump_inst_id;
          
         dut_m_stall_id = 1'b0;
-        dut_m_clear_id  = dut_m_rst_seq_id || dut_m_dd_bubble_ex  ;
+        dut_m_clear_id  = dut_m_rst_seq_id /*|| dut_m_dd_bubble_ex*/  ;
 
         dut_m_stall_ex = 1'b0;
         dut_m_clear_ex  = dut_m_rst_seq_ex   ;
@@ -712,7 +713,7 @@ endtask
 task dut_m_decode_dd();
     begin
         // Bubbles
-        dut_m_bubble_load = dut_m_load_inst_ex;
+       // dut_m_bubble_load = dut_m_load_inst_ex;
 
         // EX stage
         dut_m_dd_rs1_ex = ( (dut_m_rs1_addr_id != `RF_X0_ZERO       ) && 
@@ -730,20 +731,20 @@ task dut_m_decode_dd();
                              (dut_m_rs2_addr_id == dut_m_rd_addr_mem  ) && 
                              (dut_m_reg_we_mem                        )    );
         
-        dut_m_dd_bubble_ex = (dut_m_dd_rs1_ex || dut_m_dd_rs2_ex) && dut_m_bubble_load;
+        //dut_m_dd_bubble_ex = (dut_m_dd_rs1_ex || dut_m_dd_rs2_ex) && dut_m_bubble_load;
     end
 endtask
 
 task dut_m_decode_op_fwd_alu();
     begin
         // Operand A
-        if ((dut_m_dd_rs1_ex) && (!dut_m_alu_a_sel_id) && (!dut_m_bubble_load))
+        if ((dut_m_dd_rs1_ex) && (!dut_m_alu_a_sel_id) /* && (!dut_m_bubble_load)*/)
             dut_m_alu_a_sel_fwd_id = `ALU_A_SEL_FWD_ALU;            // forward previous ALU result
         else
             dut_m_alu_a_sel_fwd_id = {1'b0, dut_m_alu_a_sel_id};    // don't forward
         
         // Operand B
-        if ((dut_m_dd_rs2_ex) && (!dut_m_alu_b_sel_id) && (!dut_m_bubble_load))
+        if ((dut_m_dd_rs2_ex) && (!dut_m_alu_b_sel_id) /* && (!dut_m_bubble_load)*/)
             dut_m_alu_b_sel_fwd_id = `ALU_B_SEL_FWD_ALU;            // forward previous ALU result
         else
             dut_m_alu_b_sel_fwd_id = {1'b0, dut_m_alu_b_sel_id};    // don't forward
@@ -753,10 +754,10 @@ endtask
 task dut_m_decode_op_fwd_bcs();
     begin
         // BC A
-        dut_m_bc_a_sel_fwd_id  = ((dut_m_dd_rs1_ex) && (dut_m_branch_inst_id) && (!dut_m_bubble_load));
+        dut_m_bc_a_sel_fwd_id  = ((dut_m_dd_rs1_ex) && (dut_m_branch_inst_id)/* && (!dut_m_bubble_load)*/);
         
         // BC B or DMEM din for store
-        dut_m_bcs_b_sel_fwd_id = ((dut_m_dd_rs2_ex) && (dut_m_store_inst_id || dut_m_branch_inst_id)) && (!dut_m_bubble_load);
+        dut_m_bcs_b_sel_fwd_id = ((dut_m_dd_rs2_ex) && (dut_m_store_inst_id || dut_m_branch_inst_id))/* && (!dut_m_bubble_load)*/;
     end
 endtask
 

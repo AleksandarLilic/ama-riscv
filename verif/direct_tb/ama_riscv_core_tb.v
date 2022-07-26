@@ -49,6 +49,7 @@
 //      2021-11-04  AL 0.25.0 - Add single test option
 //      2021-11-05  AL 0.26.0 - Add regr test status arrays, verbosity switch
 //      2021-11-09  AL 0.27.0 - Add model performance counters
+//      2022-07-22  AL 0.28.0 - Remove DUT to use TB with model only
 //
 //      TODO list:
 //       - add basic disassembler to convert back instructions to asm format
@@ -65,9 +66,9 @@
 
 `define CLK_PERIOD          8
 `define SINGLE_TEST         0
-`define TEST_NAME           lw.hex
+`define TEST_NAME           add.hex
 
-`define VERBOSITY           2           // TODO: keep up to 5, add list of choices?, dbg & perf levels?
+`define VERBOSITY           3           // TODO: keep up to 5, add list of choices?, dbg & perf levels?
 `define NUMBER_OF_TESTS     38
 
 // TB
@@ -76,8 +77,11 @@
 `define CHECK_D             1
 `define TIMEOUT_CLOCKS      5000
 
-`define PROJECT_PATH        "/home/aleksandar/Documents/xilinx/ama-riscv/"
-`define INST_PATH           "verif/direct_tb/inst/"
+//`define PROJECT_PATH        "C:/dev/ama-riscv/"
+// /home/aleksandar/Documents/xilinx/ama-riscv/"
+//`define INST_PATH           "verif/direct_tb/inst/"
+`define INST_PATH           "/"
+`define PROJECT_PATH "C:/dev/ama-riscv-sim/riscv-tests/riscv-isa-tests"
 
 `define DUT                 DUT_ama_riscv_core_i
 `define DUT_IMEM            DUT_ama_riscv_core_i.ama_riscv_imem_i.mem
@@ -93,8 +97,6 @@
 `define STRINGIFY(x)        `"x`"
 // has to be enclosed with begin/end when called
 `define load_memories_m(name)                                                          \
-    $readmemh({`PROJECT_PATH, `INST_PATH, `"name`"}, `DUT_IMEM,    0, `MEM_SIZE-1);    \
-    $readmemh({`PROJECT_PATH, `INST_PATH, `"name`"}, `DUT_DMEM,    0, `MEM_SIZE-1);    \
     $readmemh({`PROJECT_PATH, `INST_PATH, `"name`"}, dut_m_imem,   0, `MEM_SIZE-1);    \
     $readmemh({`PROJECT_PATH, `INST_PATH, `"name`"}, dut_m_dmem,   0, `MEM_SIZE-1);    \
 
@@ -150,42 +152,19 @@ module ama_riscv_core_tb();
 //-----------------------------------------------------------------------------
 // DUT I/O
 reg          clk = 0;
-reg          rst;
-wire         inst_wb_nop_or_clear   ;
-wire         mmio_reset_cnt         ;
-
-//-----------------------------------------------------------------------------
-// DUT internals for checkers only
-wire dut_internal_branch_taken = `DUT_DEC.branch_res && `DUT_DEC.branch_inst_ex;
 
 //-----------------------------------------------------------------------------
 // Testbench variables
 integer       i                     ;   // used for all loops
 integer       done                  ;
-integer       isa_passed_dut        ;
 integer       isa_passed_model      ;
-integer       clocks_to_execute     ;
-integer       run_test_pc_target    ;
-integer       errors                ;
-integer       warnings              ;
-integer       pre_rst_warnings      ;
-reg           errors_for_wave       ;
 wire          tohost_source         ;
 integer       regr_num = (`SINGLE_TEST) ? 1 : `NUMBER_OF_TESTS;
 // regr flags
-reg           dut_regr_status       ;
 reg           model_regr_status     ;
-reg  [12*7:0] dut_regr_array [`NUMBER_OF_TESTS-1:0];
 reg  [12*7:0] model_regr_array [`NUMBER_OF_TESTS-1:0];
-integer       isa_failed_dut_cnt    ;
 integer       isa_failed_model_cnt  ;
 // performance counters
-integer       perf_cnt_cycle        ;
-integer       perf_cnt_instr        ;
-integer       perf_cnt_empty_cycles ;
-integer       perf_cnt_all_nops     ;
-integer       perf_cnt_hw_nops      ;
-integer       perf_cnt_compiler_nops;
 
 // Reset hold for
 reg    [ 3:0] rst_pulses = 4'd3;
@@ -198,63 +177,6 @@ event         ev_rst    [1:0];
 integer       rst_done = 0;
 
 //-----------------------------------------------------------------------------
-// DUT instance
-ama_riscv_core DUT_ama_riscv_core_i (
-    .clk    (clk    ),
-    .rst    (rst    ),
-    // outputs
-    .inst_wb_nop_or_clear   (inst_wb_nop_or_clear   ),
-    .mmio_reset_cnt         (mmio_reset_cnt         )
-);
-
-//-----------------------------------------------------------------------------
-// Performance counters - HW
-
-// Cycle counter
-reg   [31:0] mmio_cycle_cnt         ;
-always @ (posedge clk) begin
-    if (rst)
-        mmio_cycle_cnt <= 32'd0;
-    else if (mmio_reset_cnt)
-        mmio_cycle_cnt <= 32'd0;
-    else
-        mmio_cycle_cnt <= mmio_cycle_cnt + 32'd1;
-end
-
-// Instruction counter
-reg   [31:0] mmio_instr_cnt         ;
-always @ (posedge clk) begin
-    if (rst)
-        mmio_instr_cnt <= 32'd0;
-    else if (mmio_reset_cnt)
-        mmio_instr_cnt <= 32'd0;
-    else if (!inst_wb_nop_or_clear)        // prevent counting nop and pipe clear
-        mmio_instr_cnt <= mmio_instr_cnt + 32'd1;
-end
-
-// Count inserted Clears and NOPs
-reg   [31:0] hw_inserted_nop_or_clear_cnt         ;
-always @ (posedge clk) begin
-    if (rst)
-        hw_inserted_nop_or_clear_cnt <= 32'd0;
-    else if (mmio_reset_cnt)
-        hw_inserted_nop_or_clear_cnt <= 32'd0;
-    else if (`DUT.stall_if_q1 || `DUT.clear_mem)    // clear_mem is enough in this implementation, predictor may change this
-        hw_inserted_nop_or_clear_cnt <= hw_inserted_nop_or_clear_cnt + 32'd1;
-end
-
-// Count all Clears and NOPs
-reg   [31:0] hw_all_nop_or_clear_cnt         ;
-always @ (posedge clk) begin
-    if (rst)
-        hw_all_nop_or_clear_cnt <= 32'd0;
-    else if (mmio_reset_cnt)
-        hw_all_nop_or_clear_cnt <= 32'd0;
-    else if (inst_wb_nop_or_clear)
-        hw_all_nop_or_clear_cnt <= hw_all_nop_or_clear_cnt + 32'd1;
-end
-
-//-----------------------------------------------------------------------------
 // Clock gen: 125 MHz
 always #(`CLK_PERIOD/2) clk = ~clk;
 
@@ -262,7 +184,7 @@ always #(`CLK_PERIOD/2) clk = ~clk;
 // Testbench tasks
 task load_single_test;
     begin
-        `load_memories_m(`TEST_NAME); current_test_string = `STRINGIFY(`TEST_NAME);
+        `load_memories_m(`TEST_NAME) current_test_string = `STRINGIFY(`TEST_NAME);
     end
 endtask
 
@@ -270,44 +192,44 @@ task load_test;
     input integer t_in_test_num;
     begin
         case(t_in_test_num)
-            0 : begin  `load_memories_m(`TEST_SIMPLE);  current_test_string = "SIMPLE";  end
-            1 : begin  `load_memories_m(`TEST_ADD   );  current_test_string = "ADD   ";  end
-            2 : begin  `load_memories_m(`TEST_SUB   );  current_test_string = "SUB   ";  end
-            3 : begin  `load_memories_m(`TEST_SLL   );  current_test_string = "SLL   ";  end
-            4 : begin  `load_memories_m(`TEST_SLT   );  current_test_string = "SLT   ";  end
-            5 : begin  `load_memories_m(`TEST_SLTU  );  current_test_string = "SLTU  ";  end
-            6 : begin  `load_memories_m(`TEST_XOR   );  current_test_string = "XOR   ";  end
-            7 : begin  `load_memories_m(`TEST_SRL   );  current_test_string = "SRL   ";  end
-            8 : begin  `load_memories_m(`TEST_SRA   );  current_test_string = "SRA   ";  end
-            9 : begin  `load_memories_m(`TEST_OR    );  current_test_string = "OR    ";  end
-            10: begin  `load_memories_m(`TEST_AND   );  current_test_string = "AND   ";  end
-            11: begin  `load_memories_m(`TEST_ADDI  );  current_test_string = "ADDI  ";  end
-            12: begin  `load_memories_m(`TEST_SLTI  );  current_test_string = "SLTI  ";  end
-            13: begin  `load_memories_m(`TEST_SLTIU );  current_test_string = "SLTIU ";  end
-            14: begin  `load_memories_m(`TEST_XORI  );  current_test_string = "XORI  ";  end
-            15: begin  `load_memories_m(`TEST_ORI   );  current_test_string = "ORI   ";  end
-            16: begin  `load_memories_m(`TEST_ANDI  );  current_test_string = "ANDI  ";  end
-            17: begin  `load_memories_m(`TEST_SLLI  );  current_test_string = "SLLI  ";  end
-            18: begin  `load_memories_m(`TEST_SRLI  );  current_test_string = "SRLI  ";  end
-            19: begin  `load_memories_m(`TEST_SRAI  );  current_test_string = "SRAI  ";  end
-            20: begin  `load_memories_m(`TEST_LB    );  current_test_string = "LB    ";  end
-            21: begin  `load_memories_m(`TEST_LH    );  current_test_string = "LH    ";  end
-            22: begin  `load_memories_m(`TEST_LW    );  current_test_string = "LW    ";  end
-            23: begin  `load_memories_m(`TEST_LBU   );  current_test_string = "LBU   ";  end
-            24: begin  `load_memories_m(`TEST_LHU   );  current_test_string = "LHU   ";  end
-            25: begin  `load_memories_m(`TEST_SB    );  current_test_string = "SB    ";  end
-            26: begin  `load_memories_m(`TEST_SH    );  current_test_string = "SH    ";  end
-            27: begin  `load_memories_m(`TEST_SW    );  current_test_string = "SW    ";  end
-            28: begin  `load_memories_m(`TEST_BEQ   );  current_test_string = "BEQ   ";  end
-            29: begin  `load_memories_m(`TEST_BNE   );  current_test_string = "BNE   ";  end
-            30: begin  `load_memories_m(`TEST_BLT   );  current_test_string = "BLT   ";  end
-            31: begin  `load_memories_m(`TEST_BGE   );  current_test_string = "BGE   ";  end
-            32: begin  `load_memories_m(`TEST_BLTU  );  current_test_string = "BLTU  ";  end
-            33: begin  `load_memories_m(`TEST_BGEU  );  current_test_string = "BGEU  ";  end
-            34: begin  `load_memories_m(`TEST_JALR  );  current_test_string = "JALR  ";  end
-            35: begin  `load_memories_m(`TEST_JAL   );  current_test_string = "JAL   ";  end
-            36: begin  `load_memories_m(`TEST_LUI   );  current_test_string = "LUI   ";  end
-            37: begin  `load_memories_m(`TEST_AUIPC );  current_test_string = "AUIPC ";  end
+            0 : begin  `load_memories_m(`TEST_SIMPLE)  current_test_string = "SIMPLE";  end
+            1 : begin  `load_memories_m(`TEST_ADD   )  current_test_string = "ADD   ";  end
+            2 : begin  `load_memories_m(`TEST_SUB   )  current_test_string = "SUB   ";  end
+            3 : begin  `load_memories_m(`TEST_SLL   )  current_test_string = "SLL   ";  end
+            4 : begin  `load_memories_m(`TEST_SLT   )  current_test_string = "SLT   ";  end
+            5 : begin  `load_memories_m(`TEST_SLTU  )  current_test_string = "SLTU  ";  end
+            6 : begin  `load_memories_m(`TEST_XOR   )  current_test_string = "XOR   ";  end
+            7 : begin  `load_memories_m(`TEST_SRL   )  current_test_string = "SRL   ";  end
+            8 : begin  `load_memories_m(`TEST_SRA   )  current_test_string = "SRA   ";  end
+            9 : begin  `load_memories_m(`TEST_OR    )  current_test_string = "OR    ";  end
+            10: begin  `load_memories_m(`TEST_AND   )  current_test_string = "AND   ";  end
+            11: begin  `load_memories_m(`TEST_ADDI  )  current_test_string = "ADDI  ";  end
+            12: begin  `load_memories_m(`TEST_SLTI  )  current_test_string = "SLTI  ";  end
+            13: begin  `load_memories_m(`TEST_SLTIU )  current_test_string = "SLTIU ";  end
+            14: begin  `load_memories_m(`TEST_XORI  )  current_test_string = "XORI  ";  end
+            15: begin  `load_memories_m(`TEST_ORI   )  current_test_string = "ORI   ";  end
+            16: begin  `load_memories_m(`TEST_ANDI  )  current_test_string = "ANDI  ";  end
+            17: begin  `load_memories_m(`TEST_SLLI  )  current_test_string = "SLLI  ";  end
+            18: begin  `load_memories_m(`TEST_SRLI  )  current_test_string = "SRLI  ";  end
+            19: begin  `load_memories_m(`TEST_SRAI  )  current_test_string = "SRAI  ";  end
+            20: begin  `load_memories_m(`TEST_LB    )  current_test_string = "LB    ";  end
+            21: begin  `load_memories_m(`TEST_LH    )  current_test_string = "LH    ";  end
+            22: begin  `load_memories_m(`TEST_LW    )  current_test_string = "LW    ";  end
+            23: begin  `load_memories_m(`TEST_LBU   )  current_test_string = "LBU   ";  end
+            24: begin  `load_memories_m(`TEST_LHU   )  current_test_string = "LHU   ";  end
+            25: begin  `load_memories_m(`TEST_SB    )  current_test_string = "SB    ";  end
+            26: begin  `load_memories_m(`TEST_SH    )  current_test_string = "SH    ";  end
+            27: begin  `load_memories_m(`TEST_SW    )  current_test_string = "SW    ";  end
+            28: begin  `load_memories_m(`TEST_BEQ   )  current_test_string = "BEQ   ";  end
+            29: begin  `load_memories_m(`TEST_BNE   )  current_test_string = "BNE   ";  end
+            30: begin  `load_memories_m(`TEST_BLT   )  current_test_string = "BLT   ";  end
+            31: begin  `load_memories_m(`TEST_BGE   )  current_test_string = "BGE   ";  end
+            32: begin  `load_memories_m(`TEST_BLTU  )  current_test_string = "BLTU  ";  end
+            33: begin  `load_memories_m(`TEST_BGEU  )  current_test_string = "BGEU  ";  end
+            34: begin  `load_memories_m(`TEST_JALR  )  current_test_string = "JALR  ";  end
+            35: begin  `load_memories_m(`TEST_JAL   )  current_test_string = "JAL   ";  end
+            36: begin  `load_memories_m(`TEST_LUI   )  current_test_string = "LUI   ";  end
+            37: begin  `load_memories_m(`TEST_AUIPC )  current_test_string = "AUIPC ";  end
         endcase
     end
 endtask
@@ -322,15 +244,6 @@ task print_test_status;
         else begin 
             $display("\nTest ran to completion");
             
-            $display("\nStatus - DUT-ISA: ");
-            if(isa_passed_dut == 1) begin
-                $display("    Passed");
-            end
-            else begin
-                $display("    Failed");
-                $display("    Failed test # : %0d", `DUT.tohost[31:1]);
-            end
-            
             $display("\nStatus - Model-ISA: ");
             if(isa_passed_model == 1) begin
                 $display("    Passed");
@@ -338,28 +251,6 @@ task print_test_status;
             else begin
                 $display("    Failed");
                 $display("    Failed test # : %0d", dut_m_tohost[31:1]);
-            end
-            
-            $display("\nStatus - DUT-Model:");
-            if(!errors)
-                $display("    Passed");
-            else
-                $display("    Failed");
-            
-            // $display("    Pre RST Warnings: %2d", pre_rst_warnings);
-            $display("    Warnings: %2d", warnings - pre_rst_warnings);
-            $display("    Errors:   %2d", errors);
-            
-            if(`VERBOSITY >= 2) begin
-                $display("\n\n------------------------ HW Performance --------------------------\n");
-                $display("Cycle counter: %0d", mmio_cycle_cnt);
-                $display("Instr counter: %0d", mmio_instr_cnt);
-                $display("Empty cycles:  %0d", mmio_cycle_cnt - mmio_instr_cnt);
-                $display("          CPI: %0.3f", real(mmio_cycle_cnt)/real(mmio_instr_cnt));
-                $display("  HW only CPI: %0.3f", real(mmio_cycle_cnt - (hw_all_nop_or_clear_cnt - hw_inserted_nop_or_clear_cnt))/real(mmio_instr_cnt));
-                $display("\nHW Inserted NOPs and Clears: %0d", hw_inserted_nop_or_clear_cnt);
-                $display(  "All NOPs and Clears:         %0d", hw_all_nop_or_clear_cnt);
-                $display(  "Compiler Inserted NOPs:      %0d", hw_all_nop_or_clear_cnt - hw_inserted_nop_or_clear_cnt);
             end
             
             if(`VERBOSITY >= 2) begin
@@ -374,21 +265,6 @@ task print_test_status;
                 $display(  "Compiler Inserted NOPs:      %0d", dut_m_cnt_all_nop_or_clear - dut_m_cnt_hw_inserted_nop_or_clear);
             end
         end
-        $display("\n--------------------- End of the simulation ----------------------\n");
-    end
-endtask
-
-task print_perf_status_hw;
-    begin
-        $display("\n\n--------------------- HW Performance regr ------------------------\n");
-        $display("Cycle counter: %0d", perf_cnt_cycle);
-        $display("Instr counter: %0d", perf_cnt_instr);
-        $display("Empty cycles:  %0d", perf_cnt_empty_cycles);
-        $display("          CPI: %0.3f", real(perf_cnt_cycle)/real(perf_cnt_instr));
-        $display("  HW only CPI: %0.3f", real(perf_cnt_cycle - perf_cnt_compiler_nops)/real(perf_cnt_instr));
-        $display("\nHW Inserted NOPs and Clears: %0d", perf_cnt_hw_nops);
-        $display(  "All NOPs and Clears:         %0d", perf_cnt_all_nops);
-        $display(  "Compiler Inserted NOPs:      %0d", perf_cnt_compiler_nops);
         $display("\n--------------------- End of the simulation ----------------------\n");
     end
 endtask
@@ -413,12 +289,6 @@ task print_regr_status;
     begin
         $display("\n\n------------------------- Regr status ----------------------------\n");
         
-        $display("DUT regr status:   %0s", dut_regr_status   ? "Passed" : "Failed");
-        if(!dut_regr_status) begin
-            for(cnt = 0; cnt < isa_failed_dut_cnt; cnt = cnt + 1)
-                $display("    DUT failed test #%0d, %0s", cnt, dut_regr_array[cnt]);
-        end
-
         $display("\nModel regr status: %0s", model_regr_status ? "Passed" : "Failed");
         if(!model_regr_status) begin
             for(cnt = 0; cnt < isa_failed_model_cnt; cnt = cnt + 1)
@@ -431,15 +301,6 @@ endtask
 
 task store_perf_counters;
     begin
-        perf_cnt_cycle          = perf_cnt_cycle + mmio_cycle_cnt;
-        perf_cnt_instr          = perf_cnt_instr + mmio_instr_cnt;
-        
-        perf_cnt_empty_cycles   = perf_cnt_empty_cycles + (mmio_cycle_cnt - mmio_instr_cnt);
-        
-        perf_cnt_all_nops       = perf_cnt_all_nops + hw_all_nop_or_clear_cnt;
-        perf_cnt_hw_nops        = perf_cnt_hw_nops + hw_inserted_nop_or_clear_cnt;
-        perf_cnt_compiler_nops  = perf_cnt_compiler_nops + (hw_all_nop_or_clear_cnt - hw_inserted_nop_or_clear_cnt);
-        
         dut_m_perf_cnt_cycle          = dut_m_perf_cnt_cycle + dut_m_cnt_cycle;
         dut_m_perf_cnt_instr          = dut_m_perf_cnt_instr + dut_m_cnt_instr;
         
@@ -467,139 +328,17 @@ task print_single_instruction_results;
     end
 endtask
 
-task checker_t;
-    input reg  [30*7:0] checker_name            ;
-    input reg           checker_active          ;
-    // input reg  [ 5:0]   checker_width           ;
-    input reg  [31:0]   checker_dut_signal      ;
-    input reg  [31:0]   checker_model_signal    ;
-    
-    begin
-        if (checker_active == 1) begin
-            if (checker_dut_signal !== checker_model_signal) begin
-                $display("*ERROR @ %0t. Checker: \"%0s\"; DUT: %5d, Model: %5d ", 
-                    $time-`CHECK_D, checker_name, checker_dut_signal, checker_model_signal);
-                errors = errors + 1;
-            end // checker compare
-        end // checker valid
-    end
-endtask
-
-task run_checkers;
-    integer checker_errors_prev;
-    begin
-        checker_errors_prev = errors;
-
-        // Datapath        
-        // IF_stage
-        checker_t("pc",                 `CHECKER_ACTIVE,    `DUT.pc,                    dut_m_pc                );
-        checker_t("pc_mux_out",         `CHECKER_ACTIVE,    `DUT.pc_mux_out,            dut_m_pc_mux_out        );
-        // ID_Stage 
-        checker_t("inst_id",            `CHECKER_ACTIVE,    `DUT.inst_id,               dut_m_inst_id           );
-        checker_t("rs1_data_id",        `CHECKER_ACTIVE,    `DUT.rs1_data_id,           dut_m_rs1_data_id       );
-        checker_t("rs2_data_id",        `CHECKER_ACTIVE,    `DUT.rs2_data_id,           dut_m_rs2_data_id       );
-        checker_t("imm_gen_out_id",     `CHECKER_ACTIVE,    `DUT.imm_gen_out_id,        dut_m_imm_gen_out_id    );
-        checker_t("clear_id",           `CHECKER_ACTIVE,    `DUT.clear_id,              dut_m_clear_id          );
-        // EX_Stage 
-        checker_t("inst_ex",            `CHECKER_ACTIVE,    `DUT.inst_ex,               dut_m_inst_ex           );
-        checker_t("pc_ex",              `CHECKER_ACTIVE,    `DUT.pc_ex,                 dut_m_pc_ex             );
-        checker_t("rs1_data_ex",        `CHECKER_ACTIVE,    `DUT.rs1_data_ex,           dut_m_rs1_data_ex       );
-        checker_t("rs2_data_ex",        `CHECKER_ACTIVE,    `DUT.rs2_data_ex,           dut_m_rs2_data_ex       );
-        checker_t("imm_gen_out_ex",     `CHECKER_ACTIVE,    `DUT.imm_gen_out_ex,        dut_m_imm_gen_out_ex    );
-        checker_t("rd_addr_ex",         `CHECKER_ACTIVE,    `DUT.rd_addr_ex,            dut_m_rd_addr_ex        );
-        checker_t("reg_we_ex",          `CHECKER_ACTIVE,    `DUT.reg_we_ex,             dut_m_reg_we_ex         );
-            
-        checker_t("bc_a_eq_b",          `CHECKER_ACTIVE,    `DUT.bc_out_a_eq_b,         dut_m_bc_a_eq_b         );
-        checker_t("bc_a_lt_b",          `CHECKER_ACTIVE,    `DUT.bc_out_a_lt_b,         dut_m_bc_a_lt_b         );
-        checker_t("alu_out",            `CHECKER_ACTIVE,    `DUT.alu_out,               dut_m_alu_out           );
-            
-        checker_t("clear_ex",           `CHECKER_ACTIVE,    `DUT.clear_ex,              dut_m_clear_ex          );
-            
-        checker_t("dmem_addr",          `CHECKER_ACTIVE,    `DUT.dmem_addr,             dut_m_dmem_addr         );
-        checker_t("dmem_write_data",    `CHECKER_ACTIVE,    `DUT.dmem_write_data,       dut_m_dmem_write_data   );
-        
-        // MEM_Stage
-        checker_t("dmem_read_data_mem", `CHECKER_ACTIVE,    `DUT.dmem_read_data_mem,    dut_m_dmem_read_data_mem);
-        checker_t("writeback",          `CHECKER_ACTIVE,    `DUT.writeback,             dut_m_writeback         );        
-        
-        
-        // Decoder
-        checker_t("pc_sel",             `CHECKER_ACTIVE,    `DUT.pc_sel_if,             dut_m_pc_sel_if         );
-        checker_t("pc_we",              `CHECKER_ACTIVE,    `DUT.pc_we_if,              dut_m_pc_we_if          );
-        checker_t("branch_inst_id",     `CHECKER_ACTIVE,    `DUT.branch_inst_id,        dut_m_branch_inst_id    );
-        checker_t("jump_inst_id",       `CHECKER_ACTIVE,    `DUT.jump_inst_id,          dut_m_jump_inst_id      );
-        checker_t("store_inst_id",      `CHECKER_ACTIVE,    `DUT.store_inst_id,         dut_m_store_inst_id     );
-        checker_t("alu_op_sel",         `CHECKER_ACTIVE,    `DUT.alu_op_sel_id,         dut_m_alu_op_sel_id     );
-        checker_t("imm_gen_sel",        `CHECKER_ACTIVE,    `DUT.imm_gen_sel_id,        dut_m_imm_gen_sel_id    );
-        checker_t("bc_uns",             `CHECKER_ACTIVE,    `DUT.bc_uns_id,             dut_m_bc_uns_id         );
-        checker_t("dmem_en",            `CHECKER_ACTIVE,    `DUT.dmem_en_id,            dut_m_dmem_en_id        );
-        checker_t("dmem_en_mmio",            `CHECKER_ACTIVE,    `DUT.dmem_en,            dut_m_dmem_en_ex        );
-        checker_t("load_sm_en",         `CHECKER_ACTIVE,    `DUT.load_sm_en_id,         dut_m_load_sm_en_id     );
-        checker_t("wb_sel",             `CHECKER_ACTIVE,    `DUT.wb_sel_id,             dut_m_wb_sel_id         );
-        checker_t("reg_we_id",          `CHECKER_ACTIVE,    `DUT.reg_we_id,             dut_m_reg_we_id         );
-        checker_t("alu_a_sel_fwd",      `CHECKER_ACTIVE,    `DUT.alu_a_sel_fwd_id,      dut_m_alu_a_sel_fwd_id  );
-        checker_t("alu_b_sel_fwd",      `CHECKER_ACTIVE,    `DUT.alu_b_sel_fwd_id,      dut_m_alu_b_sel_fwd_id  );
-        checker_t("bc_a_sel_fwd",       `CHECKER_ACTIVE,    `DUT.bc_a_sel_fwd_id,       dut_m_bc_a_sel_fwd_id   );
-        checker_t("bcs_b_sel_fwd",      `CHECKER_ACTIVE,    `DUT.bcs_b_sel_fwd_id,      dut_m_bcs_b_sel_fwd_id  );
-        checker_t("rf_a_sel_fwd",       `CHECKER_ACTIVE,    `DUT.rf_a_sel_fwd_id,       dut_m_rf_a_sel_fwd_id   );
-        checker_t("rf_b_sel_fwd",       `CHECKER_ACTIVE,    `DUT.rf_b_sel_fwd_id,       dut_m_rf_b_sel_fwd_id   );
-        checker_t("dmem_we",            `CHECKER_ACTIVE,    `DUT.dmem_we_ex,            dut_m_dmem_we_ex        );
-        checker_t("dmem_we_mmio",            `CHECKER_ACTIVE,    `DUT.dmem_we,            dut_m_dmem_we_ex        );
-        // in ex stage
-        checker_t("load_inst_ex",       `CHECKER_ACTIVE,    `DUT.load_inst_ex,          dut_m_load_inst_ex      );
-        // internal 
-        checker_t("branch_taken",       `CHECKER_ACTIVE,    dut_internal_branch_taken,  dut_m_branch_taken      );
-        
-        // RF
-        checker_t("x0_zero",            `CHECKER_ACTIVE,    `DUT_RF.x0_zero,            dut_m_x0_zero           );
-        checker_t("x1_ra  ",            `CHECKER_ACTIVE,    `DUT_RF.x1_ra  ,            dut_m_x1_ra             );
-        checker_t("x2_sp  ",            `CHECKER_ACTIVE,    `DUT_RF.x2_sp  ,            dut_m_x2_sp             );
-        checker_t("x3_gp  ",            `CHECKER_ACTIVE,    `DUT_RF.x3_gp  ,            dut_m_x3_gp             );
-        checker_t("x4_tp  ",            `CHECKER_ACTIVE,    `DUT_RF.x4_tp  ,            dut_m_x4_tp             );
-        checker_t("x5_t0  ",            `CHECKER_ACTIVE,    `DUT_RF.x5_t0  ,            dut_m_x5_t0             );
-        checker_t("x6_t1  ",            `CHECKER_ACTIVE,    `DUT_RF.x6_t1  ,            dut_m_x6_t1             );
-        checker_t("x7_t2  ",            `CHECKER_ACTIVE,    `DUT_RF.x7_t2  ,            dut_m_x7_t2             );
-        checker_t("x8_s0  ",            `CHECKER_ACTIVE,    `DUT_RF.x8_s0  ,            dut_m_x8_s0             );
-        checker_t("x9_s1  ",            `CHECKER_ACTIVE,    `DUT_RF.x9_s1  ,            dut_m_x9_s1             );
-        checker_t("x10_a0 ",            `CHECKER_ACTIVE,    `DUT_RF.x10_a0 ,            dut_m_x10_a0            );
-        checker_t("x11_a1 ",            `CHECKER_ACTIVE,    `DUT_RF.x11_a1 ,            dut_m_x11_a1            );
-        checker_t("x12_a2 ",            `CHECKER_ACTIVE,    `DUT_RF.x12_a2 ,            dut_m_x12_a2            );
-        checker_t("x13_a3 ",            `CHECKER_ACTIVE,    `DUT_RF.x13_a3 ,            dut_m_x13_a3            );
-        checker_t("x14_a4 ",            `CHECKER_ACTIVE,    `DUT_RF.x14_a4 ,            dut_m_x14_a4            );
-        checker_t("x15_a5 ",            `CHECKER_ACTIVE,    `DUT_RF.x15_a5 ,            dut_m_x15_a5            );
-        checker_t("x16_a6 ",            `CHECKER_ACTIVE,    `DUT_RF.x16_a6 ,            dut_m_x16_a6            );
-        checker_t("x17_a7 ",            `CHECKER_ACTIVE,    `DUT_RF.x17_a7 ,            dut_m_x17_a7            );
-        checker_t("x18_s2 ",            `CHECKER_ACTIVE,    `DUT_RF.x18_s2 ,            dut_m_x18_s2            );
-        checker_t("x19_s3 ",            `CHECKER_ACTIVE,    `DUT_RF.x19_s3 ,            dut_m_x19_s3            );
-        checker_t("x20_s4 ",            `CHECKER_ACTIVE,    `DUT_RF.x20_s4 ,            dut_m_x20_s4            );
-        checker_t("x21_s5 ",            `CHECKER_ACTIVE,    `DUT_RF.x21_s5 ,            dut_m_x21_s5            );
-        checker_t("x22_s6 ",            `CHECKER_ACTIVE,    `DUT_RF.x22_s6 ,            dut_m_x22_s6            );
-        checker_t("x23_s7 ",            `CHECKER_ACTIVE,    `DUT_RF.x23_s7 ,            dut_m_x23_s7            );
-        checker_t("x24_s8 ",            `CHECKER_ACTIVE,    `DUT_RF.x24_s8 ,            dut_m_x24_s8            );
-        checker_t("x25_s9 ",            `CHECKER_ACTIVE,    `DUT_RF.x25_s9 ,            dut_m_x25_s9            );
-        checker_t("x26_s10",            `CHECKER_ACTIVE,    `DUT_RF.x26_s10,            dut_m_x26_s10           );
-        checker_t("x27_s11",            `CHECKER_ACTIVE,    `DUT_RF.x27_s11,            dut_m_x27_s11           );
-        checker_t("x28_t3 ",            `CHECKER_ACTIVE,    `DUT_RF.x28_t3 ,            dut_m_x28_t3            );
-        checker_t("x29_t4 ",            `CHECKER_ACTIVE,    `DUT_RF.x29_t4 ,            dut_m_x29_t4            );
-        checker_t("x30_t5 ",            `CHECKER_ACTIVE,    `DUT_RF.x30_t5 ,            dut_m_x30_t5            );
-        checker_t("x31_t6 ",            `CHECKER_ACTIVE,    `DUT_RF.x31_t6 ,            dut_m_x31_t6            );
-        
-        checker_t("tohost",             `CHECKER_ACTIVE,    `DUT.tohost,                dut_m_tohost            );
-        
-        errors_for_wave = (errors != checker_errors_prev);
-
-    end // main task body */
-endtask // run_checkers
-
 task reset_tb_vars;
     begin
         rst_done            = 0;
-        errors              = 0;
-        errors_for_wave     = 1'b0;
-        warnings            = 0;
         done                = 0;
-        isa_passed_dut      = 0;
         isa_passed_model    = 0;
+    end
+endtask
+
+task print_system_time;
+    begin
+        $system("echo %time%");
     end
 endtask
 
@@ -611,17 +350,14 @@ initial begin
     repeat(regr_num) begin
         @(ev_rst[0]); // #1;
         // $display("\nReset Sequence start \n");    
-        rst = 1'b0;
         dut_m_rst = 1'b0;
         
         @(ev_rst[0]); // @(posedge clk); #1;
         
-        rst = 1'b1;
         dut_m_rst = 1'b1;
         repeat (rst_pulses) begin
             @(ev_rst[0]); //@(posedge clk); #1;          
         end
-        rst = 1'b0;
         dut_m_rst = 1'b0;
         // @(ev_rst[0]); //@(posedge clk); #1;  
         // ->ev_rst_done;
@@ -638,21 +374,13 @@ initial begin
     //Prints %t scaled in ns (-9), with 2 precision digits, with the " ns" string
     $timeformat(-9, 2, " ns", 20);
     i = 0;
-    perf_cnt_cycle         = 0;
-    perf_cnt_instr         = 0;
-    perf_cnt_empty_cycles  = 0;
-    perf_cnt_all_nops      = 0;
-    perf_cnt_hw_nops       = 0;
-    perf_cnt_compiler_nops = 0;
     dut_m_perf_cnt_cycle         = 0;
     dut_m_perf_cnt_instr         = 0;
     dut_m_perf_cnt_empty_cycles  = 0;
     dut_m_perf_cnt_all_nops      = 0;
     dut_m_perf_cnt_hw_nops       = 0;
     dut_m_perf_cnt_compiler_nops = 0;
-    dut_regr_status        = 1'b1; 
     model_regr_status      = 1'b1;
-    isa_failed_dut_cnt     = 0;     
     isa_failed_model_cnt   = 0;
     reset_tb_vars();
 end
@@ -682,17 +410,15 @@ initial begin
 end
 
 // choose which tohost CSR to use for simulation end
-`ifdef DUT_TEST
-    assign tohost_source = `DUT.tohost[0];
-`else   // MODEL_TEST
-    assign tohost_source = dut_m_tohost[0];
-`endif
+assign tohost_source = dut_m_tohost[0];
 
 //-----------------------------------------------------------------------------
 // Test
 initial begin
     $display("\n----------------------- Simulation started -----------------------\n");
-    
+    $display("Simulation time start:");
+    print_system_time();
+
     while(i < regr_num) begin
         if (regr_num == 1) load_single_test();
         else load_test(i);
@@ -713,7 +439,6 @@ initial begin
             end
         end
         //$display("Reset done, time: %0t \n", $time);
-        pre_rst_warnings = warnings;
         
         //-----------------------------------------------------------------------------
         // Test
@@ -724,7 +449,6 @@ initial begin
             begin
                 while (tohost_source !== 1'b1) begin
                     @(posedge clk);
-                    #`CHECK_D; run_checkers();
                     print_single_instruction_results();
                 end
                 done = 1;
@@ -740,16 +464,6 @@ initial begin
             end
         join
         
-        // DUT passed ISA?
-        if (`DUT.tohost === `TOHOST_PASS) begin
-            isa_passed_dut = 1;
-        end
-        else begin
-            isa_passed_dut = 0;
-            dut_regr_array[isa_failed_dut_cnt] = current_test_string;
-            isa_failed_dut_cnt = isa_failed_dut_cnt + 1;
-        end
-        
         // Model passed ISA?
         if (dut_m_tohost === `TOHOST_PASS) begin
             isa_passed_model = 1;
@@ -761,12 +475,9 @@ initial begin
         end
 
         // store regr flags
-        dut_regr_status     = dut_regr_status   && isa_passed_dut  ;
         model_regr_status   = model_regr_status && isa_passed_model;
-
         repeat (6) begin 
             @(posedge clk);
-            #`CHECK_D; run_checkers();
             print_single_instruction_results();
         end
 
@@ -784,13 +495,14 @@ initial begin
         $display("\n-------------------------- Regr Done -----------------------------\n");
         print_regr_status();
         // CPI print
-        print_perf_status_hw();
         print_perf_status_model();
     end
     else begin
         $display("\n-------------------------- Test Done -----------------------------\n");
     end
     
+    $display("Simulation time end:");
+    print_system_time();
     $finish();
     
 end // test
