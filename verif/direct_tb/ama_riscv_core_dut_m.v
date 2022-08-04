@@ -22,6 +22,9 @@
 //
 //-----------------------------------------------------------------------------
 
+`ifndef DUT_MODEL
+`define DUT_MODEL
+
 `include "../../src/ama_riscv_defines.v"
 
 // Reg File
@@ -1367,8 +1370,11 @@ endtask
 
 task dut_m_update();
     begin
+        $display("");
+        $display("Model update");
         dut_m_seq_update();
         dut_m_comb_update();
     end
 endtask
 
+`endif

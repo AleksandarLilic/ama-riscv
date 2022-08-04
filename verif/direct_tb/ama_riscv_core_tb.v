@@ -66,7 +66,7 @@
 
 `define CLK_PERIOD          8
 `define SINGLE_TEST         0
-`define TEST_NAME           add.hex
+`define TEST_NAME           lw.hex
 
 `define VERBOSITY           3           // TODO: keep up to 5, add list of choices?, dbg & perf levels?
 `define NUMBER_OF_TESTS     38
@@ -82,6 +82,8 @@
 //`define INST_PATH           "verif/direct_tb/inst/"
 `define INST_PATH           "/"
 `define PROJECT_PATH "C:/dev/ama-riscv-sim/riscv-tests/riscv-isa-tests"
+`define LOG_PATH "C:/dev/ama-riscv/simlogs/"
+//`define LOG_PATH ""
 
 `define DUT                 DUT_ama_riscv_core_i
 `define DUT_IMEM            DUT_ama_riscv_core_i.ama_riscv_imem_i.mem
@@ -192,7 +194,7 @@ task load_test;
     input integer t_in_test_num;
     begin
         case(t_in_test_num)
-            0 : begin  `load_memories_m(`TEST_SIMPLE)  current_test_string = "SIMPLE";  end
+           // 0 : begin  `load_memories_m(`TEST_SIMPLE)  current_test_string = "SIMPLE";  end
             1 : begin  `load_memories_m(`TEST_ADD   )  current_test_string = "ADD   ";  end
             2 : begin  `load_memories_m(`TEST_SUB   )  current_test_string = "SUB   ";  end
             3 : begin  `load_memories_m(`TEST_SLL   )  current_test_string = "SLL   ";  end
@@ -318,12 +320,16 @@ task print_single_instruction_results;
     reg     stalled;
     begin
         if(`VERBOSITY >= 3) begin
+            $display(" --- Sim time : %0t ---", $time);
             stalled = (last_pc == dut_m_pc);
-            $display("Instruction at PC# %2d, 0x%4h,  %s ", dut_m_pc, dut_m_pc, stalled ? "stalled " : "executed"); 
+            $display("\n Current clk count: %0d", dut_m_cnt_cycle);
+            $display("Instruction at PC# %2d, 0x%4h,  %s ", dut_m_pc, dut_m_pc, stalled ? "stalling " : "executing"); 
             $display("ID  stage: HEX: 'h%8h, ASM: %0s", dut_m_inst_id , dut_m_inst_id_asm );
             $display("EX  stage: HEX: 'h%8h, ASM: %0s", dut_m_inst_ex , dut_m_inst_ex_asm );
             $display("MEM stage: HEX: 'h%8h, ASM: %0s", dut_m_inst_mem, dut_m_inst_mem_asm);
+            $display("WB  stage: HEX: 'h%8h, ASM: %0s", dut_m_inst_wb , dut_m_inst_wb_asm );
             last_pc = dut_m_pc;
+            $display("");
         end
     end
 endtask
@@ -369,11 +375,34 @@ end
 //-----------------------------------------------------------------------------
 // Config
 
+integer fd;
+initial begin
+    fd = $fopen({`LOG_PATH, `"log.txt`"}, "w");
+    if (fd) $display("File opened: %0d", fd);
+    else $display("File could not be opened: %0d", fd);
+end
+
+integer lclk_cnt = 0;
+
+initial begin
+    forever begin
+        @(posedge clk);
+        if(rst_done) begin
+            #1;
+            lclk_cnt = lclk_cnt + 1;
+            $fwrite(fd, "clk: ");
+            $fwrite(fd, "%0d", lclk_cnt);
+            $fwrite(fd, "; Inst WB: ");
+            $fdisplay(fd, "%8x", dut_m_inst_wb);
+        end
+    end
+end
+
 // Initial setup
 initial begin
     //Prints %t scaled in ns (-9), with 2 precision digits, with the " ns" string
     $timeformat(-9, 2, " ns", 20);
-    i = 0;
+    i = 1;
     dut_m_perf_cnt_cycle         = 0;
     dut_m_perf_cnt_instr         = 0;
     dut_m_perf_cnt_empty_cycles  = 0;
@@ -403,8 +432,9 @@ initial begin
 
         // run model at every clk
         while (rst_done) begin
-            @(posedge clk); 
+            @(posedge clk);
             dut_m_update();
+            print_single_instruction_results();
         end
     end
 end
@@ -448,9 +478,10 @@ initial begin
         fork
             begin
                 while (tohost_source !== 1'b1) begin
-                    @(posedge clk);
-                    print_single_instruction_results();
+                    @(posedge clk);#0.1;
+//                    print_single_instruction_results();
                 end
+                $display("tohost done");
                 done = 1;
             end
             begin
@@ -460,10 +491,15 @@ initial begin
                 if (!done) begin    // timed-out
                     print_test_status(done);
                     $finish();
+                    $fclose(fd);
                 end
             end
         join
         
+        // print when going out of fork
+//        #0.1;
+//        print_single_instruction_results();
+
         // Model passed ISA?
         if (dut_m_tohost === `TOHOST_PASS) begin
             isa_passed_model = 1;
@@ -477,8 +513,8 @@ initial begin
         // store regr flags
         model_regr_status   = model_regr_status && isa_passed_model;
         repeat (6) begin 
-            @(posedge clk);
-            print_single_instruction_results();
+            @(posedge clk);#0.1;
+//            print_single_instruction_results();
         end
 
         print_test_status(done);
@@ -504,6 +540,7 @@ initial begin
     $display("Simulation time end:");
     print_system_time();
     $finish();
+    $fclose(fd);
     
 end // test
 
