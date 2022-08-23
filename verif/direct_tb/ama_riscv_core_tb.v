@@ -66,6 +66,7 @@
 `define CLK_PERIOD          8
 `define SINGLE_TEST         0
 `define TEST_NAME           lw.hex
+`define DUT_TEST
 
 `define VERBOSITY           2           // TODO: keep up to 5, add list of choices?, dbg & perf levels?
 `define NUMBER_OF_TESTS     38
@@ -76,8 +77,10 @@
 `define CHECK_D             1
 `define TIMEOUT_CLOCKS      5000
 
-`define PROJECT_PATH        "/home/aleksandar/Documents/xilinx/ama-riscv/"
-`define INST_PATH           "verif/direct_tb/inst/"
+// `define PROJECT_PATH        "/home/aleksandar/Documents/xilinx/ama-riscv/"
+// `define INST_PATH           "verif/direct_tb/inst/"
+`define INST_PATH "/"
+`define PROJECT_PATH "C:/dev/ama-riscv-sim/riscv-tests/riscv-isa-tests"
 
 `define DUT                 DUT_ama_riscv_core_i
 `define DUT_IMEM            DUT_ama_riscv_core_i.ama_riscv_imem_i.mem
@@ -665,21 +668,21 @@ end
 //     end
 // end
 
-initial begin
-    forever begin
-        // wait for reset done, reset handled in rst thread
-        while (!rst_done) begin
-            @(posedge clk);
-            if(rst_done) dut_m_update();    // handle first case when going out of reset
-        end
-
-        // run model at every clk
-        while (rst_done) begin
-            @(posedge clk); 
-            dut_m_update();
-        end
-    end
-end
+// initial begin
+//     forever begin
+//         // wait for reset done, reset handled in rst thread
+//         while (!rst_done) begin
+//             @(posedge clk);
+//             if(rst_done) dut_m_update();    // handle first case when going out of reset
+//         end
+// 
+//         // run model at every clk
+//         while (rst_done) begin
+//             @(posedge clk); 
+//             dut_m_update();
+//         end
+//     end
+// end
 
 // choose which tohost CSR to use for simulation end
 `ifdef DUT_TEST
@@ -709,7 +712,7 @@ initial begin
             // if still not done, wait for next clk else exit
             if(!rst_done) begin 
                 @(posedge clk); #1; 
-                dut_m_update();
+//                dut_m_update();
             end
         end
         //$display("Reset done, time: %0t \n", $time);
@@ -751,14 +754,14 @@ initial begin
         end
         
         // Model passed ISA?
-        if (dut_m_tohost === `TOHOST_PASS) begin
-            isa_passed_model = 1;
-        end
-        else begin
-            isa_passed_model = 0;
-            model_regr_array[isa_failed_model_cnt] = current_test_string;
-            isa_failed_model_cnt = isa_failed_model_cnt + 1;
-        end
+//        if (dut_m_tohost === `TOHOST_PASS) begin
+//            isa_passed_model = 1;
+//        end
+//        else begin
+//            isa_passed_model = 0;
+//            model_regr_array[isa_failed_model_cnt] = current_test_string;
+//            isa_failed_model_cnt = isa_failed_model_cnt + 1;
+//        end
 
         // store regr flags
         dut_regr_status     = dut_regr_status   && isa_passed_dut  ;

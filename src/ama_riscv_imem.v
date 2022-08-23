@@ -30,9 +30,9 @@ end
 //-----------------------------------------------------------------------------
 // Load IMEM for FPGA runs
 // `ifdef SYNTHESIS
-    initial begin
-        $readmemh("/home/aleksandar/Documents/xilinx/ama-riscv/sw/uart_test/uart_test.hex", mem); 
-    end
+//    initial begin
+//        $readmemh("/home/aleksandar/Documents/xilinx/ama-riscv/sw/uart_test/uart_test.hex", mem); 
+//    end
 // `endif
 
 
