@@ -1,10 +1,10 @@
 //-----------------------------------------------------------------------------
 // Project:         AMA-RISCV
 // Module:          Core Testbench
-// File:            ama_riscv_core_tb.v
+// File:            ama_riscv_core_top_tb.v
 // Date created:    2021-09-11
 // Author:          Aleksandar Lilic
-// Description:     Testbench and model for ama_riscv_core module
+// Description:     Testbench and model for ama_riscv_core_top module
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
@@ -82,11 +82,12 @@
 `define INST_PATH "/"
 `define PROJECT_PATH "C:/dev/ama-riscv-sim/riscv-tests/riscv-isa-tests"
 
-`define DUT                 DUT_ama_riscv_core_i
-`define DUT_IMEM            DUT_ama_riscv_core_i.ama_riscv_imem_i.mem
-`define DUT_DMEM            DUT_ama_riscv_core_i.ama_riscv_dmem_i.mem
-`define DUT_DEC             DUT_ama_riscv_core_i.ama_riscv_control_i.ama_riscv_decoder_i
-`define DUT_RF              DUT_ama_riscv_core_i.ama_riscv_reg_file_i
+`define DUT                 DUT_ama_riscv_core_top_i
+`define DUT_IMEM            `DUT.ama_riscv_imem_i.mem
+`define DUT_DMEM            `DUT.ama_riscv_dmem_i.mem
+`define DUT_CORE            `DUT.ama_riscv_core_i
+`define DUT_DEC             `DUT_CORE.ama_riscv_control_i.ama_riscv_decoder_i
+`define DUT_RF              `DUT_CORE.ama_riscv_reg_file_i
 
 `define TOHOST_PASS         32'd1
 
@@ -141,7 +142,7 @@
 `define TEST_LUI            lui.hex
 `define TEST_AUIPC          auipc.hex
 
-module ama_riscv_core_tb();
+module ama_riscv_core_top_tb();
 
 //-----------------------------------------------------------------------------
 // Model
@@ -202,7 +203,7 @@ integer       rst_done = 0;
 
 //-----------------------------------------------------------------------------
 // DUT instance
-ama_riscv_core DUT_ama_riscv_core_i (
+ama_riscv_core_top DUT_ama_riscv_core_top_i (
     .clk    (clk    ),
     .rst    (rst    ),
     // outputs
@@ -242,7 +243,7 @@ always @ (posedge clk) begin
         hw_inserted_nop_or_clear_cnt <= 32'd0;
     else if (mmio_reset_cnt)
         hw_inserted_nop_or_clear_cnt <= 32'd0;
-    else if (`DUT.stall_if_q1 || `DUT.clear_mem)    // clear_mem is enough in this implementation, predictor may change this
+    else if (`DUT_CORE.stall_if_q1 || `DUT_CORE.clear_mem)    // clear_mem is enough in this implementation, predictor may change this
         hw_inserted_nop_or_clear_cnt <= hw_inserted_nop_or_clear_cnt + 32'd1;
 end
 
@@ -331,7 +332,7 @@ task print_test_status;
             end
             else begin
                 $display("    Failed");
-                $display("    Failed test # : %0d", `DUT.tohost[31:1]);
+                $display("    Failed test # : %0d", `DUT_CORE.tohost[31:1]);
             end
             
             $display("\nStatus - Model-ISA: ");
@@ -495,61 +496,61 @@ task run_checkers;
 
         // Datapath        
         // IF_stage
-        checker_t("pc",                 `CHECKER_ACTIVE,    `DUT.pc,                    dut_m_pc                );
-        checker_t("pc_mux_out",         `CHECKER_ACTIVE,    `DUT.pc_mux_out,            dut_m_pc_mux_out        );
+        checker_t("pc",                 `CHECKER_ACTIVE,    `DUT_CORE.pc,                    dut_m_pc                );
+        checker_t("pc_mux_out",         `CHECKER_ACTIVE,    `DUT_CORE.pc_mux_out,            dut_m_pc_mux_out        );
         // ID_Stage 
-        checker_t("inst_id",            `CHECKER_ACTIVE,    `DUT.inst_id,               dut_m_inst_id           );
-        checker_t("rs1_data_id",        `CHECKER_ACTIVE,    `DUT.rs1_data_id,           dut_m_rs1_data_id       );
-        checker_t("rs2_data_id",        `CHECKER_ACTIVE,    `DUT.rs2_data_id,           dut_m_rs2_data_id       );
-        checker_t("imm_gen_out_id",     `CHECKER_ACTIVE,    `DUT.imm_gen_out_id,        dut_m_imm_gen_out_id    );
-        checker_t("clear_id",           `CHECKER_ACTIVE,    `DUT.clear_id,              dut_m_clear_id          );
+        checker_t("inst_id",            `CHECKER_ACTIVE,    `DUT_CORE.inst_id,               dut_m_inst_id           );
+        checker_t("rs1_data_id",        `CHECKER_ACTIVE,    `DUT_CORE.rs1_data_id,           dut_m_rs1_data_id       );
+        checker_t("rs2_data_id",        `CHECKER_ACTIVE,    `DUT_CORE.rs2_data_id,           dut_m_rs2_data_id       );
+        checker_t("imm_gen_out_id",     `CHECKER_ACTIVE,    `DUT_CORE.imm_gen_out_id,        dut_m_imm_gen_out_id    );
+        checker_t("clear_id",           `CHECKER_ACTIVE,    `DUT_CORE.clear_id,              dut_m_clear_id          );
         // EX_Stage 
-        checker_t("inst_ex",            `CHECKER_ACTIVE,    `DUT.inst_ex,               dut_m_inst_ex           );
-        checker_t("pc_ex",              `CHECKER_ACTIVE,    `DUT.pc_ex,                 dut_m_pc_ex             );
-        checker_t("rs1_data_ex",        `CHECKER_ACTIVE,    `DUT.rs1_data_ex,           dut_m_rs1_data_ex       );
-        checker_t("rs2_data_ex",        `CHECKER_ACTIVE,    `DUT.rs2_data_ex,           dut_m_rs2_data_ex       );
-        checker_t("imm_gen_out_ex",     `CHECKER_ACTIVE,    `DUT.imm_gen_out_ex,        dut_m_imm_gen_out_ex    );
-        checker_t("rd_addr_ex",         `CHECKER_ACTIVE,    `DUT.rd_addr_ex,            dut_m_rd_addr_ex        );
-        checker_t("reg_we_ex",          `CHECKER_ACTIVE,    `DUT.reg_we_ex,             dut_m_reg_we_ex         );
+        checker_t("inst_ex",            `CHECKER_ACTIVE,    `DUT_CORE.inst_ex,               dut_m_inst_ex           );
+        checker_t("pc_ex",              `CHECKER_ACTIVE,    `DUT_CORE.pc_ex,                 dut_m_pc_ex             );
+        checker_t("rs1_data_ex",        `CHECKER_ACTIVE,    `DUT_CORE.rs1_data_ex,           dut_m_rs1_data_ex       );
+        checker_t("rs2_data_ex",        `CHECKER_ACTIVE,    `DUT_CORE.rs2_data_ex,           dut_m_rs2_data_ex       );
+        checker_t("imm_gen_out_ex",     `CHECKER_ACTIVE,    `DUT_CORE.imm_gen_out_ex,        dut_m_imm_gen_out_ex    );
+        checker_t("rd_addr_ex",         `CHECKER_ACTIVE,    `DUT_CORE.rd_addr_ex,            dut_m_rd_addr_ex        );
+        checker_t("reg_we_ex",          `CHECKER_ACTIVE,    `DUT_CORE.reg_we_ex,             dut_m_reg_we_ex         );
             
-        checker_t("bc_a_eq_b",          `CHECKER_ACTIVE,    `DUT.bc_out_a_eq_b,         dut_m_bc_a_eq_b         );
-        checker_t("bc_a_lt_b",          `CHECKER_ACTIVE,    `DUT.bc_out_a_lt_b,         dut_m_bc_a_lt_b         );
-        checker_t("alu_out",            `CHECKER_ACTIVE,    `DUT.alu_out,               dut_m_alu_out           );
+        checker_t("bc_a_eq_b",          `CHECKER_ACTIVE,    `DUT_CORE.bc_out_a_eq_b,         dut_m_bc_a_eq_b         );
+        checker_t("bc_a_lt_b",          `CHECKER_ACTIVE,    `DUT_CORE.bc_out_a_lt_b,         dut_m_bc_a_lt_b         );
+        checker_t("alu_out",            `CHECKER_ACTIVE,    `DUT_CORE.alu_out,               dut_m_alu_out           );
             
-        checker_t("clear_ex",           `CHECKER_ACTIVE,    `DUT.clear_ex,              dut_m_clear_ex          );
+        checker_t("clear_ex",           `CHECKER_ACTIVE,    `DUT_CORE.clear_ex,              dut_m_clear_ex          );
             
-        checker_t("dmem_addr",          `CHECKER_ACTIVE,    `DUT.dmem_addr,             dut_m_dmem_addr         );
-        checker_t("dmem_write_data",    `CHECKER_ACTIVE,    `DUT.dmem_write_data,       dut_m_dmem_write_data   );
+        checker_t("dmem_addr",          `CHECKER_ACTIVE,    `DUT_CORE.dmem_addr,             dut_m_dmem_addr         );
+        checker_t("dmem_write_data",    `CHECKER_ACTIVE,    `DUT_CORE.dmem_write_data,       dut_m_dmem_write_data   );
         
         // MEM_Stage
-        checker_t("dmem_read_data_mem", `CHECKER_ACTIVE,    `DUT.dmem_read_data_mem,    dut_m_dmem_read_data_mem);
-        checker_t("writeback",          `CHECKER_ACTIVE,    `DUT.writeback,             dut_m_writeback         );        
+        checker_t("dmem_read_data_mem", `CHECKER_ACTIVE,    `DUT_CORE.dmem_read_data_mem,    dut_m_dmem_read_data_mem);
+        checker_t("writeback",          `CHECKER_ACTIVE,    `DUT_CORE.writeback,             dut_m_writeback         );        
         
         
         // Decoder
-        checker_t("pc_sel",             `CHECKER_ACTIVE,    `DUT.pc_sel_if,             dut_m_pc_sel_if         );
-        checker_t("pc_we",              `CHECKER_ACTIVE,    `DUT.pc_we_if,              dut_m_pc_we_if          );
-        checker_t("branch_inst_id",     `CHECKER_ACTIVE,    `DUT.branch_inst_id,        dut_m_branch_inst_id    );
-        checker_t("jump_inst_id",       `CHECKER_ACTIVE,    `DUT.jump_inst_id,          dut_m_jump_inst_id      );
-        checker_t("store_inst_id",      `CHECKER_ACTIVE,    `DUT.store_inst_id,         dut_m_store_inst_id     );
-        checker_t("alu_op_sel",         `CHECKER_ACTIVE,    `DUT.alu_op_sel_id,         dut_m_alu_op_sel_id     );
-        checker_t("imm_gen_sel",        `CHECKER_ACTIVE,    `DUT.imm_gen_sel_id,        dut_m_imm_gen_sel_id    );
-        checker_t("bc_uns",             `CHECKER_ACTIVE,    `DUT.bc_uns_id,             dut_m_bc_uns_id         );
-        checker_t("dmem_en",            `CHECKER_ACTIVE,    `DUT.dmem_en_id,            dut_m_dmem_en_id        );
-        checker_t("dmem_en_mmio",            `CHECKER_ACTIVE,    `DUT.dmem_en,            dut_m_dmem_en_ex        );
-        checker_t("load_sm_en",         `CHECKER_ACTIVE,    `DUT.load_sm_en_id,         dut_m_load_sm_en_id     );
-        checker_t("wb_sel",             `CHECKER_ACTIVE,    `DUT.wb_sel_id,             dut_m_wb_sel_id         );
-        checker_t("reg_we_id",          `CHECKER_ACTIVE,    `DUT.reg_we_id,             dut_m_reg_we_id         );
-        checker_t("alu_a_sel_fwd",      `CHECKER_ACTIVE,    `DUT.alu_a_sel_fwd_id,      dut_m_alu_a_sel_fwd_id  );
-        checker_t("alu_b_sel_fwd",      `CHECKER_ACTIVE,    `DUT.alu_b_sel_fwd_id,      dut_m_alu_b_sel_fwd_id  );
-        checker_t("bc_a_sel_fwd",       `CHECKER_ACTIVE,    `DUT.bc_a_sel_fwd_id,       dut_m_bc_a_sel_fwd_id   );
-        checker_t("bcs_b_sel_fwd",      `CHECKER_ACTIVE,    `DUT.bcs_b_sel_fwd_id,      dut_m_bcs_b_sel_fwd_id  );
-        checker_t("rf_a_sel_fwd",       `CHECKER_ACTIVE,    `DUT.rf_a_sel_fwd_id,       dut_m_rf_a_sel_fwd_id   );
-        checker_t("rf_b_sel_fwd",       `CHECKER_ACTIVE,    `DUT.rf_b_sel_fwd_id,       dut_m_rf_b_sel_fwd_id   );
-        checker_t("dmem_we",            `CHECKER_ACTIVE,    `DUT.dmem_we_ex,            dut_m_dmem_we_ex        );
-        checker_t("dmem_we_mmio",            `CHECKER_ACTIVE,    `DUT.dmem_we,            dut_m_dmem_we_ex        );
+        checker_t("pc_sel",             `CHECKER_ACTIVE,    `DUT_CORE.pc_sel_if,             dut_m_pc_sel_if         );
+        checker_t("pc_we",              `CHECKER_ACTIVE,    `DUT_CORE.pc_we_if,              dut_m_pc_we_if          );
+        checker_t("branch_inst_id",     `CHECKER_ACTIVE,    `DUT_CORE.branch_inst_id,        dut_m_branch_inst_id    );
+        checker_t("jump_inst_id",       `CHECKER_ACTIVE,    `DUT_CORE.jump_inst_id,          dut_m_jump_inst_id      );
+        checker_t("store_inst_id",      `CHECKER_ACTIVE,    `DUT_CORE.store_inst_id,         dut_m_store_inst_id     );
+        checker_t("alu_op_sel",         `CHECKER_ACTIVE,    `DUT_CORE.alu_op_sel_id,         dut_m_alu_op_sel_id     );
+        checker_t("imm_gen_sel",        `CHECKER_ACTIVE,    `DUT_CORE.imm_gen_sel_id,        dut_m_imm_gen_sel_id    );
+        checker_t("bc_uns",             `CHECKER_ACTIVE,    `DUT_CORE.bc_uns_id,             dut_m_bc_uns_id         );
+        checker_t("dmem_en",            `CHECKER_ACTIVE,    `DUT_CORE.dmem_en_id,            dut_m_dmem_en_id        );
+        checker_t("dmem_en_mmio",            `CHECKER_ACTIVE,    `DUT_CORE.dmem_en,            dut_m_dmem_en_ex        );
+        checker_t("load_sm_en",         `CHECKER_ACTIVE,    `DUT_CORE.load_sm_en_id,         dut_m_load_sm_en_id     );
+        checker_t("wb_sel",             `CHECKER_ACTIVE,    `DUT_CORE.wb_sel_id,             dut_m_wb_sel_id         );
+        checker_t("reg_we_id",          `CHECKER_ACTIVE,    `DUT_CORE.reg_we_id,             dut_m_reg_we_id         );
+        checker_t("alu_a_sel_fwd",      `CHECKER_ACTIVE,    `DUT_CORE.alu_a_sel_fwd_id,      dut_m_alu_a_sel_fwd_id  );
+        checker_t("alu_b_sel_fwd",      `CHECKER_ACTIVE,    `DUT_CORE.alu_b_sel_fwd_id,      dut_m_alu_b_sel_fwd_id  );
+        checker_t("bc_a_sel_fwd",       `CHECKER_ACTIVE,    `DUT_CORE.bc_a_sel_fwd_id,       dut_m_bc_a_sel_fwd_id   );
+        checker_t("bcs_b_sel_fwd",      `CHECKER_ACTIVE,    `DUT_CORE.bcs_b_sel_fwd_id,      dut_m_bcs_b_sel_fwd_id  );
+        checker_t("rf_a_sel_fwd",       `CHECKER_ACTIVE,    `DUT_CORE.rf_a_sel_fwd_id,       dut_m_rf_a_sel_fwd_id   );
+        checker_t("rf_b_sel_fwd",       `CHECKER_ACTIVE,    `DUT_CORE.rf_b_sel_fwd_id,       dut_m_rf_b_sel_fwd_id   );
+        checker_t("dmem_we",            `CHECKER_ACTIVE,    `DUT_CORE.dmem_we_ex,            dut_m_dmem_we_ex        );
+        checker_t("dmem_we_mmio",            `CHECKER_ACTIVE,    `DUT_CORE.dmem_we,            dut_m_dmem_we_ex        );
         // in ex stage
-        checker_t("load_inst_ex",       `CHECKER_ACTIVE,    `DUT.load_inst_ex,          dut_m_load_inst_ex      );
+        checker_t("load_inst_ex",       `CHECKER_ACTIVE,    `DUT_CORE.load_inst_ex,          dut_m_load_inst_ex      );
         // internal 
         checker_t("branch_taken",       `CHECKER_ACTIVE,    dut_internal_branch_taken,  dut_m_branch_taken      );
         
@@ -587,7 +588,7 @@ task run_checkers;
         checker_t("x30_t5 ",            `CHECKER_ACTIVE,    `DUT_RF.x30_t5 ,            dut_m_x30_t5            );
         checker_t("x31_t6 ",            `CHECKER_ACTIVE,    `DUT_RF.x31_t6 ,            dut_m_x31_t6            );
         
-        checker_t("tohost",             `CHECKER_ACTIVE,    `DUT.tohost,                dut_m_tohost            );
+        checker_t("tohost",             `CHECKER_ACTIVE,    `DUT_CORE.tohost,                dut_m_tohost            );
         
         errors_for_wave = (errors != checker_errors_prev);
 
@@ -686,7 +687,7 @@ end
 
 // choose which tohost CSR to use for simulation end
 `ifdef DUT_TEST
-    assign tohost_source = `DUT.tohost[0];
+    assign tohost_source = `DUT_CORE.tohost[0];
 `else   // MODEL_TEST
     assign tohost_source = dut_m_tohost[0];
 `endif
@@ -727,7 +728,7 @@ initial begin
             begin
                 while (tohost_source !== 1'b1) begin
                     @(posedge clk);
-                    #`CHECK_D; run_checkers();
+                    // #`CHECK_D; run_checkers();
                     print_single_instruction_results();
                 end
                 done = 1;
@@ -744,7 +745,7 @@ initial begin
         join
         
         // DUT passed ISA?
-        if (`DUT.tohost === `TOHOST_PASS) begin
+        if (`DUT_CORE.tohost === `TOHOST_PASS) begin
             isa_passed_dut = 1;
         end
         else begin
