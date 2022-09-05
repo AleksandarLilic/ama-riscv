@@ -64,8 +64,8 @@
 `include "../../src/ama_riscv_defines.v"
 
 `define CLK_PERIOD          8
-`define SINGLE_TEST         0
-`define TEST_NAME           lw.hex
+`define SINGLE_TEST         1
+`define TEST_NAME           add.hex
 `define STANDALONE
 
 `define VERBOSITY           2           // TODO: keep up to 5, add list of choices?, dbg & perf levels?
@@ -79,6 +79,8 @@
 
 `define INST_PATH "/"
 `define PROJECT_PATH "C:/dev/ama-riscv-sim/riscv-tests/riscv-isa-tests"
+`define LOG_PATH "C:/dev/ama-riscv/simlogs/"
+`define STIM_PATH "C:/dev/ama-riscv-sim/SW/out/build/ama-riscv-sim/src"
 
 `define DUT                 DUT_ama_riscv_core_top_i
 `define DUT_IMEM            `DUT.ama_riscv_imem_i.mem
@@ -161,9 +163,6 @@ wire dut_internal_branch_taken = `DUT_DEC.branch_res && `DUT_DEC.branch_inst_ex;
 integer       i                     ;   // used for all loops
 integer       done                  ;
 integer       isa_passed_dut        ;
-integer       isa_passed_model      ;
-integer       clocks_to_execute     ;
-integer       run_test_pc_target    ;
 integer       errors                ;
 integer       warnings              ;
 integer       pre_rst_warnings      ;
@@ -172,18 +171,15 @@ wire          tohost_source         ;
 integer       regr_num = (`SINGLE_TEST) ? 1 : `NUMBER_OF_TESTS;
 // regr flags
 reg           dut_regr_status       ;
-reg           model_regr_status     ;
 reg  [12*7:0] dut_regr_array [`NUMBER_OF_TESTS-1:0];
-reg  [12*7:0] model_regr_array [`NUMBER_OF_TESTS-1:0];
 integer       isa_failed_dut_cnt    ;
-integer       isa_failed_model_cnt  ;
 // performance counters
-integer       perf_cnt_cycle        ;
-integer       perf_cnt_instr        ;
-integer       perf_cnt_empty_cycles ;
-integer       perf_cnt_all_nops     ;
-integer       perf_cnt_hw_nops      ;
-integer       perf_cnt_compiler_nops;
+// integer       perf_cnt_cycle        ;
+// integer       perf_cnt_instr        ;
+// integer       perf_cnt_empty_cycles ;
+// integer       perf_cnt_all_nops     ;
+// integer       perf_cnt_hw_nops      ;
+// integer       perf_cnt_compiler_nops;
 
 // Reset hold for
 reg    [ 3:0] rst_pulses = 4'd3;
@@ -254,7 +250,30 @@ end
 
 //-----------------------------------------------------------------------------
 // Clock gen: 125 MHz
-always #(`CLK_PERIOD/2) clk = ~clk;
+// always #(`CLK_PERIOD/2) clk = ~clk;
+integer fd_clk, fd_clk_repl;
+reg [15:0] str_read;
+reg [15:0] str_read_wave;
+
+initial begin
+    fd_clk = $fopen({`STIM_PATH, `"/stim_clk.txt`"}, "r");
+    if (fd_clk) $display("File opened: %0d", fd_clk);
+    else $display("File could not be opened: %0d", fd_clk);
+
+    fd_clk_repl = $fopen({`LOG_PATH, `"stim_clk_repl.txt`"}, "w");
+    if (fd_clk_repl) $display("File opened: %0d", fd_clk_repl);
+    else $display("File could not be opened: %0d", fd_clk_repl);
+
+    while (! $feof(fd_clk)) begin
+        $fgets(str_read, fd_clk);
+        str_read_wave = str_read;
+        $fdisplay(fd_clk_repl, str_read[8]);
+        clk = str_read[15:8];
+        #(`CLK_PERIOD/2);
+    end
+    $display("Finish called from stim_clk process");
+    $finish();
+end
 
 //-----------------------------------------------------------------------------
 // Testbench tasks
@@ -546,7 +565,6 @@ task reset_tb_vars;
         warnings            = 0;
         done                = 0;
         isa_passed_dut      = 0;
-        isa_passed_model    = 0;
     end
 endtask
 
@@ -580,20 +598,47 @@ end
 //-----------------------------------------------------------------------------
 // Config
 
+integer fd;
+initial begin
+    fd = $fopen({`LOG_PATH, `"log.txt`"}, "w");
+    if (fd) $display("File opened: %0d", fd);
+    else $display("File could not be opened: %0d", fd);
+end
+
+integer lclk_cnt = 0;
+
+initial begin
+    forever begin
+        @(posedge clk);
+        if(rst_done) begin
+            #1;
+            lclk_cnt = lclk_cnt + 1;
+            $fwrite(fd, "clk: ");
+            $fwrite(fd, "%0d", lclk_cnt);
+            $fwrite(fd, "; Inst WB: ");
+//            $fdisplay(fd, "%8x", dut_m_inst_wb);
+            $fdisplay(fd, "%8x", `DUT_CORE.inst_wb );
+        end
+    end
+end
+
 // Initial setup
 initial begin
     //Prints %t scaled in ns (-9), with 2 precision digits, with the " ns" string
     $timeformat(-9, 2, " ns", 20);
-    i = 0;
-    perf_cnt_cycle         = 0;
-    perf_cnt_instr         = 0;
-    perf_cnt_empty_cycles  = 0;
-    perf_cnt_all_nops      = 0;
-    perf_cnt_hw_nops       = 0;
-    perf_cnt_compiler_nops = 0;
+//    perf_cnt_cycle         = 0;
+//    perf_cnt_instr         = 0;
+//    perf_cnt_empty_cycles  = 0;
+//    perf_cnt_all_nops      = 0;
+//    perf_cnt_hw_nops       = 0;
+//    perf_cnt_compiler_nops = 0;
     dut_regr_status        = 1'b1; 
     isa_failed_dut_cnt     = 0;     
     reset_tb_vars();
+    for (i = 0; i < `NUMBER_OF_TESTS; i = i + 1) begin
+        dut_regr_array[i] = "N/A";
+    end
+    i = 0;
 end
 
 // Timestamp print
