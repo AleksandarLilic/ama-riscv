@@ -252,27 +252,48 @@ end
 // Clock gen: 125 MHz
 // always #(`CLK_PERIOD/2) clk = ~clk;
 integer fd_clk, fd_clk_repl;
-reg [15:0] str_read;
-reg [15:0] str_read_wave;
+reg [15:0] str_read_clk;
+reg [15:0] str_read_clk_wave;
 
 initial begin
     fd_clk = $fopen({`STIM_PATH, `"/stim_clk.txt`"}, "r");
     if (fd_clk) $display("File opened: %0d", fd_clk);
     else $display("File could not be opened: %0d", fd_clk);
-
+    
+    // debug
     fd_clk_repl = $fopen({`LOG_PATH, `"stim_clk_repl.txt`"}, "w");
     if (fd_clk_repl) $display("File opened: %0d", fd_clk_repl);
     else $display("File could not be opened: %0d", fd_clk_repl);
+    // end of debug
 
     while (! $feof(fd_clk)) begin
-        $fgets(str_read, fd_clk);
-        str_read_wave = str_read;
-        $fdisplay(fd_clk_repl, str_read[8]);
-        clk = str_read[15:8];
+        $fgets(str_read_clk, fd_clk);
+        str_read_clk_wave = str_read_clk;
+        $fdisplay(fd_clk_repl, str_read_clk[8]);
+        clk = str_read_clk[15:8];
         #(`CLK_PERIOD/2);
     end
     $display("Finish called from stim_clk process");
     $finish();
+end
+
+// Reset gen
+integer fd_rst;
+reg [15:0] str_read_rst;
+reg [15:0] str_read_rst_wave;
+
+initial begin
+    fd_rst = $fopen({`STIM_PATH, `"/stim_rst.txt`"}, "r");
+    if (fd_rst) $display("File opened: %0d", fd_rst);
+    else $display("File could not be opened: %0d", fd_rst);
+    
+    while (! $feof(fd_rst)) begin
+        $fgets(str_read_rst, fd_rst);
+        str_read_rst_wave = str_read_rst;
+        rst = #1 str_read_rst[15:8];
+        @(posedge clk); 
+    end
+    $display("Reset signal done");
 end
 
 //-----------------------------------------------------------------------------
@@ -570,30 +591,30 @@ endtask
 
 //-----------------------------------------------------------------------------
 // Reset
-initial begin
-    // sync this thread with events from main thread
-    // each time new test is loaded
-    repeat(regr_num) begin
-        @(ev_rst[0]); // #1;
-        // $display("\nReset Sequence start \n");    
-        rst = 1'b0;
-//        dut_m_rst = 1'b0;
-        
-        @(ev_rst[0]); // @(posedge clk); #1;
-        
-        rst = 1'b1;
-//        dut_m_rst = 1'b1;
-        repeat (rst_pulses) begin
-            @(ev_rst[0]); //@(posedge clk); #1;          
-        end
-        rst = 1'b0;
-//        dut_m_rst = 1'b0;
-        // @(ev_rst[0]); //@(posedge clk); #1;  
-        // ->ev_rst_done;
-        // $display("\nReset Sequence end \n");
-        rst_done = 1;
-    end
-end
+// initial begin
+//     // sync this thread with events from main thread
+//     // each time new test is loaded
+//     repeat(regr_num) begin
+//         @(ev_rst[0]); // #1;
+//         // $display("\nReset Sequence start \n");    
+//         rst = 1'b0;
+// //        dut_m_rst = 1'b0;
+//         
+//         @(ev_rst[0]); // @(posedge clk); #1;
+//         
+//         rst = 1'b1;
+// //        dut_m_rst = 1'b1;
+//         repeat (rst_pulses) begin
+//             @(ev_rst[0]); //@(posedge clk); #1;          
+//         end
+//         rst = 1'b0;
+// //        dut_m_rst = 1'b0;
+//         // @(ev_rst[0]); //@(posedge clk); #1;  
+//         // ->ev_rst_done;
+//         // $display("\nReset Sequence end \n");
+//         rst_done = 1;
+//     end
+// end
 
 //-----------------------------------------------------------------------------
 // Config
@@ -610,15 +631,12 @@ integer lclk_cnt = 0;
 initial begin
     forever begin
         @(posedge clk);
-        if(rst_done) begin
-            #1;
-            lclk_cnt = lclk_cnt + 1;
-            $fwrite(fd, "clk: ");
-            $fwrite(fd, "%0d", lclk_cnt);
-            $fwrite(fd, "; Inst WB: ");
-//            $fdisplay(fd, "%8x", dut_m_inst_wb);
-            $fdisplay(fd, "%8x", `DUT_CORE.inst_wb );
-        end
+        #1;
+        lclk_cnt = lclk_cnt + 1;
+        $fwrite(fd, "clk: ");
+        $fwrite(fd, "%0d", lclk_cnt);
+        $fwrite(fd, "; Inst WB: ");
+        $fdisplay(fd, "%8x", `DUT_CORE.inst_wb );
     end
 end
 
@@ -680,19 +698,20 @@ initial begin
     
         // Test 0: Wait for reset
         // $display("\n Resetting DUT... \n");
-        @(posedge clk); #1;
-        while (!rst_done) begin
-            // $display("Reset not done, time: %0t \n", $time);
-             ->ev_rst[0]; #1;
-            
-            // if still not done, wait for next clk else exit
-            if(!rst_done) begin 
-                @(posedge clk); #1; 
-//                dut_m_update();
-            end
-        end
+//         @(posedge clk); #1;
+//         while (!rst_done) begin
+//             // $display("Reset not done, time: %0t \n", $time);
+//              ->ev_rst[0]; #1;
+//             
+//             // if still not done, wait for next clk else exit
+//             if(!rst_done) begin 
+//                 @(posedge clk); #1; 
+// //                dut_m_update();
+//             end
+//         end
         //$display("Reset done, time: %0t \n", $time);
-        pre_rst_warnings = warnings;
+//        while (!rst_done) @(posedge clk);
+//        pre_rst_warnings = warnings;
         
         //-----------------------------------------------------------------------------
         // Test
