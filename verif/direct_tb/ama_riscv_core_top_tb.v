@@ -65,14 +65,14 @@
 
 `define CLK_PERIOD          8
 `define SINGLE_TEST         1
-`define TEST_NAME           add.hex
+`define TEST_NAME           addi.hex
 `define STANDALONE
 
 `define VERBOSITY           2           // TODO: keep up to 5, add list of choices?, dbg & perf levels?
 `define NUMBER_OF_TESTS     38
 
 // TB
-`define CHECKER_ACTIVE      1'b0        // TODO: Consider moving checkers to different file
+`define CHECKER_ACTIVE      1'b1        // TODO: Consider moving checkers to different file
 `define CHECKER_INACTIVE    1'b0
 `define CHECK_D             1
 `define TIMEOUT_CLOCKS      5000
@@ -251,36 +251,24 @@ end
 //-----------------------------------------------------------------------------
 // Clock gen: 125 MHz
 // always #(`CLK_PERIOD/2) clk = ~clk;
-integer fd_clk, fd_clk_repl;
-reg [15:0] str_read_clk;
-reg [15:0] str_read_clk_wave;
+integer fd_clk;
+reg [0:0] sim_done;
 
 initial begin
     fd_clk = $fopen({`STIM_PATH, `"/stim_clk.txt`"}, "r");
     if (fd_clk) $display("File opened: %0d", fd_clk);
     else $display("File could not be opened: %0d", fd_clk);
     
-    // debug
-    fd_clk_repl = $fopen({`LOG_PATH, `"stim_clk_repl.txt`"}, "w");
-    if (fd_clk_repl) $display("File opened: %0d", fd_clk_repl);
-    else $display("File could not be opened: %0d", fd_clk_repl);
-    // end of debug
-
     while (! $feof(fd_clk)) begin
-        $fgets(str_read_clk, fd_clk);
-        str_read_clk_wave = str_read_clk;
-        $fdisplay(fd_clk_repl, str_read_clk[8]);
-        clk = str_read_clk[15:8];
+        $fscanf(fd_clk, "%d\n", clk);
         #(`CLK_PERIOD/2);
     end
-    $display("Finish called from stim_clk process");
-    $finish();
+//    $display("clk_stim done");
+    sim_done=1;
 end
 
 // Reset gen
 integer fd_rst;
-reg [15:0] str_read_rst;
-reg [15:0] str_read_rst_wave;
 
 initial begin
     fd_rst = $fopen({`STIM_PATH, `"/stim_rst.txt`"}, "r");
@@ -288,12 +276,26 @@ initial begin
     else $display("File could not be opened: %0d", fd_rst);
     
     while (! $feof(fd_rst)) begin
-        $fgets(str_read_rst, fd_rst);
-        str_read_rst_wave = str_read_rst;
-        rst = #1 str_read_rst[15:8];
-        @(posedge clk); 
+        #1;
+        $fscanf(fd_rst, "%d\n", rst);
+        @(posedge clk);
     end
     $display("Reset signal done");
+end
+
+// PC checker
+integer fd_pc;
+reg [31:0] pc_wave;
+
+initial begin
+    fd_pc = $fopen({`STIM_PATH, `"/checker_pc_id.txt`"}, "r");
+    if (fd_pc) $display("File opened: %0d", fd_pc);
+    else $display("File could not be opened: %0d", fd_pc);
+    
+    while (! $feof(fd_pc)) begin
+        $fscanf(fd_pc, "%d\n", pc_wave);
+        @(posedge clk); 
+    end
 end
 
 //-----------------------------------------------------------------------------
@@ -376,7 +378,7 @@ task print_test_status;
                 $display("    Failed");
 `endif            
             // $display("    Pre RST Warnings: %2d", pre_rst_warnings);
-            $display("    Warnings: %2d", warnings - pre_rst_warnings);
+            $display("    Warnings: %2d", warnings /* - pre_rst_warnings*/);
             $display("    Errors:   %2d", errors);
             
 //            if(`VERBOSITY >= 2) begin
@@ -472,10 +474,11 @@ task checker_t;
     end
 endtask
 
-// task run_checkers;
-//     integer checker_errors_prev;
-//     begin
-//         checker_errors_prev = errors;
+task run_checkers;
+    integer checker_errors_prev;
+    begin
+        checker_errors_prev = errors;
+        checker_t("pc",                 `CHECKER_ACTIVE,    `DUT_CORE.pc,                     pc_wave          );
 // 
 //         // Datapath        
 //         // IF_stage
@@ -573,14 +576,15 @@ endtask
 //         
 //         checker_t("tohost",             `CHECKER_ACTIVE,    `DUT_CORE.tohost,                dut_m_tohost            );
 //         
-//         errors_for_wave = (errors != checker_errors_prev);
-// 
-//     end // main task body */
-// endtask // run_checkers
+        errors_for_wave = (errors != checker_errors_prev);
+
+    end // main task body */
+endtask // run_checkers
 
 task reset_tb_vars;
     begin
         rst_done            = 0;
+        sim_done            = 0;
         errors              = 0;
         errors_for_wave     = 1'b0;
         warnings            = 0;
@@ -721,8 +725,8 @@ initial begin
         fork
             begin
                 while (tohost_source !== 1'b1) begin
-                    @(posedge clk);
-                    // #`CHECK_D; run_checkers();
+                    @(posedge clk); #1;
+                    if (rst == 0) run_checkers;
                     //print_single_instruction_results();
                 end
                 done = 1;
@@ -751,18 +755,13 @@ initial begin
         // store regr flags
         dut_regr_status = dut_regr_status && isa_passed_dut  ;
 
-        repeat (6) begin 
-            @(posedge clk);
-//            #`CHECK_D; run_checkers();
-//            print_single_instruction_results();
-        end
-
+        // wait for stimuli to end
+        @(posedge sim_done);
         print_test_status(done);
 
         $display("Test Done: %0s ", current_test_string); 
         
 //        store_perf_counters();
-        
         reset_tb_vars();
         
     end // end looping thru tests
