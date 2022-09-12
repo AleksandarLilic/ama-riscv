@@ -65,7 +65,7 @@
 
 `define CLK_PERIOD          8
 `define SINGLE_TEST         1
-`define TEST_NAME           addi.hex
+`define TEST_NAME           xori.hex
 `define STANDALONE
 
 `define VERBOSITY           2           // TODO: keep up to 5, add list of choices?, dbg & perf levels?
@@ -285,15 +285,47 @@ end
 
 // PC checker
 integer fd_pc;
-reg [31:0] pc_wave;
+reg [31:0] pc_wave; // TODO: make task for this, use chk_<sig_name> for these regs
 
 initial begin
-    fd_pc = $fopen({`STIM_PATH, `"/checker_pc_id.txt`"}, "r");
+    fd_pc = $fopen({`STIM_PATH, `"/chk_pc.txt`"}, "r");
     if (fd_pc) $display("File opened: %0d", fd_pc);
     else $display("File could not be opened: %0d", fd_pc);
     
     while (! $feof(fd_pc)) begin
         $fscanf(fd_pc, "%d\n", pc_wave);
+        @(posedge clk); 
+    end
+end
+
+// tohost checker
+integer fd_tohost;
+reg [31:0] tohost_wave;
+
+initial begin
+    fd_tohost = $fopen({`STIM_PATH, `"/chk_tohost.txt`"}, "r");
+    if (fd_tohost) $display("File opened: %0d", fd_tohost);
+    else $display("File could not be opened: %0d", fd_tohost);
+    // TODO: add sim exit if any of the files are not found
+    
+    while (! $feof(fd_tohost)) begin
+        $fscanf(fd_tohost, "%d\n", tohost_wave);
+        @(posedge clk); 
+    end
+end
+
+// x7 checker
+integer fd_x7;
+reg [31:0] x7_wave;
+
+initial begin
+    fd_x7 = $fopen({`STIM_PATH, `"/chk_x7.txt`"}, "r");
+    if (fd_x7) $display("File opened: %0d", fd_x7);
+    else $display("File could not be opened: %0d", fd_x7);
+    // TODO: add sim exit if any of the files are not found
+    
+    while (! $feof(fd_x7)) begin
+        $fscanf(fd_x7, "%d\n", x7_wave);
         @(posedge clk); 
     end
 end
@@ -479,6 +511,8 @@ task run_checkers;
     begin
         checker_errors_prev = errors;
         checker_t("pc",                 `CHECKER_ACTIVE,    `DUT_CORE.pc,                     pc_wave          );
+        checker_t("tohost",                 `CHECKER_ACTIVE,    `DUT_CORE.tohost,                     tohost_wave          );
+        checker_t("x7",                 `CHECKER_ACTIVE,    `DUT_RF.x7_t2,                     x7_wave          );
 // 
 //         // Datapath        
 //         // IF_stage
