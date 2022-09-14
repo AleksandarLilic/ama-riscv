@@ -330,6 +330,11 @@ initial begin
     end
 end
 
+
+//-----------------------------------------------------------------------------
+// Import vectors
+`include "vector_import.v"
+
 //-----------------------------------------------------------------------------
 // Testbench tasks
 task load_single_test;
@@ -506,114 +511,8 @@ task checker_t;
     end
 endtask
 
-task run_checkers;
-    integer checker_errors_prev;
-    begin
-        checker_errors_prev = errors;
-        checker_t("pc",                 `CHECKER_ACTIVE,    `DUT_CORE.pc,                     pc_wave          );
-        checker_t("tohost",                 `CHECKER_ACTIVE,    `DUT_CORE.tohost,                     tohost_wave          );
-        checker_t("x7",                 `CHECKER_ACTIVE,    `DUT_RF.x7_t2,                     x7_wave          );
-// 
-//         // Datapath        
-//         // IF_stage
-//         checker_t("pc",                 `CHECKER_ACTIVE,    `DUT_CORE.pc,                    dut_m_pc                );
-//         checker_t("pc_mux_out",         `CHECKER_ACTIVE,    `DUT_CORE.pc_mux_out,            dut_m_pc_mux_out        );
-//         // ID_Stage 
-//         checker_t("inst_id",            `CHECKER_ACTIVE,    `DUT_CORE.inst_id,               dut_m_inst_id           );
-//         checker_t("rs1_data_id",        `CHECKER_ACTIVE,    `DUT_CORE.rs1_data_id,           dut_m_rs1_data_id       );
-//         checker_t("rs2_data_id",        `CHECKER_ACTIVE,    `DUT_CORE.rs2_data_id,           dut_m_rs2_data_id       );
-//         checker_t("imm_gen_out_id",     `CHECKER_ACTIVE,    `DUT_CORE.imm_gen_out_id,        dut_m_imm_gen_out_id    );
-//         checker_t("clear_id",           `CHECKER_ACTIVE,    `DUT_CORE.clear_id,              dut_m_clear_id          );
-//         // EX_Stage 
-//         checker_t("inst_ex",            `CHECKER_ACTIVE,    `DUT_CORE.inst_ex,               dut_m_inst_ex           );
-//         checker_t("pc_ex",              `CHECKER_ACTIVE,    `DUT_CORE.pc_ex,                 dut_m_pc_ex             );
-//         checker_t("rs1_data_ex",        `CHECKER_ACTIVE,    `DUT_CORE.rs1_data_ex,           dut_m_rs1_data_ex       );
-//         checker_t("rs2_data_ex",        `CHECKER_ACTIVE,    `DUT_CORE.rs2_data_ex,           dut_m_rs2_data_ex       );
-//         checker_t("imm_gen_out_ex",     `CHECKER_ACTIVE,    `DUT_CORE.imm_gen_out_ex,        dut_m_imm_gen_out_ex    );
-//         checker_t("rd_addr_ex",         `CHECKER_ACTIVE,    `DUT_CORE.rd_addr_ex,            dut_m_rd_addr_ex        );
-//         checker_t("reg_we_ex",          `CHECKER_ACTIVE,    `DUT_CORE.reg_we_ex,             dut_m_reg_we_ex         );
-//             
-//         checker_t("bc_a_eq_b",          `CHECKER_ACTIVE,    `DUT_CORE.bc_out_a_eq_b,         dut_m_bc_a_eq_b         );
-//         checker_t("bc_a_lt_b",          `CHECKER_ACTIVE,    `DUT_CORE.bc_out_a_lt_b,         dut_m_bc_a_lt_b         );
-//         checker_t("alu_out",            `CHECKER_ACTIVE,    `DUT_CORE.alu_out,               dut_m_alu_out           );
-//             
-//         checker_t("clear_ex",           `CHECKER_ACTIVE,    `DUT_CORE.clear_ex,              dut_m_clear_ex          );
-//             
-//         checker_t("dmem_addr",          `CHECKER_ACTIVE,    `DUT_CORE.dmem_addr,             dut_m_dmem_addr         );
-//         checker_t("dmem_write_data",    `CHECKER_ACTIVE,    `DUT_CORE.dmem_write_data,       dut_m_dmem_write_data   );
-//         
-//         // MEM_Stage
-//         checker_t("dmem_read_data_mem", `CHECKER_ACTIVE,    `DUT_CORE.dmem_read_data_mem,    dut_m_dmem_read_data_mem);
-//         checker_t("writeback",          `CHECKER_ACTIVE,    `DUT_CORE.writeback,             dut_m_writeback         );        
-//         
-//         
-//         // Decoder
-//         checker_t("pc_sel",             `CHECKER_ACTIVE,    `DUT_CORE.pc_sel_if,             dut_m_pc_sel_if         );
-//         checker_t("pc_we",              `CHECKER_ACTIVE,    `DUT_CORE.pc_we_if,              dut_m_pc_we_if          );
-//         checker_t("branch_inst_id",     `CHECKER_ACTIVE,    `DUT_CORE.branch_inst_id,        dut_m_branch_inst_id    );
-//         checker_t("jump_inst_id",       `CHECKER_ACTIVE,    `DUT_CORE.jump_inst_id,          dut_m_jump_inst_id      );
-//         checker_t("store_inst_id",      `CHECKER_ACTIVE,    `DUT_CORE.store_inst_id,         dut_m_store_inst_id     );
-//         checker_t("alu_op_sel",         `CHECKER_ACTIVE,    `DUT_CORE.alu_op_sel_id,         dut_m_alu_op_sel_id     );
-//         checker_t("imm_gen_sel",        `CHECKER_ACTIVE,    `DUT_CORE.imm_gen_sel_id,        dut_m_imm_gen_sel_id    );
-//         checker_t("bc_uns",             `CHECKER_ACTIVE,    `DUT_CORE.bc_uns_id,             dut_m_bc_uns_id         );
-//         checker_t("dmem_en",            `CHECKER_ACTIVE,    `DUT_CORE.dmem_en_id,            dut_m_dmem_en_id        );
-//         checker_t("dmem_en_mmio",            `CHECKER_ACTIVE,    `DUT_CORE.dmem_en,            dut_m_dmem_en_ex        );
-//         checker_t("load_sm_en",         `CHECKER_ACTIVE,    `DUT_CORE.load_sm_en_id,         dut_m_load_sm_en_id     );
-//         checker_t("wb_sel",             `CHECKER_ACTIVE,    `DUT_CORE.wb_sel_id,             dut_m_wb_sel_id         );
-//         checker_t("reg_we_id",          `CHECKER_ACTIVE,    `DUT_CORE.reg_we_id,             dut_m_reg_we_id         );
-//         checker_t("alu_a_sel_fwd",      `CHECKER_ACTIVE,    `DUT_CORE.alu_a_sel_fwd_id,      dut_m_alu_a_sel_fwd_id  );
-//         checker_t("alu_b_sel_fwd",      `CHECKER_ACTIVE,    `DUT_CORE.alu_b_sel_fwd_id,      dut_m_alu_b_sel_fwd_id  );
-//         checker_t("bc_a_sel_fwd",       `CHECKER_ACTIVE,    `DUT_CORE.bc_a_sel_fwd_id,       dut_m_bc_a_sel_fwd_id   );
-//         checker_t("bcs_b_sel_fwd",      `CHECKER_ACTIVE,    `DUT_CORE.bcs_b_sel_fwd_id,      dut_m_bcs_b_sel_fwd_id  );
-//         checker_t("rf_a_sel_fwd",       `CHECKER_ACTIVE,    `DUT_CORE.rf_a_sel_fwd_id,       dut_m_rf_a_sel_fwd_id   );
-//         checker_t("rf_b_sel_fwd",       `CHECKER_ACTIVE,    `DUT_CORE.rf_b_sel_fwd_id,       dut_m_rf_b_sel_fwd_id   );
-//         checker_t("dmem_we",            `CHECKER_ACTIVE,    `DUT_CORE.dmem_we_ex,            dut_m_dmem_we_ex        );
-//         checker_t("dmem_we_mmio",            `CHECKER_ACTIVE,    `DUT_CORE.dmem_we,            dut_m_dmem_we_ex        );
-//         // in ex stage
-//         checker_t("load_inst_ex",       `CHECKER_ACTIVE,    `DUT_CORE.load_inst_ex,          dut_m_load_inst_ex      );
-//         // internal 
-//         checker_t("branch_taken",       `CHECKER_ACTIVE,    dut_internal_branch_taken,  dut_m_branch_taken      );
-//         
-//         // RF
-//         checker_t("x0_zero",            `CHECKER_ACTIVE,    `DUT_RF.x0_zero,            dut_m_x0_zero           );
-//         checker_t("x1_ra  ",            `CHECKER_ACTIVE,    `DUT_RF.x1_ra  ,            dut_m_x1_ra             );
-//         checker_t("x2_sp  ",            `CHECKER_ACTIVE,    `DUT_RF.x2_sp  ,            dut_m_x2_sp             );
-//         checker_t("x3_gp  ",            `CHECKER_ACTIVE,    `DUT_RF.x3_gp  ,            dut_m_x3_gp             );
-//         checker_t("x4_tp  ",            `CHECKER_ACTIVE,    `DUT_RF.x4_tp  ,            dut_m_x4_tp             );
-//         checker_t("x5_t0  ",            `CHECKER_ACTIVE,    `DUT_RF.x5_t0  ,            dut_m_x5_t0             );
-//         checker_t("x6_t1  ",            `CHECKER_ACTIVE,    `DUT_RF.x6_t1  ,            dut_m_x6_t1             );
-//         checker_t("x7_t2  ",            `CHECKER_ACTIVE,    `DUT_RF.x7_t2  ,            dut_m_x7_t2             );
-//         checker_t("x8_s0  ",            `CHECKER_ACTIVE,    `DUT_RF.x8_s0  ,            dut_m_x8_s0             );
-//         checker_t("x9_s1  ",            `CHECKER_ACTIVE,    `DUT_RF.x9_s1  ,            dut_m_x9_s1             );
-//         checker_t("x10_a0 ",            `CHECKER_ACTIVE,    `DUT_RF.x10_a0 ,            dut_m_x10_a0            );
-//         checker_t("x11_a1 ",            `CHECKER_ACTIVE,    `DUT_RF.x11_a1 ,            dut_m_x11_a1            );
-//         checker_t("x12_a2 ",            `CHECKER_ACTIVE,    `DUT_RF.x12_a2 ,            dut_m_x12_a2            );
-//         checker_t("x13_a3 ",            `CHECKER_ACTIVE,    `DUT_RF.x13_a3 ,            dut_m_x13_a3            );
-//         checker_t("x14_a4 ",            `CHECKER_ACTIVE,    `DUT_RF.x14_a4 ,            dut_m_x14_a4            );
-//         checker_t("x15_a5 ",            `CHECKER_ACTIVE,    `DUT_RF.x15_a5 ,            dut_m_x15_a5            );
-//         checker_t("x16_a6 ",            `CHECKER_ACTIVE,    `DUT_RF.x16_a6 ,            dut_m_x16_a6            );
-//         checker_t("x17_a7 ",            `CHECKER_ACTIVE,    `DUT_RF.x17_a7 ,            dut_m_x17_a7            );
-//         checker_t("x18_s2 ",            `CHECKER_ACTIVE,    `DUT_RF.x18_s2 ,            dut_m_x18_s2            );
-//         checker_t("x19_s3 ",            `CHECKER_ACTIVE,    `DUT_RF.x19_s3 ,            dut_m_x19_s3            );
-//         checker_t("x20_s4 ",            `CHECKER_ACTIVE,    `DUT_RF.x20_s4 ,            dut_m_x20_s4            );
-//         checker_t("x21_s5 ",            `CHECKER_ACTIVE,    `DUT_RF.x21_s5 ,            dut_m_x21_s5            );
-//         checker_t("x22_s6 ",            `CHECKER_ACTIVE,    `DUT_RF.x22_s6 ,            dut_m_x22_s6            );
-//         checker_t("x23_s7 ",            `CHECKER_ACTIVE,    `DUT_RF.x23_s7 ,            dut_m_x23_s7            );
-//         checker_t("x24_s8 ",            `CHECKER_ACTIVE,    `DUT_RF.x24_s8 ,            dut_m_x24_s8            );
-//         checker_t("x25_s9 ",            `CHECKER_ACTIVE,    `DUT_RF.x25_s9 ,            dut_m_x25_s9            );
-//         checker_t("x26_s10",            `CHECKER_ACTIVE,    `DUT_RF.x26_s10,            dut_m_x26_s10           );
-//         checker_t("x27_s11",            `CHECKER_ACTIVE,    `DUT_RF.x27_s11,            dut_m_x27_s11           );
-//         checker_t("x28_t3 ",            `CHECKER_ACTIVE,    `DUT_RF.x28_t3 ,            dut_m_x28_t3            );
-//         checker_t("x29_t4 ",            `CHECKER_ACTIVE,    `DUT_RF.x29_t4 ,            dut_m_x29_t4            );
-//         checker_t("x30_t5 ",            `CHECKER_ACTIVE,    `DUT_RF.x30_t5 ,            dut_m_x30_t5            );
-//         checker_t("x31_t6 ",            `CHECKER_ACTIVE,    `DUT_RF.x31_t6 ,            dut_m_x31_t6            );
-//         
-//         checker_t("tohost",             `CHECKER_ACTIVE,    `DUT_CORE.tohost,                dut_m_tohost            );
-//         
-        errors_for_wave = (errors != checker_errors_prev);
-
-    end // main task body */
-endtask // run_checkers
+// checkers task
+`include "checkers_task.v"
 
 task reset_tb_vars;
     begin
@@ -626,33 +525,6 @@ task reset_tb_vars;
         isa_passed_dut      = 0;
     end
 endtask
-
-//-----------------------------------------------------------------------------
-// Reset
-// initial begin
-//     // sync this thread with events from main thread
-//     // each time new test is loaded
-//     repeat(regr_num) begin
-//         @(ev_rst[0]); // #1;
-//         // $display("\nReset Sequence start \n");    
-//         rst = 1'b0;
-// //        dut_m_rst = 1'b0;
-//         
-//         @(ev_rst[0]); // @(posedge clk); #1;
-//         
-//         rst = 1'b1;
-// //        dut_m_rst = 1'b1;
-//         repeat (rst_pulses) begin
-//             @(ev_rst[0]); //@(posedge clk); #1;          
-//         end
-//         rst = 1'b0;
-// //        dut_m_rst = 1'b0;
-//         // @(ev_rst[0]); //@(posedge clk); #1;  
-//         // ->ev_rst_done;
-//         // $display("\nReset Sequence end \n");
-//         rst_done = 1;
-//     end
-// end
 
 //-----------------------------------------------------------------------------
 // Config
@@ -705,22 +577,6 @@ end
 //     end
 // end
 
-// initial begin
-//     forever begin
-//         // wait for reset done, reset handled in rst thread
-//         while (!rst_done) begin
-//             @(posedge clk);
-//             if(rst_done) dut_m_update();    // handle first case when going out of reset
-//         end
-// 
-//         // run model at every clk
-//         while (rst_done) begin
-//             @(posedge clk); 
-//             dut_m_update();
-//         end
-//     end
-// end
-
 assign tohost_source = `DUT_CORE.tohost[0];
 
 //-----------------------------------------------------------------------------
@@ -733,23 +589,6 @@ initial begin
         else load_test(i);
 
         i = i + 1;
-    
-        // Test 0: Wait for reset
-        // $display("\n Resetting DUT... \n");
-//         @(posedge clk); #1;
-//         while (!rst_done) begin
-//             // $display("Reset not done, time: %0t \n", $time);
-//              ->ev_rst[0]; #1;
-//             
-//             // if still not done, wait for next clk else exit
-//             if(!rst_done) begin 
-//                 @(posedge clk); #1; 
-// //                dut_m_update();
-//             end
-//         end
-        //$display("Reset done, time: %0t \n", $time);
-//        while (!rst_done) @(posedge clk);
-//        pre_rst_warnings = warnings;
         
         //-----------------------------------------------------------------------------
         // Test
