@@ -36,12 +36,22 @@
 module ama_riscv_core (
     input   wire         clk                    ,
     input   wire         rst                    ,
+    // mem in
+    input   wire  [31:0] inst_id_read           ,
+    input   wire  [31:0] dmem_read_data_mem     ,
+    // mem out
+    output  wire  [13:0] imem_addr              ,
+    output  wire  [31:0] dmem_write_data        ,
+    output  wire  [13:0] dmem_addr              ,
+    output  wire         dmem_en                ,
+    output  wire  [ 3:0] dmem_we                ,
+    // mmio in
     input   wire  [31:0] mmio_instr_cnt         ,
     input   wire  [31:0] mmio_cycle_cnt         ,
     input   wire  [ 7:0] mmio_uart_data_out     ,
     input   wire         mmio_data_out_valid    ,
     input   wire         mmio_data_in_ready     ,
-    
+    // mmio out
     output  wire         store_to_uart          ,
     output  wire         load_from_uart         ,
     output  wire         inst_wb_nop_or_clear   ,
@@ -165,7 +175,6 @@ ama_riscv_control ama_riscv_control_i (
 reg  [31:0] pc_mux_out  ;
 reg  [31:0] pc          ;
 wire [31:0] pc_inc4     ;
-wire [13:0] imem_addr   ;
 wire [31:0] alu_out     ;
 
 //-----------------------------------------------------------------------------
@@ -197,14 +206,8 @@ end
 assign pc_inc4 = pc + 32'd4;
 
 //-----------------------------------------------------------------------------
-// IMEM
-wire [31:0] inst_id_read    ;
+// IMEM interface
 assign imem_addr = pc_mux_out[15:2];
-ama_riscv_imem ama_riscv_imem_i (
-    .clk   (clk         ),
-    .addrb (imem_addr   ),
-    .doutb (inst_id_read)
-);
 
 //-----------------------------------------------------------------------------
 // stall_if delay
@@ -508,20 +511,10 @@ end
 
 //-----------------------------------------------------------------------------
 // DMEM
-wire [31:0] dmem_write_data     = dms_write_data;
-wire [13:0] dmem_addr           = alu_out[15:2];
-wire        dmem_en             = !alu_out[31] && dmem_en_ex;
-wire [ 3:0] dmem_we             = {4{!alu_out[31]}} & dmem_we_ex;
-wire [31:0] dmem_read_data_mem;
-
-ama_riscv_dmem ama_riscv_dmem_i (
-    .clk    (clk                ),
-    .en     (dmem_en            ),
-    .we     (dmem_we            ),
-    .addr   (dmem_addr          ),
-    .din    (dmem_write_data    ),
-    .dout   (dmem_read_data_mem )
-);
+assign dmem_write_data     = dms_write_data;
+assign dmem_addr           = alu_out[15:2];
+assign dmem_en             = !alu_out[31] && dmem_en_ex;
+assign dmem_we             = {4{!alu_out[31]}} & dmem_we_ex;
 
 wire [ 1:0] load_sm_offset_ex   = store_mask_offset;
 
