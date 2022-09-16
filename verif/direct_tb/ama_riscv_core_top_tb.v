@@ -72,9 +72,9 @@
 `define NUMBER_OF_TESTS     38
 
 // TB
-`define CHECKER_ACTIVE      1'b1        // TODO: Consider moving checkers to different file
+`define CHECKER_ACTIVE      1'b1
 `define CHECKER_INACTIVE    1'b0
-`define CHECK_D             1
+`define CHECK_DELAY         1
 `define TIMEOUT_CLOCKS      5000
 
 `define INST_PATH "/"
@@ -253,7 +253,6 @@ end
 // always #(`CLK_PERIOD/2) clk = ~clk;
 integer fd_clk;
 reg [0:0] sim_done;
-
 initial begin
     fd_clk = $fopen({`STIM_PATH, `"/stim_clk.txt`"}, "r");
     if (fd_clk) $display("File opened: %0d", fd_clk);
@@ -263,13 +262,12 @@ initial begin
         $fscanf(fd_clk, "%d\n", clk);
         #(`CLK_PERIOD/2);
     end
-//    $display("clk_stim done");
+    $display("\nSimulation finished\n");
     sim_done=1;
 end
 
 // Reset gen
 integer fd_rst;
-
 initial begin
     fd_rst = $fopen({`STIM_PATH, `"/stim_rst.txt`"}, "r");
     if (fd_rst) $display("File opened: %0d", fd_rst);
@@ -280,56 +278,7 @@ initial begin
         $fscanf(fd_rst, "%d\n", rst);
         @(posedge clk);
     end
-    $display("Reset signal done");
 end
-
-// PC checker
-integer fd_pc;
-reg [31:0] pc_wave; // TODO: make task for this, use chk_<sig_name> for these regs
-
-initial begin
-    fd_pc = $fopen({`STIM_PATH, `"/chk_pc.txt`"}, "r");
-    if (fd_pc) $display("File opened: %0d", fd_pc);
-    else $display("File could not be opened: %0d", fd_pc);
-    
-    while (! $feof(fd_pc)) begin
-        $fscanf(fd_pc, "%d\n", pc_wave);
-        @(posedge clk); 
-    end
-end
-
-// tohost checker
-integer fd_tohost;
-reg [31:0] tohost_wave;
-
-initial begin
-    fd_tohost = $fopen({`STIM_PATH, `"/chk_tohost.txt`"}, "r");
-    if (fd_tohost) $display("File opened: %0d", fd_tohost);
-    else $display("File could not be opened: %0d", fd_tohost);
-    // TODO: add sim exit if any of the files are not found
-    
-    while (! $feof(fd_tohost)) begin
-        $fscanf(fd_tohost, "%d\n", tohost_wave);
-        @(posedge clk); 
-    end
-end
-
-// x7 checker
-integer fd_x7;
-reg [31:0] x7_wave;
-
-initial begin
-    fd_x7 = $fopen({`STIM_PATH, `"/chk_x7.txt`"}, "r");
-    if (fd_x7) $display("File opened: %0d", fd_x7);
-    else $display("File could not be opened: %0d", fd_x7);
-    // TODO: add sim exit if any of the files are not found
-    
-    while (! $feof(fd_x7)) begin
-        $fscanf(fd_x7, "%d\n", x7_wave);
-        @(posedge clk); 
-    end
-end
-
 
 //-----------------------------------------------------------------------------
 // Import vectors
@@ -503,8 +452,8 @@ task checker_t;
     begin
         if (checker_active == 1) begin
             if (checker_dut_signal !== checker_model_signal) begin
-                $display("*ERROR @ %0t. Checker: \"%0s\"; DUT: %5d, Model: %5d ", 
-                    $time-`CHECK_D, checker_name, checker_dut_signal, checker_model_signal);
+                $display("*ERROR @ %0t. Checker: \"%0s\"; DUT: %0d, Model: %0d ", 
+                    $time-`CHECK_DELAY, checker_name, checker_dut_signal, checker_model_signal);
                 errors = errors + 1;
             end // checker compare
         end // checker valid
@@ -529,15 +478,17 @@ endtask
 //-----------------------------------------------------------------------------
 // Config
 
+// Logging to the file
+// Open file
 integer fd;
 initial begin
     fd = $fopen({`LOG_PATH, `"log.txt`"}, "w");
-    if (fd) $display("File opened: %0d", fd);
-    else $display("File could not be opened: %0d", fd);
+    if (fd) $display("Log write file opened: %0d", fd);
+    else $display("Log write file could not be opened: %0d", fd);
 end
 
+// Log to file
 integer lclk_cnt = 0;
-
 initial begin
     forever begin
         @(posedge clk);
