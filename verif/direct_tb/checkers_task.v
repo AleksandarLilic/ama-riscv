@@ -82,5 +82,5 @@ task run_checkers;
         checker_t("x31", `CHECKER_ACTIVE, `DUT_RF.x31_t6, chk_x31);
         checker_t("tohost", `CHECKER_ACTIVE, `DUT_CORE.tohost, chk_tohost);
         errors_for_wave = (errors != checker_errors_prev);
-    end // main task body */
+    end // main task body
 endtask // run_checkers
