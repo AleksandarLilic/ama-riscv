@@ -36,6 +36,7 @@ dummy
 dummy
 dummy
 dummy
+`DUT_CORE.reg_we_mem
 dummy
 dummy
 dummy
@@ -76,3 +77,4 @@ dummy
 `DUT_RF.x30_t5
 `DUT_RF.x31_t6
 `DUT_CORE.tohost
+`DUT_CORE.alu_out

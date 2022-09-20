@@ -78,6 +78,7 @@ module ama_riscv_decoder (
 wire  [11:0] csr_addr    =  inst_id[31:20];
 // ID stage register addresses
 wire  [ 4:0] rs1_addr_id =  inst_id[19:15];
+wire  [ 4:0] rd_addr_id  =  inst_id[11: 7];
 // ID stage functions
 wire  [ 6:0] opc7_id     =  inst_id[ 6: 0];
 wire  [ 2:0] funct3_id   =  inst_id[14:12];
@@ -380,7 +381,7 @@ always @ (*) begin
             dmem_en_r     = 1'b0;
             // load_sm_en_r  = *;
             wb_sel_r      = `WB_SEL_CSR;
-            reg_we_r      = (rs1_addr_id != `RF_X0_ZERO);
+            reg_we_r      = (rd_addr_id != `RF_X0_ZERO);
         end
         
         default: begin

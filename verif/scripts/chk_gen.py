@@ -45,10 +45,10 @@ for x in f_vector_table:
     x_name = x.replace('chk_','')
     y = f_chk_map.readline()
     y = y.replace('\n','')
-    if (y != map_inactive) : # valid hier path
+    if (y != map_inactive and y != "") : # valid hier path
         f_checker.write("        checker_t(\"%s\", `CHECKER_ACTIVE, %s, %s);\n" % (x_name, y, x))
     else :
-        f_checker.write("        checker_t(\"%s\", `CHECKER_INACTIVE, %s, %s);\n" % (x_name, y, x))
+        f_checker.write("        checker_t(\"%s\", `CHECKER_INACTIVE, %s, %s);\n" % (x_name, map_inactive, x))
 
 f_checker.write("        errors_for_wave = (errors != checker_errors_prev);\n")
 f_checker.write("    end // main task body\n")

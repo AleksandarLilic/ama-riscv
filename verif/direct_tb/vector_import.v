@@ -758,6 +758,29 @@ initial begin
     $display("Vector read 'chk_alu_mem' done. Samples read: %0d.", sample_cnt_chk_alu_mem);
 end
 
+integer fd_chk_alu_in_a_mem;
+integer sample_cnt_chk_alu_in_a_mem = 0;
+reg [31:0] chk_alu_in_a_mem;
+initial begin
+    fd_chk_alu_in_a_mem = $fopen({`STIM_PATH, `"/chk_alu_in_a_mem`", `".txt`"}, "r");
+    if (fd_chk_alu_in_a_mem) begin
+        $display("File 'chk_alu_in_a_mem' opened: %0d", fd_chk_alu_in_a_mem);
+    end
+    else begin
+        $display("File 'chk_alu_in_a_mem' could not be opened: %0d. Exiting simulation.", fd_chk_alu_in_a_mem);
+        $finish;
+    end
+    while (! $feof(fd_chk_alu_in_a_mem)) begin
+        $fscanf(fd_chk_alu_in_a_mem, "%d\n", chk_alu_in_a_mem);
+        sample_cnt_chk_alu_in_a_mem = sample_cnt_chk_alu_in_a_mem + 1; 
+        @(posedge clk); 
+    end
+end
+initial begin
+    @(posedge sim_done); 
+    $display("Vector read 'chk_alu_in_a_mem' done. Samples read: %0d.", sample_cnt_chk_alu_in_a_mem);
+end
+
 integer fd_chk_funct3_mem;
 integer sample_cnt_chk_funct3_mem = 0;
 reg [31:0] chk_funct3_mem;
@@ -1791,4 +1814,27 @@ end
 initial begin
     @(posedge sim_done); 
     $display("Vector read 'chk_tohost' done. Samples read: %0d.", sample_cnt_chk_tohost);
+end
+
+integer fd_chk_alu_out;
+integer sample_cnt_chk_alu_out = 0;
+reg [31:0] chk_alu_out;
+initial begin
+    fd_chk_alu_out = $fopen({`STIM_PATH, `"/chk_alu_out`", `".txt`"}, "r");
+    if (fd_chk_alu_out) begin
+        $display("File 'chk_alu_out' opened: %0d", fd_chk_alu_out);
+    end
+    else begin
+        $display("File 'chk_alu_out' could not be opened: %0d. Exiting simulation.", fd_chk_alu_out);
+        $finish;
+    end
+    while (! $feof(fd_chk_alu_out)) begin
+        $fscanf(fd_chk_alu_out, "%d\n", chk_alu_out);
+        sample_cnt_chk_alu_out = sample_cnt_chk_alu_out + 1; 
+        @(posedge clk); 
+    end
+end
+initial begin
+    @(posedge sim_done); 
+    $display("Vector read 'chk_alu_out' done. Samples read: %0d.", sample_cnt_chk_alu_out);
 end
