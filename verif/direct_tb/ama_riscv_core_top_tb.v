@@ -65,7 +65,7 @@
 
 `define CLK_PERIOD          8
 `define SINGLE_TEST         1
-`define TEST_NAME           xori.hex
+`define TEST_NAME           add.hex
 `define STANDALONE
 
 `define VERBOSITY           2           // TODO: keep up to 5, add list of choices?, dbg & perf levels?

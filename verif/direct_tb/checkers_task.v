@@ -36,11 +36,12 @@ task run_checkers;
         checker_t("inst_mem", `CHECKER_INACTIVE, dummy, chk_inst_mem);
         checker_t("pc_mem", `CHECKER_INACTIVE, dummy, chk_pc_mem);
         checker_t("alu_mem", `CHECKER_ACTIVE, `DUT_CORE.alu_out_mem, chk_alu_mem);
+        checker_t("alu_in_a_mem", `CHECKER_INACTIVE, dummy, chk_alu_in_a_mem);
         checker_t("funct3_mem", `CHECKER_INACTIVE, dummy, chk_funct3_mem);
         checker_t("rs1_addr_mem", `CHECKER_INACTIVE, dummy, chk_rs1_addr_mem);
         checker_t("rs2_addr_mem", `CHECKER_INACTIVE, dummy, chk_rs2_addr_mem);
         checker_t("rd_addr_mem", `CHECKER_INACTIVE, dummy, chk_rd_addr_mem);
-        checker_t("rd_we_mem", `CHECKER_INACTIVE, dummy, chk_rd_we_mem);
+        checker_t("rd_we_mem", `CHECKER_ACTIVE, `DUT_CORE.reg_we_mem, chk_rd_we_mem);
         checker_t("csr_we_mem", `CHECKER_INACTIVE, dummy, chk_csr_we_mem);
         checker_t("csr_ui_mem", `CHECKER_INACTIVE, dummy, chk_csr_ui_mem);
         checker_t("csr_uimm_mem", `CHECKER_INACTIVE, dummy, chk_csr_uimm_mem);
@@ -81,6 +82,7 @@ task run_checkers;
         checker_t("x30", `CHECKER_ACTIVE, `DUT_RF.x30_t5, chk_x30);
         checker_t("x31", `CHECKER_ACTIVE, `DUT_RF.x31_t6, chk_x31);
         checker_t("tohost", `CHECKER_ACTIVE, `DUT_CORE.tohost, chk_tohost);
+        checker_t("alu_out", `CHECKER_ACTIVE, `DUT_CORE.alu_out, chk_alu_out);
         errors_for_wave = (errors != checker_errors_prev);
     end // main task body
 endtask // run_checkers
