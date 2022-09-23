@@ -8,7 +8,7 @@ for x in f_vector_table:
     f_vector.write("integer sample_cnt_%s = 0;\n" % (x))
     f_vector.write("reg [31:0] %s;\n" % (x))
     f_vector.write("initial begin\n")
-    f_vector.write("    fd_%s = $fopen({`STIM_PATH, `\"/%s`\", `\".txt`\"}, \"r\");\n" % (x, x))
+    f_vector.write("    fd_%s = $fopen($sformatf(\"%%0s/%s.txt\", stim_path), \"r\");\n" % (x, x))
     f_vector.write("    if (fd_%s) begin\n" % (x))
     f_vector.write("        $display(\"File '%s' opened: %%0d\", fd_%s);\n" % (x, x))
     f_vector.write("    end\n")

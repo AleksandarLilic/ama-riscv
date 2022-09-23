@@ -65,7 +65,7 @@
 
 `define CLK_PERIOD          8
 `define SINGLE_TEST         1
-`define TEST_NAME           add.hex
+`define TEST_NAME           lh.hex
 `define STANDALONE
 
 `define VERBOSITY           2           // TODO: keep up to 5, add list of choices?, dbg & perf levels?
@@ -80,7 +80,7 @@
 `define INST_PATH "/"
 `define PROJECT_PATH "C:/dev/ama-riscv-sim/riscv-tests/riscv-isa-tests"
 `define LOG_PATH "C:/dev/ama-riscv/simlogs/"
-`define STIM_PATH "C:/dev/ama-riscv-sim/SW/out/build/ama-riscv-sim/src"
+// `define STIM_PATH "C:/dev/ama-riscv-sim/SW/out/build/ama-riscv-sim/src/test_lh"
 
 `define DUT                 DUT_ama_riscv_core_top_i
 `define DUT_IMEM            `DUT.ama_riscv_imem_i.mem
@@ -191,6 +191,8 @@ reg [12*7:0]  current_test_string   ;
 event         ev_rst    [1:0];
 integer       rst_done = 0;
 
+string stim_path = "C:/dev/ama-riscv-sim/SW/out/build/ama-riscv-sim/src/test_lh";
+
 //-----------------------------------------------------------------------------
 // DUT instance
 ama_riscv_core_top DUT_ama_riscv_core_top_i (
@@ -254,7 +256,8 @@ end
 integer fd_clk;
 reg [0:0] sim_done;
 initial begin
-    fd_clk = $fopen({`STIM_PATH, `"/stim_clk.txt`"}, "r");
+    fd_clk = $fopen($sformatf("%0s/stim_clk.txt", stim_path), "r");
+//    fd_clk = $fopen({`STIM_PATH, `"/stim_clk.txt`"}, "r");
     if (fd_clk) $display("File opened: %0d", fd_clk);
     else $display("File could not be opened: %0d", fd_clk);
     
@@ -269,7 +272,8 @@ end
 // Reset gen
 integer fd_rst;
 initial begin
-    fd_rst = $fopen({`STIM_PATH, `"/stim_rst.txt`"}, "r");
+    fd_rst = $fopen($sformatf("%0s/stim_rst.txt", stim_path), "r");
+//    fd_rst = $fopen({`STIM_PATH, `"/stim_rst.txt`"}, "r");
     if (fd_rst) $display("File opened: %0d", fd_rst);
     else $display("File could not be opened: %0d", fd_rst);
     
