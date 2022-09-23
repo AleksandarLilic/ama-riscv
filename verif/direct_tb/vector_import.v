@@ -3,7 +3,7 @@ integer fd_chk_rst_seq_d;
 integer sample_cnt_chk_rst_seq_d = 0;
 reg [31:0] chk_rst_seq_d;
 initial begin
-    fd_chk_rst_seq_d = $fopen({`STIM_PATH, `"/chk_rst_seq_d`", `".txt`"}, "r");
+    fd_chk_rst_seq_d = $fopen($sformatf("%0s/chk_rst_seq_d.txt", stim_path), "r");
     if (fd_chk_rst_seq_d) begin
         $display("File 'chk_rst_seq_d' opened: %0d", fd_chk_rst_seq_d);
     end
@@ -26,7 +26,7 @@ integer fd_chk_pc;
 integer sample_cnt_chk_pc = 0;
 reg [31:0] chk_pc;
 initial begin
-    fd_chk_pc = $fopen({`STIM_PATH, `"/chk_pc`", `".txt`"}, "r");
+    fd_chk_pc = $fopen($sformatf("%0s/chk_pc.txt", stim_path), "r");
     if (fd_chk_pc) begin
         $display("File 'chk_pc' opened: %0d", fd_chk_pc);
     end
@@ -49,7 +49,7 @@ integer fd_chk_stall_if_id_d;
 integer sample_cnt_chk_stall_if_id_d = 0;
 reg [31:0] chk_stall_if_id_d;
 initial begin
-    fd_chk_stall_if_id_d = $fopen({`STIM_PATH, `"/chk_stall_if_id_d`", `".txt`"}, "r");
+    fd_chk_stall_if_id_d = $fopen($sformatf("%0s/chk_stall_if_id_d.txt", stim_path), "r");
     if (fd_chk_stall_if_id_d) begin
         $display("File 'chk_stall_if_id_d' opened: %0d", fd_chk_stall_if_id_d);
     end
@@ -72,7 +72,7 @@ integer fd_chk_imem;
 integer sample_cnt_chk_imem = 0;
 reg [31:0] chk_imem;
 initial begin
-    fd_chk_imem = $fopen({`STIM_PATH, `"/chk_imem`", `".txt`"}, "r");
+    fd_chk_imem = $fopen($sformatf("%0s/chk_imem.txt", stim_path), "r");
     if (fd_chk_imem) begin
         $display("File 'chk_imem' opened: %0d", fd_chk_imem);
     end
@@ -95,7 +95,7 @@ integer fd_chk_inst_ex;
 integer sample_cnt_chk_inst_ex = 0;
 reg [31:0] chk_inst_ex;
 initial begin
-    fd_chk_inst_ex = $fopen({`STIM_PATH, `"/chk_inst_ex`", `".txt`"}, "r");
+    fd_chk_inst_ex = $fopen($sformatf("%0s/chk_inst_ex.txt", stim_path), "r");
     if (fd_chk_inst_ex) begin
         $display("File 'chk_inst_ex' opened: %0d", fd_chk_inst_ex);
     end
@@ -118,7 +118,7 @@ integer fd_chk_pc_ex;
 integer sample_cnt_chk_pc_ex = 0;
 reg [31:0] chk_pc_ex;
 initial begin
-    fd_chk_pc_ex = $fopen({`STIM_PATH, `"/chk_pc_ex`", `".txt`"}, "r");
+    fd_chk_pc_ex = $fopen($sformatf("%0s/chk_pc_ex.txt", stim_path), "r");
     if (fd_chk_pc_ex) begin
         $display("File 'chk_pc_ex' opened: %0d", fd_chk_pc_ex);
     end
@@ -141,7 +141,7 @@ integer fd_chk_funct3_ex;
 integer sample_cnt_chk_funct3_ex = 0;
 reg [31:0] chk_funct3_ex;
 initial begin
-    fd_chk_funct3_ex = $fopen({`STIM_PATH, `"/chk_funct3_ex`", `".txt`"}, "r");
+    fd_chk_funct3_ex = $fopen($sformatf("%0s/chk_funct3_ex.txt", stim_path), "r");
     if (fd_chk_funct3_ex) begin
         $display("File 'chk_funct3_ex' opened: %0d", fd_chk_funct3_ex);
     end
@@ -164,7 +164,7 @@ integer fd_chk_rs1_addr_ex;
 integer sample_cnt_chk_rs1_addr_ex = 0;
 reg [31:0] chk_rs1_addr_ex;
 initial begin
-    fd_chk_rs1_addr_ex = $fopen({`STIM_PATH, `"/chk_rs1_addr_ex`", `".txt`"}, "r");
+    fd_chk_rs1_addr_ex = $fopen($sformatf("%0s/chk_rs1_addr_ex.txt", stim_path), "r");
     if (fd_chk_rs1_addr_ex) begin
         $display("File 'chk_rs1_addr_ex' opened: %0d", fd_chk_rs1_addr_ex);
     end
@@ -187,7 +187,7 @@ integer fd_chk_rs2_addr_ex;
 integer sample_cnt_chk_rs2_addr_ex = 0;
 reg [31:0] chk_rs2_addr_ex;
 initial begin
-    fd_chk_rs2_addr_ex = $fopen({`STIM_PATH, `"/chk_rs2_addr_ex`", `".txt`"}, "r");
+    fd_chk_rs2_addr_ex = $fopen($sformatf("%0s/chk_rs2_addr_ex.txt", stim_path), "r");
     if (fd_chk_rs2_addr_ex) begin
         $display("File 'chk_rs2_addr_ex' opened: %0d", fd_chk_rs2_addr_ex);
     end
@@ -210,7 +210,7 @@ integer fd_chk_rf_data_a_ex;
 integer sample_cnt_chk_rf_data_a_ex = 0;
 reg [31:0] chk_rf_data_a_ex;
 initial begin
-    fd_chk_rf_data_a_ex = $fopen({`STIM_PATH, `"/chk_rf_data_a_ex`", `".txt`"}, "r");
+    fd_chk_rf_data_a_ex = $fopen($sformatf("%0s/chk_rf_data_a_ex.txt", stim_path), "r");
     if (fd_chk_rf_data_a_ex) begin
         $display("File 'chk_rf_data_a_ex' opened: %0d", fd_chk_rf_data_a_ex);
     end
@@ -233,7 +233,7 @@ integer fd_chk_rf_data_b_ex;
 integer sample_cnt_chk_rf_data_b_ex = 0;
 reg [31:0] chk_rf_data_b_ex;
 initial begin
-    fd_chk_rf_data_b_ex = $fopen({`STIM_PATH, `"/chk_rf_data_b_ex`", `".txt`"}, "r");
+    fd_chk_rf_data_b_ex = $fopen($sformatf("%0s/chk_rf_data_b_ex.txt", stim_path), "r");
     if (fd_chk_rf_data_b_ex) begin
         $display("File 'chk_rf_data_b_ex' opened: %0d", fd_chk_rf_data_b_ex);
     end
@@ -256,7 +256,7 @@ integer fd_chk_rd_we_ex;
 integer sample_cnt_chk_rd_we_ex = 0;
 reg [31:0] chk_rd_we_ex;
 initial begin
-    fd_chk_rd_we_ex = $fopen({`STIM_PATH, `"/chk_rd_we_ex`", `".txt`"}, "r");
+    fd_chk_rd_we_ex = $fopen($sformatf("%0s/chk_rd_we_ex.txt", stim_path), "r");
     if (fd_chk_rd_we_ex) begin
         $display("File 'chk_rd_we_ex' opened: %0d", fd_chk_rd_we_ex);
     end
@@ -279,7 +279,7 @@ integer fd_chk_rd_addr_ex;
 integer sample_cnt_chk_rd_addr_ex = 0;
 reg [31:0] chk_rd_addr_ex;
 initial begin
-    fd_chk_rd_addr_ex = $fopen({`STIM_PATH, `"/chk_rd_addr_ex`", `".txt`"}, "r");
+    fd_chk_rd_addr_ex = $fopen($sformatf("%0s/chk_rd_addr_ex.txt", stim_path), "r");
     if (fd_chk_rd_addr_ex) begin
         $display("File 'chk_rd_addr_ex' opened: %0d", fd_chk_rd_addr_ex);
     end
@@ -302,7 +302,7 @@ integer fd_chk_imm_gen_out_ex;
 integer sample_cnt_chk_imm_gen_out_ex = 0;
 reg [31:0] chk_imm_gen_out_ex;
 initial begin
-    fd_chk_imm_gen_out_ex = $fopen({`STIM_PATH, `"/chk_imm_gen_out_ex`", `".txt`"}, "r");
+    fd_chk_imm_gen_out_ex = $fopen($sformatf("%0s/chk_imm_gen_out_ex.txt", stim_path), "r");
     if (fd_chk_imm_gen_out_ex) begin
         $display("File 'chk_imm_gen_out_ex' opened: %0d", fd_chk_imm_gen_out_ex);
     end
@@ -325,7 +325,7 @@ integer fd_chk_csr_we_ex;
 integer sample_cnt_chk_csr_we_ex = 0;
 reg [31:0] chk_csr_we_ex;
 initial begin
-    fd_chk_csr_we_ex = $fopen({`STIM_PATH, `"/chk_csr_we_ex`", `".txt`"}, "r");
+    fd_chk_csr_we_ex = $fopen($sformatf("%0s/chk_csr_we_ex.txt", stim_path), "r");
     if (fd_chk_csr_we_ex) begin
         $display("File 'chk_csr_we_ex' opened: %0d", fd_chk_csr_we_ex);
     end
@@ -348,7 +348,7 @@ integer fd_chk_csr_ui_ex;
 integer sample_cnt_chk_csr_ui_ex = 0;
 reg [31:0] chk_csr_ui_ex;
 initial begin
-    fd_chk_csr_ui_ex = $fopen({`STIM_PATH, `"/chk_csr_ui_ex`", `".txt`"}, "r");
+    fd_chk_csr_ui_ex = $fopen($sformatf("%0s/chk_csr_ui_ex.txt", stim_path), "r");
     if (fd_chk_csr_ui_ex) begin
         $display("File 'chk_csr_ui_ex' opened: %0d", fd_chk_csr_ui_ex);
     end
@@ -371,7 +371,7 @@ integer fd_chk_csr_uimm_ex;
 integer sample_cnt_chk_csr_uimm_ex = 0;
 reg [31:0] chk_csr_uimm_ex;
 initial begin
-    fd_chk_csr_uimm_ex = $fopen({`STIM_PATH, `"/chk_csr_uimm_ex`", `".txt`"}, "r");
+    fd_chk_csr_uimm_ex = $fopen($sformatf("%0s/chk_csr_uimm_ex.txt", stim_path), "r");
     if (fd_chk_csr_uimm_ex) begin
         $display("File 'chk_csr_uimm_ex' opened: %0d", fd_chk_csr_uimm_ex);
     end
@@ -394,7 +394,7 @@ integer fd_chk_csr_dout_ex;
 integer sample_cnt_chk_csr_dout_ex = 0;
 reg [31:0] chk_csr_dout_ex;
 initial begin
-    fd_chk_csr_dout_ex = $fopen({`STIM_PATH, `"/chk_csr_dout_ex`", `".txt`"}, "r");
+    fd_chk_csr_dout_ex = $fopen($sformatf("%0s/chk_csr_dout_ex.txt", stim_path), "r");
     if (fd_chk_csr_dout_ex) begin
         $display("File 'chk_csr_dout_ex' opened: %0d", fd_chk_csr_dout_ex);
     end
@@ -417,7 +417,7 @@ integer fd_chk_alu_a_sel_ex;
 integer sample_cnt_chk_alu_a_sel_ex = 0;
 reg [31:0] chk_alu_a_sel_ex;
 initial begin
-    fd_chk_alu_a_sel_ex = $fopen({`STIM_PATH, `"/chk_alu_a_sel_ex`", `".txt`"}, "r");
+    fd_chk_alu_a_sel_ex = $fopen($sformatf("%0s/chk_alu_a_sel_ex.txt", stim_path), "r");
     if (fd_chk_alu_a_sel_ex) begin
         $display("File 'chk_alu_a_sel_ex' opened: %0d", fd_chk_alu_a_sel_ex);
     end
@@ -440,7 +440,7 @@ integer fd_chk_alu_b_sel_ex;
 integer sample_cnt_chk_alu_b_sel_ex = 0;
 reg [31:0] chk_alu_b_sel_ex;
 initial begin
-    fd_chk_alu_b_sel_ex = $fopen({`STIM_PATH, `"/chk_alu_b_sel_ex`", `".txt`"}, "r");
+    fd_chk_alu_b_sel_ex = $fopen($sformatf("%0s/chk_alu_b_sel_ex.txt", stim_path), "r");
     if (fd_chk_alu_b_sel_ex) begin
         $display("File 'chk_alu_b_sel_ex' opened: %0d", fd_chk_alu_b_sel_ex);
     end
@@ -463,7 +463,7 @@ integer fd_chk_alu_op_sel_ex;
 integer sample_cnt_chk_alu_op_sel_ex = 0;
 reg [31:0] chk_alu_op_sel_ex;
 initial begin
-    fd_chk_alu_op_sel_ex = $fopen({`STIM_PATH, `"/chk_alu_op_sel_ex`", `".txt`"}, "r");
+    fd_chk_alu_op_sel_ex = $fopen($sformatf("%0s/chk_alu_op_sel_ex.txt", stim_path), "r");
     if (fd_chk_alu_op_sel_ex) begin
         $display("File 'chk_alu_op_sel_ex' opened: %0d", fd_chk_alu_op_sel_ex);
     end
@@ -486,7 +486,7 @@ integer fd_chk_bc_a_sel_ex;
 integer sample_cnt_chk_bc_a_sel_ex = 0;
 reg [31:0] chk_bc_a_sel_ex;
 initial begin
-    fd_chk_bc_a_sel_ex = $fopen({`STIM_PATH, `"/chk_bc_a_sel_ex`", `".txt`"}, "r");
+    fd_chk_bc_a_sel_ex = $fopen($sformatf("%0s/chk_bc_a_sel_ex.txt", stim_path), "r");
     if (fd_chk_bc_a_sel_ex) begin
         $display("File 'chk_bc_a_sel_ex' opened: %0d", fd_chk_bc_a_sel_ex);
     end
@@ -509,7 +509,7 @@ integer fd_chk_bcs_b_sel_ex;
 integer sample_cnt_chk_bcs_b_sel_ex = 0;
 reg [31:0] chk_bcs_b_sel_ex;
 initial begin
-    fd_chk_bcs_b_sel_ex = $fopen({`STIM_PATH, `"/chk_bcs_b_sel_ex`", `".txt`"}, "r");
+    fd_chk_bcs_b_sel_ex = $fopen($sformatf("%0s/chk_bcs_b_sel_ex.txt", stim_path), "r");
     if (fd_chk_bcs_b_sel_ex) begin
         $display("File 'chk_bcs_b_sel_ex' opened: %0d", fd_chk_bcs_b_sel_ex);
     end
@@ -532,7 +532,7 @@ integer fd_chk_bc_uns_ex;
 integer sample_cnt_chk_bc_uns_ex = 0;
 reg [31:0] chk_bc_uns_ex;
 initial begin
-    fd_chk_bc_uns_ex = $fopen({`STIM_PATH, `"/chk_bc_uns_ex`", `".txt`"}, "r");
+    fd_chk_bc_uns_ex = $fopen($sformatf("%0s/chk_bc_uns_ex.txt", stim_path), "r");
     if (fd_chk_bc_uns_ex) begin
         $display("File 'chk_bc_uns_ex' opened: %0d", fd_chk_bc_uns_ex);
     end
@@ -555,7 +555,7 @@ integer fd_chk_store_inst_ex;
 integer sample_cnt_chk_store_inst_ex = 0;
 reg [31:0] chk_store_inst_ex;
 initial begin
-    fd_chk_store_inst_ex = $fopen({`STIM_PATH, `"/chk_store_inst_ex`", `".txt`"}, "r");
+    fd_chk_store_inst_ex = $fopen($sformatf("%0s/chk_store_inst_ex.txt", stim_path), "r");
     if (fd_chk_store_inst_ex) begin
         $display("File 'chk_store_inst_ex' opened: %0d", fd_chk_store_inst_ex);
     end
@@ -578,7 +578,7 @@ integer fd_chk_branch_inst_ex;
 integer sample_cnt_chk_branch_inst_ex = 0;
 reg [31:0] chk_branch_inst_ex;
 initial begin
-    fd_chk_branch_inst_ex = $fopen({`STIM_PATH, `"/chk_branch_inst_ex`", `".txt`"}, "r");
+    fd_chk_branch_inst_ex = $fopen($sformatf("%0s/chk_branch_inst_ex.txt", stim_path), "r");
     if (fd_chk_branch_inst_ex) begin
         $display("File 'chk_branch_inst_ex' opened: %0d", fd_chk_branch_inst_ex);
     end
@@ -601,7 +601,7 @@ integer fd_chk_jump_inst_ex;
 integer sample_cnt_chk_jump_inst_ex = 0;
 reg [31:0] chk_jump_inst_ex;
 initial begin
-    fd_chk_jump_inst_ex = $fopen({`STIM_PATH, `"/chk_jump_inst_ex`", `".txt`"}, "r");
+    fd_chk_jump_inst_ex = $fopen($sformatf("%0s/chk_jump_inst_ex.txt", stim_path), "r");
     if (fd_chk_jump_inst_ex) begin
         $display("File 'chk_jump_inst_ex' opened: %0d", fd_chk_jump_inst_ex);
     end
@@ -624,7 +624,7 @@ integer fd_chk_dmem_en_id;
 integer sample_cnt_chk_dmem_en_id = 0;
 reg [31:0] chk_dmem_en_id;
 initial begin
-    fd_chk_dmem_en_id = $fopen({`STIM_PATH, `"/chk_dmem_en_id`", `".txt`"}, "r");
+    fd_chk_dmem_en_id = $fopen($sformatf("%0s/chk_dmem_en_id.txt", stim_path), "r");
     if (fd_chk_dmem_en_id) begin
         $display("File 'chk_dmem_en_id' opened: %0d", fd_chk_dmem_en_id);
     end
@@ -647,7 +647,7 @@ integer fd_chk_load_sm_en_ex;
 integer sample_cnt_chk_load_sm_en_ex = 0;
 reg [31:0] chk_load_sm_en_ex;
 initial begin
-    fd_chk_load_sm_en_ex = $fopen({`STIM_PATH, `"/chk_load_sm_en_ex`", `".txt`"}, "r");
+    fd_chk_load_sm_en_ex = $fopen($sformatf("%0s/chk_load_sm_en_ex.txt", stim_path), "r");
     if (fd_chk_load_sm_en_ex) begin
         $display("File 'chk_load_sm_en_ex' opened: %0d", fd_chk_load_sm_en_ex);
     end
@@ -670,7 +670,7 @@ integer fd_chk_wb_sel_ex;
 integer sample_cnt_chk_wb_sel_ex = 0;
 reg [31:0] chk_wb_sel_ex;
 initial begin
-    fd_chk_wb_sel_ex = $fopen({`STIM_PATH, `"/chk_wb_sel_ex`", `".txt`"}, "r");
+    fd_chk_wb_sel_ex = $fopen($sformatf("%0s/chk_wb_sel_ex.txt", stim_path), "r");
     if (fd_chk_wb_sel_ex) begin
         $display("File 'chk_wb_sel_ex' opened: %0d", fd_chk_wb_sel_ex);
     end
@@ -693,7 +693,7 @@ integer fd_chk_inst_mem;
 integer sample_cnt_chk_inst_mem = 0;
 reg [31:0] chk_inst_mem;
 initial begin
-    fd_chk_inst_mem = $fopen({`STIM_PATH, `"/chk_inst_mem`", `".txt`"}, "r");
+    fd_chk_inst_mem = $fopen($sformatf("%0s/chk_inst_mem.txt", stim_path), "r");
     if (fd_chk_inst_mem) begin
         $display("File 'chk_inst_mem' opened: %0d", fd_chk_inst_mem);
     end
@@ -716,7 +716,7 @@ integer fd_chk_pc_mem;
 integer sample_cnt_chk_pc_mem = 0;
 reg [31:0] chk_pc_mem;
 initial begin
-    fd_chk_pc_mem = $fopen({`STIM_PATH, `"/chk_pc_mem`", `".txt`"}, "r");
+    fd_chk_pc_mem = $fopen($sformatf("%0s/chk_pc_mem.txt", stim_path), "r");
     if (fd_chk_pc_mem) begin
         $display("File 'chk_pc_mem' opened: %0d", fd_chk_pc_mem);
     end
@@ -739,7 +739,7 @@ integer fd_chk_alu_mem;
 integer sample_cnt_chk_alu_mem = 0;
 reg [31:0] chk_alu_mem;
 initial begin
-    fd_chk_alu_mem = $fopen({`STIM_PATH, `"/chk_alu_mem`", `".txt`"}, "r");
+    fd_chk_alu_mem = $fopen($sformatf("%0s/chk_alu_mem.txt", stim_path), "r");
     if (fd_chk_alu_mem) begin
         $display("File 'chk_alu_mem' opened: %0d", fd_chk_alu_mem);
     end
@@ -762,7 +762,7 @@ integer fd_chk_alu_in_a_mem;
 integer sample_cnt_chk_alu_in_a_mem = 0;
 reg [31:0] chk_alu_in_a_mem;
 initial begin
-    fd_chk_alu_in_a_mem = $fopen({`STIM_PATH, `"/chk_alu_in_a_mem`", `".txt`"}, "r");
+    fd_chk_alu_in_a_mem = $fopen($sformatf("%0s/chk_alu_in_a_mem.txt", stim_path), "r");
     if (fd_chk_alu_in_a_mem) begin
         $display("File 'chk_alu_in_a_mem' opened: %0d", fd_chk_alu_in_a_mem);
     end
@@ -785,7 +785,7 @@ integer fd_chk_funct3_mem;
 integer sample_cnt_chk_funct3_mem = 0;
 reg [31:0] chk_funct3_mem;
 initial begin
-    fd_chk_funct3_mem = $fopen({`STIM_PATH, `"/chk_funct3_mem`", `".txt`"}, "r");
+    fd_chk_funct3_mem = $fopen($sformatf("%0s/chk_funct3_mem.txt", stim_path), "r");
     if (fd_chk_funct3_mem) begin
         $display("File 'chk_funct3_mem' opened: %0d", fd_chk_funct3_mem);
     end
@@ -808,7 +808,7 @@ integer fd_chk_rs1_addr_mem;
 integer sample_cnt_chk_rs1_addr_mem = 0;
 reg [31:0] chk_rs1_addr_mem;
 initial begin
-    fd_chk_rs1_addr_mem = $fopen({`STIM_PATH, `"/chk_rs1_addr_mem`", `".txt`"}, "r");
+    fd_chk_rs1_addr_mem = $fopen($sformatf("%0s/chk_rs1_addr_mem.txt", stim_path), "r");
     if (fd_chk_rs1_addr_mem) begin
         $display("File 'chk_rs1_addr_mem' opened: %0d", fd_chk_rs1_addr_mem);
     end
@@ -831,7 +831,7 @@ integer fd_chk_rs2_addr_mem;
 integer sample_cnt_chk_rs2_addr_mem = 0;
 reg [31:0] chk_rs2_addr_mem;
 initial begin
-    fd_chk_rs2_addr_mem = $fopen({`STIM_PATH, `"/chk_rs2_addr_mem`", `".txt`"}, "r");
+    fd_chk_rs2_addr_mem = $fopen($sformatf("%0s/chk_rs2_addr_mem.txt", stim_path), "r");
     if (fd_chk_rs2_addr_mem) begin
         $display("File 'chk_rs2_addr_mem' opened: %0d", fd_chk_rs2_addr_mem);
     end
@@ -854,7 +854,7 @@ integer fd_chk_rd_addr_mem;
 integer sample_cnt_chk_rd_addr_mem = 0;
 reg [31:0] chk_rd_addr_mem;
 initial begin
-    fd_chk_rd_addr_mem = $fopen({`STIM_PATH, `"/chk_rd_addr_mem`", `".txt`"}, "r");
+    fd_chk_rd_addr_mem = $fopen($sformatf("%0s/chk_rd_addr_mem.txt", stim_path), "r");
     if (fd_chk_rd_addr_mem) begin
         $display("File 'chk_rd_addr_mem' opened: %0d", fd_chk_rd_addr_mem);
     end
@@ -877,7 +877,7 @@ integer fd_chk_rd_we_mem;
 integer sample_cnt_chk_rd_we_mem = 0;
 reg [31:0] chk_rd_we_mem;
 initial begin
-    fd_chk_rd_we_mem = $fopen({`STIM_PATH, `"/chk_rd_we_mem`", `".txt`"}, "r");
+    fd_chk_rd_we_mem = $fopen($sformatf("%0s/chk_rd_we_mem.txt", stim_path), "r");
     if (fd_chk_rd_we_mem) begin
         $display("File 'chk_rd_we_mem' opened: %0d", fd_chk_rd_we_mem);
     end
@@ -900,7 +900,7 @@ integer fd_chk_csr_we_mem;
 integer sample_cnt_chk_csr_we_mem = 0;
 reg [31:0] chk_csr_we_mem;
 initial begin
-    fd_chk_csr_we_mem = $fopen({`STIM_PATH, `"/chk_csr_we_mem`", `".txt`"}, "r");
+    fd_chk_csr_we_mem = $fopen($sformatf("%0s/chk_csr_we_mem.txt", stim_path), "r");
     if (fd_chk_csr_we_mem) begin
         $display("File 'chk_csr_we_mem' opened: %0d", fd_chk_csr_we_mem);
     end
@@ -923,7 +923,7 @@ integer fd_chk_csr_ui_mem;
 integer sample_cnt_chk_csr_ui_mem = 0;
 reg [31:0] chk_csr_ui_mem;
 initial begin
-    fd_chk_csr_ui_mem = $fopen({`STIM_PATH, `"/chk_csr_ui_mem`", `".txt`"}, "r");
+    fd_chk_csr_ui_mem = $fopen($sformatf("%0s/chk_csr_ui_mem.txt", stim_path), "r");
     if (fd_chk_csr_ui_mem) begin
         $display("File 'chk_csr_ui_mem' opened: %0d", fd_chk_csr_ui_mem);
     end
@@ -946,7 +946,7 @@ integer fd_chk_csr_uimm_mem;
 integer sample_cnt_chk_csr_uimm_mem = 0;
 reg [31:0] chk_csr_uimm_mem;
 initial begin
-    fd_chk_csr_uimm_mem = $fopen({`STIM_PATH, `"/chk_csr_uimm_mem`", `".txt`"}, "r");
+    fd_chk_csr_uimm_mem = $fopen($sformatf("%0s/chk_csr_uimm_mem.txt", stim_path), "r");
     if (fd_chk_csr_uimm_mem) begin
         $display("File 'chk_csr_uimm_mem' opened: %0d", fd_chk_csr_uimm_mem);
     end
@@ -969,7 +969,7 @@ integer fd_chk_csr_dout_mem;
 integer sample_cnt_chk_csr_dout_mem = 0;
 reg [31:0] chk_csr_dout_mem;
 initial begin
-    fd_chk_csr_dout_mem = $fopen({`STIM_PATH, `"/chk_csr_dout_mem`", `".txt`"}, "r");
+    fd_chk_csr_dout_mem = $fopen($sformatf("%0s/chk_csr_dout_mem.txt", stim_path), "r");
     if (fd_chk_csr_dout_mem) begin
         $display("File 'chk_csr_dout_mem' opened: %0d", fd_chk_csr_dout_mem);
     end
@@ -992,7 +992,7 @@ integer fd_chk_dmem_dout;
 integer sample_cnt_chk_dmem_dout = 0;
 reg [31:0] chk_dmem_dout;
 initial begin
-    fd_chk_dmem_dout = $fopen({`STIM_PATH, `"/chk_dmem_dout`", `".txt`"}, "r");
+    fd_chk_dmem_dout = $fopen($sformatf("%0s/chk_dmem_dout.txt", stim_path), "r");
     if (fd_chk_dmem_dout) begin
         $display("File 'chk_dmem_dout' opened: %0d", fd_chk_dmem_dout);
     end
@@ -1015,7 +1015,7 @@ integer fd_chk_load_sm_en_mem;
 integer sample_cnt_chk_load_sm_en_mem = 0;
 reg [31:0] chk_load_sm_en_mem;
 initial begin
-    fd_chk_load_sm_en_mem = $fopen({`STIM_PATH, `"/chk_load_sm_en_mem`", `".txt`"}, "r");
+    fd_chk_load_sm_en_mem = $fopen($sformatf("%0s/chk_load_sm_en_mem.txt", stim_path), "r");
     if (fd_chk_load_sm_en_mem) begin
         $display("File 'chk_load_sm_en_mem' opened: %0d", fd_chk_load_sm_en_mem);
     end
@@ -1038,7 +1038,7 @@ integer fd_chk_wb_sel_mem;
 integer sample_cnt_chk_wb_sel_mem = 0;
 reg [31:0] chk_wb_sel_mem;
 initial begin
-    fd_chk_wb_sel_mem = $fopen({`STIM_PATH, `"/chk_wb_sel_mem`", `".txt`"}, "r");
+    fd_chk_wb_sel_mem = $fopen($sformatf("%0s/chk_wb_sel_mem.txt", stim_path), "r");
     if (fd_chk_wb_sel_mem) begin
         $display("File 'chk_wb_sel_mem' opened: %0d", fd_chk_wb_sel_mem);
     end
@@ -1061,7 +1061,7 @@ integer fd_chk_inst_wb;
 integer sample_cnt_chk_inst_wb = 0;
 reg [31:0] chk_inst_wb;
 initial begin
-    fd_chk_inst_wb = $fopen({`STIM_PATH, `"/chk_inst_wb`", `".txt`"}, "r");
+    fd_chk_inst_wb = $fopen($sformatf("%0s/chk_inst_wb.txt", stim_path), "r");
     if (fd_chk_inst_wb) begin
         $display("File 'chk_inst_wb' opened: %0d", fd_chk_inst_wb);
     end
@@ -1084,7 +1084,7 @@ integer fd_chk_x1;
 integer sample_cnt_chk_x1 = 0;
 reg [31:0] chk_x1;
 initial begin
-    fd_chk_x1 = $fopen({`STIM_PATH, `"/chk_x1`", `".txt`"}, "r");
+    fd_chk_x1 = $fopen($sformatf("%0s/chk_x1.txt", stim_path), "r");
     if (fd_chk_x1) begin
         $display("File 'chk_x1' opened: %0d", fd_chk_x1);
     end
@@ -1107,7 +1107,7 @@ integer fd_chk_x2;
 integer sample_cnt_chk_x2 = 0;
 reg [31:0] chk_x2;
 initial begin
-    fd_chk_x2 = $fopen({`STIM_PATH, `"/chk_x2`", `".txt`"}, "r");
+    fd_chk_x2 = $fopen($sformatf("%0s/chk_x2.txt", stim_path), "r");
     if (fd_chk_x2) begin
         $display("File 'chk_x2' opened: %0d", fd_chk_x2);
     end
@@ -1130,7 +1130,7 @@ integer fd_chk_x3;
 integer sample_cnt_chk_x3 = 0;
 reg [31:0] chk_x3;
 initial begin
-    fd_chk_x3 = $fopen({`STIM_PATH, `"/chk_x3`", `".txt`"}, "r");
+    fd_chk_x3 = $fopen($sformatf("%0s/chk_x3.txt", stim_path), "r");
     if (fd_chk_x3) begin
         $display("File 'chk_x3' opened: %0d", fd_chk_x3);
     end
@@ -1153,7 +1153,7 @@ integer fd_chk_x4;
 integer sample_cnt_chk_x4 = 0;
 reg [31:0] chk_x4;
 initial begin
-    fd_chk_x4 = $fopen({`STIM_PATH, `"/chk_x4`", `".txt`"}, "r");
+    fd_chk_x4 = $fopen($sformatf("%0s/chk_x4.txt", stim_path), "r");
     if (fd_chk_x4) begin
         $display("File 'chk_x4' opened: %0d", fd_chk_x4);
     end
@@ -1176,7 +1176,7 @@ integer fd_chk_x5;
 integer sample_cnt_chk_x5 = 0;
 reg [31:0] chk_x5;
 initial begin
-    fd_chk_x5 = $fopen({`STIM_PATH, `"/chk_x5`", `".txt`"}, "r");
+    fd_chk_x5 = $fopen($sformatf("%0s/chk_x5.txt", stim_path), "r");
     if (fd_chk_x5) begin
         $display("File 'chk_x5' opened: %0d", fd_chk_x5);
     end
@@ -1199,7 +1199,7 @@ integer fd_chk_x6;
 integer sample_cnt_chk_x6 = 0;
 reg [31:0] chk_x6;
 initial begin
-    fd_chk_x6 = $fopen({`STIM_PATH, `"/chk_x6`", `".txt`"}, "r");
+    fd_chk_x6 = $fopen($sformatf("%0s/chk_x6.txt", stim_path), "r");
     if (fd_chk_x6) begin
         $display("File 'chk_x6' opened: %0d", fd_chk_x6);
     end
@@ -1222,7 +1222,7 @@ integer fd_chk_x7;
 integer sample_cnt_chk_x7 = 0;
 reg [31:0] chk_x7;
 initial begin
-    fd_chk_x7 = $fopen({`STIM_PATH, `"/chk_x7`", `".txt`"}, "r");
+    fd_chk_x7 = $fopen($sformatf("%0s/chk_x7.txt", stim_path), "r");
     if (fd_chk_x7) begin
         $display("File 'chk_x7' opened: %0d", fd_chk_x7);
     end
@@ -1245,7 +1245,7 @@ integer fd_chk_x8;
 integer sample_cnt_chk_x8 = 0;
 reg [31:0] chk_x8;
 initial begin
-    fd_chk_x8 = $fopen({`STIM_PATH, `"/chk_x8`", `".txt`"}, "r");
+    fd_chk_x8 = $fopen($sformatf("%0s/chk_x8.txt", stim_path), "r");
     if (fd_chk_x8) begin
         $display("File 'chk_x8' opened: %0d", fd_chk_x8);
     end
@@ -1268,7 +1268,7 @@ integer fd_chk_x9;
 integer sample_cnt_chk_x9 = 0;
 reg [31:0] chk_x9;
 initial begin
-    fd_chk_x9 = $fopen({`STIM_PATH, `"/chk_x9`", `".txt`"}, "r");
+    fd_chk_x9 = $fopen($sformatf("%0s/chk_x9.txt", stim_path), "r");
     if (fd_chk_x9) begin
         $display("File 'chk_x9' opened: %0d", fd_chk_x9);
     end
@@ -1291,7 +1291,7 @@ integer fd_chk_x10;
 integer sample_cnt_chk_x10 = 0;
 reg [31:0] chk_x10;
 initial begin
-    fd_chk_x10 = $fopen({`STIM_PATH, `"/chk_x10`", `".txt`"}, "r");
+    fd_chk_x10 = $fopen($sformatf("%0s/chk_x10.txt", stim_path), "r");
     if (fd_chk_x10) begin
         $display("File 'chk_x10' opened: %0d", fd_chk_x10);
     end
@@ -1314,7 +1314,7 @@ integer fd_chk_x11;
 integer sample_cnt_chk_x11 = 0;
 reg [31:0] chk_x11;
 initial begin
-    fd_chk_x11 = $fopen({`STIM_PATH, `"/chk_x11`", `".txt`"}, "r");
+    fd_chk_x11 = $fopen($sformatf("%0s/chk_x11.txt", stim_path), "r");
     if (fd_chk_x11) begin
         $display("File 'chk_x11' opened: %0d", fd_chk_x11);
     end
@@ -1337,7 +1337,7 @@ integer fd_chk_x12;
 integer sample_cnt_chk_x12 = 0;
 reg [31:0] chk_x12;
 initial begin
-    fd_chk_x12 = $fopen({`STIM_PATH, `"/chk_x12`", `".txt`"}, "r");
+    fd_chk_x12 = $fopen($sformatf("%0s/chk_x12.txt", stim_path), "r");
     if (fd_chk_x12) begin
         $display("File 'chk_x12' opened: %0d", fd_chk_x12);
     end
@@ -1360,7 +1360,7 @@ integer fd_chk_x13;
 integer sample_cnt_chk_x13 = 0;
 reg [31:0] chk_x13;
 initial begin
-    fd_chk_x13 = $fopen({`STIM_PATH, `"/chk_x13`", `".txt`"}, "r");
+    fd_chk_x13 = $fopen($sformatf("%0s/chk_x13.txt", stim_path), "r");
     if (fd_chk_x13) begin
         $display("File 'chk_x13' opened: %0d", fd_chk_x13);
     end
@@ -1383,7 +1383,7 @@ integer fd_chk_x14;
 integer sample_cnt_chk_x14 = 0;
 reg [31:0] chk_x14;
 initial begin
-    fd_chk_x14 = $fopen({`STIM_PATH, `"/chk_x14`", `".txt`"}, "r");
+    fd_chk_x14 = $fopen($sformatf("%0s/chk_x14.txt", stim_path), "r");
     if (fd_chk_x14) begin
         $display("File 'chk_x14' opened: %0d", fd_chk_x14);
     end
@@ -1406,7 +1406,7 @@ integer fd_chk_x15;
 integer sample_cnt_chk_x15 = 0;
 reg [31:0] chk_x15;
 initial begin
-    fd_chk_x15 = $fopen({`STIM_PATH, `"/chk_x15`", `".txt`"}, "r");
+    fd_chk_x15 = $fopen($sformatf("%0s/chk_x15.txt", stim_path), "r");
     if (fd_chk_x15) begin
         $display("File 'chk_x15' opened: %0d", fd_chk_x15);
     end
@@ -1429,7 +1429,7 @@ integer fd_chk_x16;
 integer sample_cnt_chk_x16 = 0;
 reg [31:0] chk_x16;
 initial begin
-    fd_chk_x16 = $fopen({`STIM_PATH, `"/chk_x16`", `".txt`"}, "r");
+    fd_chk_x16 = $fopen($sformatf("%0s/chk_x16.txt", stim_path), "r");
     if (fd_chk_x16) begin
         $display("File 'chk_x16' opened: %0d", fd_chk_x16);
     end
@@ -1452,7 +1452,7 @@ integer fd_chk_x17;
 integer sample_cnt_chk_x17 = 0;
 reg [31:0] chk_x17;
 initial begin
-    fd_chk_x17 = $fopen({`STIM_PATH, `"/chk_x17`", `".txt`"}, "r");
+    fd_chk_x17 = $fopen($sformatf("%0s/chk_x17.txt", stim_path), "r");
     if (fd_chk_x17) begin
         $display("File 'chk_x17' opened: %0d", fd_chk_x17);
     end
@@ -1475,7 +1475,7 @@ integer fd_chk_x18;
 integer sample_cnt_chk_x18 = 0;
 reg [31:0] chk_x18;
 initial begin
-    fd_chk_x18 = $fopen({`STIM_PATH, `"/chk_x18`", `".txt`"}, "r");
+    fd_chk_x18 = $fopen($sformatf("%0s/chk_x18.txt", stim_path), "r");
     if (fd_chk_x18) begin
         $display("File 'chk_x18' opened: %0d", fd_chk_x18);
     end
@@ -1498,7 +1498,7 @@ integer fd_chk_x19;
 integer sample_cnt_chk_x19 = 0;
 reg [31:0] chk_x19;
 initial begin
-    fd_chk_x19 = $fopen({`STIM_PATH, `"/chk_x19`", `".txt`"}, "r");
+    fd_chk_x19 = $fopen($sformatf("%0s/chk_x19.txt", stim_path), "r");
     if (fd_chk_x19) begin
         $display("File 'chk_x19' opened: %0d", fd_chk_x19);
     end
@@ -1521,7 +1521,7 @@ integer fd_chk_x20;
 integer sample_cnt_chk_x20 = 0;
 reg [31:0] chk_x20;
 initial begin
-    fd_chk_x20 = $fopen({`STIM_PATH, `"/chk_x20`", `".txt`"}, "r");
+    fd_chk_x20 = $fopen($sformatf("%0s/chk_x20.txt", stim_path), "r");
     if (fd_chk_x20) begin
         $display("File 'chk_x20' opened: %0d", fd_chk_x20);
     end
@@ -1544,7 +1544,7 @@ integer fd_chk_x21;
 integer sample_cnt_chk_x21 = 0;
 reg [31:0] chk_x21;
 initial begin
-    fd_chk_x21 = $fopen({`STIM_PATH, `"/chk_x21`", `".txt`"}, "r");
+    fd_chk_x21 = $fopen($sformatf("%0s/chk_x21.txt", stim_path), "r");
     if (fd_chk_x21) begin
         $display("File 'chk_x21' opened: %0d", fd_chk_x21);
     end
@@ -1567,7 +1567,7 @@ integer fd_chk_x22;
 integer sample_cnt_chk_x22 = 0;
 reg [31:0] chk_x22;
 initial begin
-    fd_chk_x22 = $fopen({`STIM_PATH, `"/chk_x22`", `".txt`"}, "r");
+    fd_chk_x22 = $fopen($sformatf("%0s/chk_x22.txt", stim_path), "r");
     if (fd_chk_x22) begin
         $display("File 'chk_x22' opened: %0d", fd_chk_x22);
     end
@@ -1590,7 +1590,7 @@ integer fd_chk_x23;
 integer sample_cnt_chk_x23 = 0;
 reg [31:0] chk_x23;
 initial begin
-    fd_chk_x23 = $fopen({`STIM_PATH, `"/chk_x23`", `".txt`"}, "r");
+    fd_chk_x23 = $fopen($sformatf("%0s/chk_x23.txt", stim_path), "r");
     if (fd_chk_x23) begin
         $display("File 'chk_x23' opened: %0d", fd_chk_x23);
     end
@@ -1613,7 +1613,7 @@ integer fd_chk_x24;
 integer sample_cnt_chk_x24 = 0;
 reg [31:0] chk_x24;
 initial begin
-    fd_chk_x24 = $fopen({`STIM_PATH, `"/chk_x24`", `".txt`"}, "r");
+    fd_chk_x24 = $fopen($sformatf("%0s/chk_x24.txt", stim_path), "r");
     if (fd_chk_x24) begin
         $display("File 'chk_x24' opened: %0d", fd_chk_x24);
     end
@@ -1636,7 +1636,7 @@ integer fd_chk_x25;
 integer sample_cnt_chk_x25 = 0;
 reg [31:0] chk_x25;
 initial begin
-    fd_chk_x25 = $fopen({`STIM_PATH, `"/chk_x25`", `".txt`"}, "r");
+    fd_chk_x25 = $fopen($sformatf("%0s/chk_x25.txt", stim_path), "r");
     if (fd_chk_x25) begin
         $display("File 'chk_x25' opened: %0d", fd_chk_x25);
     end
@@ -1659,7 +1659,7 @@ integer fd_chk_x26;
 integer sample_cnt_chk_x26 = 0;
 reg [31:0] chk_x26;
 initial begin
-    fd_chk_x26 = $fopen({`STIM_PATH, `"/chk_x26`", `".txt`"}, "r");
+    fd_chk_x26 = $fopen($sformatf("%0s/chk_x26.txt", stim_path), "r");
     if (fd_chk_x26) begin
         $display("File 'chk_x26' opened: %0d", fd_chk_x26);
     end
@@ -1682,7 +1682,7 @@ integer fd_chk_x27;
 integer sample_cnt_chk_x27 = 0;
 reg [31:0] chk_x27;
 initial begin
-    fd_chk_x27 = $fopen({`STIM_PATH, `"/chk_x27`", `".txt`"}, "r");
+    fd_chk_x27 = $fopen($sformatf("%0s/chk_x27.txt", stim_path), "r");
     if (fd_chk_x27) begin
         $display("File 'chk_x27' opened: %0d", fd_chk_x27);
     end
@@ -1705,7 +1705,7 @@ integer fd_chk_x28;
 integer sample_cnt_chk_x28 = 0;
 reg [31:0] chk_x28;
 initial begin
-    fd_chk_x28 = $fopen({`STIM_PATH, `"/chk_x28`", `".txt`"}, "r");
+    fd_chk_x28 = $fopen($sformatf("%0s/chk_x28.txt", stim_path), "r");
     if (fd_chk_x28) begin
         $display("File 'chk_x28' opened: %0d", fd_chk_x28);
     end
@@ -1728,7 +1728,7 @@ integer fd_chk_x29;
 integer sample_cnt_chk_x29 = 0;
 reg [31:0] chk_x29;
 initial begin
-    fd_chk_x29 = $fopen({`STIM_PATH, `"/chk_x29`", `".txt`"}, "r");
+    fd_chk_x29 = $fopen($sformatf("%0s/chk_x29.txt", stim_path), "r");
     if (fd_chk_x29) begin
         $display("File 'chk_x29' opened: %0d", fd_chk_x29);
     end
@@ -1751,7 +1751,7 @@ integer fd_chk_x30;
 integer sample_cnt_chk_x30 = 0;
 reg [31:0] chk_x30;
 initial begin
-    fd_chk_x30 = $fopen({`STIM_PATH, `"/chk_x30`", `".txt`"}, "r");
+    fd_chk_x30 = $fopen($sformatf("%0s/chk_x30.txt", stim_path), "r");
     if (fd_chk_x30) begin
         $display("File 'chk_x30' opened: %0d", fd_chk_x30);
     end
@@ -1774,7 +1774,7 @@ integer fd_chk_x31;
 integer sample_cnt_chk_x31 = 0;
 reg [31:0] chk_x31;
 initial begin
-    fd_chk_x31 = $fopen({`STIM_PATH, `"/chk_x31`", `".txt`"}, "r");
+    fd_chk_x31 = $fopen($sformatf("%0s/chk_x31.txt", stim_path), "r");
     if (fd_chk_x31) begin
         $display("File 'chk_x31' opened: %0d", fd_chk_x31);
     end
@@ -1797,7 +1797,7 @@ integer fd_chk_tohost;
 integer sample_cnt_chk_tohost = 0;
 reg [31:0] chk_tohost;
 initial begin
-    fd_chk_tohost = $fopen({`STIM_PATH, `"/chk_tohost`", `".txt`"}, "r");
+    fd_chk_tohost = $fopen($sformatf("%0s/chk_tohost.txt", stim_path), "r");
     if (fd_chk_tohost) begin
         $display("File 'chk_tohost' opened: %0d", fd_chk_tohost);
     end
@@ -1820,7 +1820,7 @@ integer fd_chk_alu_out;
 integer sample_cnt_chk_alu_out = 0;
 reg [31:0] chk_alu_out;
 initial begin
-    fd_chk_alu_out = $fopen({`STIM_PATH, `"/chk_alu_out`", `".txt`"}, "r");
+    fd_chk_alu_out = $fopen($sformatf("%0s/chk_alu_out.txt", stim_path), "r");
     if (fd_chk_alu_out) begin
         $display("File 'chk_alu_out' opened: %0d", fd_chk_alu_out);
     end
