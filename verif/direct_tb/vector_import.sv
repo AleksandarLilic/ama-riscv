@@ -7,7 +7,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_rst_seq_d = $fopen($sformatf("%0s/test_%0s/chk_rst_seq_d.txt", stim_path, current_test), "r");
         if (fd_chk_rst_seq_d) begin
-            $display("From test '%0s' file 'chk_rst_seq_d' opened: %0d", current_test, fd_chk_rst_seq_d);
+            `LOG(("From test '%0s' file 'chk_rst_seq_d' opened: %0d", current_test, fd_chk_rst_seq_d));
         end
         else begin
             $display("File 'chk_rst_seq_d' could not be opened: %0d. Exiting simulation.", fd_chk_rst_seq_d);
@@ -24,7 +24,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_rst_seq_d' done. Samples read: %0d.", sample_cnt_chk_rst_seq_d);
+        `LOG(("Vector read 'chk_rst_seq_d' done. Samples read: %0d.", sample_cnt_chk_rst_seq_d));
         sample_cnt_chk_rst_seq_d = 0; // reset counter for next test
     end
 end
@@ -37,7 +37,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_pc = $fopen($sformatf("%0s/test_%0s/chk_pc.txt", stim_path, current_test), "r");
         if (fd_chk_pc) begin
-            $display("From test '%0s' file 'chk_pc' opened: %0d", current_test, fd_chk_pc);
+            `LOG(("From test '%0s' file 'chk_pc' opened: %0d", current_test, fd_chk_pc));
         end
         else begin
             $display("File 'chk_pc' could not be opened: %0d. Exiting simulation.", fd_chk_pc);
@@ -54,7 +54,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_pc' done. Samples read: %0d.", sample_cnt_chk_pc);
+        `LOG(("Vector read 'chk_pc' done. Samples read: %0d.", sample_cnt_chk_pc));
         sample_cnt_chk_pc = 0; // reset counter for next test
     end
 end
@@ -67,7 +67,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_stall_if_id_d = $fopen($sformatf("%0s/test_%0s/chk_stall_if_id_d.txt", stim_path, current_test), "r");
         if (fd_chk_stall_if_id_d) begin
-            $display("From test '%0s' file 'chk_stall_if_id_d' opened: %0d", current_test, fd_chk_stall_if_id_d);
+            `LOG(("From test '%0s' file 'chk_stall_if_id_d' opened: %0d", current_test, fd_chk_stall_if_id_d));
         end
         else begin
             $display("File 'chk_stall_if_id_d' could not be opened: %0d. Exiting simulation.", fd_chk_stall_if_id_d);
@@ -84,7 +84,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_stall_if_id_d' done. Samples read: %0d.", sample_cnt_chk_stall_if_id_d);
+        `LOG(("Vector read 'chk_stall_if_id_d' done. Samples read: %0d.", sample_cnt_chk_stall_if_id_d));
         sample_cnt_chk_stall_if_id_d = 0; // reset counter for next test
     end
 end
@@ -97,7 +97,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_imem = $fopen($sformatf("%0s/test_%0s/chk_imem.txt", stim_path, current_test), "r");
         if (fd_chk_imem) begin
-            $display("From test '%0s' file 'chk_imem' opened: %0d", current_test, fd_chk_imem);
+            `LOG(("From test '%0s' file 'chk_imem' opened: %0d", current_test, fd_chk_imem));
         end
         else begin
             $display("File 'chk_imem' could not be opened: %0d. Exiting simulation.", fd_chk_imem);
@@ -114,7 +114,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_imem' done. Samples read: %0d.", sample_cnt_chk_imem);
+        `LOG(("Vector read 'chk_imem' done. Samples read: %0d.", sample_cnt_chk_imem));
         sample_cnt_chk_imem = 0; // reset counter for next test
     end
 end
@@ -127,7 +127,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_inst_ex = $fopen($sformatf("%0s/test_%0s/chk_inst_ex.txt", stim_path, current_test), "r");
         if (fd_chk_inst_ex) begin
-            $display("From test '%0s' file 'chk_inst_ex' opened: %0d", current_test, fd_chk_inst_ex);
+            `LOG(("From test '%0s' file 'chk_inst_ex' opened: %0d", current_test, fd_chk_inst_ex));
         end
         else begin
             $display("File 'chk_inst_ex' could not be opened: %0d. Exiting simulation.", fd_chk_inst_ex);
@@ -144,7 +144,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_inst_ex' done. Samples read: %0d.", sample_cnt_chk_inst_ex);
+        `LOG(("Vector read 'chk_inst_ex' done. Samples read: %0d.", sample_cnt_chk_inst_ex));
         sample_cnt_chk_inst_ex = 0; // reset counter for next test
     end
 end
@@ -157,7 +157,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_pc_ex = $fopen($sformatf("%0s/test_%0s/chk_pc_ex.txt", stim_path, current_test), "r");
         if (fd_chk_pc_ex) begin
-            $display("From test '%0s' file 'chk_pc_ex' opened: %0d", current_test, fd_chk_pc_ex);
+            `LOG(("From test '%0s' file 'chk_pc_ex' opened: %0d", current_test, fd_chk_pc_ex));
         end
         else begin
             $display("File 'chk_pc_ex' could not be opened: %0d. Exiting simulation.", fd_chk_pc_ex);
@@ -174,7 +174,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_pc_ex' done. Samples read: %0d.", sample_cnt_chk_pc_ex);
+        `LOG(("Vector read 'chk_pc_ex' done. Samples read: %0d.", sample_cnt_chk_pc_ex));
         sample_cnt_chk_pc_ex = 0; // reset counter for next test
     end
 end
@@ -187,7 +187,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_funct3_ex = $fopen($sformatf("%0s/test_%0s/chk_funct3_ex.txt", stim_path, current_test), "r");
         if (fd_chk_funct3_ex) begin
-            $display("From test '%0s' file 'chk_funct3_ex' opened: %0d", current_test, fd_chk_funct3_ex);
+            `LOG(("From test '%0s' file 'chk_funct3_ex' opened: %0d", current_test, fd_chk_funct3_ex));
         end
         else begin
             $display("File 'chk_funct3_ex' could not be opened: %0d. Exiting simulation.", fd_chk_funct3_ex);
@@ -204,7 +204,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_funct3_ex' done. Samples read: %0d.", sample_cnt_chk_funct3_ex);
+        `LOG(("Vector read 'chk_funct3_ex' done. Samples read: %0d.", sample_cnt_chk_funct3_ex));
         sample_cnt_chk_funct3_ex = 0; // reset counter for next test
     end
 end
@@ -217,7 +217,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_rs1_addr_ex = $fopen($sformatf("%0s/test_%0s/chk_rs1_addr_ex.txt", stim_path, current_test), "r");
         if (fd_chk_rs1_addr_ex) begin
-            $display("From test '%0s' file 'chk_rs1_addr_ex' opened: %0d", current_test, fd_chk_rs1_addr_ex);
+            `LOG(("From test '%0s' file 'chk_rs1_addr_ex' opened: %0d", current_test, fd_chk_rs1_addr_ex));
         end
         else begin
             $display("File 'chk_rs1_addr_ex' could not be opened: %0d. Exiting simulation.", fd_chk_rs1_addr_ex);
@@ -234,7 +234,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_rs1_addr_ex' done. Samples read: %0d.", sample_cnt_chk_rs1_addr_ex);
+        `LOG(("Vector read 'chk_rs1_addr_ex' done. Samples read: %0d.", sample_cnt_chk_rs1_addr_ex));
         sample_cnt_chk_rs1_addr_ex = 0; // reset counter for next test
     end
 end
@@ -247,7 +247,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_rs2_addr_ex = $fopen($sformatf("%0s/test_%0s/chk_rs2_addr_ex.txt", stim_path, current_test), "r");
         if (fd_chk_rs2_addr_ex) begin
-            $display("From test '%0s' file 'chk_rs2_addr_ex' opened: %0d", current_test, fd_chk_rs2_addr_ex);
+            `LOG(("From test '%0s' file 'chk_rs2_addr_ex' opened: %0d", current_test, fd_chk_rs2_addr_ex));
         end
         else begin
             $display("File 'chk_rs2_addr_ex' could not be opened: %0d. Exiting simulation.", fd_chk_rs2_addr_ex);
@@ -264,7 +264,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_rs2_addr_ex' done. Samples read: %0d.", sample_cnt_chk_rs2_addr_ex);
+        `LOG(("Vector read 'chk_rs2_addr_ex' done. Samples read: %0d.", sample_cnt_chk_rs2_addr_ex));
         sample_cnt_chk_rs2_addr_ex = 0; // reset counter for next test
     end
 end
@@ -277,7 +277,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_rf_data_a_ex = $fopen($sformatf("%0s/test_%0s/chk_rf_data_a_ex.txt", stim_path, current_test), "r");
         if (fd_chk_rf_data_a_ex) begin
-            $display("From test '%0s' file 'chk_rf_data_a_ex' opened: %0d", current_test, fd_chk_rf_data_a_ex);
+            `LOG(("From test '%0s' file 'chk_rf_data_a_ex' opened: %0d", current_test, fd_chk_rf_data_a_ex));
         end
         else begin
             $display("File 'chk_rf_data_a_ex' could not be opened: %0d. Exiting simulation.", fd_chk_rf_data_a_ex);
@@ -294,7 +294,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_rf_data_a_ex' done. Samples read: %0d.", sample_cnt_chk_rf_data_a_ex);
+        `LOG(("Vector read 'chk_rf_data_a_ex' done. Samples read: %0d.", sample_cnt_chk_rf_data_a_ex));
         sample_cnt_chk_rf_data_a_ex = 0; // reset counter for next test
     end
 end
@@ -307,7 +307,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_rf_data_b_ex = $fopen($sformatf("%0s/test_%0s/chk_rf_data_b_ex.txt", stim_path, current_test), "r");
         if (fd_chk_rf_data_b_ex) begin
-            $display("From test '%0s' file 'chk_rf_data_b_ex' opened: %0d", current_test, fd_chk_rf_data_b_ex);
+            `LOG(("From test '%0s' file 'chk_rf_data_b_ex' opened: %0d", current_test, fd_chk_rf_data_b_ex));
         end
         else begin
             $display("File 'chk_rf_data_b_ex' could not be opened: %0d. Exiting simulation.", fd_chk_rf_data_b_ex);
@@ -324,7 +324,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_rf_data_b_ex' done. Samples read: %0d.", sample_cnt_chk_rf_data_b_ex);
+        `LOG(("Vector read 'chk_rf_data_b_ex' done. Samples read: %0d.", sample_cnt_chk_rf_data_b_ex));
         sample_cnt_chk_rf_data_b_ex = 0; // reset counter for next test
     end
 end
@@ -337,7 +337,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_rd_we_ex = $fopen($sformatf("%0s/test_%0s/chk_rd_we_ex.txt", stim_path, current_test), "r");
         if (fd_chk_rd_we_ex) begin
-            $display("From test '%0s' file 'chk_rd_we_ex' opened: %0d", current_test, fd_chk_rd_we_ex);
+            `LOG(("From test '%0s' file 'chk_rd_we_ex' opened: %0d", current_test, fd_chk_rd_we_ex));
         end
         else begin
             $display("File 'chk_rd_we_ex' could not be opened: %0d. Exiting simulation.", fd_chk_rd_we_ex);
@@ -354,7 +354,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_rd_we_ex' done. Samples read: %0d.", sample_cnt_chk_rd_we_ex);
+        `LOG(("Vector read 'chk_rd_we_ex' done. Samples read: %0d.", sample_cnt_chk_rd_we_ex));
         sample_cnt_chk_rd_we_ex = 0; // reset counter for next test
     end
 end
@@ -367,7 +367,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_rd_addr_ex = $fopen($sformatf("%0s/test_%0s/chk_rd_addr_ex.txt", stim_path, current_test), "r");
         if (fd_chk_rd_addr_ex) begin
-            $display("From test '%0s' file 'chk_rd_addr_ex' opened: %0d", current_test, fd_chk_rd_addr_ex);
+            `LOG(("From test '%0s' file 'chk_rd_addr_ex' opened: %0d", current_test, fd_chk_rd_addr_ex));
         end
         else begin
             $display("File 'chk_rd_addr_ex' could not be opened: %0d. Exiting simulation.", fd_chk_rd_addr_ex);
@@ -384,7 +384,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_rd_addr_ex' done. Samples read: %0d.", sample_cnt_chk_rd_addr_ex);
+        `LOG(("Vector read 'chk_rd_addr_ex' done. Samples read: %0d.", sample_cnt_chk_rd_addr_ex));
         sample_cnt_chk_rd_addr_ex = 0; // reset counter for next test
     end
 end
@@ -397,7 +397,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_imm_gen_out_ex = $fopen($sformatf("%0s/test_%0s/chk_imm_gen_out_ex.txt", stim_path, current_test), "r");
         if (fd_chk_imm_gen_out_ex) begin
-            $display("From test '%0s' file 'chk_imm_gen_out_ex' opened: %0d", current_test, fd_chk_imm_gen_out_ex);
+            `LOG(("From test '%0s' file 'chk_imm_gen_out_ex' opened: %0d", current_test, fd_chk_imm_gen_out_ex));
         end
         else begin
             $display("File 'chk_imm_gen_out_ex' could not be opened: %0d. Exiting simulation.", fd_chk_imm_gen_out_ex);
@@ -414,7 +414,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_imm_gen_out_ex' done. Samples read: %0d.", sample_cnt_chk_imm_gen_out_ex);
+        `LOG(("Vector read 'chk_imm_gen_out_ex' done. Samples read: %0d.", sample_cnt_chk_imm_gen_out_ex));
         sample_cnt_chk_imm_gen_out_ex = 0; // reset counter for next test
     end
 end
@@ -427,7 +427,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_csr_we_ex = $fopen($sformatf("%0s/test_%0s/chk_csr_we_ex.txt", stim_path, current_test), "r");
         if (fd_chk_csr_we_ex) begin
-            $display("From test '%0s' file 'chk_csr_we_ex' opened: %0d", current_test, fd_chk_csr_we_ex);
+            `LOG(("From test '%0s' file 'chk_csr_we_ex' opened: %0d", current_test, fd_chk_csr_we_ex));
         end
         else begin
             $display("File 'chk_csr_we_ex' could not be opened: %0d. Exiting simulation.", fd_chk_csr_we_ex);
@@ -444,7 +444,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_csr_we_ex' done. Samples read: %0d.", sample_cnt_chk_csr_we_ex);
+        `LOG(("Vector read 'chk_csr_we_ex' done. Samples read: %0d.", sample_cnt_chk_csr_we_ex));
         sample_cnt_chk_csr_we_ex = 0; // reset counter for next test
     end
 end
@@ -457,7 +457,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_csr_ui_ex = $fopen($sformatf("%0s/test_%0s/chk_csr_ui_ex.txt", stim_path, current_test), "r");
         if (fd_chk_csr_ui_ex) begin
-            $display("From test '%0s' file 'chk_csr_ui_ex' opened: %0d", current_test, fd_chk_csr_ui_ex);
+            `LOG(("From test '%0s' file 'chk_csr_ui_ex' opened: %0d", current_test, fd_chk_csr_ui_ex));
         end
         else begin
             $display("File 'chk_csr_ui_ex' could not be opened: %0d. Exiting simulation.", fd_chk_csr_ui_ex);
@@ -474,7 +474,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_csr_ui_ex' done. Samples read: %0d.", sample_cnt_chk_csr_ui_ex);
+        `LOG(("Vector read 'chk_csr_ui_ex' done. Samples read: %0d.", sample_cnt_chk_csr_ui_ex));
         sample_cnt_chk_csr_ui_ex = 0; // reset counter for next test
     end
 end
@@ -487,7 +487,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_csr_uimm_ex = $fopen($sformatf("%0s/test_%0s/chk_csr_uimm_ex.txt", stim_path, current_test), "r");
         if (fd_chk_csr_uimm_ex) begin
-            $display("From test '%0s' file 'chk_csr_uimm_ex' opened: %0d", current_test, fd_chk_csr_uimm_ex);
+            `LOG(("From test '%0s' file 'chk_csr_uimm_ex' opened: %0d", current_test, fd_chk_csr_uimm_ex));
         end
         else begin
             $display("File 'chk_csr_uimm_ex' could not be opened: %0d. Exiting simulation.", fd_chk_csr_uimm_ex);
@@ -504,7 +504,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_csr_uimm_ex' done. Samples read: %0d.", sample_cnt_chk_csr_uimm_ex);
+        `LOG(("Vector read 'chk_csr_uimm_ex' done. Samples read: %0d.", sample_cnt_chk_csr_uimm_ex));
         sample_cnt_chk_csr_uimm_ex = 0; // reset counter for next test
     end
 end
@@ -517,7 +517,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_csr_dout_ex = $fopen($sformatf("%0s/test_%0s/chk_csr_dout_ex.txt", stim_path, current_test), "r");
         if (fd_chk_csr_dout_ex) begin
-            $display("From test '%0s' file 'chk_csr_dout_ex' opened: %0d", current_test, fd_chk_csr_dout_ex);
+            `LOG(("From test '%0s' file 'chk_csr_dout_ex' opened: %0d", current_test, fd_chk_csr_dout_ex));
         end
         else begin
             $display("File 'chk_csr_dout_ex' could not be opened: %0d. Exiting simulation.", fd_chk_csr_dout_ex);
@@ -534,7 +534,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_csr_dout_ex' done. Samples read: %0d.", sample_cnt_chk_csr_dout_ex);
+        `LOG(("Vector read 'chk_csr_dout_ex' done. Samples read: %0d.", sample_cnt_chk_csr_dout_ex));
         sample_cnt_chk_csr_dout_ex = 0; // reset counter for next test
     end
 end
@@ -547,7 +547,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_alu_a_sel_ex = $fopen($sformatf("%0s/test_%0s/chk_alu_a_sel_ex.txt", stim_path, current_test), "r");
         if (fd_chk_alu_a_sel_ex) begin
-            $display("From test '%0s' file 'chk_alu_a_sel_ex' opened: %0d", current_test, fd_chk_alu_a_sel_ex);
+            `LOG(("From test '%0s' file 'chk_alu_a_sel_ex' opened: %0d", current_test, fd_chk_alu_a_sel_ex));
         end
         else begin
             $display("File 'chk_alu_a_sel_ex' could not be opened: %0d. Exiting simulation.", fd_chk_alu_a_sel_ex);
@@ -564,7 +564,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_alu_a_sel_ex' done. Samples read: %0d.", sample_cnt_chk_alu_a_sel_ex);
+        `LOG(("Vector read 'chk_alu_a_sel_ex' done. Samples read: %0d.", sample_cnt_chk_alu_a_sel_ex));
         sample_cnt_chk_alu_a_sel_ex = 0; // reset counter for next test
     end
 end
@@ -577,7 +577,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_alu_b_sel_ex = $fopen($sformatf("%0s/test_%0s/chk_alu_b_sel_ex.txt", stim_path, current_test), "r");
         if (fd_chk_alu_b_sel_ex) begin
-            $display("From test '%0s' file 'chk_alu_b_sel_ex' opened: %0d", current_test, fd_chk_alu_b_sel_ex);
+            `LOG(("From test '%0s' file 'chk_alu_b_sel_ex' opened: %0d", current_test, fd_chk_alu_b_sel_ex));
         end
         else begin
             $display("File 'chk_alu_b_sel_ex' could not be opened: %0d. Exiting simulation.", fd_chk_alu_b_sel_ex);
@@ -594,7 +594,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_alu_b_sel_ex' done. Samples read: %0d.", sample_cnt_chk_alu_b_sel_ex);
+        `LOG(("Vector read 'chk_alu_b_sel_ex' done. Samples read: %0d.", sample_cnt_chk_alu_b_sel_ex));
         sample_cnt_chk_alu_b_sel_ex = 0; // reset counter for next test
     end
 end
@@ -607,7 +607,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_alu_op_sel_ex = $fopen($sformatf("%0s/test_%0s/chk_alu_op_sel_ex.txt", stim_path, current_test), "r");
         if (fd_chk_alu_op_sel_ex) begin
-            $display("From test '%0s' file 'chk_alu_op_sel_ex' opened: %0d", current_test, fd_chk_alu_op_sel_ex);
+            `LOG(("From test '%0s' file 'chk_alu_op_sel_ex' opened: %0d", current_test, fd_chk_alu_op_sel_ex));
         end
         else begin
             $display("File 'chk_alu_op_sel_ex' could not be opened: %0d. Exiting simulation.", fd_chk_alu_op_sel_ex);
@@ -624,7 +624,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_alu_op_sel_ex' done. Samples read: %0d.", sample_cnt_chk_alu_op_sel_ex);
+        `LOG(("Vector read 'chk_alu_op_sel_ex' done. Samples read: %0d.", sample_cnt_chk_alu_op_sel_ex));
         sample_cnt_chk_alu_op_sel_ex = 0; // reset counter for next test
     end
 end
@@ -637,7 +637,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_bc_a_sel_ex = $fopen($sformatf("%0s/test_%0s/chk_bc_a_sel_ex.txt", stim_path, current_test), "r");
         if (fd_chk_bc_a_sel_ex) begin
-            $display("From test '%0s' file 'chk_bc_a_sel_ex' opened: %0d", current_test, fd_chk_bc_a_sel_ex);
+            `LOG(("From test '%0s' file 'chk_bc_a_sel_ex' opened: %0d", current_test, fd_chk_bc_a_sel_ex));
         end
         else begin
             $display("File 'chk_bc_a_sel_ex' could not be opened: %0d. Exiting simulation.", fd_chk_bc_a_sel_ex);
@@ -654,7 +654,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_bc_a_sel_ex' done. Samples read: %0d.", sample_cnt_chk_bc_a_sel_ex);
+        `LOG(("Vector read 'chk_bc_a_sel_ex' done. Samples read: %0d.", sample_cnt_chk_bc_a_sel_ex));
         sample_cnt_chk_bc_a_sel_ex = 0; // reset counter for next test
     end
 end
@@ -667,7 +667,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_bcs_b_sel_ex = $fopen($sformatf("%0s/test_%0s/chk_bcs_b_sel_ex.txt", stim_path, current_test), "r");
         if (fd_chk_bcs_b_sel_ex) begin
-            $display("From test '%0s' file 'chk_bcs_b_sel_ex' opened: %0d", current_test, fd_chk_bcs_b_sel_ex);
+            `LOG(("From test '%0s' file 'chk_bcs_b_sel_ex' opened: %0d", current_test, fd_chk_bcs_b_sel_ex));
         end
         else begin
             $display("File 'chk_bcs_b_sel_ex' could not be opened: %0d. Exiting simulation.", fd_chk_bcs_b_sel_ex);
@@ -684,7 +684,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_bcs_b_sel_ex' done. Samples read: %0d.", sample_cnt_chk_bcs_b_sel_ex);
+        `LOG(("Vector read 'chk_bcs_b_sel_ex' done. Samples read: %0d.", sample_cnt_chk_bcs_b_sel_ex));
         sample_cnt_chk_bcs_b_sel_ex = 0; // reset counter for next test
     end
 end
@@ -697,7 +697,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_bc_uns_ex = $fopen($sformatf("%0s/test_%0s/chk_bc_uns_ex.txt", stim_path, current_test), "r");
         if (fd_chk_bc_uns_ex) begin
-            $display("From test '%0s' file 'chk_bc_uns_ex' opened: %0d", current_test, fd_chk_bc_uns_ex);
+            `LOG(("From test '%0s' file 'chk_bc_uns_ex' opened: %0d", current_test, fd_chk_bc_uns_ex));
         end
         else begin
             $display("File 'chk_bc_uns_ex' could not be opened: %0d. Exiting simulation.", fd_chk_bc_uns_ex);
@@ -714,7 +714,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_bc_uns_ex' done. Samples read: %0d.", sample_cnt_chk_bc_uns_ex);
+        `LOG(("Vector read 'chk_bc_uns_ex' done. Samples read: %0d.", sample_cnt_chk_bc_uns_ex));
         sample_cnt_chk_bc_uns_ex = 0; // reset counter for next test
     end
 end
@@ -727,7 +727,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_store_inst_ex = $fopen($sformatf("%0s/test_%0s/chk_store_inst_ex.txt", stim_path, current_test), "r");
         if (fd_chk_store_inst_ex) begin
-            $display("From test '%0s' file 'chk_store_inst_ex' opened: %0d", current_test, fd_chk_store_inst_ex);
+            `LOG(("From test '%0s' file 'chk_store_inst_ex' opened: %0d", current_test, fd_chk_store_inst_ex));
         end
         else begin
             $display("File 'chk_store_inst_ex' could not be opened: %0d. Exiting simulation.", fd_chk_store_inst_ex);
@@ -744,7 +744,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_store_inst_ex' done. Samples read: %0d.", sample_cnt_chk_store_inst_ex);
+        `LOG(("Vector read 'chk_store_inst_ex' done. Samples read: %0d.", sample_cnt_chk_store_inst_ex));
         sample_cnt_chk_store_inst_ex = 0; // reset counter for next test
     end
 end
@@ -757,7 +757,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_branch_inst_ex = $fopen($sformatf("%0s/test_%0s/chk_branch_inst_ex.txt", stim_path, current_test), "r");
         if (fd_chk_branch_inst_ex) begin
-            $display("From test '%0s' file 'chk_branch_inst_ex' opened: %0d", current_test, fd_chk_branch_inst_ex);
+            `LOG(("From test '%0s' file 'chk_branch_inst_ex' opened: %0d", current_test, fd_chk_branch_inst_ex));
         end
         else begin
             $display("File 'chk_branch_inst_ex' could not be opened: %0d. Exiting simulation.", fd_chk_branch_inst_ex);
@@ -774,7 +774,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_branch_inst_ex' done. Samples read: %0d.", sample_cnt_chk_branch_inst_ex);
+        `LOG(("Vector read 'chk_branch_inst_ex' done. Samples read: %0d.", sample_cnt_chk_branch_inst_ex));
         sample_cnt_chk_branch_inst_ex = 0; // reset counter for next test
     end
 end
@@ -787,7 +787,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_jump_inst_ex = $fopen($sformatf("%0s/test_%0s/chk_jump_inst_ex.txt", stim_path, current_test), "r");
         if (fd_chk_jump_inst_ex) begin
-            $display("From test '%0s' file 'chk_jump_inst_ex' opened: %0d", current_test, fd_chk_jump_inst_ex);
+            `LOG(("From test '%0s' file 'chk_jump_inst_ex' opened: %0d", current_test, fd_chk_jump_inst_ex));
         end
         else begin
             $display("File 'chk_jump_inst_ex' could not be opened: %0d. Exiting simulation.", fd_chk_jump_inst_ex);
@@ -804,7 +804,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_jump_inst_ex' done. Samples read: %0d.", sample_cnt_chk_jump_inst_ex);
+        `LOG(("Vector read 'chk_jump_inst_ex' done. Samples read: %0d.", sample_cnt_chk_jump_inst_ex));
         sample_cnt_chk_jump_inst_ex = 0; // reset counter for next test
     end
 end
@@ -817,7 +817,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_dmem_en_id = $fopen($sformatf("%0s/test_%0s/chk_dmem_en_id.txt", stim_path, current_test), "r");
         if (fd_chk_dmem_en_id) begin
-            $display("From test '%0s' file 'chk_dmem_en_id' opened: %0d", current_test, fd_chk_dmem_en_id);
+            `LOG(("From test '%0s' file 'chk_dmem_en_id' opened: %0d", current_test, fd_chk_dmem_en_id));
         end
         else begin
             $display("File 'chk_dmem_en_id' could not be opened: %0d. Exiting simulation.", fd_chk_dmem_en_id);
@@ -834,7 +834,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_dmem_en_id' done. Samples read: %0d.", sample_cnt_chk_dmem_en_id);
+        `LOG(("Vector read 'chk_dmem_en_id' done. Samples read: %0d.", sample_cnt_chk_dmem_en_id));
         sample_cnt_chk_dmem_en_id = 0; // reset counter for next test
     end
 end
@@ -847,7 +847,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_load_sm_en_ex = $fopen($sformatf("%0s/test_%0s/chk_load_sm_en_ex.txt", stim_path, current_test), "r");
         if (fd_chk_load_sm_en_ex) begin
-            $display("From test '%0s' file 'chk_load_sm_en_ex' opened: %0d", current_test, fd_chk_load_sm_en_ex);
+            `LOG(("From test '%0s' file 'chk_load_sm_en_ex' opened: %0d", current_test, fd_chk_load_sm_en_ex));
         end
         else begin
             $display("File 'chk_load_sm_en_ex' could not be opened: %0d. Exiting simulation.", fd_chk_load_sm_en_ex);
@@ -864,7 +864,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_load_sm_en_ex' done. Samples read: %0d.", sample_cnt_chk_load_sm_en_ex);
+        `LOG(("Vector read 'chk_load_sm_en_ex' done. Samples read: %0d.", sample_cnt_chk_load_sm_en_ex));
         sample_cnt_chk_load_sm_en_ex = 0; // reset counter for next test
     end
 end
@@ -877,7 +877,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_wb_sel_ex = $fopen($sformatf("%0s/test_%0s/chk_wb_sel_ex.txt", stim_path, current_test), "r");
         if (fd_chk_wb_sel_ex) begin
-            $display("From test '%0s' file 'chk_wb_sel_ex' opened: %0d", current_test, fd_chk_wb_sel_ex);
+            `LOG(("From test '%0s' file 'chk_wb_sel_ex' opened: %0d", current_test, fd_chk_wb_sel_ex));
         end
         else begin
             $display("File 'chk_wb_sel_ex' could not be opened: %0d. Exiting simulation.", fd_chk_wb_sel_ex);
@@ -894,7 +894,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_wb_sel_ex' done. Samples read: %0d.", sample_cnt_chk_wb_sel_ex);
+        `LOG(("Vector read 'chk_wb_sel_ex' done. Samples read: %0d.", sample_cnt_chk_wb_sel_ex));
         sample_cnt_chk_wb_sel_ex = 0; // reset counter for next test
     end
 end
@@ -907,7 +907,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_inst_mem = $fopen($sformatf("%0s/test_%0s/chk_inst_mem.txt", stim_path, current_test), "r");
         if (fd_chk_inst_mem) begin
-            $display("From test '%0s' file 'chk_inst_mem' opened: %0d", current_test, fd_chk_inst_mem);
+            `LOG(("From test '%0s' file 'chk_inst_mem' opened: %0d", current_test, fd_chk_inst_mem));
         end
         else begin
             $display("File 'chk_inst_mem' could not be opened: %0d. Exiting simulation.", fd_chk_inst_mem);
@@ -924,7 +924,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_inst_mem' done. Samples read: %0d.", sample_cnt_chk_inst_mem);
+        `LOG(("Vector read 'chk_inst_mem' done. Samples read: %0d.", sample_cnt_chk_inst_mem));
         sample_cnt_chk_inst_mem = 0; // reset counter for next test
     end
 end
@@ -937,7 +937,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_pc_mem = $fopen($sformatf("%0s/test_%0s/chk_pc_mem.txt", stim_path, current_test), "r");
         if (fd_chk_pc_mem) begin
-            $display("From test '%0s' file 'chk_pc_mem' opened: %0d", current_test, fd_chk_pc_mem);
+            `LOG(("From test '%0s' file 'chk_pc_mem' opened: %0d", current_test, fd_chk_pc_mem));
         end
         else begin
             $display("File 'chk_pc_mem' could not be opened: %0d. Exiting simulation.", fd_chk_pc_mem);
@@ -954,7 +954,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_pc_mem' done. Samples read: %0d.", sample_cnt_chk_pc_mem);
+        `LOG(("Vector read 'chk_pc_mem' done. Samples read: %0d.", sample_cnt_chk_pc_mem));
         sample_cnt_chk_pc_mem = 0; // reset counter for next test
     end
 end
@@ -967,7 +967,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_alu_mem = $fopen($sformatf("%0s/test_%0s/chk_alu_mem.txt", stim_path, current_test), "r");
         if (fd_chk_alu_mem) begin
-            $display("From test '%0s' file 'chk_alu_mem' opened: %0d", current_test, fd_chk_alu_mem);
+            `LOG(("From test '%0s' file 'chk_alu_mem' opened: %0d", current_test, fd_chk_alu_mem));
         end
         else begin
             $display("File 'chk_alu_mem' could not be opened: %0d. Exiting simulation.", fd_chk_alu_mem);
@@ -984,7 +984,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_alu_mem' done. Samples read: %0d.", sample_cnt_chk_alu_mem);
+        `LOG(("Vector read 'chk_alu_mem' done. Samples read: %0d.", sample_cnt_chk_alu_mem));
         sample_cnt_chk_alu_mem = 0; // reset counter for next test
     end
 end
@@ -997,7 +997,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_alu_in_a_mem = $fopen($sformatf("%0s/test_%0s/chk_alu_in_a_mem.txt", stim_path, current_test), "r");
         if (fd_chk_alu_in_a_mem) begin
-            $display("From test '%0s' file 'chk_alu_in_a_mem' opened: %0d", current_test, fd_chk_alu_in_a_mem);
+            `LOG(("From test '%0s' file 'chk_alu_in_a_mem' opened: %0d", current_test, fd_chk_alu_in_a_mem));
         end
         else begin
             $display("File 'chk_alu_in_a_mem' could not be opened: %0d. Exiting simulation.", fd_chk_alu_in_a_mem);
@@ -1014,7 +1014,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_alu_in_a_mem' done. Samples read: %0d.", sample_cnt_chk_alu_in_a_mem);
+        `LOG(("Vector read 'chk_alu_in_a_mem' done. Samples read: %0d.", sample_cnt_chk_alu_in_a_mem));
         sample_cnt_chk_alu_in_a_mem = 0; // reset counter for next test
     end
 end
@@ -1027,7 +1027,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_funct3_mem = $fopen($sformatf("%0s/test_%0s/chk_funct3_mem.txt", stim_path, current_test), "r");
         if (fd_chk_funct3_mem) begin
-            $display("From test '%0s' file 'chk_funct3_mem' opened: %0d", current_test, fd_chk_funct3_mem);
+            `LOG(("From test '%0s' file 'chk_funct3_mem' opened: %0d", current_test, fd_chk_funct3_mem));
         end
         else begin
             $display("File 'chk_funct3_mem' could not be opened: %0d. Exiting simulation.", fd_chk_funct3_mem);
@@ -1044,7 +1044,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_funct3_mem' done. Samples read: %0d.", sample_cnt_chk_funct3_mem);
+        `LOG(("Vector read 'chk_funct3_mem' done. Samples read: %0d.", sample_cnt_chk_funct3_mem));
         sample_cnt_chk_funct3_mem = 0; // reset counter for next test
     end
 end
@@ -1057,7 +1057,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_rs1_addr_mem = $fopen($sformatf("%0s/test_%0s/chk_rs1_addr_mem.txt", stim_path, current_test), "r");
         if (fd_chk_rs1_addr_mem) begin
-            $display("From test '%0s' file 'chk_rs1_addr_mem' opened: %0d", current_test, fd_chk_rs1_addr_mem);
+            `LOG(("From test '%0s' file 'chk_rs1_addr_mem' opened: %0d", current_test, fd_chk_rs1_addr_mem));
         end
         else begin
             $display("File 'chk_rs1_addr_mem' could not be opened: %0d. Exiting simulation.", fd_chk_rs1_addr_mem);
@@ -1074,7 +1074,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_rs1_addr_mem' done. Samples read: %0d.", sample_cnt_chk_rs1_addr_mem);
+        `LOG(("Vector read 'chk_rs1_addr_mem' done. Samples read: %0d.", sample_cnt_chk_rs1_addr_mem));
         sample_cnt_chk_rs1_addr_mem = 0; // reset counter for next test
     end
 end
@@ -1087,7 +1087,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_rs2_addr_mem = $fopen($sformatf("%0s/test_%0s/chk_rs2_addr_mem.txt", stim_path, current_test), "r");
         if (fd_chk_rs2_addr_mem) begin
-            $display("From test '%0s' file 'chk_rs2_addr_mem' opened: %0d", current_test, fd_chk_rs2_addr_mem);
+            `LOG(("From test '%0s' file 'chk_rs2_addr_mem' opened: %0d", current_test, fd_chk_rs2_addr_mem));
         end
         else begin
             $display("File 'chk_rs2_addr_mem' could not be opened: %0d. Exiting simulation.", fd_chk_rs2_addr_mem);
@@ -1104,7 +1104,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_rs2_addr_mem' done. Samples read: %0d.", sample_cnt_chk_rs2_addr_mem);
+        `LOG(("Vector read 'chk_rs2_addr_mem' done. Samples read: %0d.", sample_cnt_chk_rs2_addr_mem));
         sample_cnt_chk_rs2_addr_mem = 0; // reset counter for next test
     end
 end
@@ -1117,7 +1117,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_rd_addr_mem = $fopen($sformatf("%0s/test_%0s/chk_rd_addr_mem.txt", stim_path, current_test), "r");
         if (fd_chk_rd_addr_mem) begin
-            $display("From test '%0s' file 'chk_rd_addr_mem' opened: %0d", current_test, fd_chk_rd_addr_mem);
+            `LOG(("From test '%0s' file 'chk_rd_addr_mem' opened: %0d", current_test, fd_chk_rd_addr_mem));
         end
         else begin
             $display("File 'chk_rd_addr_mem' could not be opened: %0d. Exiting simulation.", fd_chk_rd_addr_mem);
@@ -1134,7 +1134,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_rd_addr_mem' done. Samples read: %0d.", sample_cnt_chk_rd_addr_mem);
+        `LOG(("Vector read 'chk_rd_addr_mem' done. Samples read: %0d.", sample_cnt_chk_rd_addr_mem));
         sample_cnt_chk_rd_addr_mem = 0; // reset counter for next test
     end
 end
@@ -1147,7 +1147,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_rd_we_mem = $fopen($sformatf("%0s/test_%0s/chk_rd_we_mem.txt", stim_path, current_test), "r");
         if (fd_chk_rd_we_mem) begin
-            $display("From test '%0s' file 'chk_rd_we_mem' opened: %0d", current_test, fd_chk_rd_we_mem);
+            `LOG(("From test '%0s' file 'chk_rd_we_mem' opened: %0d", current_test, fd_chk_rd_we_mem));
         end
         else begin
             $display("File 'chk_rd_we_mem' could not be opened: %0d. Exiting simulation.", fd_chk_rd_we_mem);
@@ -1164,7 +1164,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_rd_we_mem' done. Samples read: %0d.", sample_cnt_chk_rd_we_mem);
+        `LOG(("Vector read 'chk_rd_we_mem' done. Samples read: %0d.", sample_cnt_chk_rd_we_mem));
         sample_cnt_chk_rd_we_mem = 0; // reset counter for next test
     end
 end
@@ -1177,7 +1177,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_csr_we_mem = $fopen($sformatf("%0s/test_%0s/chk_csr_we_mem.txt", stim_path, current_test), "r");
         if (fd_chk_csr_we_mem) begin
-            $display("From test '%0s' file 'chk_csr_we_mem' opened: %0d", current_test, fd_chk_csr_we_mem);
+            `LOG(("From test '%0s' file 'chk_csr_we_mem' opened: %0d", current_test, fd_chk_csr_we_mem));
         end
         else begin
             $display("File 'chk_csr_we_mem' could not be opened: %0d. Exiting simulation.", fd_chk_csr_we_mem);
@@ -1194,7 +1194,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_csr_we_mem' done. Samples read: %0d.", sample_cnt_chk_csr_we_mem);
+        `LOG(("Vector read 'chk_csr_we_mem' done. Samples read: %0d.", sample_cnt_chk_csr_we_mem));
         sample_cnt_chk_csr_we_mem = 0; // reset counter for next test
     end
 end
@@ -1207,7 +1207,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_csr_ui_mem = $fopen($sformatf("%0s/test_%0s/chk_csr_ui_mem.txt", stim_path, current_test), "r");
         if (fd_chk_csr_ui_mem) begin
-            $display("From test '%0s' file 'chk_csr_ui_mem' opened: %0d", current_test, fd_chk_csr_ui_mem);
+            `LOG(("From test '%0s' file 'chk_csr_ui_mem' opened: %0d", current_test, fd_chk_csr_ui_mem));
         end
         else begin
             $display("File 'chk_csr_ui_mem' could not be opened: %0d. Exiting simulation.", fd_chk_csr_ui_mem);
@@ -1224,7 +1224,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_csr_ui_mem' done. Samples read: %0d.", sample_cnt_chk_csr_ui_mem);
+        `LOG(("Vector read 'chk_csr_ui_mem' done. Samples read: %0d.", sample_cnt_chk_csr_ui_mem));
         sample_cnt_chk_csr_ui_mem = 0; // reset counter for next test
     end
 end
@@ -1237,7 +1237,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_csr_uimm_mem = $fopen($sformatf("%0s/test_%0s/chk_csr_uimm_mem.txt", stim_path, current_test), "r");
         if (fd_chk_csr_uimm_mem) begin
-            $display("From test '%0s' file 'chk_csr_uimm_mem' opened: %0d", current_test, fd_chk_csr_uimm_mem);
+            `LOG(("From test '%0s' file 'chk_csr_uimm_mem' opened: %0d", current_test, fd_chk_csr_uimm_mem));
         end
         else begin
             $display("File 'chk_csr_uimm_mem' could not be opened: %0d. Exiting simulation.", fd_chk_csr_uimm_mem);
@@ -1254,7 +1254,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_csr_uimm_mem' done. Samples read: %0d.", sample_cnt_chk_csr_uimm_mem);
+        `LOG(("Vector read 'chk_csr_uimm_mem' done. Samples read: %0d.", sample_cnt_chk_csr_uimm_mem));
         sample_cnt_chk_csr_uimm_mem = 0; // reset counter for next test
     end
 end
@@ -1267,7 +1267,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_csr_dout_mem = $fopen($sformatf("%0s/test_%0s/chk_csr_dout_mem.txt", stim_path, current_test), "r");
         if (fd_chk_csr_dout_mem) begin
-            $display("From test '%0s' file 'chk_csr_dout_mem' opened: %0d", current_test, fd_chk_csr_dout_mem);
+            `LOG(("From test '%0s' file 'chk_csr_dout_mem' opened: %0d", current_test, fd_chk_csr_dout_mem));
         end
         else begin
             $display("File 'chk_csr_dout_mem' could not be opened: %0d. Exiting simulation.", fd_chk_csr_dout_mem);
@@ -1284,7 +1284,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_csr_dout_mem' done. Samples read: %0d.", sample_cnt_chk_csr_dout_mem);
+        `LOG(("Vector read 'chk_csr_dout_mem' done. Samples read: %0d.", sample_cnt_chk_csr_dout_mem));
         sample_cnt_chk_csr_dout_mem = 0; // reset counter for next test
     end
 end
@@ -1297,7 +1297,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_dmem_dout = $fopen($sformatf("%0s/test_%0s/chk_dmem_dout.txt", stim_path, current_test), "r");
         if (fd_chk_dmem_dout) begin
-            $display("From test '%0s' file 'chk_dmem_dout' opened: %0d", current_test, fd_chk_dmem_dout);
+            `LOG(("From test '%0s' file 'chk_dmem_dout' opened: %0d", current_test, fd_chk_dmem_dout));
         end
         else begin
             $display("File 'chk_dmem_dout' could not be opened: %0d. Exiting simulation.", fd_chk_dmem_dout);
@@ -1314,7 +1314,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_dmem_dout' done. Samples read: %0d.", sample_cnt_chk_dmem_dout);
+        `LOG(("Vector read 'chk_dmem_dout' done. Samples read: %0d.", sample_cnt_chk_dmem_dout));
         sample_cnt_chk_dmem_dout = 0; // reset counter for next test
     end
 end
@@ -1327,7 +1327,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_load_sm_en_mem = $fopen($sformatf("%0s/test_%0s/chk_load_sm_en_mem.txt", stim_path, current_test), "r");
         if (fd_chk_load_sm_en_mem) begin
-            $display("From test '%0s' file 'chk_load_sm_en_mem' opened: %0d", current_test, fd_chk_load_sm_en_mem);
+            `LOG(("From test '%0s' file 'chk_load_sm_en_mem' opened: %0d", current_test, fd_chk_load_sm_en_mem));
         end
         else begin
             $display("File 'chk_load_sm_en_mem' could not be opened: %0d. Exiting simulation.", fd_chk_load_sm_en_mem);
@@ -1344,7 +1344,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_load_sm_en_mem' done. Samples read: %0d.", sample_cnt_chk_load_sm_en_mem);
+        `LOG(("Vector read 'chk_load_sm_en_mem' done. Samples read: %0d.", sample_cnt_chk_load_sm_en_mem));
         sample_cnt_chk_load_sm_en_mem = 0; // reset counter for next test
     end
 end
@@ -1357,7 +1357,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_wb_sel_mem = $fopen($sformatf("%0s/test_%0s/chk_wb_sel_mem.txt", stim_path, current_test), "r");
         if (fd_chk_wb_sel_mem) begin
-            $display("From test '%0s' file 'chk_wb_sel_mem' opened: %0d", current_test, fd_chk_wb_sel_mem);
+            `LOG(("From test '%0s' file 'chk_wb_sel_mem' opened: %0d", current_test, fd_chk_wb_sel_mem));
         end
         else begin
             $display("File 'chk_wb_sel_mem' could not be opened: %0d. Exiting simulation.", fd_chk_wb_sel_mem);
@@ -1374,7 +1374,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_wb_sel_mem' done. Samples read: %0d.", sample_cnt_chk_wb_sel_mem);
+        `LOG(("Vector read 'chk_wb_sel_mem' done. Samples read: %0d.", sample_cnt_chk_wb_sel_mem));
         sample_cnt_chk_wb_sel_mem = 0; // reset counter for next test
     end
 end
@@ -1387,7 +1387,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_inst_wb = $fopen($sformatf("%0s/test_%0s/chk_inst_wb.txt", stim_path, current_test), "r");
         if (fd_chk_inst_wb) begin
-            $display("From test '%0s' file 'chk_inst_wb' opened: %0d", current_test, fd_chk_inst_wb);
+            `LOG(("From test '%0s' file 'chk_inst_wb' opened: %0d", current_test, fd_chk_inst_wb));
         end
         else begin
             $display("File 'chk_inst_wb' could not be opened: %0d. Exiting simulation.", fd_chk_inst_wb);
@@ -1404,7 +1404,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_inst_wb' done. Samples read: %0d.", sample_cnt_chk_inst_wb);
+        `LOG(("Vector read 'chk_inst_wb' done. Samples read: %0d.", sample_cnt_chk_inst_wb));
         sample_cnt_chk_inst_wb = 0; // reset counter for next test
     end
 end
@@ -1417,7 +1417,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x1 = $fopen($sformatf("%0s/test_%0s/chk_x1.txt", stim_path, current_test), "r");
         if (fd_chk_x1) begin
-            $display("From test '%0s' file 'chk_x1' opened: %0d", current_test, fd_chk_x1);
+            `LOG(("From test '%0s' file 'chk_x1' opened: %0d", current_test, fd_chk_x1));
         end
         else begin
             $display("File 'chk_x1' could not be opened: %0d. Exiting simulation.", fd_chk_x1);
@@ -1434,7 +1434,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x1' done. Samples read: %0d.", sample_cnt_chk_x1);
+        `LOG(("Vector read 'chk_x1' done. Samples read: %0d.", sample_cnt_chk_x1));
         sample_cnt_chk_x1 = 0; // reset counter for next test
     end
 end
@@ -1447,7 +1447,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x2 = $fopen($sformatf("%0s/test_%0s/chk_x2.txt", stim_path, current_test), "r");
         if (fd_chk_x2) begin
-            $display("From test '%0s' file 'chk_x2' opened: %0d", current_test, fd_chk_x2);
+            `LOG(("From test '%0s' file 'chk_x2' opened: %0d", current_test, fd_chk_x2));
         end
         else begin
             $display("File 'chk_x2' could not be opened: %0d. Exiting simulation.", fd_chk_x2);
@@ -1464,7 +1464,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x2' done. Samples read: %0d.", sample_cnt_chk_x2);
+        `LOG(("Vector read 'chk_x2' done. Samples read: %0d.", sample_cnt_chk_x2));
         sample_cnt_chk_x2 = 0; // reset counter for next test
     end
 end
@@ -1477,7 +1477,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x3 = $fopen($sformatf("%0s/test_%0s/chk_x3.txt", stim_path, current_test), "r");
         if (fd_chk_x3) begin
-            $display("From test '%0s' file 'chk_x3' opened: %0d", current_test, fd_chk_x3);
+            `LOG(("From test '%0s' file 'chk_x3' opened: %0d", current_test, fd_chk_x3));
         end
         else begin
             $display("File 'chk_x3' could not be opened: %0d. Exiting simulation.", fd_chk_x3);
@@ -1494,7 +1494,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x3' done. Samples read: %0d.", sample_cnt_chk_x3);
+        `LOG(("Vector read 'chk_x3' done. Samples read: %0d.", sample_cnt_chk_x3));
         sample_cnt_chk_x3 = 0; // reset counter for next test
     end
 end
@@ -1507,7 +1507,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x4 = $fopen($sformatf("%0s/test_%0s/chk_x4.txt", stim_path, current_test), "r");
         if (fd_chk_x4) begin
-            $display("From test '%0s' file 'chk_x4' opened: %0d", current_test, fd_chk_x4);
+            `LOG(("From test '%0s' file 'chk_x4' opened: %0d", current_test, fd_chk_x4));
         end
         else begin
             $display("File 'chk_x4' could not be opened: %0d. Exiting simulation.", fd_chk_x4);
@@ -1524,7 +1524,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x4' done. Samples read: %0d.", sample_cnt_chk_x4);
+        `LOG(("Vector read 'chk_x4' done. Samples read: %0d.", sample_cnt_chk_x4));
         sample_cnt_chk_x4 = 0; // reset counter for next test
     end
 end
@@ -1537,7 +1537,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x5 = $fopen($sformatf("%0s/test_%0s/chk_x5.txt", stim_path, current_test), "r");
         if (fd_chk_x5) begin
-            $display("From test '%0s' file 'chk_x5' opened: %0d", current_test, fd_chk_x5);
+            `LOG(("From test '%0s' file 'chk_x5' opened: %0d", current_test, fd_chk_x5));
         end
         else begin
             $display("File 'chk_x5' could not be opened: %0d. Exiting simulation.", fd_chk_x5);
@@ -1554,7 +1554,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x5' done. Samples read: %0d.", sample_cnt_chk_x5);
+        `LOG(("Vector read 'chk_x5' done. Samples read: %0d.", sample_cnt_chk_x5));
         sample_cnt_chk_x5 = 0; // reset counter for next test
     end
 end
@@ -1567,7 +1567,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x6 = $fopen($sformatf("%0s/test_%0s/chk_x6.txt", stim_path, current_test), "r");
         if (fd_chk_x6) begin
-            $display("From test '%0s' file 'chk_x6' opened: %0d", current_test, fd_chk_x6);
+            `LOG(("From test '%0s' file 'chk_x6' opened: %0d", current_test, fd_chk_x6));
         end
         else begin
             $display("File 'chk_x6' could not be opened: %0d. Exiting simulation.", fd_chk_x6);
@@ -1584,7 +1584,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x6' done. Samples read: %0d.", sample_cnt_chk_x6);
+        `LOG(("Vector read 'chk_x6' done. Samples read: %0d.", sample_cnt_chk_x6));
         sample_cnt_chk_x6 = 0; // reset counter for next test
     end
 end
@@ -1597,7 +1597,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x7 = $fopen($sformatf("%0s/test_%0s/chk_x7.txt", stim_path, current_test), "r");
         if (fd_chk_x7) begin
-            $display("From test '%0s' file 'chk_x7' opened: %0d", current_test, fd_chk_x7);
+            `LOG(("From test '%0s' file 'chk_x7' opened: %0d", current_test, fd_chk_x7));
         end
         else begin
             $display("File 'chk_x7' could not be opened: %0d. Exiting simulation.", fd_chk_x7);
@@ -1614,7 +1614,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x7' done. Samples read: %0d.", sample_cnt_chk_x7);
+        `LOG(("Vector read 'chk_x7' done. Samples read: %0d.", sample_cnt_chk_x7));
         sample_cnt_chk_x7 = 0; // reset counter for next test
     end
 end
@@ -1627,7 +1627,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x8 = $fopen($sformatf("%0s/test_%0s/chk_x8.txt", stim_path, current_test), "r");
         if (fd_chk_x8) begin
-            $display("From test '%0s' file 'chk_x8' opened: %0d", current_test, fd_chk_x8);
+            `LOG(("From test '%0s' file 'chk_x8' opened: %0d", current_test, fd_chk_x8));
         end
         else begin
             $display("File 'chk_x8' could not be opened: %0d. Exiting simulation.", fd_chk_x8);
@@ -1644,7 +1644,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x8' done. Samples read: %0d.", sample_cnt_chk_x8);
+        `LOG(("Vector read 'chk_x8' done. Samples read: %0d.", sample_cnt_chk_x8));
         sample_cnt_chk_x8 = 0; // reset counter for next test
     end
 end
@@ -1657,7 +1657,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x9 = $fopen($sformatf("%0s/test_%0s/chk_x9.txt", stim_path, current_test), "r");
         if (fd_chk_x9) begin
-            $display("From test '%0s' file 'chk_x9' opened: %0d", current_test, fd_chk_x9);
+            `LOG(("From test '%0s' file 'chk_x9' opened: %0d", current_test, fd_chk_x9));
         end
         else begin
             $display("File 'chk_x9' could not be opened: %0d. Exiting simulation.", fd_chk_x9);
@@ -1674,7 +1674,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x9' done. Samples read: %0d.", sample_cnt_chk_x9);
+        `LOG(("Vector read 'chk_x9' done. Samples read: %0d.", sample_cnt_chk_x9));
         sample_cnt_chk_x9 = 0; // reset counter for next test
     end
 end
@@ -1687,7 +1687,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x10 = $fopen($sformatf("%0s/test_%0s/chk_x10.txt", stim_path, current_test), "r");
         if (fd_chk_x10) begin
-            $display("From test '%0s' file 'chk_x10' opened: %0d", current_test, fd_chk_x10);
+            `LOG(("From test '%0s' file 'chk_x10' opened: %0d", current_test, fd_chk_x10));
         end
         else begin
             $display("File 'chk_x10' could not be opened: %0d. Exiting simulation.", fd_chk_x10);
@@ -1704,7 +1704,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x10' done. Samples read: %0d.", sample_cnt_chk_x10);
+        `LOG(("Vector read 'chk_x10' done. Samples read: %0d.", sample_cnt_chk_x10));
         sample_cnt_chk_x10 = 0; // reset counter for next test
     end
 end
@@ -1717,7 +1717,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x11 = $fopen($sformatf("%0s/test_%0s/chk_x11.txt", stim_path, current_test), "r");
         if (fd_chk_x11) begin
-            $display("From test '%0s' file 'chk_x11' opened: %0d", current_test, fd_chk_x11);
+            `LOG(("From test '%0s' file 'chk_x11' opened: %0d", current_test, fd_chk_x11));
         end
         else begin
             $display("File 'chk_x11' could not be opened: %0d. Exiting simulation.", fd_chk_x11);
@@ -1734,7 +1734,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x11' done. Samples read: %0d.", sample_cnt_chk_x11);
+        `LOG(("Vector read 'chk_x11' done. Samples read: %0d.", sample_cnt_chk_x11));
         sample_cnt_chk_x11 = 0; // reset counter for next test
     end
 end
@@ -1747,7 +1747,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x12 = $fopen($sformatf("%0s/test_%0s/chk_x12.txt", stim_path, current_test), "r");
         if (fd_chk_x12) begin
-            $display("From test '%0s' file 'chk_x12' opened: %0d", current_test, fd_chk_x12);
+            `LOG(("From test '%0s' file 'chk_x12' opened: %0d", current_test, fd_chk_x12));
         end
         else begin
             $display("File 'chk_x12' could not be opened: %0d. Exiting simulation.", fd_chk_x12);
@@ -1764,7 +1764,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x12' done. Samples read: %0d.", sample_cnt_chk_x12);
+        `LOG(("Vector read 'chk_x12' done. Samples read: %0d.", sample_cnt_chk_x12));
         sample_cnt_chk_x12 = 0; // reset counter for next test
     end
 end
@@ -1777,7 +1777,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x13 = $fopen($sformatf("%0s/test_%0s/chk_x13.txt", stim_path, current_test), "r");
         if (fd_chk_x13) begin
-            $display("From test '%0s' file 'chk_x13' opened: %0d", current_test, fd_chk_x13);
+            `LOG(("From test '%0s' file 'chk_x13' opened: %0d", current_test, fd_chk_x13));
         end
         else begin
             $display("File 'chk_x13' could not be opened: %0d. Exiting simulation.", fd_chk_x13);
@@ -1794,7 +1794,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x13' done. Samples read: %0d.", sample_cnt_chk_x13);
+        `LOG(("Vector read 'chk_x13' done. Samples read: %0d.", sample_cnt_chk_x13));
         sample_cnt_chk_x13 = 0; // reset counter for next test
     end
 end
@@ -1807,7 +1807,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x14 = $fopen($sformatf("%0s/test_%0s/chk_x14.txt", stim_path, current_test), "r");
         if (fd_chk_x14) begin
-            $display("From test '%0s' file 'chk_x14' opened: %0d", current_test, fd_chk_x14);
+            `LOG(("From test '%0s' file 'chk_x14' opened: %0d", current_test, fd_chk_x14));
         end
         else begin
             $display("File 'chk_x14' could not be opened: %0d. Exiting simulation.", fd_chk_x14);
@@ -1824,7 +1824,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x14' done. Samples read: %0d.", sample_cnt_chk_x14);
+        `LOG(("Vector read 'chk_x14' done. Samples read: %0d.", sample_cnt_chk_x14));
         sample_cnt_chk_x14 = 0; // reset counter for next test
     end
 end
@@ -1837,7 +1837,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x15 = $fopen($sformatf("%0s/test_%0s/chk_x15.txt", stim_path, current_test), "r");
         if (fd_chk_x15) begin
-            $display("From test '%0s' file 'chk_x15' opened: %0d", current_test, fd_chk_x15);
+            `LOG(("From test '%0s' file 'chk_x15' opened: %0d", current_test, fd_chk_x15));
         end
         else begin
             $display("File 'chk_x15' could not be opened: %0d. Exiting simulation.", fd_chk_x15);
@@ -1854,7 +1854,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x15' done. Samples read: %0d.", sample_cnt_chk_x15);
+        `LOG(("Vector read 'chk_x15' done. Samples read: %0d.", sample_cnt_chk_x15));
         sample_cnt_chk_x15 = 0; // reset counter for next test
     end
 end
@@ -1867,7 +1867,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x16 = $fopen($sformatf("%0s/test_%0s/chk_x16.txt", stim_path, current_test), "r");
         if (fd_chk_x16) begin
-            $display("From test '%0s' file 'chk_x16' opened: %0d", current_test, fd_chk_x16);
+            `LOG(("From test '%0s' file 'chk_x16' opened: %0d", current_test, fd_chk_x16));
         end
         else begin
             $display("File 'chk_x16' could not be opened: %0d. Exiting simulation.", fd_chk_x16);
@@ -1884,7 +1884,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x16' done. Samples read: %0d.", sample_cnt_chk_x16);
+        `LOG(("Vector read 'chk_x16' done. Samples read: %0d.", sample_cnt_chk_x16));
         sample_cnt_chk_x16 = 0; // reset counter for next test
     end
 end
@@ -1897,7 +1897,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x17 = $fopen($sformatf("%0s/test_%0s/chk_x17.txt", stim_path, current_test), "r");
         if (fd_chk_x17) begin
-            $display("From test '%0s' file 'chk_x17' opened: %0d", current_test, fd_chk_x17);
+            `LOG(("From test '%0s' file 'chk_x17' opened: %0d", current_test, fd_chk_x17));
         end
         else begin
             $display("File 'chk_x17' could not be opened: %0d. Exiting simulation.", fd_chk_x17);
@@ -1914,7 +1914,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x17' done. Samples read: %0d.", sample_cnt_chk_x17);
+        `LOG(("Vector read 'chk_x17' done. Samples read: %0d.", sample_cnt_chk_x17));
         sample_cnt_chk_x17 = 0; // reset counter for next test
     end
 end
@@ -1927,7 +1927,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x18 = $fopen($sformatf("%0s/test_%0s/chk_x18.txt", stim_path, current_test), "r");
         if (fd_chk_x18) begin
-            $display("From test '%0s' file 'chk_x18' opened: %0d", current_test, fd_chk_x18);
+            `LOG(("From test '%0s' file 'chk_x18' opened: %0d", current_test, fd_chk_x18));
         end
         else begin
             $display("File 'chk_x18' could not be opened: %0d. Exiting simulation.", fd_chk_x18);
@@ -1944,7 +1944,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x18' done. Samples read: %0d.", sample_cnt_chk_x18);
+        `LOG(("Vector read 'chk_x18' done. Samples read: %0d.", sample_cnt_chk_x18));
         sample_cnt_chk_x18 = 0; // reset counter for next test
     end
 end
@@ -1957,7 +1957,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x19 = $fopen($sformatf("%0s/test_%0s/chk_x19.txt", stim_path, current_test), "r");
         if (fd_chk_x19) begin
-            $display("From test '%0s' file 'chk_x19' opened: %0d", current_test, fd_chk_x19);
+            `LOG(("From test '%0s' file 'chk_x19' opened: %0d", current_test, fd_chk_x19));
         end
         else begin
             $display("File 'chk_x19' could not be opened: %0d. Exiting simulation.", fd_chk_x19);
@@ -1974,7 +1974,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x19' done. Samples read: %0d.", sample_cnt_chk_x19);
+        `LOG(("Vector read 'chk_x19' done. Samples read: %0d.", sample_cnt_chk_x19));
         sample_cnt_chk_x19 = 0; // reset counter for next test
     end
 end
@@ -1987,7 +1987,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x20 = $fopen($sformatf("%0s/test_%0s/chk_x20.txt", stim_path, current_test), "r");
         if (fd_chk_x20) begin
-            $display("From test '%0s' file 'chk_x20' opened: %0d", current_test, fd_chk_x20);
+            `LOG(("From test '%0s' file 'chk_x20' opened: %0d", current_test, fd_chk_x20));
         end
         else begin
             $display("File 'chk_x20' could not be opened: %0d. Exiting simulation.", fd_chk_x20);
@@ -2004,7 +2004,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x20' done. Samples read: %0d.", sample_cnt_chk_x20);
+        `LOG(("Vector read 'chk_x20' done. Samples read: %0d.", sample_cnt_chk_x20));
         sample_cnt_chk_x20 = 0; // reset counter for next test
     end
 end
@@ -2017,7 +2017,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x21 = $fopen($sformatf("%0s/test_%0s/chk_x21.txt", stim_path, current_test), "r");
         if (fd_chk_x21) begin
-            $display("From test '%0s' file 'chk_x21' opened: %0d", current_test, fd_chk_x21);
+            `LOG(("From test '%0s' file 'chk_x21' opened: %0d", current_test, fd_chk_x21));
         end
         else begin
             $display("File 'chk_x21' could not be opened: %0d. Exiting simulation.", fd_chk_x21);
@@ -2034,7 +2034,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x21' done. Samples read: %0d.", sample_cnt_chk_x21);
+        `LOG(("Vector read 'chk_x21' done. Samples read: %0d.", sample_cnt_chk_x21));
         sample_cnt_chk_x21 = 0; // reset counter for next test
     end
 end
@@ -2047,7 +2047,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x22 = $fopen($sformatf("%0s/test_%0s/chk_x22.txt", stim_path, current_test), "r");
         if (fd_chk_x22) begin
-            $display("From test '%0s' file 'chk_x22' opened: %0d", current_test, fd_chk_x22);
+            `LOG(("From test '%0s' file 'chk_x22' opened: %0d", current_test, fd_chk_x22));
         end
         else begin
             $display("File 'chk_x22' could not be opened: %0d. Exiting simulation.", fd_chk_x22);
@@ -2064,7 +2064,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x22' done. Samples read: %0d.", sample_cnt_chk_x22);
+        `LOG(("Vector read 'chk_x22' done. Samples read: %0d.", sample_cnt_chk_x22));
         sample_cnt_chk_x22 = 0; // reset counter for next test
     end
 end
@@ -2077,7 +2077,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x23 = $fopen($sformatf("%0s/test_%0s/chk_x23.txt", stim_path, current_test), "r");
         if (fd_chk_x23) begin
-            $display("From test '%0s' file 'chk_x23' opened: %0d", current_test, fd_chk_x23);
+            `LOG(("From test '%0s' file 'chk_x23' opened: %0d", current_test, fd_chk_x23));
         end
         else begin
             $display("File 'chk_x23' could not be opened: %0d. Exiting simulation.", fd_chk_x23);
@@ -2094,7 +2094,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x23' done. Samples read: %0d.", sample_cnt_chk_x23);
+        `LOG(("Vector read 'chk_x23' done. Samples read: %0d.", sample_cnt_chk_x23));
         sample_cnt_chk_x23 = 0; // reset counter for next test
     end
 end
@@ -2107,7 +2107,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x24 = $fopen($sformatf("%0s/test_%0s/chk_x24.txt", stim_path, current_test), "r");
         if (fd_chk_x24) begin
-            $display("From test '%0s' file 'chk_x24' opened: %0d", current_test, fd_chk_x24);
+            `LOG(("From test '%0s' file 'chk_x24' opened: %0d", current_test, fd_chk_x24));
         end
         else begin
             $display("File 'chk_x24' could not be opened: %0d. Exiting simulation.", fd_chk_x24);
@@ -2124,7 +2124,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x24' done. Samples read: %0d.", sample_cnt_chk_x24);
+        `LOG(("Vector read 'chk_x24' done. Samples read: %0d.", sample_cnt_chk_x24));
         sample_cnt_chk_x24 = 0; // reset counter for next test
     end
 end
@@ -2137,7 +2137,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x25 = $fopen($sformatf("%0s/test_%0s/chk_x25.txt", stim_path, current_test), "r");
         if (fd_chk_x25) begin
-            $display("From test '%0s' file 'chk_x25' opened: %0d", current_test, fd_chk_x25);
+            `LOG(("From test '%0s' file 'chk_x25' opened: %0d", current_test, fd_chk_x25));
         end
         else begin
             $display("File 'chk_x25' could not be opened: %0d. Exiting simulation.", fd_chk_x25);
@@ -2154,7 +2154,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x25' done. Samples read: %0d.", sample_cnt_chk_x25);
+        `LOG(("Vector read 'chk_x25' done. Samples read: %0d.", sample_cnt_chk_x25));
         sample_cnt_chk_x25 = 0; // reset counter for next test
     end
 end
@@ -2167,7 +2167,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x26 = $fopen($sformatf("%0s/test_%0s/chk_x26.txt", stim_path, current_test), "r");
         if (fd_chk_x26) begin
-            $display("From test '%0s' file 'chk_x26' opened: %0d", current_test, fd_chk_x26);
+            `LOG(("From test '%0s' file 'chk_x26' opened: %0d", current_test, fd_chk_x26));
         end
         else begin
             $display("File 'chk_x26' could not be opened: %0d. Exiting simulation.", fd_chk_x26);
@@ -2184,7 +2184,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x26' done. Samples read: %0d.", sample_cnt_chk_x26);
+        `LOG(("Vector read 'chk_x26' done. Samples read: %0d.", sample_cnt_chk_x26));
         sample_cnt_chk_x26 = 0; // reset counter for next test
     end
 end
@@ -2197,7 +2197,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x27 = $fopen($sformatf("%0s/test_%0s/chk_x27.txt", stim_path, current_test), "r");
         if (fd_chk_x27) begin
-            $display("From test '%0s' file 'chk_x27' opened: %0d", current_test, fd_chk_x27);
+            `LOG(("From test '%0s' file 'chk_x27' opened: %0d", current_test, fd_chk_x27));
         end
         else begin
             $display("File 'chk_x27' could not be opened: %0d. Exiting simulation.", fd_chk_x27);
@@ -2214,7 +2214,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x27' done. Samples read: %0d.", sample_cnt_chk_x27);
+        `LOG(("Vector read 'chk_x27' done. Samples read: %0d.", sample_cnt_chk_x27));
         sample_cnt_chk_x27 = 0; // reset counter for next test
     end
 end
@@ -2227,7 +2227,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x28 = $fopen($sformatf("%0s/test_%0s/chk_x28.txt", stim_path, current_test), "r");
         if (fd_chk_x28) begin
-            $display("From test '%0s' file 'chk_x28' opened: %0d", current_test, fd_chk_x28);
+            `LOG(("From test '%0s' file 'chk_x28' opened: %0d", current_test, fd_chk_x28));
         end
         else begin
             $display("File 'chk_x28' could not be opened: %0d. Exiting simulation.", fd_chk_x28);
@@ -2244,7 +2244,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x28' done. Samples read: %0d.", sample_cnt_chk_x28);
+        `LOG(("Vector read 'chk_x28' done. Samples read: %0d.", sample_cnt_chk_x28));
         sample_cnt_chk_x28 = 0; // reset counter for next test
     end
 end
@@ -2257,7 +2257,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x29 = $fopen($sformatf("%0s/test_%0s/chk_x29.txt", stim_path, current_test), "r");
         if (fd_chk_x29) begin
-            $display("From test '%0s' file 'chk_x29' opened: %0d", current_test, fd_chk_x29);
+            `LOG(("From test '%0s' file 'chk_x29' opened: %0d", current_test, fd_chk_x29));
         end
         else begin
             $display("File 'chk_x29' could not be opened: %0d. Exiting simulation.", fd_chk_x29);
@@ -2274,7 +2274,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x29' done. Samples read: %0d.", sample_cnt_chk_x29);
+        `LOG(("Vector read 'chk_x29' done. Samples read: %0d.", sample_cnt_chk_x29));
         sample_cnt_chk_x29 = 0; // reset counter for next test
     end
 end
@@ -2287,7 +2287,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x30 = $fopen($sformatf("%0s/test_%0s/chk_x30.txt", stim_path, current_test), "r");
         if (fd_chk_x30) begin
-            $display("From test '%0s' file 'chk_x30' opened: %0d", current_test, fd_chk_x30);
+            `LOG(("From test '%0s' file 'chk_x30' opened: %0d", current_test, fd_chk_x30));
         end
         else begin
             $display("File 'chk_x30' could not be opened: %0d. Exiting simulation.", fd_chk_x30);
@@ -2304,7 +2304,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x30' done. Samples read: %0d.", sample_cnt_chk_x30);
+        `LOG(("Vector read 'chk_x30' done. Samples read: %0d.", sample_cnt_chk_x30));
         sample_cnt_chk_x30 = 0; // reset counter for next test
     end
 end
@@ -2317,7 +2317,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_x31 = $fopen($sformatf("%0s/test_%0s/chk_x31.txt", stim_path, current_test), "r");
         if (fd_chk_x31) begin
-            $display("From test '%0s' file 'chk_x31' opened: %0d", current_test, fd_chk_x31);
+            `LOG(("From test '%0s' file 'chk_x31' opened: %0d", current_test, fd_chk_x31));
         end
         else begin
             $display("File 'chk_x31' could not be opened: %0d. Exiting simulation.", fd_chk_x31);
@@ -2334,7 +2334,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_x31' done. Samples read: %0d.", sample_cnt_chk_x31);
+        `LOG(("Vector read 'chk_x31' done. Samples read: %0d.", sample_cnt_chk_x31));
         sample_cnt_chk_x31 = 0; // reset counter for next test
     end
 end
@@ -2347,7 +2347,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_tohost = $fopen($sformatf("%0s/test_%0s/chk_tohost.txt", stim_path, current_test), "r");
         if (fd_chk_tohost) begin
-            $display("From test '%0s' file 'chk_tohost' opened: %0d", current_test, fd_chk_tohost);
+            `LOG(("From test '%0s' file 'chk_tohost' opened: %0d", current_test, fd_chk_tohost));
         end
         else begin
             $display("File 'chk_tohost' could not be opened: %0d. Exiting simulation.", fd_chk_tohost);
@@ -2364,7 +2364,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_tohost' done. Samples read: %0d.", sample_cnt_chk_tohost);
+        `LOG(("Vector read 'chk_tohost' done. Samples read: %0d.", sample_cnt_chk_tohost));
         sample_cnt_chk_tohost = 0; // reset counter for next test
     end
 end
@@ -2377,7 +2377,7 @@ initial begin
         @ev_load_vector; // wait for test to start
         fd_chk_alu_out = $fopen($sformatf("%0s/test_%0s/chk_alu_out.txt", stim_path, current_test), "r");
         if (fd_chk_alu_out) begin
-            $display("From test '%0s' file 'chk_alu_out' opened: %0d", current_test, fd_chk_alu_out);
+            `LOG(("From test '%0s' file 'chk_alu_out' opened: %0d", current_test, fd_chk_alu_out));
         end
         else begin
             $display("File 'chk_alu_out' could not be opened: %0d. Exiting simulation.", fd_chk_alu_out);
@@ -2394,7 +2394,7 @@ end
 initial begin
     forever begin
         @(posedge sim_done); 
-        $display("Vector read 'chk_alu_out' done. Samples read: %0d.", sample_cnt_chk_alu_out);
+        `LOG(("Vector read 'chk_alu_out' done. Samples read: %0d.", sample_cnt_chk_alu_out));
         sample_cnt_chk_alu_out = 0; // reset counter for next test
     end
 end
