@@ -64,12 +64,9 @@
 `include "../../src/ama_riscv_defines.v"
 
 `define CLK_PERIOD          8
-`define SINGLE_TEST         1
-`define TEST_NAME           lh.hex
 `define STANDALONE
 
 `define VERBOSITY           2           // TODO: keep up to 5, add list of choices?, dbg & perf levels?
-`define NUMBER_OF_TESTS     38
 
 // TB
 `define CHECKER_ACTIVE      1'b1
@@ -77,70 +74,19 @@
 `define CHECK_DELAY         1
 `define TIMEOUT_CLOCKS      5000
 
-`define INST_PATH "/"
-`define PROJECT_PATH "C:/dev/ama-riscv-sim/riscv-tests/riscv-isa-tests"
-`define LOG_PATH "C:/dev/ama-riscv/simlogs/"
-// `define STIM_PATH "C:/dev/ama-riscv-sim/SW/out/build/ama-riscv-sim/src/test_lh"
 
-`define DUT                 DUT_ama_riscv_core_top_i
-`define DUT_IMEM            `DUT.ama_riscv_imem_i.mem
-`define DUT_DMEM            `DUT.ama_riscv_dmem_i.mem
-`define DUT_CORE            `DUT.ama_riscv_core_i
-`define DUT_DEC             `DUT_CORE.ama_riscv_control_i.ama_riscv_decoder_i
-`define DUT_RF              `DUT_CORE.ama_riscv_reg_file_i
+`define DUT      DUT_ama_riscv_core_top_i
+`define DUT_IMEM `DUT.ama_riscv_imem_i.mem
+`define DUT_DMEM `DUT.ama_riscv_dmem_i.mem
+`define DUT_CORE `DUT.ama_riscv_core_i
+`define DUT_DEC  `DUT_CORE.ama_riscv_control_i.ama_riscv_decoder_i
+`define DUT_RF   `DUT_CORE.ama_riscv_reg_file_i
 
-`define TOHOST_PASS         32'd1
+`define TOHOST_PASS 32'd1
 
-`define MEM_SIZE            16384
+`define MEM_SIZE 16384
 
-// Macro functions
-`define STRINGIFY(x)        `"x`"
-// has to be enclosed with begin/end when called
-`define load_memories_m(name)                                                          \
-    $readmemh({`PROJECT_PATH, `INST_PATH, `"name`"}, `DUT_IMEM,    0, `MEM_SIZE-1);    \
-    $readmemh({`PROJECT_PATH, `INST_PATH, `"name`"}, `DUT_DMEM,    0, `MEM_SIZE-1);    //\
-//    $readmemh({`PROJECT_PATH, `INST_PATH, `"name`"}, dut_m_imem,   0, `MEM_SIZE-1);    \
-//    $readmemh({`PROJECT_PATH, `INST_PATH, `"name`"}, dut_m_dmem,   0, `MEM_SIZE-1);    \
-
-// Test names
-`define TEST_SIMPLE         simple.hex
-`define TEST_ADD            add.hex
-`define TEST_SUB            sub.hex
-`define TEST_SLL            sll.hex
-`define TEST_SLT            slt.hex
-`define TEST_SLTU           sltu.hex
-`define TEST_XOR            xor.hex
-`define TEST_SRL            srl.hex
-`define TEST_SRA            sra.hex
-`define TEST_OR             or.hex
-`define TEST_AND            and.hex
-`define TEST_ADDI           addi.hex
-`define TEST_SLTI           slti.hex
-`define TEST_SLTIU          sltiu.hex
-`define TEST_XORI           xori.hex
-`define TEST_ORI            ori.hex
-`define TEST_ANDI           andi.hex
-`define TEST_SLLI           slli.hex
-`define TEST_SRLI           srli.hex
-`define TEST_SRAI           srai.hex
-`define TEST_LB             lb.hex
-`define TEST_LH             lh.hex
-`define TEST_LW             lw.hex
-`define TEST_LBU            lbu.hex
-`define TEST_LHU            lhu.hex
-`define TEST_SB             sb.hex
-`define TEST_SH             sh.hex
-`define TEST_SW             sw.hex
-`define TEST_BEQ            beq.hex
-`define TEST_BNE            bne.hex
-`define TEST_BLT            blt.hex
-`define TEST_BGE            bge.hex
-`define TEST_BLTU           bltu.hex
-`define TEST_BGEU           bgeu.hex
-`define TEST_JALR           jalr.hex
-`define TEST_JAL            jal.hex
-`define TEST_LUI            lui.hex
-`define TEST_AUIPC          auipc.hex
+`define SINGLE_TEST 1
 
 module ama_riscv_core_top_tb();
 
@@ -160,6 +106,23 @@ wire dut_internal_branch_taken = `DUT_DEC.branch_res && `DUT_DEC.branch_inst_ex;
 
 //-----------------------------------------------------------------------------
 // Testbench variables
+//
+string test_path = "C:/dev/ama-riscv-sim/riscv-tests/riscv-isa-tests/";
+string stim_path = "C:/dev/ama-riscv-sim/SW/out/build/ama-riscv-sim/src";
+//`define LOG_PATH "C:/dev/ama-riscv/simlogs/"
+
+// Test names
+string riscv_regr_tests[] = {
+    "simple", "add", "sub", "sll", "slt", "sltu", "xor", "srl", "sra", "or", "and", "addi",
+    "slti", "sltiu", "xori", "ori", "andi", "slli", "srli", "srai", "lb", "lh", "lw", "lbu", "lhu",
+    "sb", "sh", "sw", "beq", "bne", "blt", "bge", "bltu", "bgeu", "jalr", "jal", "lui", "auipc" };
+
+string single_test_name = "simple";
+string current_test;
+
+int number_of_tests = riscv_regr_tests.size; 
+int regr_num;
+
 integer       i                     ;   // used for all loops
 integer       done                  ;
 integer       isa_passed_dut        ;
@@ -168,11 +131,13 @@ integer       warnings              ;
 integer       pre_rst_warnings      ;
 reg           errors_for_wave       ;
 wire          tohost_source         ;
-integer       regr_num = (`SINGLE_TEST) ? 1 : `NUMBER_OF_TESTS;
+
 // regr flags
 reg           dut_regr_status       ;
-reg  [12*7:0] dut_regr_array [`NUMBER_OF_TESTS-1:0];
+//string dut_regr_array [number_of_tests-1:0]; // TODO: convert this to queue
+string dut_regr_array [37:0]; // TODO: convert this to queue
 integer       isa_failed_dut_cnt    ;
+
 // performance counters
 // integer       perf_cnt_cycle        ;
 // integer       perf_cnt_instr        ;
@@ -181,17 +146,14 @@ integer       isa_failed_dut_cnt    ;
 // integer       perf_cnt_hw_nops      ;
 // integer       perf_cnt_compiler_nops;
 
-// Reset hold for
-reg    [ 3:0] rst_pulses = 4'd3;
-
-// for printing current test name
-reg [12*7:0]  current_test_string   ;
-
 // events
-event         ev_rst    [1:0];
-integer       rst_done = 0;
+event ev_rst [1:0];
+event ev_load_stim;
+event ev_load_vector;
+event ev_load_vector_done;
+int rst_done = 0;
 
-string stim_path = "C:/dev/ama-riscv-sim/SW/out/build/ama-riscv-sim/src/test_lh";
+// test handling
 
 //-----------------------------------------------------------------------------
 // DUT instance
@@ -256,89 +218,66 @@ end
 integer fd_clk;
 reg [0:0] sim_done;
 initial begin
-    fd_clk = $fopen($sformatf("%0s/stim_clk.txt", stim_path), "r");
-//    fd_clk = $fopen({`STIM_PATH, `"/stim_clk.txt`"}, "r");
-    if (fd_clk) $display("File opened: %0d", fd_clk);
-    else $display("File could not be opened: %0d", fd_clk);
-    
-    while (! $feof(fd_clk)) begin
-        $fscanf(fd_clk, "%d\n", clk);
+    forever begin
+        @ev_load_stim; // wait for test to start
+        // TODO: fix paths for stim vectors
+        fd_clk = $fopen($sformatf("%0s/stim_clk.txt", stim_path), "r");
+        if (fd_clk) $display("File 'stim_clk' opened: %0d", fd_clk);
+        else $display("File 'stim_clk' could not be opened: %0d", fd_clk);
+        
+        ->ev_load_vector;
+        $fscanf(fd_clk, "%d\n", clk); // load first stimuli
         #(`CLK_PERIOD/2);
+        ->ev_load_vector_done;
+
+        while (! $feof(fd_clk)) begin
+            $fscanf(fd_clk, "%d\n", clk);
+            #(`CLK_PERIOD/2);
+        end
+        $display("\nSimulation finished\n");
+        sim_done=1;
+        $fclose(fd_clk);
     end
-    $display("\nSimulation finished\n");
-    sim_done=1;
 end
 
 // Reset gen
 integer fd_rst;
 initial begin
-    fd_rst = $fopen($sformatf("%0s/stim_rst.txt", stim_path), "r");
-//    fd_rst = $fopen({`STIM_PATH, `"/stim_rst.txt`"}, "r");
-    if (fd_rst) $display("File opened: %0d", fd_rst);
-    else $display("File could not be opened: %0d", fd_rst);
-    
-    while (! $feof(fd_rst)) begin
-        #1;
-        $fscanf(fd_rst, "%d\n", rst);
-        @(posedge clk);
+    forever begin
+        @ev_load_vector; // wait for test to start
+        fd_rst = $fopen($sformatf("%0s/stim_rst.txt", stim_path), "r");
+        if (fd_rst) $display("File 'stim_rst' opened: %0d", fd_rst);
+        else $display("File 'stim_rst' could not be opened: %0d", fd_rst);
+        
+        while (! $feof(fd_rst)) begin
+            #1;
+            $fscanf(fd_rst, "%d\n", rst);
+            @(posedge clk);
+        end
+        $fclose(fd_rst);
     end
 end
 
 //-----------------------------------------------------------------------------
 // Import vectors
-`include "vector_import.v"
+`include "vector_import.sv"
 
 //-----------------------------------------------------------------------------
 // Testbench tasks
 task load_single_test;
-    begin
-        `load_memories_m(`TEST_NAME); current_test_string = `STRINGIFY(`TEST_NAME);
-    end
+    begin current_test = single_test_name; load_memories(current_test); end
 endtask
 
 task load_test;
     input integer t_in_test_num;
-    begin
-        case(t_in_test_num)
-            0 : begin  `load_memories_m(`TEST_SIMPLE);  current_test_string = "SIMPLE";  end
-            1 : begin  `load_memories_m(`TEST_ADD   );  current_test_string = "ADD   ";  end
-            2 : begin  `load_memories_m(`TEST_SUB   );  current_test_string = "SUB   ";  end
-            3 : begin  `load_memories_m(`TEST_SLL   );  current_test_string = "SLL   ";  end
-            4 : begin  `load_memories_m(`TEST_SLT   );  current_test_string = "SLT   ";  end
-            5 : begin  `load_memories_m(`TEST_SLTU  );  current_test_string = "SLTU  ";  end
-            6 : begin  `load_memories_m(`TEST_XOR   );  current_test_string = "XOR   ";  end
-            7 : begin  `load_memories_m(`TEST_SRL   );  current_test_string = "SRL   ";  end
-            8 : begin  `load_memories_m(`TEST_SRA   );  current_test_string = "SRA   ";  end
-            9 : begin  `load_memories_m(`TEST_OR    );  current_test_string = "OR    ";  end
-            10: begin  `load_memories_m(`TEST_AND   );  current_test_string = "AND   ";  end
-            11: begin  `load_memories_m(`TEST_ADDI  );  current_test_string = "ADDI  ";  end
-            12: begin  `load_memories_m(`TEST_SLTI  );  current_test_string = "SLTI  ";  end
-            13: begin  `load_memories_m(`TEST_SLTIU );  current_test_string = "SLTIU ";  end
-            14: begin  `load_memories_m(`TEST_XORI  );  current_test_string = "XORI  ";  end
-            15: begin  `load_memories_m(`TEST_ORI   );  current_test_string = "ORI   ";  end
-            16: begin  `load_memories_m(`TEST_ANDI  );  current_test_string = "ANDI  ";  end
-            17: begin  `load_memories_m(`TEST_SLLI  );  current_test_string = "SLLI  ";  end
-            18: begin  `load_memories_m(`TEST_SRLI  );  current_test_string = "SRLI  ";  end
-            19: begin  `load_memories_m(`TEST_SRAI  );  current_test_string = "SRAI  ";  end
-            20: begin  `load_memories_m(`TEST_LB    );  current_test_string = "LB    ";  end
-            21: begin  `load_memories_m(`TEST_LH    );  current_test_string = "LH    ";  end
-            22: begin  `load_memories_m(`TEST_LW    );  current_test_string = "LW    ";  end
-            23: begin  `load_memories_m(`TEST_LBU   );  current_test_string = "LBU   ";  end
-            24: begin  `load_memories_m(`TEST_LHU   );  current_test_string = "LHU   ";  end
-            25: begin  `load_memories_m(`TEST_SB    );  current_test_string = "SB    ";  end
-            26: begin  `load_memories_m(`TEST_SH    );  current_test_string = "SH    ";  end
-            27: begin  `load_memories_m(`TEST_SW    );  current_test_string = "SW    ";  end
-            28: begin  `load_memories_m(`TEST_BEQ   );  current_test_string = "BEQ   ";  end
-            29: begin  `load_memories_m(`TEST_BNE   );  current_test_string = "BNE   ";  end
-            30: begin  `load_memories_m(`TEST_BLT   );  current_test_string = "BLT   ";  end
-            31: begin  `load_memories_m(`TEST_BGE   );  current_test_string = "BGE   ";  end
-            32: begin  `load_memories_m(`TEST_BLTU  );  current_test_string = "BLTU  ";  end
-            33: begin  `load_memories_m(`TEST_BGEU  );  current_test_string = "BGEU  ";  end
-            34: begin  `load_memories_m(`TEST_JALR  );  current_test_string = "JALR  ";  end
-            35: begin  `load_memories_m(`TEST_JAL   );  current_test_string = "JAL   ";  end
-            36: begin  `load_memories_m(`TEST_LUI   );  current_test_string = "LUI   ";  end
-            37: begin  `load_memories_m(`TEST_AUIPC );  current_test_string = "AUIPC ";  end
-        endcase
+    begin current_test = riscv_regr_tests[t_in_test_num]; load_memories(current_test); end
+endtask
+
+task load_memories;
+    input string name_i;
+    begin 
+        $readmemh($sformatf("%0s%0s.hex", test_path, name_i), `DUT_IMEM, 0, `MEM_SIZE-1);
+        $readmemh($sformatf("%0s%0s.hex", test_path, name_i), `DUT_DMEM, 0, `MEM_SIZE-1);
     end
 endtask
 
@@ -465,7 +404,7 @@ task checker_t;
 endtask
 
 // checkers task
-`include "checkers_task.v"
+`include "checkers_task.sv"
 
 task reset_tb_vars;
     begin
@@ -484,26 +423,26 @@ endtask
 
 // Logging to the file
 // Open file
-integer fd;
-initial begin
-    fd = $fopen({`LOG_PATH, `"log.txt`"}, "w");
-    if (fd) $display("Log write file opened: %0d", fd);
-    else $display("Log write file could not be opened: %0d", fd);
-end
+// integer fd;
+// initial begin
+//     fd = $fopen({`LOG_PATH, `"log.txt`"}, "w");
+//     if (fd) $display("Log write file opened: %0d", fd);
+//     else $display("Log write file could not be opened: %0d", fd);
+// end
 
 // Log to file
-integer lclk_cnt = 0;
-initial begin
-    forever begin
-        @(posedge clk);
-        #1;
-        lclk_cnt = lclk_cnt + 1;
-        $fwrite(fd, "clk: ");
-        $fwrite(fd, "%0d", lclk_cnt);
-        $fwrite(fd, "; Inst WB: ");
-        $fdisplay(fd, "%8x", `DUT_CORE.inst_wb );
-    end
-end
+// integer lclk_cnt = 0;
+// initial begin
+//     forever begin
+//         @(posedge clk);
+//         #1;
+//         lclk_cnt = lclk_cnt + 1;
+//         $fwrite(fd, "clk: ");
+//         $fwrite(fd, "%0d", lclk_cnt);
+//         $fwrite(fd, "; Inst WB: ");
+//         $fdisplay(fd, "%8x", `DUT_CORE.inst_wb );
+//     end
+// end
 
 // Initial setup
 initial begin
@@ -518,7 +457,7 @@ initial begin
     dut_regr_status        = 1'b1; 
     isa_failed_dut_cnt     = 0;     
     reset_tb_vars();
-    for (i = 0; i < `NUMBER_OF_TESTS; i = i + 1) begin
+    for (i = 0; i < number_of_tests; i = i + 1) begin
         dut_regr_array[i] = "N/A";
     end
     i = 0;
@@ -538,20 +477,25 @@ assign tohost_source = `DUT_CORE.tohost[0];
 // Test
 initial begin
     $display("\n----------------------- Simulation started -----------------------\n");
-    
+
+    regr_num = (`SINGLE_TEST) ? 1 : number_of_tests;
+
     while(i < regr_num) begin
         if (regr_num == 1) load_single_test();
         else load_test(i);
 
         i = i + 1;
+        ->ev_load_stim; // load stim and chk vectors 
+        @ev_load_vector_done; // and wait for all loads to finish
         
         //-----------------------------------------------------------------------------
         // Test
-        $display("\n\n\nTest Start: %0s ", current_test_string);
+        $display("\nTest Start: %0s ", current_test);
 
         // catch timeout
         fork
             begin
+                $display("\n----------------------- Execution started -----------------------\n");
                 while (tohost_source !== 1'b1) begin
                     @(posedge clk); #1;
                     if (rst == 0) run_checkers;
@@ -576,7 +520,7 @@ initial begin
         end
         else begin
             isa_passed_dut = 0;
-            dut_regr_array[isa_failed_dut_cnt] = current_test_string;
+            dut_regr_array[isa_failed_dut_cnt] = current_test;
             isa_failed_dut_cnt = isa_failed_dut_cnt + 1;
         end
         
@@ -587,7 +531,7 @@ initial begin
         @(posedge sim_done);
         print_test_status(done);
 
-        $display("Test Done: %0s ", current_test_string); 
+        $display("Test Done: %0s ", current_test); 
         
 //        store_perf_counters();
         reset_tb_vars();
