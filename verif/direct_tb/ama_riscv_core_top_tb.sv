@@ -64,7 +64,7 @@
 `include "../../src/ama_riscv_defines.v"
 
 `define CLK_PERIOD          8
-`define STANDALONE
+//`define STANDALONE
 
 `define VERBOSITY           2           // TODO: keep up to 5, add list of choices?, dbg & perf levels?
 
@@ -86,7 +86,7 @@
 
 `define MEM_SIZE 16384
 
-`define SINGLE_TEST 1
+`define SINGLE_TEST 0
 
 module ama_riscv_core_top_tb();
 
@@ -117,7 +117,7 @@ string riscv_regr_tests[] = {
     "slti", "sltiu", "xori", "ori", "andi", "slli", "srli", "srai", "lb", "lh", "lw", "lbu", "lhu",
     "sb", "sh", "sw", "beq", "bne", "blt", "bge", "bltu", "bgeu", "jalr", "jal", "lui", "auipc" };
 
-string single_test_name = "simple";
+string single_test_name = "ori";
 string current_test;
 
 int number_of_tests = riscv_regr_tests.size; 
@@ -220,10 +220,9 @@ reg [0:0] sim_done;
 initial begin
     forever begin
         @ev_load_stim; // wait for test to start
-        // TODO: fix paths for stim vectors
-        fd_clk = $fopen($sformatf("%0s/stim_clk.txt", stim_path), "r");
-        if (fd_clk) $display("File 'stim_clk' opened: %0d", fd_clk);
-        else $display("File 'stim_clk' could not be opened: %0d", fd_clk);
+        fd_clk = $fopen($sformatf("%0s/test_%0s/stim_clk.txt", stim_path, current_test), "r");
+        //if (fd_clk) $display("From test '%0s' file 'stim_clk' opened: %0d", current_test, fd_clk);
+        //else $display("From test '%0s' file 'stim_clk' could not be opened: %0d", current_test, fd_clk);
         
         ->ev_load_vector;
         $fscanf(fd_clk, "%d\n", clk); // load first stimuli
@@ -234,7 +233,7 @@ initial begin
             $fscanf(fd_clk, "%d\n", clk);
             #(`CLK_PERIOD/2);
         end
-        $display("\nSimulation finished\n");
+        $display("Simulation finished");
         sim_done=1;
         $fclose(fd_clk);
     end
@@ -245,9 +244,9 @@ integer fd_rst;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
-        fd_rst = $fopen($sformatf("%0s/stim_rst.txt", stim_path), "r");
-        if (fd_rst) $display("File 'stim_rst' opened: %0d", fd_rst);
-        else $display("File 'stim_rst' could not be opened: %0d", fd_rst);
+        fd_rst = $fopen($sformatf("%0s/test_%0s/stim_rst.txt", stim_path, current_test), "r");
+        //if (fd_rst) $display("From test '%0s' file 'stim_rst' opened: %0d", current_test, fd_rst);
+        //else $display("From test '%0s' file 'stim_rst' could not be opened: %0d", current_test, fd_rst);
         
         while (! $feof(fd_rst)) begin
             #1;
@@ -284,14 +283,14 @@ endtask
 task print_test_status;
     input test_run_success;
     begin
-        $display("\n----------------------- Test results -----------------------");
+        $display("----------------------- Test results -----------------------");
         if (!test_run_success) begin
-            $display("\nTest timed out");
+            $display("Test timed out");
         end
         else begin 
-            $display("\nTest ran to completion");
+            $display("Test ran to completion");
 `ifdef STANDALONE      
-            $display("\nStatus - DUT-ISA: ");
+            $display("Status - DUT-ISA: ");
             if(isa_passed_dut == 1) begin
                 $display("    Passed");
             end
@@ -300,7 +299,7 @@ task print_test_status;
                 $display("    Failed test # : %0d", `DUT_CORE.tohost[31:1]);
             end
 `else // compare against vectors
-            $display("\nStatus - DUT-Model:");
+            $display("Status - DUT-Model:");
             if(!errors)
                 $display("    Passed");
             else
@@ -322,7 +321,7 @@ task print_test_status;
 //                $display(  "Compiler Inserted NOPs:      %0d", hw_all_nop_or_clear_cnt - hw_inserted_nop_or_clear_cnt);
 //            end
         end
-        $display("\n--------------------- End of the test results ----------------------\n");
+        $display("--------------------- End of the test results ----------------------");
     end
 endtask
 
@@ -386,8 +385,8 @@ endtask
 // endtask
 
 task checker_t;
-    input reg  [30*7:0] checker_name            ;
-    input reg           checker_active          ;
+    input string checker_name;
+    input reg checker_active;
     // input reg  [ 5:0]   checker_width           ;
     input reg  [31:0]   checker_dut_signal      ;
     input reg  [31:0]   checker_model_signal    ;
@@ -490,12 +489,12 @@ initial begin
         
         //-----------------------------------------------------------------------------
         // Test
-        $display("\nTest Start: %0s ", current_test);
+        $display("Test Start: %0s ", current_test);
 
         // catch timeout
         fork
             begin
-                $display("\n----------------------- Execution started -----------------------\n");
+                $display("----------------------- Execution started -----------------------");
                 while (tohost_source !== 1'b1) begin
                     @(posedge clk); #1;
                     if (rst == 0) run_checkers;
@@ -539,13 +538,13 @@ initial begin
     end // end looping thru tests
     
     if (`SINGLE_TEST == 0) begin
-        $display("\n-------------------------- Regr Done -----------------------------\n");
+        $display("-------------------------- Regr Done -----------------------------");
         print_regr_status();
         // CPI print
 //        print_perf_status_hw();
     end
     else begin
-        $display("\n-------------------------- Test Done -----------------------------\n");
+        $display("-------------------------- Test Done -----------------------------");
     end
     
     $display("\n--------------------- End of the simulation ----------------------\n");
