@@ -139,10 +139,9 @@ reg           errors_for_wave       ;
 wire          tohost_source         ;
 
 // regr flags
-reg           dut_regr_status       ;
-//string dut_regr_array [number_of_tests-1:0]; // TODO: convert this to queue
+reg dut_regr_status;
 string dut_regr_array [37:0]; // TODO: convert this to queue
-integer       isa_failed_dut_cnt    ;
+int isa_failed_dut_cnt;
 
 // performance counters
 // integer       perf_cnt_cycle        ;
@@ -157,9 +156,9 @@ event ev_rst [1:0];
 event ev_load_stim;
 event ev_load_vector;
 event ev_load_vector_done;
-int rst_done = 0;
-
-// test handling
+event go_in_reset;
+event reset_end;
+int rst_pulses = 1;
 
 //-----------------------------------------------------------------------------
 // DUT instance
@@ -220,62 +219,82 @@ end
 
 //-----------------------------------------------------------------------------
 // Clock gen: 125 MHz
-// always #(`CLK_PERIOD/2) clk = ~clk;
-integer fd_clk;
-reg [0:0] sim_done;
-initial begin
-    forever begin
-        @ev_load_stim; // wait for test to start
-        fd_clk = $fopen($sformatf("%0s/test_%0s/stim_clk.txt", stim_path, current_test), "r");
-        if (fd_clk) begin
-            `LOG(("From test '%0s' file 'stim_clk' opened: %0d", current_test, fd_clk));
-        end
-        else begin
-           $display("From test '%0s' file 'stim_clk' could not be opened: %0d", current_test, fd_clk);
-           $finish;
-       end
-        
-        ->ev_load_vector;
-        $fscanf(fd_clk, "%d\n", clk); // load first stimuli
-        #(`CLK_PERIOD/2);
-        ->ev_load_vector_done;
-
-        while (! $feof(fd_clk)) begin
-            $fscanf(fd_clk, "%d\n", clk);
+`ifdef STANDALONE
+    always #(`CLK_PERIOD/2) clk = ~clk;
+`else
+    integer fd_clk;
+    reg [0:0] sim_done;
+    initial begin
+        forever begin
+            @ev_load_stim; // wait for test to start
+            fd_clk = $fopen($sformatf("%0s/test_%0s/stim_clk.txt", stim_path, current_test), "r");
+            if (fd_clk) begin
+                `LOG(("From test '%0s' file 'stim_clk' opened: %0d", current_test, fd_clk));
+            end
+            else begin
+               $display("From test '%0s' file 'stim_clk' could not be opened: %0d", current_test, fd_clk);
+               $finish;
+           end
+            
+            ->ev_load_vector;
+            $fscanf(fd_clk, "%d\n", clk); // load first stimuli
             #(`CLK_PERIOD/2);
+            ->ev_load_vector_done;
+    
+            while (! $feof(fd_clk)) begin
+                $fscanf(fd_clk, "%d\n", clk);
+                #(`CLK_PERIOD/2);
+            end
+            $display("Simulation finished");
+            sim_done=1;
+            $fclose(fd_clk);
         end
-        $display("Simulation finished");
-        sim_done=1;
-        $fclose(fd_clk);
     end
-end
+`endif
 
 // Reset gen
-integer fd_rst;
-initial begin
-    forever begin
-        @ev_load_vector; // wait for test to start
-        fd_rst = $fopen($sformatf("%0s/test_%0s/stim_rst.txt", stim_path, current_test), "r");
-        if (fd_rst) begin
-            `LOG(("From test '%0s' file 'stim_rst' opened: %0d", current_test, fd_rst));
-        end
-        else begin
-           $display("From test '%0s' file 'stim_rst' could not be opened: %0d", current_test, fd_rst);
-           $finish;
-       end
-        
-        while (! $feof(fd_rst)) begin
+`ifdef STANDALONE
+    initial begin
+        forever begin
+            @go_in_reset;
             #1;
-            $fscanf(fd_rst, "%d\n", rst);
-            @(posedge clk);
+            rst = 1;
+            repeat (rst_pulses) begin
+                 @(posedge clk); #1;
+            end
+            rst = 0;
+            ->reset_end;
         end
-        $fclose(fd_rst);
     end
-end
+`else
+    integer fd_rst;
+    initial begin
+        forever begin
+            @ev_load_vector; // wait for test to start
+            fd_rst = $fopen($sformatf("%0s/test_%0s/stim_rst.txt", stim_path, current_test), "r");
+            if (fd_rst) begin
+                `LOG(("From test '%0s' file 'stim_rst' opened: %0d", current_test, fd_rst));
+            end
+            else begin
+               $display("From test '%0s' file 'stim_rst' could not be opened: %0d", current_test, fd_rst);
+               $finish;
+           end
+            
+            while (! $feof(fd_rst)) begin
+                #1;
+                $fscanf(fd_rst, "%d\n", rst);
+                @(posedge clk);
+            end
+            $fclose(fd_rst);
+        end
+    end
+`endif
 
 //-----------------------------------------------------------------------------
 // Import vectors
-`include "vector_import.sv"
+`ifndef STANDALONE
+    `include "vector_import.sv"
+`endif
 
 //-----------------------------------------------------------------------------
 // Testbench tasks
@@ -419,12 +438,15 @@ task checker_t;
 endtask
 
 // checkers task
-`include "checkers_task.sv"
+`ifndef STANDALONE
+    `include "checkers_task.sv"
+`endif
 
 task reset_tb_vars;
     begin
-        rst_done            = 0;
-        sim_done            = 0;
+        `ifndef STANDALONE
+            sim_done            = 0;
+        `endif
         errors              = 0;
         errors_for_wave     = 1'b0;
         warnings            = 0;
@@ -500,8 +522,13 @@ initial begin
         else load_test(i);
 
         i = i + 1;
-        ->ev_load_stim; // load stim and chk vectors 
-        @ev_load_vector_done; // and wait for all loads to finish
+        `ifdef STANDALONE
+            ->go_in_reset;
+            @reset_end;
+        `else
+            ->ev_load_stim; // load stim and chk vectors 
+            @ev_load_vector_done; // and wait for all loads to finish
+        `endif
         
         //-----------------------------------------------------------------------------
         // Test
@@ -513,7 +540,9 @@ initial begin
                 $display("----------------------- Execution started -----------------------");
                 while (tohost_source !== 1'b1) begin
                     @(posedge clk); #1;
-                    if (rst == 0) run_checkers;
+                    `ifndef STANDALONE
+                        if (rst == 0) run_checkers;
+                    `endif
                     //print_single_instruction_results();
                 end
                 done = 1;
@@ -542,8 +571,10 @@ initial begin
         // store regr flags
         dut_regr_status = dut_regr_status && isa_passed_dut  ;
 
-        // wait for stimuli to end
-        @(posedge sim_done);
+        `ifndef STANDALONE
+            // wait for stimuli to end
+            @(posedge sim_done);
+        `endif
         print_test_status(done);
 
         $display("Test Done: %0s ", current_test); 
