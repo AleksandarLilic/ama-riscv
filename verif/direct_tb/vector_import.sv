@@ -1,7 +1,7 @@
 
-integer fd_chk_rst_seq_d;
-integer sample_cnt_chk_rst_seq_d = 0;
-reg [31:0] chk_rst_seq_d;
+int fd_chk_rst_seq_d;
+int sample_cnt_chk_rst_seq_d = 0;
+reg [31:0] sig_chk_rst_seq_d;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -14,23 +14,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_rst_seq_d)) begin
-            $fscanf(fd_chk_rst_seq_d, "%d\n", chk_rst_seq_d);
+            $fscanf(fd_chk_rst_seq_d, "%d\n", sig_chk_rst_seq_d);
             sample_cnt_chk_rst_seq_d = sample_cnt_chk_rst_seq_d + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_rst_seq_d);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_rst_seq_d' done. Samples read: %0d.", sample_cnt_chk_rst_seq_d);
-        $fclose(fd_chk_rst_seq_d);
+        sample_cnt_chk_rst_seq_d = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_pc;
-integer sample_cnt_chk_pc = 0;
-reg [31:0] chk_pc;
+int fd_chk_pc;
+int sample_cnt_chk_pc = 0;
+reg [31:0] sig_chk_pc;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -43,23 +44,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_pc)) begin
-            $fscanf(fd_chk_pc, "%d\n", chk_pc);
+            $fscanf(fd_chk_pc, "%d\n", sig_chk_pc);
             sample_cnt_chk_pc = sample_cnt_chk_pc + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_pc);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_pc' done. Samples read: %0d.", sample_cnt_chk_pc);
-        $fclose(fd_chk_pc);
+        sample_cnt_chk_pc = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_stall_if_id_d;
-integer sample_cnt_chk_stall_if_id_d = 0;
-reg [31:0] chk_stall_if_id_d;
+int fd_chk_stall_if_id_d;
+int sample_cnt_chk_stall_if_id_d = 0;
+reg [31:0] sig_chk_stall_if_id_d;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -72,23 +74,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_stall_if_id_d)) begin
-            $fscanf(fd_chk_stall_if_id_d, "%d\n", chk_stall_if_id_d);
+            $fscanf(fd_chk_stall_if_id_d, "%d\n", sig_chk_stall_if_id_d);
             sample_cnt_chk_stall_if_id_d = sample_cnt_chk_stall_if_id_d + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_stall_if_id_d);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_stall_if_id_d' done. Samples read: %0d.", sample_cnt_chk_stall_if_id_d);
-        $fclose(fd_chk_stall_if_id_d);
+        sample_cnt_chk_stall_if_id_d = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_imem;
-integer sample_cnt_chk_imem = 0;
-reg [31:0] chk_imem;
+int fd_chk_imem;
+int sample_cnt_chk_imem = 0;
+reg [31:0] sig_chk_imem;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -101,23 +104,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_imem)) begin
-            $fscanf(fd_chk_imem, "%d\n", chk_imem);
+            $fscanf(fd_chk_imem, "%d\n", sig_chk_imem);
             sample_cnt_chk_imem = sample_cnt_chk_imem + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_imem);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_imem' done. Samples read: %0d.", sample_cnt_chk_imem);
-        $fclose(fd_chk_imem);
+        sample_cnt_chk_imem = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_inst_ex;
-integer sample_cnt_chk_inst_ex = 0;
-reg [31:0] chk_inst_ex;
+int fd_chk_inst_ex;
+int sample_cnt_chk_inst_ex = 0;
+reg [31:0] sig_chk_inst_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -130,23 +134,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_inst_ex)) begin
-            $fscanf(fd_chk_inst_ex, "%d\n", chk_inst_ex);
+            $fscanf(fd_chk_inst_ex, "%d\n", sig_chk_inst_ex);
             sample_cnt_chk_inst_ex = sample_cnt_chk_inst_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_inst_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_inst_ex' done. Samples read: %0d.", sample_cnt_chk_inst_ex);
-        $fclose(fd_chk_inst_ex);
+        sample_cnt_chk_inst_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_pc_ex;
-integer sample_cnt_chk_pc_ex = 0;
-reg [31:0] chk_pc_ex;
+int fd_chk_pc_ex;
+int sample_cnt_chk_pc_ex = 0;
+reg [31:0] sig_chk_pc_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -159,23 +164,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_pc_ex)) begin
-            $fscanf(fd_chk_pc_ex, "%d\n", chk_pc_ex);
+            $fscanf(fd_chk_pc_ex, "%d\n", sig_chk_pc_ex);
             sample_cnt_chk_pc_ex = sample_cnt_chk_pc_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_pc_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_pc_ex' done. Samples read: %0d.", sample_cnt_chk_pc_ex);
-        $fclose(fd_chk_pc_ex);
+        sample_cnt_chk_pc_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_funct3_ex;
-integer sample_cnt_chk_funct3_ex = 0;
-reg [31:0] chk_funct3_ex;
+int fd_chk_funct3_ex;
+int sample_cnt_chk_funct3_ex = 0;
+reg [31:0] sig_chk_funct3_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -188,23 +194,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_funct3_ex)) begin
-            $fscanf(fd_chk_funct3_ex, "%d\n", chk_funct3_ex);
+            $fscanf(fd_chk_funct3_ex, "%d\n", sig_chk_funct3_ex);
             sample_cnt_chk_funct3_ex = sample_cnt_chk_funct3_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_funct3_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_funct3_ex' done. Samples read: %0d.", sample_cnt_chk_funct3_ex);
-        $fclose(fd_chk_funct3_ex);
+        sample_cnt_chk_funct3_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_rs1_addr_ex;
-integer sample_cnt_chk_rs1_addr_ex = 0;
-reg [31:0] chk_rs1_addr_ex;
+int fd_chk_rs1_addr_ex;
+int sample_cnt_chk_rs1_addr_ex = 0;
+reg [31:0] sig_chk_rs1_addr_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -217,23 +224,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_rs1_addr_ex)) begin
-            $fscanf(fd_chk_rs1_addr_ex, "%d\n", chk_rs1_addr_ex);
+            $fscanf(fd_chk_rs1_addr_ex, "%d\n", sig_chk_rs1_addr_ex);
             sample_cnt_chk_rs1_addr_ex = sample_cnt_chk_rs1_addr_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_rs1_addr_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_rs1_addr_ex' done. Samples read: %0d.", sample_cnt_chk_rs1_addr_ex);
-        $fclose(fd_chk_rs1_addr_ex);
+        sample_cnt_chk_rs1_addr_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_rs2_addr_ex;
-integer sample_cnt_chk_rs2_addr_ex = 0;
-reg [31:0] chk_rs2_addr_ex;
+int fd_chk_rs2_addr_ex;
+int sample_cnt_chk_rs2_addr_ex = 0;
+reg [31:0] sig_chk_rs2_addr_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -246,23 +254,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_rs2_addr_ex)) begin
-            $fscanf(fd_chk_rs2_addr_ex, "%d\n", chk_rs2_addr_ex);
+            $fscanf(fd_chk_rs2_addr_ex, "%d\n", sig_chk_rs2_addr_ex);
             sample_cnt_chk_rs2_addr_ex = sample_cnt_chk_rs2_addr_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_rs2_addr_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_rs2_addr_ex' done. Samples read: %0d.", sample_cnt_chk_rs2_addr_ex);
-        $fclose(fd_chk_rs2_addr_ex);
+        sample_cnt_chk_rs2_addr_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_rf_data_a_ex;
-integer sample_cnt_chk_rf_data_a_ex = 0;
-reg [31:0] chk_rf_data_a_ex;
+int fd_chk_rf_data_a_ex;
+int sample_cnt_chk_rf_data_a_ex = 0;
+reg [31:0] sig_chk_rf_data_a_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -275,23 +284,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_rf_data_a_ex)) begin
-            $fscanf(fd_chk_rf_data_a_ex, "%d\n", chk_rf_data_a_ex);
+            $fscanf(fd_chk_rf_data_a_ex, "%d\n", sig_chk_rf_data_a_ex);
             sample_cnt_chk_rf_data_a_ex = sample_cnt_chk_rf_data_a_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_rf_data_a_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_rf_data_a_ex' done. Samples read: %0d.", sample_cnt_chk_rf_data_a_ex);
-        $fclose(fd_chk_rf_data_a_ex);
+        sample_cnt_chk_rf_data_a_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_rf_data_b_ex;
-integer sample_cnt_chk_rf_data_b_ex = 0;
-reg [31:0] chk_rf_data_b_ex;
+int fd_chk_rf_data_b_ex;
+int sample_cnt_chk_rf_data_b_ex = 0;
+reg [31:0] sig_chk_rf_data_b_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -304,23 +314,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_rf_data_b_ex)) begin
-            $fscanf(fd_chk_rf_data_b_ex, "%d\n", chk_rf_data_b_ex);
+            $fscanf(fd_chk_rf_data_b_ex, "%d\n", sig_chk_rf_data_b_ex);
             sample_cnt_chk_rf_data_b_ex = sample_cnt_chk_rf_data_b_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_rf_data_b_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_rf_data_b_ex' done. Samples read: %0d.", sample_cnt_chk_rf_data_b_ex);
-        $fclose(fd_chk_rf_data_b_ex);
+        sample_cnt_chk_rf_data_b_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_rd_we_ex;
-integer sample_cnt_chk_rd_we_ex = 0;
-reg [31:0] chk_rd_we_ex;
+int fd_chk_rd_we_ex;
+int sample_cnt_chk_rd_we_ex = 0;
+reg [31:0] sig_chk_rd_we_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -333,23 +344,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_rd_we_ex)) begin
-            $fscanf(fd_chk_rd_we_ex, "%d\n", chk_rd_we_ex);
+            $fscanf(fd_chk_rd_we_ex, "%d\n", sig_chk_rd_we_ex);
             sample_cnt_chk_rd_we_ex = sample_cnt_chk_rd_we_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_rd_we_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_rd_we_ex' done. Samples read: %0d.", sample_cnt_chk_rd_we_ex);
-        $fclose(fd_chk_rd_we_ex);
+        sample_cnt_chk_rd_we_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_rd_addr_ex;
-integer sample_cnt_chk_rd_addr_ex = 0;
-reg [31:0] chk_rd_addr_ex;
+int fd_chk_rd_addr_ex;
+int sample_cnt_chk_rd_addr_ex = 0;
+reg [31:0] sig_chk_rd_addr_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -362,23 +374,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_rd_addr_ex)) begin
-            $fscanf(fd_chk_rd_addr_ex, "%d\n", chk_rd_addr_ex);
+            $fscanf(fd_chk_rd_addr_ex, "%d\n", sig_chk_rd_addr_ex);
             sample_cnt_chk_rd_addr_ex = sample_cnt_chk_rd_addr_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_rd_addr_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_rd_addr_ex' done. Samples read: %0d.", sample_cnt_chk_rd_addr_ex);
-        $fclose(fd_chk_rd_addr_ex);
+        sample_cnt_chk_rd_addr_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_imm_gen_out_ex;
-integer sample_cnt_chk_imm_gen_out_ex = 0;
-reg [31:0] chk_imm_gen_out_ex;
+int fd_chk_imm_gen_out_ex;
+int sample_cnt_chk_imm_gen_out_ex = 0;
+reg [31:0] sig_chk_imm_gen_out_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -391,23 +404,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_imm_gen_out_ex)) begin
-            $fscanf(fd_chk_imm_gen_out_ex, "%d\n", chk_imm_gen_out_ex);
+            $fscanf(fd_chk_imm_gen_out_ex, "%d\n", sig_chk_imm_gen_out_ex);
             sample_cnt_chk_imm_gen_out_ex = sample_cnt_chk_imm_gen_out_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_imm_gen_out_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_imm_gen_out_ex' done. Samples read: %0d.", sample_cnt_chk_imm_gen_out_ex);
-        $fclose(fd_chk_imm_gen_out_ex);
+        sample_cnt_chk_imm_gen_out_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_csr_we_ex;
-integer sample_cnt_chk_csr_we_ex = 0;
-reg [31:0] chk_csr_we_ex;
+int fd_chk_csr_we_ex;
+int sample_cnt_chk_csr_we_ex = 0;
+reg [31:0] sig_chk_csr_we_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -420,23 +434,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_csr_we_ex)) begin
-            $fscanf(fd_chk_csr_we_ex, "%d\n", chk_csr_we_ex);
+            $fscanf(fd_chk_csr_we_ex, "%d\n", sig_chk_csr_we_ex);
             sample_cnt_chk_csr_we_ex = sample_cnt_chk_csr_we_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_csr_we_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_csr_we_ex' done. Samples read: %0d.", sample_cnt_chk_csr_we_ex);
-        $fclose(fd_chk_csr_we_ex);
+        sample_cnt_chk_csr_we_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_csr_ui_ex;
-integer sample_cnt_chk_csr_ui_ex = 0;
-reg [31:0] chk_csr_ui_ex;
+int fd_chk_csr_ui_ex;
+int sample_cnt_chk_csr_ui_ex = 0;
+reg [31:0] sig_chk_csr_ui_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -449,23 +464,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_csr_ui_ex)) begin
-            $fscanf(fd_chk_csr_ui_ex, "%d\n", chk_csr_ui_ex);
+            $fscanf(fd_chk_csr_ui_ex, "%d\n", sig_chk_csr_ui_ex);
             sample_cnt_chk_csr_ui_ex = sample_cnt_chk_csr_ui_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_csr_ui_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_csr_ui_ex' done. Samples read: %0d.", sample_cnt_chk_csr_ui_ex);
-        $fclose(fd_chk_csr_ui_ex);
+        sample_cnt_chk_csr_ui_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_csr_uimm_ex;
-integer sample_cnt_chk_csr_uimm_ex = 0;
-reg [31:0] chk_csr_uimm_ex;
+int fd_chk_csr_uimm_ex;
+int sample_cnt_chk_csr_uimm_ex = 0;
+reg [31:0] sig_chk_csr_uimm_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -478,23 +494,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_csr_uimm_ex)) begin
-            $fscanf(fd_chk_csr_uimm_ex, "%d\n", chk_csr_uimm_ex);
+            $fscanf(fd_chk_csr_uimm_ex, "%d\n", sig_chk_csr_uimm_ex);
             sample_cnt_chk_csr_uimm_ex = sample_cnt_chk_csr_uimm_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_csr_uimm_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_csr_uimm_ex' done. Samples read: %0d.", sample_cnt_chk_csr_uimm_ex);
-        $fclose(fd_chk_csr_uimm_ex);
+        sample_cnt_chk_csr_uimm_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_csr_dout_ex;
-integer sample_cnt_chk_csr_dout_ex = 0;
-reg [31:0] chk_csr_dout_ex;
+int fd_chk_csr_dout_ex;
+int sample_cnt_chk_csr_dout_ex = 0;
+reg [31:0] sig_chk_csr_dout_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -507,23 +524,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_csr_dout_ex)) begin
-            $fscanf(fd_chk_csr_dout_ex, "%d\n", chk_csr_dout_ex);
+            $fscanf(fd_chk_csr_dout_ex, "%d\n", sig_chk_csr_dout_ex);
             sample_cnt_chk_csr_dout_ex = sample_cnt_chk_csr_dout_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_csr_dout_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_csr_dout_ex' done. Samples read: %0d.", sample_cnt_chk_csr_dout_ex);
-        $fclose(fd_chk_csr_dout_ex);
+        sample_cnt_chk_csr_dout_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_alu_a_sel_ex;
-integer sample_cnt_chk_alu_a_sel_ex = 0;
-reg [31:0] chk_alu_a_sel_ex;
+int fd_chk_alu_a_sel_ex;
+int sample_cnt_chk_alu_a_sel_ex = 0;
+reg [31:0] sig_chk_alu_a_sel_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -536,23 +554,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_alu_a_sel_ex)) begin
-            $fscanf(fd_chk_alu_a_sel_ex, "%d\n", chk_alu_a_sel_ex);
+            $fscanf(fd_chk_alu_a_sel_ex, "%d\n", sig_chk_alu_a_sel_ex);
             sample_cnt_chk_alu_a_sel_ex = sample_cnt_chk_alu_a_sel_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_alu_a_sel_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_alu_a_sel_ex' done. Samples read: %0d.", sample_cnt_chk_alu_a_sel_ex);
-        $fclose(fd_chk_alu_a_sel_ex);
+        sample_cnt_chk_alu_a_sel_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_alu_b_sel_ex;
-integer sample_cnt_chk_alu_b_sel_ex = 0;
-reg [31:0] chk_alu_b_sel_ex;
+int fd_chk_alu_b_sel_ex;
+int sample_cnt_chk_alu_b_sel_ex = 0;
+reg [31:0] sig_chk_alu_b_sel_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -565,23 +584,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_alu_b_sel_ex)) begin
-            $fscanf(fd_chk_alu_b_sel_ex, "%d\n", chk_alu_b_sel_ex);
+            $fscanf(fd_chk_alu_b_sel_ex, "%d\n", sig_chk_alu_b_sel_ex);
             sample_cnt_chk_alu_b_sel_ex = sample_cnt_chk_alu_b_sel_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_alu_b_sel_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_alu_b_sel_ex' done. Samples read: %0d.", sample_cnt_chk_alu_b_sel_ex);
-        $fclose(fd_chk_alu_b_sel_ex);
+        sample_cnt_chk_alu_b_sel_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_alu_op_sel_ex;
-integer sample_cnt_chk_alu_op_sel_ex = 0;
-reg [31:0] chk_alu_op_sel_ex;
+int fd_chk_alu_op_sel_ex;
+int sample_cnt_chk_alu_op_sel_ex = 0;
+reg [31:0] sig_chk_alu_op_sel_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -594,23 +614,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_alu_op_sel_ex)) begin
-            $fscanf(fd_chk_alu_op_sel_ex, "%d\n", chk_alu_op_sel_ex);
+            $fscanf(fd_chk_alu_op_sel_ex, "%d\n", sig_chk_alu_op_sel_ex);
             sample_cnt_chk_alu_op_sel_ex = sample_cnt_chk_alu_op_sel_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_alu_op_sel_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_alu_op_sel_ex' done. Samples read: %0d.", sample_cnt_chk_alu_op_sel_ex);
-        $fclose(fd_chk_alu_op_sel_ex);
+        sample_cnt_chk_alu_op_sel_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_bc_a_sel_ex;
-integer sample_cnt_chk_bc_a_sel_ex = 0;
-reg [31:0] chk_bc_a_sel_ex;
+int fd_chk_bc_a_sel_ex;
+int sample_cnt_chk_bc_a_sel_ex = 0;
+reg [31:0] sig_chk_bc_a_sel_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -623,23 +644,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_bc_a_sel_ex)) begin
-            $fscanf(fd_chk_bc_a_sel_ex, "%d\n", chk_bc_a_sel_ex);
+            $fscanf(fd_chk_bc_a_sel_ex, "%d\n", sig_chk_bc_a_sel_ex);
             sample_cnt_chk_bc_a_sel_ex = sample_cnt_chk_bc_a_sel_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_bc_a_sel_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_bc_a_sel_ex' done. Samples read: %0d.", sample_cnt_chk_bc_a_sel_ex);
-        $fclose(fd_chk_bc_a_sel_ex);
+        sample_cnt_chk_bc_a_sel_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_bcs_b_sel_ex;
-integer sample_cnt_chk_bcs_b_sel_ex = 0;
-reg [31:0] chk_bcs_b_sel_ex;
+int fd_chk_bcs_b_sel_ex;
+int sample_cnt_chk_bcs_b_sel_ex = 0;
+reg [31:0] sig_chk_bcs_b_sel_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -652,23 +674,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_bcs_b_sel_ex)) begin
-            $fscanf(fd_chk_bcs_b_sel_ex, "%d\n", chk_bcs_b_sel_ex);
+            $fscanf(fd_chk_bcs_b_sel_ex, "%d\n", sig_chk_bcs_b_sel_ex);
             sample_cnt_chk_bcs_b_sel_ex = sample_cnt_chk_bcs_b_sel_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_bcs_b_sel_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_bcs_b_sel_ex' done. Samples read: %0d.", sample_cnt_chk_bcs_b_sel_ex);
-        $fclose(fd_chk_bcs_b_sel_ex);
+        sample_cnt_chk_bcs_b_sel_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_bc_uns_ex;
-integer sample_cnt_chk_bc_uns_ex = 0;
-reg [31:0] chk_bc_uns_ex;
+int fd_chk_bc_uns_ex;
+int sample_cnt_chk_bc_uns_ex = 0;
+reg [31:0] sig_chk_bc_uns_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -681,23 +704,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_bc_uns_ex)) begin
-            $fscanf(fd_chk_bc_uns_ex, "%d\n", chk_bc_uns_ex);
+            $fscanf(fd_chk_bc_uns_ex, "%d\n", sig_chk_bc_uns_ex);
             sample_cnt_chk_bc_uns_ex = sample_cnt_chk_bc_uns_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_bc_uns_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_bc_uns_ex' done. Samples read: %0d.", sample_cnt_chk_bc_uns_ex);
-        $fclose(fd_chk_bc_uns_ex);
+        sample_cnt_chk_bc_uns_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_store_inst_ex;
-integer sample_cnt_chk_store_inst_ex = 0;
-reg [31:0] chk_store_inst_ex;
+int fd_chk_store_inst_ex;
+int sample_cnt_chk_store_inst_ex = 0;
+reg [31:0] sig_chk_store_inst_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -710,23 +734,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_store_inst_ex)) begin
-            $fscanf(fd_chk_store_inst_ex, "%d\n", chk_store_inst_ex);
+            $fscanf(fd_chk_store_inst_ex, "%d\n", sig_chk_store_inst_ex);
             sample_cnt_chk_store_inst_ex = sample_cnt_chk_store_inst_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_store_inst_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_store_inst_ex' done. Samples read: %0d.", sample_cnt_chk_store_inst_ex);
-        $fclose(fd_chk_store_inst_ex);
+        sample_cnt_chk_store_inst_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_branch_inst_ex;
-integer sample_cnt_chk_branch_inst_ex = 0;
-reg [31:0] chk_branch_inst_ex;
+int fd_chk_branch_inst_ex;
+int sample_cnt_chk_branch_inst_ex = 0;
+reg [31:0] sig_chk_branch_inst_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -739,23 +764,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_branch_inst_ex)) begin
-            $fscanf(fd_chk_branch_inst_ex, "%d\n", chk_branch_inst_ex);
+            $fscanf(fd_chk_branch_inst_ex, "%d\n", sig_chk_branch_inst_ex);
             sample_cnt_chk_branch_inst_ex = sample_cnt_chk_branch_inst_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_branch_inst_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_branch_inst_ex' done. Samples read: %0d.", sample_cnt_chk_branch_inst_ex);
-        $fclose(fd_chk_branch_inst_ex);
+        sample_cnt_chk_branch_inst_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_jump_inst_ex;
-integer sample_cnt_chk_jump_inst_ex = 0;
-reg [31:0] chk_jump_inst_ex;
+int fd_chk_jump_inst_ex;
+int sample_cnt_chk_jump_inst_ex = 0;
+reg [31:0] sig_chk_jump_inst_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -768,23 +794,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_jump_inst_ex)) begin
-            $fscanf(fd_chk_jump_inst_ex, "%d\n", chk_jump_inst_ex);
+            $fscanf(fd_chk_jump_inst_ex, "%d\n", sig_chk_jump_inst_ex);
             sample_cnt_chk_jump_inst_ex = sample_cnt_chk_jump_inst_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_jump_inst_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_jump_inst_ex' done. Samples read: %0d.", sample_cnt_chk_jump_inst_ex);
-        $fclose(fd_chk_jump_inst_ex);
+        sample_cnt_chk_jump_inst_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_dmem_en_id;
-integer sample_cnt_chk_dmem_en_id = 0;
-reg [31:0] chk_dmem_en_id;
+int fd_chk_dmem_en_id;
+int sample_cnt_chk_dmem_en_id = 0;
+reg [31:0] sig_chk_dmem_en_id;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -797,23 +824,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_dmem_en_id)) begin
-            $fscanf(fd_chk_dmem_en_id, "%d\n", chk_dmem_en_id);
+            $fscanf(fd_chk_dmem_en_id, "%d\n", sig_chk_dmem_en_id);
             sample_cnt_chk_dmem_en_id = sample_cnt_chk_dmem_en_id + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_dmem_en_id);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_dmem_en_id' done. Samples read: %0d.", sample_cnt_chk_dmem_en_id);
-        $fclose(fd_chk_dmem_en_id);
+        sample_cnt_chk_dmem_en_id = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_load_sm_en_ex;
-integer sample_cnt_chk_load_sm_en_ex = 0;
-reg [31:0] chk_load_sm_en_ex;
+int fd_chk_load_sm_en_ex;
+int sample_cnt_chk_load_sm_en_ex = 0;
+reg [31:0] sig_chk_load_sm_en_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -826,23 +854,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_load_sm_en_ex)) begin
-            $fscanf(fd_chk_load_sm_en_ex, "%d\n", chk_load_sm_en_ex);
+            $fscanf(fd_chk_load_sm_en_ex, "%d\n", sig_chk_load_sm_en_ex);
             sample_cnt_chk_load_sm_en_ex = sample_cnt_chk_load_sm_en_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_load_sm_en_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_load_sm_en_ex' done. Samples read: %0d.", sample_cnt_chk_load_sm_en_ex);
-        $fclose(fd_chk_load_sm_en_ex);
+        sample_cnt_chk_load_sm_en_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_wb_sel_ex;
-integer sample_cnt_chk_wb_sel_ex = 0;
-reg [31:0] chk_wb_sel_ex;
+int fd_chk_wb_sel_ex;
+int sample_cnt_chk_wb_sel_ex = 0;
+reg [31:0] sig_chk_wb_sel_ex;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -855,23 +884,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_wb_sel_ex)) begin
-            $fscanf(fd_chk_wb_sel_ex, "%d\n", chk_wb_sel_ex);
+            $fscanf(fd_chk_wb_sel_ex, "%d\n", sig_chk_wb_sel_ex);
             sample_cnt_chk_wb_sel_ex = sample_cnt_chk_wb_sel_ex + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_wb_sel_ex);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_wb_sel_ex' done. Samples read: %0d.", sample_cnt_chk_wb_sel_ex);
-        $fclose(fd_chk_wb_sel_ex);
+        sample_cnt_chk_wb_sel_ex = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_inst_mem;
-integer sample_cnt_chk_inst_mem = 0;
-reg [31:0] chk_inst_mem;
+int fd_chk_inst_mem;
+int sample_cnt_chk_inst_mem = 0;
+reg [31:0] sig_chk_inst_mem;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -884,23 +914,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_inst_mem)) begin
-            $fscanf(fd_chk_inst_mem, "%d\n", chk_inst_mem);
+            $fscanf(fd_chk_inst_mem, "%d\n", sig_chk_inst_mem);
             sample_cnt_chk_inst_mem = sample_cnt_chk_inst_mem + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_inst_mem);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_inst_mem' done. Samples read: %0d.", sample_cnt_chk_inst_mem);
-        $fclose(fd_chk_inst_mem);
+        sample_cnt_chk_inst_mem = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_pc_mem;
-integer sample_cnt_chk_pc_mem = 0;
-reg [31:0] chk_pc_mem;
+int fd_chk_pc_mem;
+int sample_cnt_chk_pc_mem = 0;
+reg [31:0] sig_chk_pc_mem;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -913,23 +944,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_pc_mem)) begin
-            $fscanf(fd_chk_pc_mem, "%d\n", chk_pc_mem);
+            $fscanf(fd_chk_pc_mem, "%d\n", sig_chk_pc_mem);
             sample_cnt_chk_pc_mem = sample_cnt_chk_pc_mem + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_pc_mem);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_pc_mem' done. Samples read: %0d.", sample_cnt_chk_pc_mem);
-        $fclose(fd_chk_pc_mem);
+        sample_cnt_chk_pc_mem = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_alu_mem;
-integer sample_cnt_chk_alu_mem = 0;
-reg [31:0] chk_alu_mem;
+int fd_chk_alu_mem;
+int sample_cnt_chk_alu_mem = 0;
+reg [31:0] sig_chk_alu_mem;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -942,23 +974,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_alu_mem)) begin
-            $fscanf(fd_chk_alu_mem, "%d\n", chk_alu_mem);
+            $fscanf(fd_chk_alu_mem, "%d\n", sig_chk_alu_mem);
             sample_cnt_chk_alu_mem = sample_cnt_chk_alu_mem + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_alu_mem);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_alu_mem' done. Samples read: %0d.", sample_cnt_chk_alu_mem);
-        $fclose(fd_chk_alu_mem);
+        sample_cnt_chk_alu_mem = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_alu_in_a_mem;
-integer sample_cnt_chk_alu_in_a_mem = 0;
-reg [31:0] chk_alu_in_a_mem;
+int fd_chk_alu_in_a_mem;
+int sample_cnt_chk_alu_in_a_mem = 0;
+reg [31:0] sig_chk_alu_in_a_mem;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -971,23 +1004,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_alu_in_a_mem)) begin
-            $fscanf(fd_chk_alu_in_a_mem, "%d\n", chk_alu_in_a_mem);
+            $fscanf(fd_chk_alu_in_a_mem, "%d\n", sig_chk_alu_in_a_mem);
             sample_cnt_chk_alu_in_a_mem = sample_cnt_chk_alu_in_a_mem + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_alu_in_a_mem);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_alu_in_a_mem' done. Samples read: %0d.", sample_cnt_chk_alu_in_a_mem);
-        $fclose(fd_chk_alu_in_a_mem);
+        sample_cnt_chk_alu_in_a_mem = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_funct3_mem;
-integer sample_cnt_chk_funct3_mem = 0;
-reg [31:0] chk_funct3_mem;
+int fd_chk_funct3_mem;
+int sample_cnt_chk_funct3_mem = 0;
+reg [31:0] sig_chk_funct3_mem;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1000,23 +1034,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_funct3_mem)) begin
-            $fscanf(fd_chk_funct3_mem, "%d\n", chk_funct3_mem);
+            $fscanf(fd_chk_funct3_mem, "%d\n", sig_chk_funct3_mem);
             sample_cnt_chk_funct3_mem = sample_cnt_chk_funct3_mem + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_funct3_mem);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_funct3_mem' done. Samples read: %0d.", sample_cnt_chk_funct3_mem);
-        $fclose(fd_chk_funct3_mem);
+        sample_cnt_chk_funct3_mem = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_rs1_addr_mem;
-integer sample_cnt_chk_rs1_addr_mem = 0;
-reg [31:0] chk_rs1_addr_mem;
+int fd_chk_rs1_addr_mem;
+int sample_cnt_chk_rs1_addr_mem = 0;
+reg [31:0] sig_chk_rs1_addr_mem;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1029,23 +1064,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_rs1_addr_mem)) begin
-            $fscanf(fd_chk_rs1_addr_mem, "%d\n", chk_rs1_addr_mem);
+            $fscanf(fd_chk_rs1_addr_mem, "%d\n", sig_chk_rs1_addr_mem);
             sample_cnt_chk_rs1_addr_mem = sample_cnt_chk_rs1_addr_mem + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_rs1_addr_mem);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_rs1_addr_mem' done. Samples read: %0d.", sample_cnt_chk_rs1_addr_mem);
-        $fclose(fd_chk_rs1_addr_mem);
+        sample_cnt_chk_rs1_addr_mem = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_rs2_addr_mem;
-integer sample_cnt_chk_rs2_addr_mem = 0;
-reg [31:0] chk_rs2_addr_mem;
+int fd_chk_rs2_addr_mem;
+int sample_cnt_chk_rs2_addr_mem = 0;
+reg [31:0] sig_chk_rs2_addr_mem;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1058,23 +1094,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_rs2_addr_mem)) begin
-            $fscanf(fd_chk_rs2_addr_mem, "%d\n", chk_rs2_addr_mem);
+            $fscanf(fd_chk_rs2_addr_mem, "%d\n", sig_chk_rs2_addr_mem);
             sample_cnt_chk_rs2_addr_mem = sample_cnt_chk_rs2_addr_mem + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_rs2_addr_mem);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_rs2_addr_mem' done. Samples read: %0d.", sample_cnt_chk_rs2_addr_mem);
-        $fclose(fd_chk_rs2_addr_mem);
+        sample_cnt_chk_rs2_addr_mem = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_rd_addr_mem;
-integer sample_cnt_chk_rd_addr_mem = 0;
-reg [31:0] chk_rd_addr_mem;
+int fd_chk_rd_addr_mem;
+int sample_cnt_chk_rd_addr_mem = 0;
+reg [31:0] sig_chk_rd_addr_mem;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1087,23 +1124,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_rd_addr_mem)) begin
-            $fscanf(fd_chk_rd_addr_mem, "%d\n", chk_rd_addr_mem);
+            $fscanf(fd_chk_rd_addr_mem, "%d\n", sig_chk_rd_addr_mem);
             sample_cnt_chk_rd_addr_mem = sample_cnt_chk_rd_addr_mem + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_rd_addr_mem);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_rd_addr_mem' done. Samples read: %0d.", sample_cnt_chk_rd_addr_mem);
-        $fclose(fd_chk_rd_addr_mem);
+        sample_cnt_chk_rd_addr_mem = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_rd_we_mem;
-integer sample_cnt_chk_rd_we_mem = 0;
-reg [31:0] chk_rd_we_mem;
+int fd_chk_rd_we_mem;
+int sample_cnt_chk_rd_we_mem = 0;
+reg [31:0] sig_chk_rd_we_mem;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1116,23 +1154,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_rd_we_mem)) begin
-            $fscanf(fd_chk_rd_we_mem, "%d\n", chk_rd_we_mem);
+            $fscanf(fd_chk_rd_we_mem, "%d\n", sig_chk_rd_we_mem);
             sample_cnt_chk_rd_we_mem = sample_cnt_chk_rd_we_mem + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_rd_we_mem);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_rd_we_mem' done. Samples read: %0d.", sample_cnt_chk_rd_we_mem);
-        $fclose(fd_chk_rd_we_mem);
+        sample_cnt_chk_rd_we_mem = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_csr_we_mem;
-integer sample_cnt_chk_csr_we_mem = 0;
-reg [31:0] chk_csr_we_mem;
+int fd_chk_csr_we_mem;
+int sample_cnt_chk_csr_we_mem = 0;
+reg [31:0] sig_chk_csr_we_mem;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1145,23 +1184,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_csr_we_mem)) begin
-            $fscanf(fd_chk_csr_we_mem, "%d\n", chk_csr_we_mem);
+            $fscanf(fd_chk_csr_we_mem, "%d\n", sig_chk_csr_we_mem);
             sample_cnt_chk_csr_we_mem = sample_cnt_chk_csr_we_mem + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_csr_we_mem);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_csr_we_mem' done. Samples read: %0d.", sample_cnt_chk_csr_we_mem);
-        $fclose(fd_chk_csr_we_mem);
+        sample_cnt_chk_csr_we_mem = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_csr_ui_mem;
-integer sample_cnt_chk_csr_ui_mem = 0;
-reg [31:0] chk_csr_ui_mem;
+int fd_chk_csr_ui_mem;
+int sample_cnt_chk_csr_ui_mem = 0;
+reg [31:0] sig_chk_csr_ui_mem;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1174,23 +1214,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_csr_ui_mem)) begin
-            $fscanf(fd_chk_csr_ui_mem, "%d\n", chk_csr_ui_mem);
+            $fscanf(fd_chk_csr_ui_mem, "%d\n", sig_chk_csr_ui_mem);
             sample_cnt_chk_csr_ui_mem = sample_cnt_chk_csr_ui_mem + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_csr_ui_mem);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_csr_ui_mem' done. Samples read: %0d.", sample_cnt_chk_csr_ui_mem);
-        $fclose(fd_chk_csr_ui_mem);
+        sample_cnt_chk_csr_ui_mem = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_csr_uimm_mem;
-integer sample_cnt_chk_csr_uimm_mem = 0;
-reg [31:0] chk_csr_uimm_mem;
+int fd_chk_csr_uimm_mem;
+int sample_cnt_chk_csr_uimm_mem = 0;
+reg [31:0] sig_chk_csr_uimm_mem;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1203,23 +1244,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_csr_uimm_mem)) begin
-            $fscanf(fd_chk_csr_uimm_mem, "%d\n", chk_csr_uimm_mem);
+            $fscanf(fd_chk_csr_uimm_mem, "%d\n", sig_chk_csr_uimm_mem);
             sample_cnt_chk_csr_uimm_mem = sample_cnt_chk_csr_uimm_mem + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_csr_uimm_mem);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_csr_uimm_mem' done. Samples read: %0d.", sample_cnt_chk_csr_uimm_mem);
-        $fclose(fd_chk_csr_uimm_mem);
+        sample_cnt_chk_csr_uimm_mem = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_csr_dout_mem;
-integer sample_cnt_chk_csr_dout_mem = 0;
-reg [31:0] chk_csr_dout_mem;
+int fd_chk_csr_dout_mem;
+int sample_cnt_chk_csr_dout_mem = 0;
+reg [31:0] sig_chk_csr_dout_mem;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1232,23 +1274,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_csr_dout_mem)) begin
-            $fscanf(fd_chk_csr_dout_mem, "%d\n", chk_csr_dout_mem);
+            $fscanf(fd_chk_csr_dout_mem, "%d\n", sig_chk_csr_dout_mem);
             sample_cnt_chk_csr_dout_mem = sample_cnt_chk_csr_dout_mem + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_csr_dout_mem);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_csr_dout_mem' done. Samples read: %0d.", sample_cnt_chk_csr_dout_mem);
-        $fclose(fd_chk_csr_dout_mem);
+        sample_cnt_chk_csr_dout_mem = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_dmem_dout;
-integer sample_cnt_chk_dmem_dout = 0;
-reg [31:0] chk_dmem_dout;
+int fd_chk_dmem_dout;
+int sample_cnt_chk_dmem_dout = 0;
+reg [31:0] sig_chk_dmem_dout;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1261,23 +1304,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_dmem_dout)) begin
-            $fscanf(fd_chk_dmem_dout, "%d\n", chk_dmem_dout);
+            $fscanf(fd_chk_dmem_dout, "%d\n", sig_chk_dmem_dout);
             sample_cnt_chk_dmem_dout = sample_cnt_chk_dmem_dout + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_dmem_dout);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_dmem_dout' done. Samples read: %0d.", sample_cnt_chk_dmem_dout);
-        $fclose(fd_chk_dmem_dout);
+        sample_cnt_chk_dmem_dout = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_load_sm_en_mem;
-integer sample_cnt_chk_load_sm_en_mem = 0;
-reg [31:0] chk_load_sm_en_mem;
+int fd_chk_load_sm_en_mem;
+int sample_cnt_chk_load_sm_en_mem = 0;
+reg [31:0] sig_chk_load_sm_en_mem;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1290,23 +1334,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_load_sm_en_mem)) begin
-            $fscanf(fd_chk_load_sm_en_mem, "%d\n", chk_load_sm_en_mem);
+            $fscanf(fd_chk_load_sm_en_mem, "%d\n", sig_chk_load_sm_en_mem);
             sample_cnt_chk_load_sm_en_mem = sample_cnt_chk_load_sm_en_mem + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_load_sm_en_mem);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_load_sm_en_mem' done. Samples read: %0d.", sample_cnt_chk_load_sm_en_mem);
-        $fclose(fd_chk_load_sm_en_mem);
+        sample_cnt_chk_load_sm_en_mem = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_wb_sel_mem;
-integer sample_cnt_chk_wb_sel_mem = 0;
-reg [31:0] chk_wb_sel_mem;
+int fd_chk_wb_sel_mem;
+int sample_cnt_chk_wb_sel_mem = 0;
+reg [31:0] sig_chk_wb_sel_mem;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1319,23 +1364,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_wb_sel_mem)) begin
-            $fscanf(fd_chk_wb_sel_mem, "%d\n", chk_wb_sel_mem);
+            $fscanf(fd_chk_wb_sel_mem, "%d\n", sig_chk_wb_sel_mem);
             sample_cnt_chk_wb_sel_mem = sample_cnt_chk_wb_sel_mem + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_wb_sel_mem);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_wb_sel_mem' done. Samples read: %0d.", sample_cnt_chk_wb_sel_mem);
-        $fclose(fd_chk_wb_sel_mem);
+        sample_cnt_chk_wb_sel_mem = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_inst_wb;
-integer sample_cnt_chk_inst_wb = 0;
-reg [31:0] chk_inst_wb;
+int fd_chk_inst_wb;
+int sample_cnt_chk_inst_wb = 0;
+reg [31:0] sig_chk_inst_wb;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1348,23 +1394,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_inst_wb)) begin
-            $fscanf(fd_chk_inst_wb, "%d\n", chk_inst_wb);
+            $fscanf(fd_chk_inst_wb, "%d\n", sig_chk_inst_wb);
             sample_cnt_chk_inst_wb = sample_cnt_chk_inst_wb + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_inst_wb);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_inst_wb' done. Samples read: %0d.", sample_cnt_chk_inst_wb);
-        $fclose(fd_chk_inst_wb);
+        sample_cnt_chk_inst_wb = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x1;
-integer sample_cnt_chk_x1 = 0;
-reg [31:0] chk_x1;
+int fd_chk_x1;
+int sample_cnt_chk_x1 = 0;
+reg [31:0] sig_chk_x1;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1377,23 +1424,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x1)) begin
-            $fscanf(fd_chk_x1, "%d\n", chk_x1);
+            $fscanf(fd_chk_x1, "%d\n", sig_chk_x1);
             sample_cnt_chk_x1 = sample_cnt_chk_x1 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x1);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x1' done. Samples read: %0d.", sample_cnt_chk_x1);
-        $fclose(fd_chk_x1);
+        sample_cnt_chk_x1 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x2;
-integer sample_cnt_chk_x2 = 0;
-reg [31:0] chk_x2;
+int fd_chk_x2;
+int sample_cnt_chk_x2 = 0;
+reg [31:0] sig_chk_x2;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1406,23 +1454,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x2)) begin
-            $fscanf(fd_chk_x2, "%d\n", chk_x2);
+            $fscanf(fd_chk_x2, "%d\n", sig_chk_x2);
             sample_cnt_chk_x2 = sample_cnt_chk_x2 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x2);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x2' done. Samples read: %0d.", sample_cnt_chk_x2);
-        $fclose(fd_chk_x2);
+        sample_cnt_chk_x2 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x3;
-integer sample_cnt_chk_x3 = 0;
-reg [31:0] chk_x3;
+int fd_chk_x3;
+int sample_cnt_chk_x3 = 0;
+reg [31:0] sig_chk_x3;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1435,23 +1484,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x3)) begin
-            $fscanf(fd_chk_x3, "%d\n", chk_x3);
+            $fscanf(fd_chk_x3, "%d\n", sig_chk_x3);
             sample_cnt_chk_x3 = sample_cnt_chk_x3 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x3);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x3' done. Samples read: %0d.", sample_cnt_chk_x3);
-        $fclose(fd_chk_x3);
+        sample_cnt_chk_x3 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x4;
-integer sample_cnt_chk_x4 = 0;
-reg [31:0] chk_x4;
+int fd_chk_x4;
+int sample_cnt_chk_x4 = 0;
+reg [31:0] sig_chk_x4;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1464,23 +1514,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x4)) begin
-            $fscanf(fd_chk_x4, "%d\n", chk_x4);
+            $fscanf(fd_chk_x4, "%d\n", sig_chk_x4);
             sample_cnt_chk_x4 = sample_cnt_chk_x4 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x4);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x4' done. Samples read: %0d.", sample_cnt_chk_x4);
-        $fclose(fd_chk_x4);
+        sample_cnt_chk_x4 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x5;
-integer sample_cnt_chk_x5 = 0;
-reg [31:0] chk_x5;
+int fd_chk_x5;
+int sample_cnt_chk_x5 = 0;
+reg [31:0] sig_chk_x5;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1493,23 +1544,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x5)) begin
-            $fscanf(fd_chk_x5, "%d\n", chk_x5);
+            $fscanf(fd_chk_x5, "%d\n", sig_chk_x5);
             sample_cnt_chk_x5 = sample_cnt_chk_x5 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x5);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x5' done. Samples read: %0d.", sample_cnt_chk_x5);
-        $fclose(fd_chk_x5);
+        sample_cnt_chk_x5 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x6;
-integer sample_cnt_chk_x6 = 0;
-reg [31:0] chk_x6;
+int fd_chk_x6;
+int sample_cnt_chk_x6 = 0;
+reg [31:0] sig_chk_x6;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1522,23 +1574,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x6)) begin
-            $fscanf(fd_chk_x6, "%d\n", chk_x6);
+            $fscanf(fd_chk_x6, "%d\n", sig_chk_x6);
             sample_cnt_chk_x6 = sample_cnt_chk_x6 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x6);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x6' done. Samples read: %0d.", sample_cnt_chk_x6);
-        $fclose(fd_chk_x6);
+        sample_cnt_chk_x6 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x7;
-integer sample_cnt_chk_x7 = 0;
-reg [31:0] chk_x7;
+int fd_chk_x7;
+int sample_cnt_chk_x7 = 0;
+reg [31:0] sig_chk_x7;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1551,23 +1604,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x7)) begin
-            $fscanf(fd_chk_x7, "%d\n", chk_x7);
+            $fscanf(fd_chk_x7, "%d\n", sig_chk_x7);
             sample_cnt_chk_x7 = sample_cnt_chk_x7 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x7);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x7' done. Samples read: %0d.", sample_cnt_chk_x7);
-        $fclose(fd_chk_x7);
+        sample_cnt_chk_x7 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x8;
-integer sample_cnt_chk_x8 = 0;
-reg [31:0] chk_x8;
+int fd_chk_x8;
+int sample_cnt_chk_x8 = 0;
+reg [31:0] sig_chk_x8;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1580,23 +1634,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x8)) begin
-            $fscanf(fd_chk_x8, "%d\n", chk_x8);
+            $fscanf(fd_chk_x8, "%d\n", sig_chk_x8);
             sample_cnt_chk_x8 = sample_cnt_chk_x8 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x8);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x8' done. Samples read: %0d.", sample_cnt_chk_x8);
-        $fclose(fd_chk_x8);
+        sample_cnt_chk_x8 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x9;
-integer sample_cnt_chk_x9 = 0;
-reg [31:0] chk_x9;
+int fd_chk_x9;
+int sample_cnt_chk_x9 = 0;
+reg [31:0] sig_chk_x9;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1609,23 +1664,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x9)) begin
-            $fscanf(fd_chk_x9, "%d\n", chk_x9);
+            $fscanf(fd_chk_x9, "%d\n", sig_chk_x9);
             sample_cnt_chk_x9 = sample_cnt_chk_x9 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x9);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x9' done. Samples read: %0d.", sample_cnt_chk_x9);
-        $fclose(fd_chk_x9);
+        sample_cnt_chk_x9 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x10;
-integer sample_cnt_chk_x10 = 0;
-reg [31:0] chk_x10;
+int fd_chk_x10;
+int sample_cnt_chk_x10 = 0;
+reg [31:0] sig_chk_x10;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1638,23 +1694,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x10)) begin
-            $fscanf(fd_chk_x10, "%d\n", chk_x10);
+            $fscanf(fd_chk_x10, "%d\n", sig_chk_x10);
             sample_cnt_chk_x10 = sample_cnt_chk_x10 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x10);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x10' done. Samples read: %0d.", sample_cnt_chk_x10);
-        $fclose(fd_chk_x10);
+        sample_cnt_chk_x10 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x11;
-integer sample_cnt_chk_x11 = 0;
-reg [31:0] chk_x11;
+int fd_chk_x11;
+int sample_cnt_chk_x11 = 0;
+reg [31:0] sig_chk_x11;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1667,23 +1724,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x11)) begin
-            $fscanf(fd_chk_x11, "%d\n", chk_x11);
+            $fscanf(fd_chk_x11, "%d\n", sig_chk_x11);
             sample_cnt_chk_x11 = sample_cnt_chk_x11 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x11);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x11' done. Samples read: %0d.", sample_cnt_chk_x11);
-        $fclose(fd_chk_x11);
+        sample_cnt_chk_x11 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x12;
-integer sample_cnt_chk_x12 = 0;
-reg [31:0] chk_x12;
+int fd_chk_x12;
+int sample_cnt_chk_x12 = 0;
+reg [31:0] sig_chk_x12;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1696,23 +1754,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x12)) begin
-            $fscanf(fd_chk_x12, "%d\n", chk_x12);
+            $fscanf(fd_chk_x12, "%d\n", sig_chk_x12);
             sample_cnt_chk_x12 = sample_cnt_chk_x12 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x12);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x12' done. Samples read: %0d.", sample_cnt_chk_x12);
-        $fclose(fd_chk_x12);
+        sample_cnt_chk_x12 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x13;
-integer sample_cnt_chk_x13 = 0;
-reg [31:0] chk_x13;
+int fd_chk_x13;
+int sample_cnt_chk_x13 = 0;
+reg [31:0] sig_chk_x13;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1725,23 +1784,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x13)) begin
-            $fscanf(fd_chk_x13, "%d\n", chk_x13);
+            $fscanf(fd_chk_x13, "%d\n", sig_chk_x13);
             sample_cnt_chk_x13 = sample_cnt_chk_x13 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x13);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x13' done. Samples read: %0d.", sample_cnt_chk_x13);
-        $fclose(fd_chk_x13);
+        sample_cnt_chk_x13 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x14;
-integer sample_cnt_chk_x14 = 0;
-reg [31:0] chk_x14;
+int fd_chk_x14;
+int sample_cnt_chk_x14 = 0;
+reg [31:0] sig_chk_x14;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1754,23 +1814,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x14)) begin
-            $fscanf(fd_chk_x14, "%d\n", chk_x14);
+            $fscanf(fd_chk_x14, "%d\n", sig_chk_x14);
             sample_cnt_chk_x14 = sample_cnt_chk_x14 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x14);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x14' done. Samples read: %0d.", sample_cnt_chk_x14);
-        $fclose(fd_chk_x14);
+        sample_cnt_chk_x14 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x15;
-integer sample_cnt_chk_x15 = 0;
-reg [31:0] chk_x15;
+int fd_chk_x15;
+int sample_cnt_chk_x15 = 0;
+reg [31:0] sig_chk_x15;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1783,23 +1844,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x15)) begin
-            $fscanf(fd_chk_x15, "%d\n", chk_x15);
+            $fscanf(fd_chk_x15, "%d\n", sig_chk_x15);
             sample_cnt_chk_x15 = sample_cnt_chk_x15 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x15);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x15' done. Samples read: %0d.", sample_cnt_chk_x15);
-        $fclose(fd_chk_x15);
+        sample_cnt_chk_x15 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x16;
-integer sample_cnt_chk_x16 = 0;
-reg [31:0] chk_x16;
+int fd_chk_x16;
+int sample_cnt_chk_x16 = 0;
+reg [31:0] sig_chk_x16;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1812,23 +1874,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x16)) begin
-            $fscanf(fd_chk_x16, "%d\n", chk_x16);
+            $fscanf(fd_chk_x16, "%d\n", sig_chk_x16);
             sample_cnt_chk_x16 = sample_cnt_chk_x16 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x16);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x16' done. Samples read: %0d.", sample_cnt_chk_x16);
-        $fclose(fd_chk_x16);
+        sample_cnt_chk_x16 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x17;
-integer sample_cnt_chk_x17 = 0;
-reg [31:0] chk_x17;
+int fd_chk_x17;
+int sample_cnt_chk_x17 = 0;
+reg [31:0] sig_chk_x17;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1841,23 +1904,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x17)) begin
-            $fscanf(fd_chk_x17, "%d\n", chk_x17);
+            $fscanf(fd_chk_x17, "%d\n", sig_chk_x17);
             sample_cnt_chk_x17 = sample_cnt_chk_x17 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x17);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x17' done. Samples read: %0d.", sample_cnt_chk_x17);
-        $fclose(fd_chk_x17);
+        sample_cnt_chk_x17 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x18;
-integer sample_cnt_chk_x18 = 0;
-reg [31:0] chk_x18;
+int fd_chk_x18;
+int sample_cnt_chk_x18 = 0;
+reg [31:0] sig_chk_x18;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1870,23 +1934,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x18)) begin
-            $fscanf(fd_chk_x18, "%d\n", chk_x18);
+            $fscanf(fd_chk_x18, "%d\n", sig_chk_x18);
             sample_cnt_chk_x18 = sample_cnt_chk_x18 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x18);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x18' done. Samples read: %0d.", sample_cnt_chk_x18);
-        $fclose(fd_chk_x18);
+        sample_cnt_chk_x18 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x19;
-integer sample_cnt_chk_x19 = 0;
-reg [31:0] chk_x19;
+int fd_chk_x19;
+int sample_cnt_chk_x19 = 0;
+reg [31:0] sig_chk_x19;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1899,23 +1964,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x19)) begin
-            $fscanf(fd_chk_x19, "%d\n", chk_x19);
+            $fscanf(fd_chk_x19, "%d\n", sig_chk_x19);
             sample_cnt_chk_x19 = sample_cnt_chk_x19 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x19);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x19' done. Samples read: %0d.", sample_cnt_chk_x19);
-        $fclose(fd_chk_x19);
+        sample_cnt_chk_x19 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x20;
-integer sample_cnt_chk_x20 = 0;
-reg [31:0] chk_x20;
+int fd_chk_x20;
+int sample_cnt_chk_x20 = 0;
+reg [31:0] sig_chk_x20;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1928,23 +1994,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x20)) begin
-            $fscanf(fd_chk_x20, "%d\n", chk_x20);
+            $fscanf(fd_chk_x20, "%d\n", sig_chk_x20);
             sample_cnt_chk_x20 = sample_cnt_chk_x20 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x20);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x20' done. Samples read: %0d.", sample_cnt_chk_x20);
-        $fclose(fd_chk_x20);
+        sample_cnt_chk_x20 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x21;
-integer sample_cnt_chk_x21 = 0;
-reg [31:0] chk_x21;
+int fd_chk_x21;
+int sample_cnt_chk_x21 = 0;
+reg [31:0] sig_chk_x21;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1957,23 +2024,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x21)) begin
-            $fscanf(fd_chk_x21, "%d\n", chk_x21);
+            $fscanf(fd_chk_x21, "%d\n", sig_chk_x21);
             sample_cnt_chk_x21 = sample_cnt_chk_x21 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x21);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x21' done. Samples read: %0d.", sample_cnt_chk_x21);
-        $fclose(fd_chk_x21);
+        sample_cnt_chk_x21 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x22;
-integer sample_cnt_chk_x22 = 0;
-reg [31:0] chk_x22;
+int fd_chk_x22;
+int sample_cnt_chk_x22 = 0;
+reg [31:0] sig_chk_x22;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -1986,23 +2054,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x22)) begin
-            $fscanf(fd_chk_x22, "%d\n", chk_x22);
+            $fscanf(fd_chk_x22, "%d\n", sig_chk_x22);
             sample_cnt_chk_x22 = sample_cnt_chk_x22 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x22);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x22' done. Samples read: %0d.", sample_cnt_chk_x22);
-        $fclose(fd_chk_x22);
+        sample_cnt_chk_x22 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x23;
-integer sample_cnt_chk_x23 = 0;
-reg [31:0] chk_x23;
+int fd_chk_x23;
+int sample_cnt_chk_x23 = 0;
+reg [31:0] sig_chk_x23;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -2015,23 +2084,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x23)) begin
-            $fscanf(fd_chk_x23, "%d\n", chk_x23);
+            $fscanf(fd_chk_x23, "%d\n", sig_chk_x23);
             sample_cnt_chk_x23 = sample_cnt_chk_x23 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x23);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x23' done. Samples read: %0d.", sample_cnt_chk_x23);
-        $fclose(fd_chk_x23);
+        sample_cnt_chk_x23 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x24;
-integer sample_cnt_chk_x24 = 0;
-reg [31:0] chk_x24;
+int fd_chk_x24;
+int sample_cnt_chk_x24 = 0;
+reg [31:0] sig_chk_x24;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -2044,23 +2114,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x24)) begin
-            $fscanf(fd_chk_x24, "%d\n", chk_x24);
+            $fscanf(fd_chk_x24, "%d\n", sig_chk_x24);
             sample_cnt_chk_x24 = sample_cnt_chk_x24 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x24);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x24' done. Samples read: %0d.", sample_cnt_chk_x24);
-        $fclose(fd_chk_x24);
+        sample_cnt_chk_x24 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x25;
-integer sample_cnt_chk_x25 = 0;
-reg [31:0] chk_x25;
+int fd_chk_x25;
+int sample_cnt_chk_x25 = 0;
+reg [31:0] sig_chk_x25;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -2073,23 +2144,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x25)) begin
-            $fscanf(fd_chk_x25, "%d\n", chk_x25);
+            $fscanf(fd_chk_x25, "%d\n", sig_chk_x25);
             sample_cnt_chk_x25 = sample_cnt_chk_x25 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x25);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x25' done. Samples read: %0d.", sample_cnt_chk_x25);
-        $fclose(fd_chk_x25);
+        sample_cnt_chk_x25 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x26;
-integer sample_cnt_chk_x26 = 0;
-reg [31:0] chk_x26;
+int fd_chk_x26;
+int sample_cnt_chk_x26 = 0;
+reg [31:0] sig_chk_x26;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -2102,23 +2174,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x26)) begin
-            $fscanf(fd_chk_x26, "%d\n", chk_x26);
+            $fscanf(fd_chk_x26, "%d\n", sig_chk_x26);
             sample_cnt_chk_x26 = sample_cnt_chk_x26 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x26);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x26' done. Samples read: %0d.", sample_cnt_chk_x26);
-        $fclose(fd_chk_x26);
+        sample_cnt_chk_x26 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x27;
-integer sample_cnt_chk_x27 = 0;
-reg [31:0] chk_x27;
+int fd_chk_x27;
+int sample_cnt_chk_x27 = 0;
+reg [31:0] sig_chk_x27;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -2131,23 +2204,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x27)) begin
-            $fscanf(fd_chk_x27, "%d\n", chk_x27);
+            $fscanf(fd_chk_x27, "%d\n", sig_chk_x27);
             sample_cnt_chk_x27 = sample_cnt_chk_x27 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x27);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x27' done. Samples read: %0d.", sample_cnt_chk_x27);
-        $fclose(fd_chk_x27);
+        sample_cnt_chk_x27 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x28;
-integer sample_cnt_chk_x28 = 0;
-reg [31:0] chk_x28;
+int fd_chk_x28;
+int sample_cnt_chk_x28 = 0;
+reg [31:0] sig_chk_x28;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -2160,23 +2234,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x28)) begin
-            $fscanf(fd_chk_x28, "%d\n", chk_x28);
+            $fscanf(fd_chk_x28, "%d\n", sig_chk_x28);
             sample_cnt_chk_x28 = sample_cnt_chk_x28 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x28);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x28' done. Samples read: %0d.", sample_cnt_chk_x28);
-        $fclose(fd_chk_x28);
+        sample_cnt_chk_x28 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x29;
-integer sample_cnt_chk_x29 = 0;
-reg [31:0] chk_x29;
+int fd_chk_x29;
+int sample_cnt_chk_x29 = 0;
+reg [31:0] sig_chk_x29;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -2189,23 +2264,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x29)) begin
-            $fscanf(fd_chk_x29, "%d\n", chk_x29);
+            $fscanf(fd_chk_x29, "%d\n", sig_chk_x29);
             sample_cnt_chk_x29 = sample_cnt_chk_x29 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x29);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x29' done. Samples read: %0d.", sample_cnt_chk_x29);
-        $fclose(fd_chk_x29);
+        sample_cnt_chk_x29 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x30;
-integer sample_cnt_chk_x30 = 0;
-reg [31:0] chk_x30;
+int fd_chk_x30;
+int sample_cnt_chk_x30 = 0;
+reg [31:0] sig_chk_x30;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -2218,23 +2294,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x30)) begin
-            $fscanf(fd_chk_x30, "%d\n", chk_x30);
+            $fscanf(fd_chk_x30, "%d\n", sig_chk_x30);
             sample_cnt_chk_x30 = sample_cnt_chk_x30 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x30);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x30' done. Samples read: %0d.", sample_cnt_chk_x30);
-        $fclose(fd_chk_x30);
+        sample_cnt_chk_x30 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_x31;
-integer sample_cnt_chk_x31 = 0;
-reg [31:0] chk_x31;
+int fd_chk_x31;
+int sample_cnt_chk_x31 = 0;
+reg [31:0] sig_chk_x31;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -2247,23 +2324,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_x31)) begin
-            $fscanf(fd_chk_x31, "%d\n", chk_x31);
+            $fscanf(fd_chk_x31, "%d\n", sig_chk_x31);
             sample_cnt_chk_x31 = sample_cnt_chk_x31 + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_x31);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_x31' done. Samples read: %0d.", sample_cnt_chk_x31);
-        $fclose(fd_chk_x31);
+        sample_cnt_chk_x31 = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_tohost;
-integer sample_cnt_chk_tohost = 0;
-reg [31:0] chk_tohost;
+int fd_chk_tohost;
+int sample_cnt_chk_tohost = 0;
+reg [31:0] sig_chk_tohost;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -2276,23 +2354,24 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_tohost)) begin
-            $fscanf(fd_chk_tohost, "%d\n", chk_tohost);
+            $fscanf(fd_chk_tohost, "%d\n", sig_chk_tohost);
             sample_cnt_chk_tohost = sample_cnt_chk_tohost + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_tohost);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_tohost' done. Samples read: %0d.", sample_cnt_chk_tohost);
-        $fclose(fd_chk_tohost);
+        sample_cnt_chk_tohost = 0; // reset counter for next test
     end
 end
 
-integer fd_chk_alu_out;
-integer sample_cnt_chk_alu_out = 0;
-reg [31:0] chk_alu_out;
+int fd_chk_alu_out;
+int sample_cnt_chk_alu_out = 0;
+reg [31:0] sig_chk_alu_out;
 initial begin
     forever begin
         @ev_load_vector; // wait for test to start
@@ -2305,16 +2384,17 @@ initial begin
             $finish;
         end
         while (! $feof(fd_chk_alu_out)) begin
-            $fscanf(fd_chk_alu_out, "%d\n", chk_alu_out);
+            $fscanf(fd_chk_alu_out, "%d\n", sig_chk_alu_out);
             sample_cnt_chk_alu_out = sample_cnt_chk_alu_out + 1; 
-            @(posedge clk); 
+            @(posedge clk or posedge sim_done); 
         end
+        $fclose(fd_chk_alu_out);
     end
 end
 initial begin
     forever begin
         @(posedge sim_done); 
         $display("Vector read 'chk_alu_out' done. Samples read: %0d.", sample_cnt_chk_alu_out);
-        $fclose(fd_chk_alu_out);
+        sample_cnt_chk_alu_out = 0; // reset counter for next test
     end
 end
