@@ -12,7 +12,7 @@ for chk in f_vector_table:
     f_vector.write("        @ev_load_vector; // wait for test to start\n");
     f_vector.write("        fd_%s = $fopen($sformatf(\"%%0s/test_%%0s/%s.txt\", stim_path, current_test), \"r\");\n" % (chk, chk))
     f_vector.write("        if (fd_%s) begin\n" % chk)
-    f_vector.write("            $display(\"From test '%%0s' file '%s' opened: %%0d\", current_test, fd_%s);\n" % (chk, chk))
+    f_vector.write("            `LOG((\"From test '%%0s' file '%s' opened: %%0d\", current_test, fd_%s));\n" % (chk, chk))
     f_vector.write("        end\n")
     f_vector.write("        else begin\n")
     f_vector.write("            $display(\"File '%s' could not be opened: %%0d. Exiting simulation.\", fd_%s);\n"  % (chk, chk))
@@ -29,7 +29,7 @@ for chk in f_vector_table:
     f_vector.write("initial begin\n")
     f_vector.write("    forever begin\n")
     f_vector.write("        @(posedge sim_done); \n")
-    f_vector.write("        $display(\"Vector read '%s' done. Samples read: %%0d.\", sample_cnt_%s);\n"  % (chk, chk))
+    f_vector.write("        `LOG((\"Vector read '%s' done. Samples read: %%0d.\", sample_cnt_%s));\n"  % (chk, chk))
     f_vector.write("        sample_cnt_%s = 0; // reset counter for next test\n" % chk)
     f_vector.write("    end\n")
     f_vector.write("end\n")

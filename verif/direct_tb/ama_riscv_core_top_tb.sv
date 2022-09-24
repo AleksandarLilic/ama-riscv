@@ -63,10 +63,11 @@
 `timescale 1ns/1ps
 `include "../../src/ama_riscv_defines.v"
 
-`define CLK_PERIOD          8
+`define CLK_PERIOD 8
 //`define STANDALONE
 
-`define VERBOSITY           2           // TODO: keep up to 5, add list of choices?, dbg & perf levels?
+`define VERBOSITY 2           // TODO: keep up to 5, add list of choices?, dbg & perf levels?
+`define LOG_MINIMAL
 
 // TB
 `define CHECKER_ACTIVE      1'b1
@@ -74,6 +75,13 @@
 `define CHECK_DELAY         1
 `define TIMEOUT_CLOCKS      5000
 
+`ifdef LOG_MINIMAL
+    `define LOG(x) 
+`else
+    `define LOG(x) $display("%0s", $sformatf x )
+`endif
+
+`define SINGLE_TEST 0
 
 `define DUT      DUT_ama_riscv_core_top_i
 `define DUT_IMEM `DUT.ama_riscv_imem_i.mem
@@ -85,8 +93,6 @@
 `define TOHOST_PASS 32'd1
 
 `define MEM_SIZE 16384
-
-`define SINGLE_TEST 0
 
 module ama_riscv_core_top_tb();
 
@@ -117,7 +123,7 @@ string riscv_regr_tests[] = {
     "slti", "sltiu", "xori", "ori", "andi", "slli", "srli", "srai", "lb", "lh", "lw", "lbu", "lhu",
     "sb", "sh", "sw", "beq", "bne", "blt", "bge", "bltu", "bgeu", "jalr", "jal", "lui", "auipc" };
 
-string single_test_name = "ori";
+string single_test_name = "add";
 string current_test;
 
 int number_of_tests = riscv_regr_tests.size; 
@@ -221,8 +227,13 @@ initial begin
     forever begin
         @ev_load_stim; // wait for test to start
         fd_clk = $fopen($sformatf("%0s/test_%0s/stim_clk.txt", stim_path, current_test), "r");
-        //if (fd_clk) $display("From test '%0s' file 'stim_clk' opened: %0d", current_test, fd_clk);
-        //else $display("From test '%0s' file 'stim_clk' could not be opened: %0d", current_test, fd_clk);
+        if (fd_clk) begin
+            `LOG(("From test '%0s' file 'stim_clk' opened: %0d", current_test, fd_clk));
+        end
+        else begin
+           $display("From test '%0s' file 'stim_clk' could not be opened: %0d", current_test, fd_clk);
+           $finish;
+       end
         
         ->ev_load_vector;
         $fscanf(fd_clk, "%d\n", clk); // load first stimuli
@@ -245,8 +256,13 @@ initial begin
     forever begin
         @ev_load_vector; // wait for test to start
         fd_rst = $fopen($sformatf("%0s/test_%0s/stim_rst.txt", stim_path, current_test), "r");
-        //if (fd_rst) $display("From test '%0s' file 'stim_rst' opened: %0d", current_test, fd_rst);
-        //else $display("From test '%0s' file 'stim_rst' could not be opened: %0d", current_test, fd_rst);
+        if (fd_rst) begin
+            `LOG(("From test '%0s' file 'stim_rst' opened: %0d", current_test, fd_rst));
+        end
+        else begin
+           $display("From test '%0s' file 'stim_rst' could not be opened: %0d", current_test, fd_rst);
+           $finish;
+       end
         
         while (! $feof(fd_rst)) begin
             #1;
