@@ -19,11 +19,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_rst_seq_d);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_rst_seq_d' done. Samples read: %0d.", sample_cnt_chk_rst_seq_d));
         sample_cnt_chk_rst_seq_d = 0; // reset counter for next test
     end
@@ -49,11 +44,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_pc);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_pc' done. Samples read: %0d.", sample_cnt_chk_pc));
         sample_cnt_chk_pc = 0; // reset counter for next test
     end
@@ -79,11 +69,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_stall_if_id_d);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_stall_if_id_d' done. Samples read: %0d.", sample_cnt_chk_stall_if_id_d));
         sample_cnt_chk_stall_if_id_d = 0; // reset counter for next test
     end
@@ -109,11 +94,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_imem);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_imem' done. Samples read: %0d.", sample_cnt_chk_imem));
         sample_cnt_chk_imem = 0; // reset counter for next test
     end
@@ -139,11 +119,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_inst_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_inst_ex' done. Samples read: %0d.", sample_cnt_chk_inst_ex));
         sample_cnt_chk_inst_ex = 0; // reset counter for next test
     end
@@ -169,11 +144,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_pc_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_pc_ex' done. Samples read: %0d.", sample_cnt_chk_pc_ex));
         sample_cnt_chk_pc_ex = 0; // reset counter for next test
     end
@@ -199,11 +169,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_funct3_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_funct3_ex' done. Samples read: %0d.", sample_cnt_chk_funct3_ex));
         sample_cnt_chk_funct3_ex = 0; // reset counter for next test
     end
@@ -229,11 +194,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_rs1_addr_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_rs1_addr_ex' done. Samples read: %0d.", sample_cnt_chk_rs1_addr_ex));
         sample_cnt_chk_rs1_addr_ex = 0; // reset counter for next test
     end
@@ -259,11 +219,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_rs2_addr_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_rs2_addr_ex' done. Samples read: %0d.", sample_cnt_chk_rs2_addr_ex));
         sample_cnt_chk_rs2_addr_ex = 0; // reset counter for next test
     end
@@ -289,11 +244,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_rf_data_a_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_rf_data_a_ex' done. Samples read: %0d.", sample_cnt_chk_rf_data_a_ex));
         sample_cnt_chk_rf_data_a_ex = 0; // reset counter for next test
     end
@@ -319,11 +269,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_rf_data_b_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_rf_data_b_ex' done. Samples read: %0d.", sample_cnt_chk_rf_data_b_ex));
         sample_cnt_chk_rf_data_b_ex = 0; // reset counter for next test
     end
@@ -349,11 +294,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_rd_we_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_rd_we_ex' done. Samples read: %0d.", sample_cnt_chk_rd_we_ex));
         sample_cnt_chk_rd_we_ex = 0; // reset counter for next test
     end
@@ -379,11 +319,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_rd_addr_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_rd_addr_ex' done. Samples read: %0d.", sample_cnt_chk_rd_addr_ex));
         sample_cnt_chk_rd_addr_ex = 0; // reset counter for next test
     end
@@ -409,11 +344,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_imm_gen_out_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_imm_gen_out_ex' done. Samples read: %0d.", sample_cnt_chk_imm_gen_out_ex));
         sample_cnt_chk_imm_gen_out_ex = 0; // reset counter for next test
     end
@@ -439,11 +369,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_csr_we_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_csr_we_ex' done. Samples read: %0d.", sample_cnt_chk_csr_we_ex));
         sample_cnt_chk_csr_we_ex = 0; // reset counter for next test
     end
@@ -469,11 +394,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_csr_ui_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_csr_ui_ex' done. Samples read: %0d.", sample_cnt_chk_csr_ui_ex));
         sample_cnt_chk_csr_ui_ex = 0; // reset counter for next test
     end
@@ -499,11 +419,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_csr_uimm_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_csr_uimm_ex' done. Samples read: %0d.", sample_cnt_chk_csr_uimm_ex));
         sample_cnt_chk_csr_uimm_ex = 0; // reset counter for next test
     end
@@ -529,11 +444,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_csr_dout_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_csr_dout_ex' done. Samples read: %0d.", sample_cnt_chk_csr_dout_ex));
         sample_cnt_chk_csr_dout_ex = 0; // reset counter for next test
     end
@@ -559,11 +469,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_alu_a_sel_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_alu_a_sel_ex' done. Samples read: %0d.", sample_cnt_chk_alu_a_sel_ex));
         sample_cnt_chk_alu_a_sel_ex = 0; // reset counter for next test
     end
@@ -589,11 +494,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_alu_b_sel_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_alu_b_sel_ex' done. Samples read: %0d.", sample_cnt_chk_alu_b_sel_ex));
         sample_cnt_chk_alu_b_sel_ex = 0; // reset counter for next test
     end
@@ -619,11 +519,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_alu_op_sel_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_alu_op_sel_ex' done. Samples read: %0d.", sample_cnt_chk_alu_op_sel_ex));
         sample_cnt_chk_alu_op_sel_ex = 0; // reset counter for next test
     end
@@ -649,11 +544,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_bc_a_sel_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_bc_a_sel_ex' done. Samples read: %0d.", sample_cnt_chk_bc_a_sel_ex));
         sample_cnt_chk_bc_a_sel_ex = 0; // reset counter for next test
     end
@@ -679,11 +569,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_bcs_b_sel_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_bcs_b_sel_ex' done. Samples read: %0d.", sample_cnt_chk_bcs_b_sel_ex));
         sample_cnt_chk_bcs_b_sel_ex = 0; // reset counter for next test
     end
@@ -709,11 +594,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_bc_uns_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_bc_uns_ex' done. Samples read: %0d.", sample_cnt_chk_bc_uns_ex));
         sample_cnt_chk_bc_uns_ex = 0; // reset counter for next test
     end
@@ -739,11 +619,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_store_inst_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_store_inst_ex' done. Samples read: %0d.", sample_cnt_chk_store_inst_ex));
         sample_cnt_chk_store_inst_ex = 0; // reset counter for next test
     end
@@ -769,11 +644,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_branch_inst_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_branch_inst_ex' done. Samples read: %0d.", sample_cnt_chk_branch_inst_ex));
         sample_cnt_chk_branch_inst_ex = 0; // reset counter for next test
     end
@@ -799,11 +669,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_jump_inst_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_jump_inst_ex' done. Samples read: %0d.", sample_cnt_chk_jump_inst_ex));
         sample_cnt_chk_jump_inst_ex = 0; // reset counter for next test
     end
@@ -829,11 +694,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_dmem_en_id);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_dmem_en_id' done. Samples read: %0d.", sample_cnt_chk_dmem_en_id));
         sample_cnt_chk_dmem_en_id = 0; // reset counter for next test
     end
@@ -859,11 +719,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_load_sm_en_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_load_sm_en_ex' done. Samples read: %0d.", sample_cnt_chk_load_sm_en_ex));
         sample_cnt_chk_load_sm_en_ex = 0; // reset counter for next test
     end
@@ -889,11 +744,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_wb_sel_ex);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_wb_sel_ex' done. Samples read: %0d.", sample_cnt_chk_wb_sel_ex));
         sample_cnt_chk_wb_sel_ex = 0; // reset counter for next test
     end
@@ -919,11 +769,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_inst_mem);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_inst_mem' done. Samples read: %0d.", sample_cnt_chk_inst_mem));
         sample_cnt_chk_inst_mem = 0; // reset counter for next test
     end
@@ -949,11 +794,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_pc_mem);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_pc_mem' done. Samples read: %0d.", sample_cnt_chk_pc_mem));
         sample_cnt_chk_pc_mem = 0; // reset counter for next test
     end
@@ -979,11 +819,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_alu_mem);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_alu_mem' done. Samples read: %0d.", sample_cnt_chk_alu_mem));
         sample_cnt_chk_alu_mem = 0; // reset counter for next test
     end
@@ -1009,11 +844,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_alu_in_a_mem);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_alu_in_a_mem' done. Samples read: %0d.", sample_cnt_chk_alu_in_a_mem));
         sample_cnt_chk_alu_in_a_mem = 0; // reset counter for next test
     end
@@ -1039,11 +869,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_funct3_mem);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_funct3_mem' done. Samples read: %0d.", sample_cnt_chk_funct3_mem));
         sample_cnt_chk_funct3_mem = 0; // reset counter for next test
     end
@@ -1069,11 +894,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_rs1_addr_mem);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_rs1_addr_mem' done. Samples read: %0d.", sample_cnt_chk_rs1_addr_mem));
         sample_cnt_chk_rs1_addr_mem = 0; // reset counter for next test
     end
@@ -1099,11 +919,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_rs2_addr_mem);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_rs2_addr_mem' done. Samples read: %0d.", sample_cnt_chk_rs2_addr_mem));
         sample_cnt_chk_rs2_addr_mem = 0; // reset counter for next test
     end
@@ -1129,11 +944,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_rd_addr_mem);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_rd_addr_mem' done. Samples read: %0d.", sample_cnt_chk_rd_addr_mem));
         sample_cnt_chk_rd_addr_mem = 0; // reset counter for next test
     end
@@ -1159,11 +969,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_rd_we_mem);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_rd_we_mem' done. Samples read: %0d.", sample_cnt_chk_rd_we_mem));
         sample_cnt_chk_rd_we_mem = 0; // reset counter for next test
     end
@@ -1189,11 +994,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_csr_we_mem);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_csr_we_mem' done. Samples read: %0d.", sample_cnt_chk_csr_we_mem));
         sample_cnt_chk_csr_we_mem = 0; // reset counter for next test
     end
@@ -1219,11 +1019,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_csr_ui_mem);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_csr_ui_mem' done. Samples read: %0d.", sample_cnt_chk_csr_ui_mem));
         sample_cnt_chk_csr_ui_mem = 0; // reset counter for next test
     end
@@ -1249,11 +1044,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_csr_uimm_mem);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_csr_uimm_mem' done. Samples read: %0d.", sample_cnt_chk_csr_uimm_mem));
         sample_cnt_chk_csr_uimm_mem = 0; // reset counter for next test
     end
@@ -1279,11 +1069,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_csr_dout_mem);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_csr_dout_mem' done. Samples read: %0d.", sample_cnt_chk_csr_dout_mem));
         sample_cnt_chk_csr_dout_mem = 0; // reset counter for next test
     end
@@ -1309,11 +1094,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_dmem_dout);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_dmem_dout' done. Samples read: %0d.", sample_cnt_chk_dmem_dout));
         sample_cnt_chk_dmem_dout = 0; // reset counter for next test
     end
@@ -1339,11 +1119,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_load_sm_en_mem);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_load_sm_en_mem' done. Samples read: %0d.", sample_cnt_chk_load_sm_en_mem));
         sample_cnt_chk_load_sm_en_mem = 0; // reset counter for next test
     end
@@ -1369,11 +1144,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_wb_sel_mem);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_wb_sel_mem' done. Samples read: %0d.", sample_cnt_chk_wb_sel_mem));
         sample_cnt_chk_wb_sel_mem = 0; // reset counter for next test
     end
@@ -1399,11 +1169,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_inst_wb);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_inst_wb' done. Samples read: %0d.", sample_cnt_chk_inst_wb));
         sample_cnt_chk_inst_wb = 0; // reset counter for next test
     end
@@ -1429,11 +1194,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x1);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x1' done. Samples read: %0d.", sample_cnt_chk_x1));
         sample_cnt_chk_x1 = 0; // reset counter for next test
     end
@@ -1459,11 +1219,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x2);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x2' done. Samples read: %0d.", sample_cnt_chk_x2));
         sample_cnt_chk_x2 = 0; // reset counter for next test
     end
@@ -1489,11 +1244,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x3);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x3' done. Samples read: %0d.", sample_cnt_chk_x3));
         sample_cnt_chk_x3 = 0; // reset counter for next test
     end
@@ -1519,11 +1269,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x4);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x4' done. Samples read: %0d.", sample_cnt_chk_x4));
         sample_cnt_chk_x4 = 0; // reset counter for next test
     end
@@ -1549,11 +1294,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x5);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x5' done. Samples read: %0d.", sample_cnt_chk_x5));
         sample_cnt_chk_x5 = 0; // reset counter for next test
     end
@@ -1579,11 +1319,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x6);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x6' done. Samples read: %0d.", sample_cnt_chk_x6));
         sample_cnt_chk_x6 = 0; // reset counter for next test
     end
@@ -1609,11 +1344,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x7);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x7' done. Samples read: %0d.", sample_cnt_chk_x7));
         sample_cnt_chk_x7 = 0; // reset counter for next test
     end
@@ -1639,11 +1369,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x8);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x8' done. Samples read: %0d.", sample_cnt_chk_x8));
         sample_cnt_chk_x8 = 0; // reset counter for next test
     end
@@ -1669,11 +1394,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x9);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x9' done. Samples read: %0d.", sample_cnt_chk_x9));
         sample_cnt_chk_x9 = 0; // reset counter for next test
     end
@@ -1699,11 +1419,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x10);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x10' done. Samples read: %0d.", sample_cnt_chk_x10));
         sample_cnt_chk_x10 = 0; // reset counter for next test
     end
@@ -1729,11 +1444,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x11);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x11' done. Samples read: %0d.", sample_cnt_chk_x11));
         sample_cnt_chk_x11 = 0; // reset counter for next test
     end
@@ -1759,11 +1469,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x12);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x12' done. Samples read: %0d.", sample_cnt_chk_x12));
         sample_cnt_chk_x12 = 0; // reset counter for next test
     end
@@ -1789,11 +1494,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x13);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x13' done. Samples read: %0d.", sample_cnt_chk_x13));
         sample_cnt_chk_x13 = 0; // reset counter for next test
     end
@@ -1819,11 +1519,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x14);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x14' done. Samples read: %0d.", sample_cnt_chk_x14));
         sample_cnt_chk_x14 = 0; // reset counter for next test
     end
@@ -1849,11 +1544,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x15);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x15' done. Samples read: %0d.", sample_cnt_chk_x15));
         sample_cnt_chk_x15 = 0; // reset counter for next test
     end
@@ -1879,11 +1569,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x16);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x16' done. Samples read: %0d.", sample_cnt_chk_x16));
         sample_cnt_chk_x16 = 0; // reset counter for next test
     end
@@ -1909,11 +1594,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x17);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x17' done. Samples read: %0d.", sample_cnt_chk_x17));
         sample_cnt_chk_x17 = 0; // reset counter for next test
     end
@@ -1939,11 +1619,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x18);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x18' done. Samples read: %0d.", sample_cnt_chk_x18));
         sample_cnt_chk_x18 = 0; // reset counter for next test
     end
@@ -1969,11 +1644,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x19);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x19' done. Samples read: %0d.", sample_cnt_chk_x19));
         sample_cnt_chk_x19 = 0; // reset counter for next test
     end
@@ -1999,11 +1669,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x20);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x20' done. Samples read: %0d.", sample_cnt_chk_x20));
         sample_cnt_chk_x20 = 0; // reset counter for next test
     end
@@ -2029,11 +1694,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x21);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x21' done. Samples read: %0d.", sample_cnt_chk_x21));
         sample_cnt_chk_x21 = 0; // reset counter for next test
     end
@@ -2059,11 +1719,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x22);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x22' done. Samples read: %0d.", sample_cnt_chk_x22));
         sample_cnt_chk_x22 = 0; // reset counter for next test
     end
@@ -2089,11 +1744,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x23);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x23' done. Samples read: %0d.", sample_cnt_chk_x23));
         sample_cnt_chk_x23 = 0; // reset counter for next test
     end
@@ -2119,11 +1769,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x24);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x24' done. Samples read: %0d.", sample_cnt_chk_x24));
         sample_cnt_chk_x24 = 0; // reset counter for next test
     end
@@ -2149,11 +1794,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x25);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x25' done. Samples read: %0d.", sample_cnt_chk_x25));
         sample_cnt_chk_x25 = 0; // reset counter for next test
     end
@@ -2179,11 +1819,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x26);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x26' done. Samples read: %0d.", sample_cnt_chk_x26));
         sample_cnt_chk_x26 = 0; // reset counter for next test
     end
@@ -2209,11 +1844,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x27);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x27' done. Samples read: %0d.", sample_cnt_chk_x27));
         sample_cnt_chk_x27 = 0; // reset counter for next test
     end
@@ -2239,11 +1869,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x28);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x28' done. Samples read: %0d.", sample_cnt_chk_x28));
         sample_cnt_chk_x28 = 0; // reset counter for next test
     end
@@ -2269,11 +1894,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x29);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x29' done. Samples read: %0d.", sample_cnt_chk_x29));
         sample_cnt_chk_x29 = 0; // reset counter for next test
     end
@@ -2299,11 +1919,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x30);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x30' done. Samples read: %0d.", sample_cnt_chk_x30));
         sample_cnt_chk_x30 = 0; // reset counter for next test
     end
@@ -2329,11 +1944,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_x31);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_x31' done. Samples read: %0d.", sample_cnt_chk_x31));
         sample_cnt_chk_x31 = 0; // reset counter for next test
     end
@@ -2359,13 +1969,58 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_tohost);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_tohost' done. Samples read: %0d.", sample_cnt_chk_tohost));
         sample_cnt_chk_tohost = 0; // reset counter for next test
+    end
+end
+
+int fd_chk_imem_addr;
+int sample_cnt_chk_imem_addr = 0;
+reg [31:0] sig_chk_imem_addr;
+initial begin
+    forever begin
+        @ev_load_vector; // wait for test to start
+        fd_chk_imem_addr = $fopen($sformatf("%0s/test_%0s/chk_imem_addr.txt", stim_path, current_test), "r");
+        if (fd_chk_imem_addr) begin
+            `LOG(("From test '%0s' file 'chk_imem_addr' opened: %0d", current_test, fd_chk_imem_addr));
+        end
+        else begin
+            $display("File 'chk_imem_addr' could not be opened: %0d. Exiting simulation.", fd_chk_imem_addr);
+            $finish;
+        end
+        while (! $feof(fd_chk_imem_addr)) begin
+            $fscanf(fd_chk_imem_addr, "%d\n", sig_chk_imem_addr);
+            sample_cnt_chk_imem_addr = sample_cnt_chk_imem_addr + 1; 
+            @(posedge clk or posedge sim_done); 
+        end
+        $fclose(fd_chk_imem_addr);
+        `LOG(("Vector read 'chk_imem_addr' done. Samples read: %0d.", sample_cnt_chk_imem_addr));
+        sample_cnt_chk_imem_addr = 0; // reset counter for next test
+    end
+end
+
+int fd_chk_inst_id;
+int sample_cnt_chk_inst_id = 0;
+reg [31:0] sig_chk_inst_id;
+initial begin
+    forever begin
+        @ev_load_vector; // wait for test to start
+        fd_chk_inst_id = $fopen($sformatf("%0s/test_%0s/chk_inst_id.txt", stim_path, current_test), "r");
+        if (fd_chk_inst_id) begin
+            `LOG(("From test '%0s' file 'chk_inst_id' opened: %0d", current_test, fd_chk_inst_id));
+        end
+        else begin
+            $display("File 'chk_inst_id' could not be opened: %0d. Exiting simulation.", fd_chk_inst_id);
+            $finish;
+        end
+        while (! $feof(fd_chk_inst_id)) begin
+            $fscanf(fd_chk_inst_id, "%d\n", sig_chk_inst_id);
+            sample_cnt_chk_inst_id = sample_cnt_chk_inst_id + 1; 
+            @(posedge clk or posedge sim_done); 
+        end
+        $fclose(fd_chk_inst_id);
+        `LOG(("Vector read 'chk_inst_id' done. Samples read: %0d.", sample_cnt_chk_inst_id));
+        sample_cnt_chk_inst_id = 0; // reset counter for next test
     end
 end
 
@@ -2389,11 +2044,6 @@ initial begin
             @(posedge clk or posedge sim_done); 
         end
         $fclose(fd_chk_alu_out);
-    end
-end
-initial begin
-    forever begin
-        @(posedge sim_done); 
         `LOG(("Vector read 'chk_alu_out' done. Samples read: %0d.", sample_cnt_chk_alu_out));
         sample_cnt_chk_alu_out = 0; // reset counter for next test
     end
