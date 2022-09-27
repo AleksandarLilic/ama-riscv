@@ -123,7 +123,7 @@ string riscv_regr_tests[] = {
     "slti", "sltiu", "xori", "ori", "andi", "slli", "srli", "srai", "lb", "lh", "lw", "lbu", "lhu",
     "sb", "sh", "sw", "beq", "bne", "blt", "bge", "bltu", "bgeu", "jalr", "jal", "lui", "auipc" };
 
-string single_test_name = "add";
+string single_test_name = "simple";
 string current_test;
 
 int number_of_tests = riscv_regr_tests.size; 

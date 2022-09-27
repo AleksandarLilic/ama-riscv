@@ -23,7 +23,7 @@ task run_checkers;
         checker_t("csr_dout_ex", `CHECKER_INACTIVE, dummy, sig_chk_csr_dout_ex);
         checker_t("alu_a_sel_ex", `CHECKER_INACTIVE, dummy, sig_chk_alu_a_sel_ex);
         checker_t("alu_b_sel_ex", `CHECKER_INACTIVE, dummy, sig_chk_alu_b_sel_ex);
-        checker_t("alu_op_sel_ex", `CHECKER_INACTIVE, dummy, sig_chk_alu_op_sel_ex);
+        checker_t("alu_op_sel_ex", `CHECKER_ACTIVE, `DUT_CORE.alu_op_sel_ex, sig_chk_alu_op_sel_ex);
         checker_t("bc_a_sel_ex", `CHECKER_INACTIVE, dummy, sig_chk_bc_a_sel_ex);
         checker_t("bcs_b_sel_ex", `CHECKER_INACTIVE, dummy, sig_chk_bcs_b_sel_ex);
         checker_t("bc_uns_ex", `CHECKER_INACTIVE, dummy, sig_chk_bc_uns_ex);
@@ -82,6 +82,8 @@ task run_checkers;
         checker_t("x30", `CHECKER_ACTIVE, `DUT_RF.x30_t5, sig_chk_x30);
         checker_t("x31", `CHECKER_ACTIVE, `DUT_RF.x31_t6, sig_chk_x31);
         checker_t("tohost", `CHECKER_ACTIVE, `DUT_CORE.tohost, sig_chk_tohost);
+        checker_t("imem_addr", `CHECKER_ACTIVE, `DUT_CORE.imem_addr, sig_chk_imem_addr);
+        checker_t("inst_id", `CHECKER_ACTIVE, `DUT_CORE.inst_id, sig_chk_inst_id);
         checker_t("alu_out", `CHECKER_ACTIVE, `DUT_CORE.alu_out, sig_chk_alu_out);
         errors_for_wave = (errors != checker_errors_prev);
     end // main task body
