@@ -64,7 +64,7 @@
 `include "../../src/ama_riscv_defines.v"
 
 `define CLK_PERIOD 8
-//`define STANDALONE
+`define STANDALONE
 
 `define VERBOSITY 2           // TODO: keep up to 5, add list of choices?, dbg & perf levels?
 `define LOG_MINIMAL
@@ -81,12 +81,21 @@
     `define LOG(x) $display("%0s", $sformatf x )
 `endif
 
-`define SINGLE_TEST 0
+`define SINGLE_TEST 1
+`define CORE_ONLY
 
-`define DUT      DUT_ama_riscv_core_top_i
-`define DUT_IMEM `DUT.ama_riscv_imem_i.mem
-`define DUT_DMEM `DUT.ama_riscv_dmem_i.mem
-`define DUT_CORE `DUT.ama_riscv_core_i
+`ifdef CORE_ONLY
+    `define DUT      DUT_ama_riscv_core_i
+    `define DUT_IMEM imem_tb.mem
+    `define DUT_DMEM dmem_tb.mem
+    `define DUT_CORE `DUT
+`else // CORE_TOP
+    `define DUT      DUT_ama_riscv_core_top_i
+    `define DUT_IMEM `DUT.ama_riscv_imem_i.mem
+    `define DUT_DMEM `DUT.ama_riscv_dmem_i.mem
+    `define DUT_CORE `DUT.ama_riscv_core_i
+`endif
+
 `define DUT_DEC  `DUT_CORE.ama_riscv_control_i.ama_riscv_decoder_i
 `define DUT_RF   `DUT_CORE.ama_riscv_reg_file_i
 
@@ -123,7 +132,7 @@ string riscv_regr_tests[] = {
     "slti", "sltiu", "xori", "ori", "andi", "slli", "srli", "srai", "lb", "lh", "lw", "lbu", "lhu",
     "sb", "sh", "sw", "beq", "bne", "blt", "bge", "bltu", "bgeu", "jalr", "jal", "lui", "auipc" };
 
-string single_test_name = "simple";
+string single_test_name = "add";
 string current_test;
 
 int number_of_tests = riscv_regr_tests.size; 
@@ -162,13 +171,69 @@ int rst_pulses = 1;
 
 //-----------------------------------------------------------------------------
 // DUT instance
-ama_riscv_core_top DUT_ama_riscv_core_top_i (
-    .clk    (clk    ),
-    .rst    (rst    ),
-    // outputs
-    .inst_wb_nop_or_clear   (inst_wb_nop_or_clear   ),
-    .mmio_reset_cnt         (mmio_reset_cnt         )
-);
+`ifdef CORE_ONLY
+    // IMEM
+    wire [31:0] inst_id_read    ;
+    wire [13:0] imem_addr       ;
+    // DMEM
+    wire [31:0] dmem_write_data;
+    wire [13:0] dmem_addr;
+    wire        dmem_en;
+    wire [ 3:0] dmem_we;
+    wire [31:0] dmem_read_data_mem;
+
+    // core
+    ama_riscv_core DUT_ama_riscv_core_i(
+        .clk                (clk               ),
+        .rst                (rst               ),
+        // mem in
+        .inst_id_read       (inst_id_read      ),
+        .dmem_read_data_mem (dmem_read_data_mem),
+        // mem out
+        .imem_addr          (imem_addr         ),
+        .dmem_write_data    (dmem_write_data   ),
+        .dmem_addr          (dmem_addr         ),
+        .dmem_en            (dmem_en           ),
+        .dmem_we            (dmem_we           )
+        // mmion in   
+//        .mmio_instr_cnt         (mmio_instr_cnt         ),
+//        .mmio_cycle_cnt         (mmio_cycle_cnt         ),
+//        .mmio_uart_data_out     (mmio_uart_data_out     ),
+//        .mmio_data_out_valid    (mmio_data_out_valid    ),
+//        .mmio_data_in_ready     (mmio_data_in_ready     ),
+//        // mmio out
+//        .store_to_uart          (store_to_uart          ),
+//        .load_from_uart         (load_from_uart         ),
+//        .inst_wb_nop_or_clear   (inst_wb_nop_or_clear   ),
+//        .mmio_reset_cnt         (mmio_reset_cnt         ),
+//        .mmio_uart_data_in      (mmio_uart_data_in      )
+    );
+    // IMEM
+//    ama_riscv_core imem_tb ();
+//    ama_riscv_core dmem_tb ();
+    ama_riscv_imem imem_tb (
+        .clk   (clk         ),
+        .addrb (imem_addr   ),
+        .doutb (inst_id_read)
+    );
+    // DMEM
+    ama_riscv_dmem dmem_tb (
+        .clk    (clk                ),
+        .en     (dmem_en            ),
+        .we     (dmem_we            ),
+        .addr   (dmem_addr          ),
+        .din    (dmem_write_data    ),
+        .dout   (dmem_read_data_mem )
+    );
+`else
+    ama_riscv_core_top DUT_ama_riscv_core_top_i (
+        .clk    (clk    ),
+        .rst    (rst    ),
+        // outputs
+        .inst_wb_nop_or_clear   (inst_wb_nop_or_clear   ),
+        .mmio_reset_cnt         (mmio_reset_cnt         )
+    );
+`endif
 
 //-----------------------------------------------------------------------------
 // Performance counters - HW
