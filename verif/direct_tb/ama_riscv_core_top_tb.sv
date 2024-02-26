@@ -61,7 +61,7 @@
 //-----------------------------------------------------------------------------
 
 `timescale 1ns/1ps
-`include "../../src/ama_riscv_defines.v"
+`include "ama_riscv_defines.v"
 
 `define CLK_PERIOD 8
 `define STANDALONE
@@ -81,7 +81,7 @@
     `define LOG(x) $display("%0s", $sformatf x )
 `endif
 
-`define SINGLE_TEST 1
+`define SINGLE_TEST 0
 `define CORE_ONLY
 
 `ifdef CORE_ONLY
@@ -122,9 +122,7 @@ wire dut_internal_branch_taken = `DUT_DEC.branch_res && `DUT_DEC.branch_inst_ex;
 //-----------------------------------------------------------------------------
 // Testbench variables
 //
-string test_path = "C:/dev/ama-riscv-sim/riscv-tests/riscv-isa-tests/";
-string stim_path = "C:/dev/ama-riscv-sim/SW/out/build/ama-riscv-sim/src";
-//`define LOG_PATH "C:/dev/ama-riscv/simlogs/"
+string test_path;
 
 // Test names
 string riscv_regr_tests[] = {
@@ -578,6 +576,11 @@ assign tohost_source = `DUT_CORE.tohost[0];
 //-----------------------------------------------------------------------------
 // Test
 initial begin
+    if (! $value$plusargs("test_path=%s", test_path)) begin
+        $error("test_path not defined");
+        $finish();
+    end
+
     $display("\n----------------------- Simulation started -----------------------\n");
 
     regr_num = (`SINGLE_TEST) ? 1 : number_of_tests;
