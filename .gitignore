@@ -1,3 +1,7 @@
+*.swp
+local/
+
+# Vivado files
 *.cache
 *.hw
 *.ip_user_files
@@ -5,5 +9,27 @@
 *.sim
 *.xpr
 *.wcfg
-*.swp
-local/
+*.wdb
+*.log
+*.jou
+xsim.dir/
+xsim*
+xelab*
+xvhdl*
+xvlog*
+xsc*
+vivado*
+xcrg_*_cov_report
+
+# libraries
+*.so
+
+# make touchfiles
+*touchfile
+
+# VSCode files
+.vscode/
+.vscode-ctags
+
+# run scripts
+run_cfg*.tcl
