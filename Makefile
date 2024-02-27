@@ -33,6 +33,7 @@ sim: .elab.touchfile
 	xsim $(TOP) -tclbatch $(REPO_ROOT)/$(TCLBATCH) -stats -onerror quit -testplusarg test_path=$(TEST_PATH) -log test.log > /dev/null 2>&1
 	@touch .sim.touchfile
 	@echo "Simulation done"
+	@grep "DUT regr status:" test.log
 
 clean:
 	rm -rf .*touchfile
