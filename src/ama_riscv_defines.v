@@ -30,6 +30,12 @@
 `define AMA_RISCV_DEFINES
 
 //-----------------------------------------------------------------------------
+// Memory map
+    `define RESET_VECTOR 32'h8000_0000
+    `define DMEM_RANGE 2'b10
+    `define MMIO_RANGE 2'b01
+
+//-----------------------------------------------------------------------------
 // Opcodes
     `define OPC7_R_TYPE     7'b011_0011     // R-type
     `define OPC7_I_TYPE     7'b001_0011     // I-type
@@ -151,8 +157,4 @@
     `define IG_J_TYPE   3'b100
     `define IG_U_TYPE   3'b101
 
-
-`endif
-
-// End of defines
-
+`endif // AMA_RISCV_DEFINES

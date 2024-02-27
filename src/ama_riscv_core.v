@@ -30,8 +30,8 @@
 //      2021-10-28  AL 0.10.2 - Fix IMEM ports and MMIO address
 //
 //-----------------------------------------------------------------------------
+
 `include "ama_riscv_defines.v"
-// `define ISA_TESTS
 
 module ama_riscv_core (
     input   wire         clk                    ,
@@ -177,39 +177,27 @@ reg  [31:0] pc          ;
 wire [31:0] pc_inc4     ;
 wire [31:0] alu_out     ;
 
-//-----------------------------------------------------------------------------
 // PC select mux
 always @ (*) begin
     case (pc_sel_if)
-        `PC_SEL_INC4:
-            pc_mux_out =  pc_inc4;
-        `PC_SEL_ALU:
-            pc_mux_out =  alu_out;
-        // `PC_SEL_BP:
-            // pc_mux_out =  bp_out;
-        `PC_SEL_START_ADDR:
-            pc_mux_out =  32'h0;
-        default: 
-            pc_mux_out =  pc_inc4;
+        `PC_SEL_INC4: pc_mux_out = pc_inc4;
+        `PC_SEL_ALU: pc_mux_out = alu_out;
+        //`PC_SEL_BP: pc_mux_out =  bp_out;
+        `PC_SEL_START_ADDR: pc_mux_out = `RESET_VECTOR;
+        default: pc_mux_out = pc_inc4;
     endcase
 end
 
-//-----------------------------------------------------------------------------
 // PC
 always @ (posedge clk) begin
-    if (rst)
-        pc <= 32'h0;
-    else if (pc_we_if)
-        pc <= pc_mux_out;
+    if (rst) pc <= 32'h0;
+    else if (pc_we_if) pc <= pc_mux_out;
 end
-
 assign pc_inc4 = pc + 32'd4;
 
-//-----------------------------------------------------------------------------
 // IMEM interface
 assign imem_addr = pc_mux_out[15:2];
 
-//-----------------------------------------------------------------------------
 // stall_if delay
 reg         stall_if_q1;
 always @ (posedge clk) begin
@@ -226,9 +214,7 @@ end
 assign inst_id = (stall_if_q1) ? `NOP : inst_id_read;
 
 // Signals - MEM stage
-// reg         reg_we_mem  ;
-wire [31:0] writeback   ;
-// reg  [ 4:0] rd_addr_mem ;
+wire [31:0] writeback;
 
 // Signals - ID stage
 wire [31:0] pc_id = pc;
@@ -243,7 +229,6 @@ wire [31:0] rs2_data_id ;
 wire [24:0] imm_gen_in  = inst_id[31: 7];
 wire [31:0] imm_gen_out_id  ;
 
-//-----------------------------------------------------------------------------
 // Register File
 ama_riscv_reg_file ama_riscv_reg_file_i(
     .clk    (clk            ),
@@ -259,28 +244,22 @@ ama_riscv_reg_file ama_riscv_reg_file_i(
     .data_b (rs2_data_id    )
 );
 
-//-----------------------------------------------------------------------------
 // Imm Gen
 ama_riscv_imm_gen ama_riscv_imm_gen_i(
-   .clk     (clk            ),
-   .rst     (rst            ),
-   // inputs    
-   .ig_sel  (imm_gen_sel_id ),
-   .ig_in   (imm_gen_in     ),
-   // outputs
-   .ig_out  (imm_gen_out_id )
+    .clk     (clk            ),
+    .rst     (rst            ),
+    // inputs    
+    .ig_sel  (imm_gen_sel_id ),
+    .ig_in   (imm_gen_in     ),
+    // outputs
+    .ig_out  (imm_gen_out_id )
 );
 
 reg  [31:0] alu_in_a_mem        ;
 
-// `ifdef ISA_TESTS
-//-----------------------------------------------------------------------------
 // CSR
-// reg         csr_en_id           ;
-// reg         csr_we_id           ;
 reg         csr_we_ex           ;
 reg         csr_we_mem          ;
-// reg         csr_ui_id           ;
 reg         csr_ui_ex           ;
 reg         csr_ui_mem          ;
 reg  [31:0] tohost              ;
@@ -308,18 +287,15 @@ always @ (*) begin
     else
         csr_data_id = 32'h00000000;
 end
-// `endif
 
 //-----------------------------------------------------------------------------
 // Pipeline FF ID/EX
 // Signals
 reg  [31:0] pc_ex               ; 
-// reg  [ 4:0] rd_addr_ex          ;
 reg  [31:0] rs1_data_ex         ;
 reg  [31:0] rs2_data_ex         ;
 reg  [31:0] csr_data_ex         ; 
 reg  [31:0] imm_gen_out_ex      ;
-// reg  [31:0] inst_ex             ;
 reg         bc_a_sel_fwd_ex     ;
 reg         bcs_b_sel_fwd_ex    ;
 reg         bc_uns_ex           ;
@@ -329,7 +305,6 @@ reg  [ 3:0] alu_op_sel_ex       ;
 reg         dmem_en_ex          ;
 reg         load_sm_en_ex       ;
 reg  [ 1:0] wb_sel_ex           ;
-// reg         reg_we_ex           ;
 
 always @ (posedge clk) begin
     if (rst) begin
@@ -415,13 +390,9 @@ end
 //-----------------------------------------------------------------------------
 // EX stage
 
-//-----------------------------------------------------------------------------
 // Branch Compare
-// wire        bc_uns_ex     ;
 wire [31:0] bc_in_a  = bc_a_sel_fwd_ex  ? writeback : rs1_data_ex;
 wire [31:0] bcs_in_b = bcs_b_sel_fwd_ex ? writeback : rs2_data_ex;
-// wire        bc_out_a_eq_b   ;
-// wire        bc_out_a_lt_b   ;
 
 ama_riscv_branch_compare ama_riscv_branch_compare_i (
     // inputs
@@ -433,9 +404,7 @@ ama_riscv_branch_compare ama_riscv_branch_compare_i (
     .op_a_lt_b  (bc_out_a_lt_b  )
 );
 
-//-----------------------------------------------------------------------------
 // ALU
-// wire [ 3:0] alu_op_sel_ex ;
 wire [31:0] alu_in_a =  (alu_a_sel_fwd_ex == `ALU_A_SEL_RS1)     ?    rs1_data_ex     :
                         (alu_a_sel_fwd_ex == `ALU_A_SEL_PC )     ?    pc_ex           :
                      /* (alu_a_sel_fwd_ex == `ALU_A_SEL_FWD_ALU) ? */ writeback      ;
@@ -443,8 +412,6 @@ wire [31:0] alu_in_a =  (alu_a_sel_fwd_ex == `ALU_A_SEL_RS1)     ?    rs1_data_e
 wire [31:0] alu_in_b =  (alu_b_sel_fwd_ex == `ALU_B_SEL_RS2)     ?    rs2_data_ex     :
                         (alu_b_sel_fwd_ex == `ALU_B_SEL_IMM)     ?    imm_gen_out_ex  :
                      /* (alu_b_sel_fwd_ex == `ALU_B_SEL_FWD_ALU) ? */ writeback      ;
-
-// wire [31:0] alu_out  ;
 
 ama_riscv_alu ama_riscv_alu_i (
     // inputs
@@ -455,7 +422,6 @@ ama_riscv_alu ama_riscv_alu_i (
     .out_s      (alu_out        )
 );
 
-
 //-----------------------------------------------------------------------------
 // Data Memory Space
 // Comprised of DMEM and MM I/O
@@ -463,15 +429,11 @@ assign store_mask_offset        = alu_out[1:0];
 wire [ 4:0] store_byte_shift    = store_mask_offset << 3;           // store_mask converted to byte shifts
 wire [31:0] dms_write_data      = bcs_in_b << store_byte_shift;     // shifts 0, 1, 2 or 3 bytes
 
-//-----------------------------------------------------------------------------
 // MM I/O
-// reg          mmio_reset_cnt     ;   // write    // defined as port
-// reg   [ 7:0] mmio_uart_data_in  ;   // write    // defined as port
-
 wire [31:0] mmio_write_data = dms_write_data;
 wire [13:0] mmio_addr       = alu_out[ 4:2];
-wire        mmio_en         = alu_out[31] && dmem_en_ex;
-wire [ 3:0] mmio_we         = {4{alu_out[31]}} & dmem_we_ex;
+wire        mmio_en         = (alu_out[31:30] == `MMIO_RANGE) && dmem_en_ex;
+wire [ 3:0] mmio_we         = {4{(alu_out[31:30] == `MMIO_RANGE)}} & dmem_we_ex;
 reg  [31:0] mmio_read_data;
 
 assign store_to_uart   = ((store_inst_ex) && (mmio_addr == 3'd2) && (mmio_en) && (mmio_we[0]));
@@ -513,25 +475,21 @@ end
 // DMEM
 assign dmem_write_data     = dms_write_data;
 assign dmem_addr           = alu_out[15:2];
-assign dmem_en             = !alu_out[31] && dmem_en_ex;
-assign dmem_we             = {4{!alu_out[31]}} & dmem_we_ex;
+assign dmem_en             = (alu_out[31:30] == `DMEM_RANGE) && dmem_en_ex;
+assign dmem_we             = {4{(alu_out[31:30] == `DMEM_RANGE)}} & dmem_we_ex;
 
 wire [ 1:0] load_sm_offset_ex   = store_mask_offset;
 
 //-----------------------------------------------------------------------------
 // Pipeline FF EX/MEM
 // Signals
-reg  [31:0] pc_mem              ; 
-reg  [31:0] alu_out_mem         ; 
-// reg  [31:0] alu_in_a_mem        ;
-// wire [31:0] dmem_read_data_mem  ;
-reg  [ 1:0] load_sm_offset_mem  ;
-reg  [31:0] inst_mem            ;
-reg  [31:0] csr_data_mem        ; 
-reg         load_sm_en_mem      ;
-reg  [ 1:0] wb_sel_mem          ;
-// reg  [ 4:0] rd_addr_mem         ;
-// reg         reg_we_mem          ;
+reg [31:0] pc_mem              ; 
+reg [31:0] alu_out_mem         ; 
+reg [ 1:0] load_sm_offset_mem  ;
+reg [31:0] inst_mem            ;
+reg [31:0] csr_data_mem        ; 
+reg        load_sm_en_mem      ;
+reg [ 1:0] wb_sel_mem          ;
 
 always @ (posedge clk) begin
     if (rst) begin
@@ -592,14 +550,19 @@ end
 
 //-----------------------------------------------------------------------------
 // MEM stage
-wire [ 2:0] funct3_mem  = inst_mem[14:12];
+wire [ 2:0] funct3_mem = inst_mem[14:12];
 
 // Load Shift & Mask
-// wire        load_sm_en_mem      ;
-// wire [ 1:0] load_sm_offset_mem  ;
 wire [ 2:0] load_sm_width = funct3_mem;
-wire [31:0] load_sm_data_in = alu_out_mem[31] ? mmio_read_data : dmem_read_data_mem;
-wire [31:0] load_sm_data_out    ;
+wire [31:0] load_sm_data_out;
+reg  [31:0] load_sm_data_in;
+always @ (*) begin
+    case (alu_out_mem[31:30])
+        `DMEM_RANGE: load_sm_data_in = dmem_read_data_mem;
+        `MMIO_RANGE: load_sm_data_in = mmio_read_data;
+        2'b00, 2'b11: load_sm_data_in = 32'h0;
+    endcase
+end
 
 ama_riscv_load_shift_mask ama_riscv_load_shift_mask_i (
     .clk        (clk                ),
@@ -622,22 +585,14 @@ assign writeback = (wb_sel_mem == `WB_SEL_DMEM) ?    load_sm_data_out  :
 
 //-----------------------------------------------------------------------------
 // Pipeline FF MEM/WB
-// Signals
-reg  [31:0] inst_wb ;
-
+reg [31:0] inst_wb;
 always @ (posedge clk) begin
-    if (rst) begin
-        inst_wb <= 32'h0    ;
-    end
-    else if (clear_mem) begin
-        inst_wb <= 32'h0    ;
-    end
-    else begin
-        inst_wb <= inst_mem ;
-    end
+    if (rst) inst_wb <= 32'h0;
+    else if (clear_mem) inst_wb <= 32'h0;
+    else inst_wb <= inst_mem;
 end
 
+// For instruction counter
 assign inst_wb_nop_or_clear = ((inst_wb == `NOP) || (inst_wb[6:0] == 7'd0));
 
 endmodule
-
