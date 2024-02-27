@@ -1,4 +1,4 @@
-//-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Project:         AMA-RISCV
 // Module:          Core Testbench
 // File:            ama_riscv_core_top_tb.v
@@ -58,15 +58,16 @@
 //       - add counters in model
 //       - split regr performance per instruction type (r-type, i-type, load, store, branch, jump etc)
 //
-//-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
 `timescale 1ns/1ps
 `include "ama_riscv_defines.v"
 
 `define CLK_PERIOD 8
-`define STANDALONE
+//`define STANDALONE
 
-`define VERBOSITY 2           // TODO: keep up to 5, add list of choices?, dbg & perf levels?
+// TODO: keep up to 5 verbosity levels, add list of choices?, dbg & perf levels?
+`define VERBOSITY 2           
 `define LOG_MINIMAL
 
 // TB
@@ -105,30 +106,16 @@
 
 module ama_riscv_core_top_tb();
 
-//-----------------------------------------------------------------------------
-// Signals
-
-//-----------------------------------------------------------------------------
-// DUT I/O
-reg          clk = 0;
-reg          rst;
-wire         inst_wb_nop_or_clear   ;
-wire         mmio_reset_cnt         ;
-
-//-----------------------------------------------------------------------------
-// DUT internals for checkers only
-wire dut_internal_branch_taken = `DUT_DEC.branch_res && `DUT_DEC.branch_inst_ex;
-
-//-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Testbench variables
-//
 string test_path;
 
 // Test names
 string riscv_regr_tests[] = {
-    "simple", "add", "sub", "sll", "slt", "sltu", "xor", "srl", "sra", "or", "and", "addi",
-    "slti", "sltiu", "xori", "ori", "andi", "slli", "srli", "srai", "lb", "lh", "lw", "lbu", "lhu",
-    "sb", "sh", "sw", "beq", "bne", "blt", "bge", "bltu", "bgeu", "jalr", "jal", "lui", "auipc" };
+    "simple", "add", "sub", "sll", "slt", "sltu", "xor", "srl", "sra", "or",
+    "and", "addi", "slti", "sltiu", "xori", "ori", "andi", "slli", "srli",
+    "srai", "lb", "lh", "lw", "lbu", "lhu", "sb", "sh", "sw", "beq", "bne",
+    "blt", "bge", "bltu", "bgeu", "jalr", "jal", "lui", "auipc" };
 
 string single_test_name = "add";
 string current_test;
@@ -136,14 +123,12 @@ string current_test;
 int number_of_tests = riscv_regr_tests.size; 
 int regr_num;
 
-integer       i                     ;   // used for all loops
-integer       done                  ;
-integer       isa_passed_dut        ;
-integer       errors                ;
-integer       warnings              ;
-integer       pre_rst_warnings      ;
-reg           errors_for_wave       ;
-wire          tohost_source         ;
+integer i;   // used for all loops
+integer done;
+integer isa_passed_dut;
+integer errors;
+integer warnings;
+wire tohost_source;
 
 // regr flags
 reg dut_regr_status;
@@ -167,12 +152,23 @@ event go_in_reset;
 event reset_end;
 int rst_pulses = 1;
 
-//-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+// DUT I/O
+reg clk = 0;
+reg rst;
+wire inst_wb_nop_or_clear;
+wire mmio_reset_cnt;
+
+//------------------------------------------------------------------------------
+// DUT internals for checkers only
+wire dut_internal_branch_taken = `DUT_DEC.branch_res && `DUT_DEC.branch_inst_ex;
+
+//------------------------------------------------------------------------------
 // DUT instance
 `ifdef CORE_ONLY
     // IMEM
-    wire [31:0] inst_id_read    ;
-    wire [13:0] imem_addr       ;
+    wire [31:0] inst_id_read;
+    wire [13:0] imem_addr;
     // DMEM
     wire [31:0] dmem_write_data;
     wire [13:0] dmem_addr;
@@ -193,22 +189,20 @@ int rst_pulses = 1;
         .dmem_addr          (dmem_addr         ),
         .dmem_en            (dmem_en           ),
         .dmem_we            (dmem_we           )
-        // mmion in   
-//        .mmio_instr_cnt         (mmio_instr_cnt         ),
-//        .mmio_cycle_cnt         (mmio_cycle_cnt         ),
-//        .mmio_uart_data_out     (mmio_uart_data_out     ),
-//        .mmio_data_out_valid    (mmio_data_out_valid    ),
-//        .mmio_data_in_ready     (mmio_data_in_ready     ),
-//        // mmio out
-//        .store_to_uart          (store_to_uart          ),
-//        .load_from_uart         (load_from_uart         ),
-//        .inst_wb_nop_or_clear   (inst_wb_nop_or_clear   ),
-//        .mmio_reset_cnt         (mmio_reset_cnt         ),
-//        .mmio_uart_data_in      (mmio_uart_data_in      )
+        // mmio in   
+        //.mmio_instr_cnt         (mmio_instr_cnt         ),
+        //.mmio_cycle_cnt         (mmio_cycle_cnt         ),
+        //.mmio_uart_data_out     (mmio_uart_data_out     ),
+        //.mmio_data_out_valid    (mmio_data_out_valid    ),
+        //.mmio_data_in_ready     (mmio_data_in_ready     ),
+        //// mmio out
+        //.store_to_uart          (store_to_uart          ),
+        //.load_from_uart         (load_from_uart         ),
+        //.inst_wb_nop_or_clear   (inst_wb_nop_or_clear   ),
+        //.mmio_reset_cnt         (mmio_reset_cnt         ),
+        //.mmio_uart_data_in      (mmio_uart_data_in      )
     );
     // IMEM
-//    ama_riscv_core imem_tb ();
-//    ama_riscv_core dmem_tb ();
     ama_riscv_imem imem_tb (
         .clk   (clk         ),
         .addrb (imem_addr   ),
@@ -233,11 +227,11 @@ int rst_pulses = 1;
     );
 `endif
 
-//-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Performance counters - HW
 
 // Cycle counter
-reg   [31:0] mmio_cycle_cnt         ;
+reg [31:0] mmio_cycle_cnt;
 always @ (posedge clk) begin
     if (rst)
         mmio_cycle_cnt <= 32'd0;
@@ -248,29 +242,30 @@ always @ (posedge clk) begin
 end
 
 // Instruction counter
-reg   [31:0] mmio_instr_cnt         ;
+reg [31:0] mmio_instr_cnt;
 always @ (posedge clk) begin
     if (rst)
         mmio_instr_cnt <= 32'd0;
     else if (mmio_reset_cnt)
         mmio_instr_cnt <= 32'd0;
-    else if (!inst_wb_nop_or_clear)        // prevent counting nop and pipe clear
+    else if (!inst_wb_nop_or_clear) // prevent counting nop and pipe clear
         mmio_instr_cnt <= mmio_instr_cnt + 32'd1;
 end
 
 // Count inserted Clears and NOPs
-reg   [31:0] hw_inserted_nop_or_clear_cnt         ;
+reg [31:0] hw_inserted_nop_or_clear_cnt;
 always @ (posedge clk) begin
     if (rst)
         hw_inserted_nop_or_clear_cnt <= 32'd0;
     else if (mmio_reset_cnt)
         hw_inserted_nop_or_clear_cnt <= 32'd0;
-    else if (`DUT_CORE.stall_if_q1 || `DUT_CORE.clear_mem)    // clear_mem is enough in this implementation, predictor may change this
+    else if (`DUT_CORE.stall_if_q1 || `DUT_CORE.clear_mem)
+        // clear_mem is enough in this implementation, predictor may change this
         hw_inserted_nop_or_clear_cnt <= hw_inserted_nop_or_clear_cnt + 32'd1;
 end
 
 // Count all Clears and NOPs
-reg   [31:0] hw_all_nop_or_clear_cnt         ;
+reg [31:0] hw_all_nop_or_clear_cnt;
 always @ (posedge clk) begin
     if (rst)
         hw_all_nop_or_clear_cnt <= 32'd0;
@@ -280,146 +275,78 @@ always @ (posedge clk) begin
         hw_all_nop_or_clear_cnt <= hw_all_nop_or_clear_cnt + 32'd1;
 end
 
-//-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Clock gen: 125 MHz
-`ifdef STANDALONE
-    always #(`CLK_PERIOD/2) clk = ~clk;
-`else
-    integer fd_clk;
-    reg [0:0] sim_done;
-    initial begin
-        forever begin
-            @ev_load_stim; // wait for test to start
-            fd_clk = $fopen($sformatf("%0s/test_%0s/stim_clk.txt", stim_path, current_test), "r");
-            if (fd_clk) begin
-                `LOG(("From test '%0s' file 'stim_clk' opened: %0d", current_test, fd_clk));
-            end
-            else begin
-               $display("From test '%0s' file 'stim_clk' could not be opened: %0d", current_test, fd_clk);
-               $finish;
-           end
-            
-            ->ev_load_vector;
-            $fscanf(fd_clk, "%d\n", clk); // load first stimuli
-            #(`CLK_PERIOD/2);
-            ->ev_load_vector_done;
-    
-            while (! $feof(fd_clk)) begin
-                $fscanf(fd_clk, "%d\n", clk);
-                #(`CLK_PERIOD/2);
-            end
-            $display("Simulation finished");
-            sim_done=1;
-            $fclose(fd_clk);
-        end
-    end
-`endif
+always #(`CLK_PERIOD/2) clk = ~clk;
 
 // Reset gen
-`ifdef STANDALONE
-    initial begin
-        forever begin
-            @go_in_reset;
+initial begin
+    forever begin
+        @go_in_reset;
+        #1;
+        rst = 1;
+        repeat (rst_pulses) begin
+            @(posedge clk); 
             #1;
-            rst = 1;
-            repeat (rst_pulses) begin
-                 @(posedge clk); #1;
-            end
-            rst = 0;
-            ->reset_end;
         end
+        rst = 0;
+        ->reset_end;
     end
-`else
-    integer fd_rst;
-    initial begin
-        forever begin
-            @ev_load_vector; // wait for test to start
-            fd_rst = $fopen($sformatf("%0s/test_%0s/stim_rst.txt", stim_path, current_test), "r");
-            if (fd_rst) begin
-                `LOG(("From test '%0s' file 'stim_rst' opened: %0d", current_test, fd_rst));
-            end
-            else begin
-               $display("From test '%0s' file 'stim_rst' could not be opened: %0d", current_test, fd_rst);
-               $finish;
-           end
-            
-            while (! $feof(fd_rst)) begin
-                #1;
-                $fscanf(fd_rst, "%d\n", rst);
-                @(posedge clk);
-            end
-            $fclose(fd_rst);
-        end
-    end
-`endif
+end
 
-//-----------------------------------------------------------------------------
-// Import vectors
-`ifndef STANDALONE
-    `include "vector_import.sv"
-`endif
-
-//-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Testbench tasks
 task load_single_test;
-    begin current_test = single_test_name; load_memories(current_test); end
+    begin
+        current_test = single_test_name;
+        load_memories(current_test);
+    end
 endtask
 
 task load_test;
     input integer t_in_test_num;
-    begin current_test = riscv_regr_tests[t_in_test_num]; load_memories(current_test); end
+    begin 
+        current_test = riscv_regr_tests[t_in_test_num];
+        load_memories(current_test);
+    end
 endtask
 
 task load_memories;
     input string name_i;
     begin 
-        $readmemh($sformatf("%0s%0s.hex", test_path, name_i), `DUT_IMEM, 0, `MEM_SIZE-1);
-        $readmemh($sformatf("%0s%0s.hex", test_path, name_i), `DUT_DMEM, 0, `MEM_SIZE-1);
+        $readmemh($sformatf("%0s%0s.hex", test_path, name_i),
+                  `DUT_IMEM, 0, `MEM_SIZE-1);
+        $readmemh($sformatf("%0s%0s.hex", test_path, name_i),
+                  `DUT_DMEM, 0, `MEM_SIZE-1);
     end
 endtask
 
 task print_test_status;
     input test_run_success;
     begin
-        $display("----------------------- Test results -----------------------");
         if (!test_run_success) begin
             $display("Test timed out");
-        end
-        else begin 
+        end else begin 
             $display("Test ran to completion");
-`ifdef STANDALONE      
-            $display("Status - DUT-ISA: ");
-            if(isa_passed_dut == 1) begin
-                $display("    Passed");
-            end
-            else begin
-                $display("    Failed");
-                $display("    Failed test # : %0d", `DUT_CORE.tohost[31:1]);
-            end
-`else // compare against vectors
-            $display("Status - DUT-Model:");
-            if(!errors)
-                $display("    Passed");
-            else
-                $display("    Failed");
-`endif            
-            // $display("    Pre RST Warnings: %2d", pre_rst_warnings);
-            $display("    Warnings: %2d", warnings /* - pre_rst_warnings*/);
-            $display("    Errors:   %2d", errors);
+            $display("Warnings: %2d", warnings);
+            $display("Errors:   %2d", errors);
             
-//            if(`VERBOSITY >= 2) begin
-//                $display("\n\n------------------------ HW Performance --------------------------\n");
-//                $display("Cycle counter: %0d", mmio_cycle_cnt);
-//                $display("Instr counter: %0d", mmio_instr_cnt);
-//                $display("Empty cycles:  %0d", mmio_cycle_cnt - mmio_instr_cnt);
-//                $display("          CPI: %0.3f", real(mmio_cycle_cnt)/real(mmio_instr_cnt));
-//                $display("  HW only CPI: %0.3f", real(mmio_cycle_cnt - (hw_all_nop_or_clear_cnt - hw_inserted_nop_or_clear_cnt))/real(mmio_instr_cnt));
-//                $display("\nHW Inserted NOPs and Clears: %0d", hw_inserted_nop_or_clear_cnt);
-//                $display(  "All NOPs and Clears:         %0d", hw_all_nop_or_clear_cnt);
-//                $display(  "Compiler Inserted NOPs:      %0d", hw_all_nop_or_clear_cnt - hw_inserted_nop_or_clear_cnt);
-//            end
+            $write("Status - DUT-ISA: ");
+            if(isa_passed_dut == 1) $display("Passed");
+            else $display("Failed test # : %0d", `DUT_CORE.tohost[31:1]);
+            
+            //if(`VERBOSITY >= 2) begin
+            //    $display("\n\n------------------------ HW Performance --------------------------\n");
+            //    $display("Cycle counter: %0d", mmio_cycle_cnt);
+            //    $display("Instr counter: %0d", mmio_instr_cnt);
+            //    $display("Empty cycles:  %0d", mmio_cycle_cnt - mmio_instr_cnt);
+            //    $display("          CPI: %0.3f", real(mmio_cycle_cnt)/real(mmio_instr_cnt));
+            //    $display("  HW only CPI: %0.3f", real(mmio_cycle_cnt - (hw_all_nop_or_clear_cnt - hw_inserted_nop_or_clear_cnt))/real(mmio_instr_cnt));
+            //    $display("\nHW Inserted NOPs and Clears: %0d", hw_inserted_nop_or_clear_cnt);
+            //    $display(  "All NOPs and Clears:         %0d", hw_all_nop_or_clear_cnt);
+            //    $display(  "Compiler Inserted NOPs:      %0d", hw_all_nop_or_clear_cnt - hw_inserted_nop_or_clear_cnt);
+            //end
         end
-        $display("--------------------- End of the test results ----------------------");
     end
 endtask
 
@@ -442,13 +369,12 @@ task print_regr_status;
     integer cnt;
     begin
         $display("\n\n------------------------- Regression PASS/FAIL status ----------------------------\n");
-        
-        $display("DUT regr status:   %0s", dut_regr_status   ? "Passed" : "Failed");
+        $display("DUT regr status: %0s", dut_regr_status ? "PASS" : "FAIL");
         if(!dut_regr_status) begin
             for(cnt = 0; cnt < isa_failed_dut_cnt; cnt = cnt + 1)
-                $display("    DUT failed test #%0d, %0s", cnt, dut_regr_array[cnt]);
+                $display("    DUT failed test #%0d, %0s", 
+                         cnt, dut_regr_array[cnt]);
         end
-
         $display("\n-------------------- End of the Regression status ----------------------\n");
     end
 endtask
@@ -482,43 +408,38 @@ endtask
 //     end
 // endtask
 
-task checker_t;
-    input string checker_name;
-    input reg checker_active;
-    // input reg  [ 5:0]   checker_width           ;
-    input reg  [31:0]   checker_dut_signal      ;
-    input reg  [31:0]   checker_model_signal    ;
-    
-    begin
-        if (checker_active == 1) begin
-            if (checker_dut_signal !== checker_model_signal) begin
-                $display("*ERROR @ %0t. Checker: \"%0s\"; DUT: %0d, Model: %0d ", 
-                    $time-`CHECK_DELAY, checker_name, checker_dut_signal, checker_model_signal);
-                errors = errors + 1;
-            end // checker compare
-        end // checker valid
-    end
-endtask
+//task checker_t;
+//    input string checker_name;
+//    input reg checker_active;
+//    // input reg  [ 5:0]   checker_width           ;
+//    input reg  [31:0]   checker_dut_signal      ;
+//    input reg  [31:0]   checker_model_signal    ;
+//    
+//    begin
+//        if (checker_active == 1) begin
+//            if (checker_dut_signal !== checker_model_signal) begin
+//                $display("*ERROR @ %0t. Checker: \"%0s\"; DUT: %0d, Model: %0d ", 
+//                    $time-`CHECK_DELAY, checker_name, checker_dut_signal, checker_model_signal);
+//                errors = errors + 1;
+//            end // checker compare
+//        end // checker valid
+//    end
+//endtask
 
-// checkers task
-`ifndef STANDALONE
-    `include "checkers_task.sv"
-`endif
+//`ifndef STANDALONE
+//    `include "checkers_task.sv"
+//`endif
 
 task reset_tb_vars;
     begin
-        `ifndef STANDALONE
-            sim_done            = 0;
-        `endif
-        errors              = 0;
-        errors_for_wave     = 1'b0;
-        warnings            = 0;
-        done                = 0;
-        isa_passed_dut      = 0;
+        errors = 0;
+        warnings = 0;
+        done = 0;
+        isa_passed_dut = 0;
     end
 endtask
 
-//-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Config
 
 // Logging to the file
@@ -546,14 +467,14 @@ endtask
 
 // Initial setup
 initial begin
-    //Prints %t scaled in ns (-9), with 2 precision digits, with the " ns" string
+    // set %t scaled in ns (-9), with 2 precision digits, with the " ns" string
     $timeformat(-9, 2, " ns", 20);
-//    perf_cnt_cycle         = 0;
-//    perf_cnt_instr         = 0;
-//    perf_cnt_empty_cycles  = 0;
-//    perf_cnt_all_nops      = 0;
-//    perf_cnt_hw_nops       = 0;
-//    perf_cnt_compiler_nops = 0;
+    //perf_cnt_cycle         = 0;
+    //perf_cnt_instr         = 0;
+    //perf_cnt_empty_cycles  = 0;
+    //perf_cnt_all_nops      = 0;
+    //perf_cnt_hw_nops       = 0;
+    //perf_cnt_compiler_nops = 0;
     dut_regr_status        = 1'b1; 
     isa_failed_dut_cnt     = 0;     
     reset_tb_vars();
@@ -573,7 +494,7 @@ end
 
 assign tohost_source = `DUT_CORE.tohost[0];
 
-//-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Test
 initial begin
     if (! $value$plusargs("test_path=%s", test_path)) begin
@@ -582,35 +503,25 @@ initial begin
     end
 
     $display("\n----------------------- Simulation started -----------------------\n");
-
     regr_num = (`SINGLE_TEST) ? 1 : number_of_tests;
-
     while(i < regr_num) begin
         if (regr_num == 1) load_single_test();
         else load_test(i);
-
         i = i + 1;
-        `ifdef STANDALONE
-            ->go_in_reset;
-            @reset_end;
-        `else
-            ->ev_load_stim; // load stim and chk vectors 
-            @ev_load_vector_done; // and wait for all loads to finish
-        `endif
-        
-        //-----------------------------------------------------------------------------
-        // Test
-        $display("Test Start: %0s ", current_test);
 
+        // handle reset
+        ->go_in_reset;
+        @reset_end;
+        
+        $display("\n----------------------- Test Start: %0s -----------------------", current_test);
         // catch timeout
         fork
             begin
-                $display("----------------------- Execution started -----------------------");
                 while (tohost_source !== 1'b1) begin
                     @(posedge clk); #1;
-                    `ifndef STANDALONE
-                        if (rst == 0) run_checkers;
-                    `endif
+                    //`ifndef STANDALONE
+                    //    if (rst == 0) run_checkers;
+                    //`endif
                     //print_single_instruction_results();
                 end
                 done = 1;
@@ -619,7 +530,7 @@ initial begin
                 repeat(`TIMEOUT_CLOCKS) begin
                     if (!done) @(posedge clk);
                 end
-                if (!done) begin    // timed-out
+                if (!done) begin // timed-out
                     print_test_status(done);
                     $finish();
                 end
@@ -637,29 +548,19 @@ initial begin
         end
         
         // store regr flags
-        dut_regr_status = dut_regr_status && isa_passed_dut  ;
-
-        `ifndef STANDALONE
-            // wait for stimuli to end
-            @(posedge sim_done);
-        `endif
+        dut_regr_status = dut_regr_status && isa_passed_dut;
         print_test_status(done);
-
-        $display("Test Done: %0s ", current_test); 
-        
-//        store_perf_counters();
+        $display("----------------------- Test Done: %0s -----------------------", current_test);
+        //store_perf_counters();
         reset_tb_vars();
         
-    end // end looping thru tests
+    end // while(i < regr_num)
     
     if (`SINGLE_TEST == 0) begin
         $display("-------------------------- Regr Done -----------------------------");
         print_regr_status();
         // CPI print
-//        print_perf_status_hw();
-    end
-    else begin
-        $display("-------------------------- Test Done -----------------------------");
+        //print_perf_status_hw();
     end
     
     $display("\n--------------------- End of the simulation ----------------------\n");
@@ -668,4 +569,3 @@ initial begin
 end // test
 
 endmodule
-
