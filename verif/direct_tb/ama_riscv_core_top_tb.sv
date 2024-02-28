@@ -1,67 +1,7 @@
-//------------------------------------------------------------------------------
-// Project:         AMA-RISCV
-// Module:          Core Testbench
-// File:            ama_riscv_core_top_tb.v
-// Date created:    2021-09-11
-// Author:          Aleksandar Lilic
-// Description:     Testbench and model for ama_riscv_core_top module
-//
-// SPDX-License-Identifier: GPL-3.0-or-later
-//
-// Test covers following scenarios:
-// 
-// Version history:
-//      2021-09-11  AL  0.1.0 - Initial - IF stage
-//      2021-09-13  AL  0.2.0 - Add model - IF stage
-//      2021-09-13  AL  0.3.0 - Add checker - IF stage
-//      2021-09-14  AL  0.4.0 - WIP - Add model - ID stage
-//      2021-09-15  AL  0.5.0 - WIP - Add imm_gen and decoder model - ID stage
-//      2021-09-16  AL  0.6.0 - Add reset sequence
-//      2021-09-17  AL  0.7.0 - Rework checkers
-//      2021-09-17  AL  0.8.0 - Add ID/EX stage FF checkers
-//      2021-09-18  AL  0.8.1 - Fix ID stage names
-//      2021-09-18  AL  0.8.2 - Fix PC notation - match RTL
-//      2021-09-18  AL  0.9.0 - Add ID/EX pipeline signals and Branch Compare model
-//      2021-09-18  AL 0.10.0 - Add ALU and Branch Resolution models and checkers
-//      2021-09-19  AL 0.11.0 - Add DMEM model and checkers
-//      2021-09-20  AL 0.12.0 - Add core 0.1.0 test arrays
-//      2021-09-21  AL 0.12.1 - Fix store_inst_ex
-//      2021-09-21  AL 0.13.0 - Add EX/MEM pipeline signals
-//      2021-09-21  AL 0.14.0 - Add MEM stage and Writeback
-//      2021-09-22  AL 0.15.0 - Add RF forwarding - pending proper implementation
-//      2021-09-27  AL 0.16.0 - Add RF forwarding and checkers
-//      2021-10-02  AL 0.17.0 - Add CSRRW and CSRRWI
-//                              Fix RF forwarding for Branch and Store
-//                              Fix Store Mask for sb and sh
-//                              Fix bcs_fwd in ID/EX FF
-//                              Add RF checkers
-//                              Add tohost checker
-//      2021-10-09  AL 0.18.0 - Add load_inst_ex
-//      2021-10-10  AL 0.19.0 - Add inst and cycle counters, performance evaluation
-//      2021-10-11  AL 0.20.0 - Add Branch Compare inputs as global signals
-//      2021-10-26  AL 0.21.0 - Add model as include
-//      2021-10-29  AL 0.22.0 - WIP - Add disassembler - R-type
-//      2021-10-30  AL        - WIP - DASM - add I-type
-//      2021-10-31  AL        - WIP - DASM - add Load, S-type, B-type
-//      2021-11-01  AL 0.22.1 - Fix model calls - separate block
-//      2021-11-04  AL 0.23.0 - Add stall on forwarding from load
-//      2021-11-04  AL 0.24.0 - Add regr for all ISA tests
-//      2021-11-04  AL 0.25.0 - Add single test option
-//      2021-11-05  AL 0.26.0 - Add regr test status arrays, verbosity switch
-//      2021-11-09  AL 0.27.0 - Add model performance counters
-//
-//      TODO list:
-//       - add basic disassembler to convert back instructions to asm format
-//          - handling pseudo ops? other than NOP
-//       - add switch for groups (r-type, i-type, branches, etc)
-//       - add checker IDs, print on exit number of samples checked and results
-//       - add counters in model
-//       - split regr performance per instruction type (r-type, i-type, load, store, branch, jump etc)
-//
-//------------------------------------------------------------------------------
-
 `timescale 1ns/1ps
+
 `include "ama_riscv_defines.v"
+`include "ama_riscv_perf.svh"
 
 `define CLK_PERIOD 8
 //`define STANDALONE
@@ -69,12 +9,13 @@
 // TODO: keep up to 5 verbosity levels, add list of choices?, dbg & perf levels?
 `define VERBOSITY 2           
 `define LOG_MINIMAL
+`define DELIM "-----------------------"
 
 // TB
-`define CHECKER_ACTIVE      1'b1
-`define CHECKER_INACTIVE    1'b0
-`define CHECK_DELAY         1
-`define TIMEOUT_CLOCKS      5000
+//`define CHECKER_ACTIVE 1'b1
+//`define CHECKER_INACTIVE 1'b0
+//`define CHECK_DELAY 1
+`define TIMEOUT_CLOCKS 5000
 
 `ifdef LOG_MINIMAL
     `define LOG(x) 
@@ -86,19 +27,19 @@
 `define CORE_ONLY
 
 `ifdef CORE_ONLY
-    `define DUT      DUT_ama_riscv_core_i
+    `define DUT DUT_ama_riscv_core_i
     `define DUT_IMEM imem_tb.mem
     `define DUT_DMEM dmem_tb.mem
     `define DUT_CORE `DUT
 `else // CORE_TOP
-    `define DUT      DUT_ama_riscv_core_top_i
+    `define DUT DUT_ama_riscv_core_top_i
     `define DUT_IMEM `DUT.ama_riscv_imem_i.mem
     `define DUT_DMEM `DUT.ama_riscv_dmem_i.mem
     `define DUT_CORE `DUT.ama_riscv_core_i
 `endif
 
-`define DUT_DEC  `DUT_CORE.ama_riscv_control_i.ama_riscv_decoder_i
-`define DUT_RF   `DUT_CORE.ama_riscv_reg_file_i
+`define DUT_DEC `DUT_CORE.ama_riscv_control_i.ama_riscv_decoder_i
+`define DUT_RF `DUT_CORE.ama_riscv_reg_file_i
 
 `define TOHOST_PASS 32'd1
 
@@ -123,7 +64,7 @@ string current_test;
 int number_of_tests = riscv_regr_tests.size; 
 int regr_num;
 
-integer i;   // used for all loops
+integer i; // used for all loops
 integer done;
 integer isa_passed_dut;
 integer errors;
@@ -134,14 +75,6 @@ wire tohost_source;
 reg dut_regr_status;
 string dut_regr_array [37:0]; // TODO: convert this to queue
 int isa_failed_dut_cnt;
-
-// performance counters
-// integer       perf_cnt_cycle        ;
-// integer       perf_cnt_instr        ;
-// integer       perf_cnt_empty_cycles ;
-// integer       perf_cnt_all_nops     ;
-// integer       perf_cnt_hw_nops      ;
-// integer       perf_cnt_compiler_nops;
 
 // events
 event ev_rst [1:0];
@@ -156,12 +89,14 @@ int rst_pulses = 1;
 // DUT I/O
 reg clk = 0;
 reg rst;
+//wire mmio_instr_cnt;
+//wire mmio_cycle_cnt;
 wire inst_wb_nop_or_clear;
 wire mmio_reset_cnt;
 
 //------------------------------------------------------------------------------
 // DUT internals for checkers only
-wire dut_internal_branch_taken = `DUT_DEC.branch_res && `DUT_DEC.branch_inst_ex;
+//wire dut_internal_branch_taken = `DUT_DEC.branch_res && `DUT_DEC.branch_inst_ex;
 
 //------------------------------------------------------------------------------
 // DUT instance
@@ -191,7 +126,7 @@ wire dut_internal_branch_taken = `DUT_DEC.branch_res && `DUT_DEC.branch_inst_ex;
         .dmem_we            (dmem_we           )
         // mmio in   
         //.mmio_instr_cnt         (mmio_instr_cnt         ),
-        //.mmio_cycle_cnt         (mmio_cycle_cnt         ),
+        //.mmio_cycle_cnt         (mmio_cycle_cnt         )
         //.mmio_uart_data_out     (mmio_uart_data_out     ),
         //.mmio_data_out_valid    (mmio_data_out_valid    ),
         //.mmio_data_in_ready     (mmio_data_in_ready     ),
@@ -226,54 +161,6 @@ wire dut_internal_branch_taken = `DUT_DEC.branch_res && `DUT_DEC.branch_inst_ex;
         .mmio_reset_cnt         (mmio_reset_cnt         )
     );
 `endif
-
-//------------------------------------------------------------------------------
-// Performance counters - HW
-
-// Cycle counter
-reg [31:0] mmio_cycle_cnt;
-always @ (posedge clk) begin
-    if (rst)
-        mmio_cycle_cnt <= 32'd0;
-    else if (mmio_reset_cnt)
-        mmio_cycle_cnt <= 32'd0;
-    else
-        mmio_cycle_cnt <= mmio_cycle_cnt + 32'd1;
-end
-
-// Instruction counter
-reg [31:0] mmio_instr_cnt;
-always @ (posedge clk) begin
-    if (rst)
-        mmio_instr_cnt <= 32'd0;
-    else if (mmio_reset_cnt)
-        mmio_instr_cnt <= 32'd0;
-    else if (!inst_wb_nop_or_clear) // prevent counting nop and pipe clear
-        mmio_instr_cnt <= mmio_instr_cnt + 32'd1;
-end
-
-// Count inserted Clears and NOPs
-reg [31:0] hw_inserted_nop_or_clear_cnt;
-always @ (posedge clk) begin
-    if (rst)
-        hw_inserted_nop_or_clear_cnt <= 32'd0;
-    else if (mmio_reset_cnt)
-        hw_inserted_nop_or_clear_cnt <= 32'd0;
-    else if (`DUT_CORE.stall_if_q1 || `DUT_CORE.clear_mem)
-        // clear_mem is enough in this implementation, predictor may change this
-        hw_inserted_nop_or_clear_cnt <= hw_inserted_nop_or_clear_cnt + 32'd1;
-end
-
-// Count all Clears and NOPs
-reg [31:0] hw_all_nop_or_clear_cnt;
-always @ (posedge clk) begin
-    if (rst)
-        hw_all_nop_or_clear_cnt <= 32'd0;
-    else if (mmio_reset_cnt)
-        hw_all_nop_or_clear_cnt <= 32'd0;
-    else if (inst_wb_nop_or_clear)
-        hw_all_nop_or_clear_cnt <= hw_all_nop_or_clear_cnt + 32'd1;
-end
 
 //------------------------------------------------------------------------------
 // Clock gen: 125 MHz
@@ -332,66 +219,25 @@ task print_test_status;
             $display("Errors:   %2d", errors);
             
             $write("Status - DUT-ISA: ");
-            if(isa_passed_dut == 1) $display("Passed");
+            if (isa_passed_dut == 1) $display("Passed");
             else $display("Failed test # : %0d", `DUT_CORE.tohost[31:1]);
-            
-            //if(`VERBOSITY >= 2) begin
-            //    $display("\n\n------------------------ HW Performance --------------------------\n");
-            //    $display("Cycle counter: %0d", mmio_cycle_cnt);
-            //    $display("Instr counter: %0d", mmio_instr_cnt);
-            //    $display("Empty cycles:  %0d", mmio_cycle_cnt - mmio_instr_cnt);
-            //    $display("          CPI: %0.3f", real(mmio_cycle_cnt)/real(mmio_instr_cnt));
-            //    $display("  HW only CPI: %0.3f", real(mmio_cycle_cnt - (hw_all_nop_or_clear_cnt - hw_inserted_nop_or_clear_cnt))/real(mmio_instr_cnt));
-            //    $display("\nHW Inserted NOPs and Clears: %0d", hw_inserted_nop_or_clear_cnt);
-            //    $display(  "All NOPs and Clears:         %0d", hw_all_nop_or_clear_cnt);
-            //    $display(  "Compiler Inserted NOPs:      %0d", hw_all_nop_or_clear_cnt - hw_inserted_nop_or_clear_cnt);
-            //end
         end
     end
 endtask
-
-// task print_perf_status_hw;
-//     begin
-//         $display("\n\n--------------------- Regression Performace stats ------------------------\n");
-//         $display("Cycle counter: %0d", perf_cnt_cycle);
-//         $display("Instr counter: %0d", perf_cnt_instr);
-//         $display("Empty cycles:  %0d", perf_cnt_empty_cycles);
-//         $display("          CPI: %0.3f", real(perf_cnt_cycle)/real(perf_cnt_instr));
-//         $display("  HW only CPI: %0.3f", real(perf_cnt_cycle - perf_cnt_compiler_nops)/real(perf_cnt_instr));
-//         $display("\nHW Inserted NOPs and Clears: %0d", perf_cnt_hw_nops);
-//         $display(  "All NOPs and Clears:         %0d", perf_cnt_all_nops);
-//         $display(  "Compiler Inserted NOPs:      %0d", perf_cnt_compiler_nops);
-//         $display("\n--------------------- End of the regression performance stats ----------------------\n");
-//     end
-// endtask
 
 task print_regr_status;
     integer cnt;
     begin
-        $display("\n\n------------------------- Regression PASS/FAIL status ----------------------------\n");
+        $display("\n\n===> Regression status: ");
         $display("DUT regr status: %0s", dut_regr_status ? "PASS" : "FAIL");
-        if(!dut_regr_status) begin
-            for(cnt = 0; cnt < isa_failed_dut_cnt; cnt = cnt + 1)
+        if (!dut_regr_status) begin
+            for (cnt = 0; cnt < isa_failed_dut_cnt; cnt = cnt + 1)
                 $display("    DUT failed test #%0d, %0s", 
                          cnt, dut_regr_array[cnt]);
         end
-        $display("\n-------------------- End of the Regression status ----------------------\n");
+        $display("");
     end
 endtask
-
-// task store_perf_counters;
-//     begin
-//         perf_cnt_cycle          = perf_cnt_cycle + mmio_cycle_cnt;
-//         perf_cnt_instr          = perf_cnt_instr + mmio_instr_cnt;
-//         
-//         perf_cnt_empty_cycles   = perf_cnt_empty_cycles + (mmio_cycle_cnt - mmio_instr_cnt);
-//         
-//         perf_cnt_all_nops       = perf_cnt_all_nops + hw_all_nop_or_clear_cnt;
-//         perf_cnt_hw_nops        = perf_cnt_hw_nops + hw_inserted_nop_or_clear_cnt;
-//         perf_cnt_compiler_nops  = perf_cnt_compiler_nops + (hw_all_nop_or_clear_cnt - hw_inserted_nop_or_clear_cnt);
-//         
-//     end
-// endtask
 
 // task print_single_instruction_results;
 //     integer last_pc;
@@ -442,15 +288,6 @@ endtask
 //------------------------------------------------------------------------------
 // Config
 
-// Logging to the file
-// Open file
-// integer fd;
-// initial begin
-//     fd = $fopen({`LOG_PATH, `"log.txt`"}, "w");
-//     if (fd) $display("Log write file opened: %0d", fd);
-//     else $display("Log write file could not be opened: %0d", fd);
-// end
-
 // Log to file
 // integer lclk_cnt = 0;
 // initial begin
@@ -469,19 +306,13 @@ endtask
 initial begin
     // set %t scaled in ns (-9), with 2 precision digits, with the " ns" string
     $timeformat(-9, 2, " ns", 20);
-    //perf_cnt_cycle         = 0;
-    //perf_cnt_instr         = 0;
-    //perf_cnt_empty_cycles  = 0;
-    //perf_cnt_all_nops      = 0;
-    //perf_cnt_hw_nops       = 0;
-    //perf_cnt_compiler_nops = 0;
-    dut_regr_status        = 1'b1; 
-    isa_failed_dut_cnt     = 0;     
+    dut_regr_status = 1'b1; 
+    isa_failed_dut_cnt = 0;     
     reset_tb_vars();
+    i = 0;
     for (i = 0; i < number_of_tests; i = i + 1) begin
         dut_regr_array[i] = "N/A";
     end
-    i = 0;
 end
 
 // Timestamp print
@@ -493,6 +324,7 @@ end
 // end
 
 assign tohost_source = `DUT_CORE.tohost[0];
+perf_stats stats;
 
 //------------------------------------------------------------------------------
 // Test
@@ -501,10 +333,12 @@ initial begin
         $error("test_path not defined");
         $finish();
     end
+    stats = new();
 
-    $display("\n----------------------- Simulation started -----------------------\n");
+    $display($sformatf("%0s Simulation started %0s", `DELIM, `DELIM));
     regr_num = (`SINGLE_TEST) ? 1 : number_of_tests;
-    while(i < regr_num) begin
+    i = 0;
+    while (i < regr_num) begin
         if (regr_num == 1) load_single_test();
         else load_test(i);
         i = i + 1;
@@ -513,12 +347,13 @@ initial begin
         ->go_in_reset;
         @reset_end;
         
-        $display("\n----------------------- Test Start: %0s -----------------------", current_test);
+        $display("\n===> Test Start: %0s", current_test);
         // catch timeout
         fork
             begin
                 while (tohost_source !== 1'b1) begin
                     @(posedge clk); #1;
+                    stats.update(`DUT_CORE.inst_wb);
                     //`ifndef STANDALONE
                     //    if (rst == 0) run_checkers;
                     //`endif
@@ -527,7 +362,7 @@ initial begin
                 done = 1;
             end
             begin
-                repeat(`TIMEOUT_CLOCKS) begin
+                repeat (`TIMEOUT_CLOCKS) begin
                     if (!done) @(posedge clk);
                 end
                 if (!done) begin // timed-out
@@ -550,20 +385,16 @@ initial begin
         // store regr flags
         dut_regr_status = dut_regr_status && isa_passed_dut;
         print_test_status(done);
-        $display("----------------------- Test Done: %0s -----------------------", current_test);
-        //store_perf_counters();
+        stats.display();
+        //stats.compare_dut(mmio_cycle_cnt, mmio_instr_cnt);
+        $display("===> Test Done: %0s", current_test);
         reset_tb_vars();
         
     end // while(i < regr_num)
     
-    if (`SINGLE_TEST == 0) begin
-        $display("-------------------------- Regr Done -----------------------------");
-        print_regr_status();
-        // CPI print
-        //print_perf_status_hw();
-    end
+    if (`SINGLE_TEST == 0) print_regr_status();
     
-    $display("\n--------------------- End of the simulation ----------------------\n");
+    $display($sformatf("%0s End of the simulation %0s", `DELIM, `DELIM));
     $finish();
     
 end // test
