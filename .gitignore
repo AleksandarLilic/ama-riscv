@@ -31,5 +31,6 @@ xcrg_*_cov_report
 .vscode/
 .vscode-ctags
 
-# run scripts
+# run artefacts
 run_cfg*.tcl
+rv_test
