@@ -30,10 +30,10 @@ elab: .elab.touchfile
 
 sim: .elab.touchfile
 	@echo "Running simulation"
-	xsim $(TOP) -tclbatch $(REPO_ROOT)/$(TCLBATCH) -stats -onerror quit -testplusarg test_path=$(TEST_PATH) -log test.log > /dev/null 2>&1
+	xsim $(TOP) -tclbatch $(REPO_ROOT)/$(TCLBATCH) -stats -onerror quit -testplusarg test_path=$(REPO_ROOT)/$(TEST_PATH) -log test.log > /dev/null 2>&1
 	@touch .sim.touchfile
 	@echo "Simulation done"
-	@grep "DUT regr status:" test.log
+	@grep "PASS\|FAIL" test.log
 
 clean:
 	rm -rf .*touchfile
