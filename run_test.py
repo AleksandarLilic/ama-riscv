@@ -90,8 +90,19 @@ def run_test(test_path, run_dir, build_dir):
         status_file.write(status)
         print(status)
 
+def print_runtime(start_time, process_name):
+    end_time = datetime.datetime.now()
+    elapsed_time = end_time - start_time
+    hours, remainder = divmod(elapsed_time.seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    print(f"{process_name} runtime: ", end="")
+    if hours:
+        print(f"{hours}h {minutes}m {seconds}s")
+    else:
+        print(f"{minutes}m {seconds}s")
+
 def main():
-    start_time = datetime.datetime.now()
+    start_time_suite = datetime.datetime.now()
     args = parse_args()
 
     # check arguments
@@ -133,10 +144,12 @@ def main():
         os.symlink(makefile_path, linked_makefile_path)
 
         print("Building...")
+        start_time = datetime.datetime.now()
         make_build_log = subprocess.run(["make", "elab"],
                                         stdout=subprocess.PIPE,
                                         stderr=subprocess.PIPE,
                                         cwd=build_dir)
+        print_runtime(start_time, "Build")
         check_make_status(make_build_log, "build")
         print("Build DONE.")
     
@@ -150,10 +163,12 @@ def main():
     # run tests in parallel
     random.seed(5)
     #sv_seed = args.seed if args.seed is not None else random.randint(0, 2**32 - 1)
+    start_time = datetime.datetime.now()
     with multiprocessing.Pool(min(args.jobs,MAX_WORKERS)) as pool:
         # create a partial function with all fixed arguments except test_name
         partial_run_test = functools.partial(run_test, run_dir=run_dir, build_dir=build_dir)
         pool.map(partial_run_test, all_tests)
+    print_runtime(start_time, "Simulation")
     
     # check test suite results
     all_tests_passed = True
@@ -176,22 +191,13 @@ def main():
             print(f"Status for <{test_name}> not found.")
             all_tests_passed = False
     
-    print(f"\nTest suite DONE. Pass rate: {tests_passed}/{tests_num} passed")
+    print(f"\nTest suite DONE. Pass rate: {tests_passed}/{tests_num} passed;", end=" ")
     if all_tests_passed:
-        print("\nTest suite PASSED.\n")
+        print("Test suite PASSED.\n")
     else:
-        print("\nTest suite FAILED.\n")
+        print("Test suite FAILED.\n")
     
-    end_time = datetime.datetime.now()
-    elapsed_time = end_time - start_time
-    hours, remainder = divmod(elapsed_time.seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    
-    print("Test suite runtime:")
-    if hours:
-        print(f"Runtime: {hours}h {minutes}m {seconds}s")
-    else:
-        print(f"Runtime: {minutes}m {seconds}s")
+    print_runtime(start_time_suite, "Test suite")
     print()
 
 if __name__ == "__main__":
