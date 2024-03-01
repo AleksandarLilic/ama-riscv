@@ -13,7 +13,7 @@ RUN_CFG = "run_cfg_suite.tcl"
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Run RTL simulation.')
-    #parser.add_argument('-t', '--test', action='append', help='Specify the tests to run')
+    parser.add_argument('-t', '--test', help='Specify single test to run')
     parser.add_argument('--testlist', help='Path to a JSON file containing a list of tests')
     parser.add_argument('--rundir', help='Optional custom run directory name')
     parser.add_argument('--keep-build', action='store_true', help='Reuse existing build directory if available')
@@ -76,10 +76,11 @@ def run_test(test_path, run_dir, build_dir):
         shutil.rmtree(test_dir)
     shutil.copytree(build_dir, test_dir, symlinks=True)
     make_status = subprocess.run(["make", "sim",
-                                  f"TEST_PATH={test_path}",
-                                  f"TCLBATCH={RUN_CFG}"],
-                                  stdout=subprocess.DEVNULL,
-                                  cwd=test_dir)
+                                 f"TEST_PATH={test_path}",
+                                 f"TCLBATCH={RUN_CFG}"],
+                                 stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE,
+                                 cwd=test_dir)
     print(f"Test <{test_name}> DONE.", end=" ")
     check_make_status(make_status, f"run test <{test_name}>")
     # write to test.status
@@ -94,11 +95,16 @@ def main():
     args = parse_args()
 
     # check arguments
-    #if args.test and args.testlist:
-    #    raise ValueError("Cannot use both -t|--test and --testlist. Choose one.")
+    if args.test and args.testlist:
+        raise ValueError("Cannot use both -t|--test and --testlist. Choose one.")
     
     create_run_cfg(args.log_wave)
-    all_tests = find_all_tests(read_from_json(args.testlist))
+    if args.test:
+        all_tests = find_all_tests([[os.path.dirname(args.test),os.path.basename(args.test)]])
+    elif args.testlist:
+        all_tests = find_all_tests(read_from_json(args.testlist))
+    else:
+        raise ValueError("Error: No test specified.")
     
     print(f"\nRunning {len(all_tests)} tests:")
     for t in all_tests:
@@ -126,8 +132,13 @@ def main():
         linked_makefile_path = os.path.join(build_dir, "Makefile")
         os.symlink(makefile_path, linked_makefile_path)
 
-        make_status = subprocess.run(["make", "elab"], cwd=build_dir)
-        check_make_status(make_status, "build")
+        print("Building...")
+        make_build_log = subprocess.run(["make", "elab"],
+                                        stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE,
+                                        cwd=build_dir)
+        check_make_status(make_build_log, "build")
+        print("Build DONE.")
     
     # check if the specified number of jobs exceeds the number of CPU cores
     if args.jobs < 1:
@@ -184,5 +195,5 @@ def main():
     print()
 
 if __name__ == "__main__":
-    MAX_WORKERS = int(os.cpu_count()/2) # most likely 1C/2T, fastest simulation as measured
+    MAX_WORKERS = int(os.cpu_count())
     main()

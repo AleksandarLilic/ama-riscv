@@ -15,16 +15,16 @@ all: sim
 compile: .compile.touchfile
 .compile.touchfile:
 	@echo "Compiling SystemVerilog"
-	xvlog $(COMP_OPTS_SV) -prj $(SOURCE_FILES_SV) $(VERILOG_DEFINES) > xvlog_sv.log 2>&1
+	xvlog $(COMP_OPTS_SV) -prj $(SOURCE_FILES_SV) $(VERILOG_DEFINES) -log xvlog_sv.log > /dev/null 2>&1
 	@echo "Compiling Verilog"
-	xvlog $(COMP_OPTS_V) -prj $(SOURCE_FILES_V) $(VERILOG_DEFINES) > xvlog_v.log 2>&1
+	xvlog $(COMP_OPTS_V) -prj $(SOURCE_FILES_V) $(VERILOG_DEFINES) -log xvlog_v.log > /dev/null 2>&1
 	@touch .compile.touchfile
 	@echo "RTL compilation done"
 
 elab: .elab.touchfile
 .elab.touchfile: .compile.touchfile
 	@echo "Elaborating design"
-	xelab $(TOP) $(ELAB_OPTS) $(VERILOG_DEFINES) > /dev/null 2>&1
+	xelab $(TOP) $(ELAB_OPTS) $(VERILOG_DEFINES) -log xelab.log > /dev/null 2>&1
 	@touch .elab.touchfile
 	@echo "Elaboration done"
 
