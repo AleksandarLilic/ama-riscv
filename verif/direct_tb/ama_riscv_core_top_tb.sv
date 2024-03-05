@@ -3,6 +3,10 @@
 `include "ama_riscv_defines.v"
 `include "ama_riscv_perf.svh"
 
+import "DPI-C" function void emu_setup(string test_bin, int unsigned base_address);
+import "DPI-C" function void emu_exec();
+import "DPI-C" function void emu_dump();
+
 `define CLK_PERIOD 8
 //`define STANDALONE
 
@@ -15,7 +19,7 @@
 //`define CHECKER_ACTIVE 1'b1
 //`define CHECKER_INACTIVE 1'b0
 //`define CHECK_DELAY 1
-`define TIMEOUT_CLOCKS 5000
+`define TIMEOUT_CLOCKS 5_000_000 // TODO: make it a plus arg parameter
 
 `ifdef LOG_MINIMAL
     `define LOG(x) 
@@ -157,9 +161,17 @@ wire mmio_reset_cnt;
 //------------------------------------------------------------------------------
 // Testbench tasks
 task load_memories;
-    begin 
-        $readmemh(test_path, `DUT_IMEM, 0, `MEM_SIZE-1);
-        $readmemh(test_path, `DUT_DMEM, 0, `MEM_SIZE-1);
+    input string test_hex_path;
+    integer fd;
+    begin
+        fd = $fopen(test_hex_path, "r");
+        if (fd == 0) begin
+            $display("Error: Could not open file %0s", test_hex_path);
+            $finish();
+        end
+        $fclose(fd);
+        $readmemh(test_hex_path, `DUT_IMEM, 0, `MEM_SIZE-1);
+        $readmemh(test_hex_path, `DUT_DMEM, 0, `MEM_SIZE-1);
     end
 endtask
 
@@ -290,16 +302,21 @@ initial begin
     stats = new();
 
     $display($sformatf("%0s Simulation started %0s", `DELIM, `DELIM));
-    load_memories();
+    load_memories({test_path,".hex"});
+    emu_setup({test_path,".bin"}, `RESET_VECTOR);
 
     ->go_in_reset;
     @reset_end;
-    
+
     fork
     begin
         while (tohost_source !== 1'b1) begin
             @(posedge clk); #1;
-            stats.update(`DUT_CORE.inst_wb);
+            stats.update(`DUT_CORE.inst_wb, `DUT_CORE.stall_id_seq[2]);
+            if (`DUT_CORE.inst_wb_nop_or_clear == 1'b0) emu_exec();
+            //run_checkers(); // check always, when inst is nop, arch state shouldn't
+                              // changed, and it has to be confirmed in RTL
+            
             //`ifndef STANDALONE
             //    if (rst == 0) run_checkers;
             //`endif
@@ -323,6 +340,7 @@ initial begin
     
     print_test_status(done);
     stats.display();
+    emu_dump();
     //stats.compare_dut(mmio_cycle_cnt, mmio_instr_cnt);
     finish_sim();
 end // test
