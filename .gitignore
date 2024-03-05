@@ -21,8 +21,9 @@ xsc*
 vivado*
 xcrg_*_cov_report
 
-# libraries
+# libraries/obj
 *.so
+*.o
 
 # make touchfiles
 *touchfile
