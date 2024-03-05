@@ -5,7 +5,7 @@ class perf_stats;
     integer unsigned perf_cnt_instr;
     integer unsigned perf_cnt_empty_cycles;
     integer unsigned perf_cnt_nop;
-    //integer unsigned perf_cnt_stall; // TODO: differentiate between hw and sw stall
+    integer unsigned perf_cnt_hw_nop;
     integer unsigned perf_cnt_flush;
     real unsigned cpi;
     bit at_least_once;
@@ -19,17 +19,24 @@ class perf_stats;
         perf_cnt_instr = 0;
         perf_cnt_empty_cycles = 0;
         perf_cnt_nop = 0;
+        perf_cnt_hw_nop = 0;
         perf_cnt_flush = 0;
         cpi = 0;
         at_least_once = 0;
     endfunction
 
-    function void update(reg [31:0] inst_wb);
+    function void update(reg [31:0] inst_wb, reg stall_wb);
         at_least_once = 1'b1;
         perf_cnt_cycle++;
-        if (inst_wb == `NOP) perf_cnt_nop++;
-        else if (inst_wb[6:0] == 7'd0) perf_cnt_flush++;
-        else perf_cnt_instr++;
+        if (inst_wb[6:0] == 7'd0) begin
+            perf_cnt_flush++;
+        end else if (inst_wb == `NOP) begin
+            perf_cnt_nop++;
+            if (stall_wb == 1'b1) perf_cnt_hw_nop++; // nop inserted by hw
+            else perf_cnt_instr++; // nop in sw
+        end else begin
+            perf_cnt_instr++;
+        end
     endfunction
 
     function void compare_dut(bit [31:0] DUT_cycles, bit [31:0] DUT_instr);
@@ -53,11 +60,12 @@ class perf_stats;
             return;
         end
         cpi = real'(perf_cnt_cycle) / real'(perf_cnt_instr);
-        perf_cnt_empty_cycles = perf_cnt_nop + perf_cnt_flush;
+        perf_cnt_empty_cycles = perf_cnt_hw_nop + perf_cnt_flush;
         $display("Performance stats: ");
         $display("    Cycles: %0d, Instr: %0d, Empty cycles: %0d, CPI: %0.3f", 
                  perf_cnt_cycle, perf_cnt_instr, perf_cnt_empty_cycles, cpi);
-        $display("    NOP: %0d, Flush: %0d", perf_cnt_nop, perf_cnt_flush);
+        $display("    NOP: %0d, HW NOP: %0d, Flush: %0d",
+                 perf_cnt_nop, perf_cnt_hw_nop, perf_cnt_flush);
     endfunction
 
 endclass
