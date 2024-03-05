@@ -198,20 +198,24 @@ assign pc_inc4 = pc + 32'd4;
 // IMEM interface
 assign imem_addr = pc_mux_out[15:2];
 
-// stall_if delay
-reg         stall_if_q1;
+// stalls
+reg stall_id;
 always @ (posedge clk) begin
-    if (rst)
-        stall_if_q1 <= 1'b1;
-    else
-        stall_if_q1 <= stall_if;
+    if (rst) stall_id <= 1'b1;
+    else stall_id <= stall_if;
+end
+
+reg [2:0] stall_id_seq;
+always @ (posedge clk) begin
+    if (rst) stall_id_seq <= 3'h0;
+    else stall_id_seq <= {stall_id_seq[1:0], stall_id};
 end
 
 //-----------------------------------------------------------------------------
 // ID Stage
 
 // Convert to NOP?
-assign inst_id = (stall_if_q1) ? `NOP : inst_id_read;
+assign inst_id = (stall_id) ? `NOP : inst_id_read;
 
 // Signals - MEM stage
 wire [31:0] writeback;
@@ -586,13 +590,22 @@ assign writeback = (wb_sel_mem == `WB_SEL_DMEM) ?    load_sm_data_out  :
 //-----------------------------------------------------------------------------
 // Pipeline FF MEM/WB
 reg [31:0] inst_wb;
+reg [31:0] pc_wb;
 always @ (posedge clk) begin
-    if (rst) inst_wb <= 32'h0;
-    else if (clear_mem) inst_wb <= 32'h0;
-    else inst_wb <= inst_mem;
+    if (rst) begin
+        inst_wb <= 32'h0;
+        pc_wb <= 32'h0;
+    end else if (clear_mem) begin
+        inst_wb <= 32'h0;
+        pc_wb <= 32'h0;
+    end else begin
+        inst_wb <= inst_mem;
+        pc_wb <= pc_mem;
+    end
 end
 
-// For instruction counter
-assign inst_wb_nop_or_clear = ((inst_wb == `NOP) || (inst_wb[6:0] == 7'd0));
+// For instruction counter, only care about NOPs inserted by HW
+assign inst_wb_nop_or_clear = (((inst_wb == `NOP) && stall_id_seq[2]) ||
+                               (inst_wb[6:0] == 7'd0));
 
 endmodule
