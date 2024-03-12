@@ -6,22 +6,39 @@
 #include "core.h"
 #include "svdpi.h"
 
+#define INST_ASM_LEN 64
+
 memory *mem;
 core *rv32;
 
 DPI_DLLESPEC
-extern "C" void emu_setup(const char* test_bin, uint32_t base_address) {
+extern "C" void cosim_setup(const char *test_bin, uint32_t base_address) {
     std::string l_test_bin(test_bin);
     mem = new memory(base_address, l_test_bin);
     rv32 = new core(base_address, mem);
 }
 
 DPI_DLLESPEC
-extern "C" void emu_exec() {
+extern "C" void cosim_exec(
+    uint32_t *pc,
+    uint32_t *inst,
+    char *inst_asm,
+    uint32_t *rf
+) {
+    *pc = rv32->get_pc();
     rv32->exec_inst();
+    *inst = rv32->get_inst();
+    if (INST_ASM_LEN > rv32->get_inst_asm().length()) {
+        strcpy(inst_asm, rv32->get_inst_asm().c_str());
+    } else {
+        strcpy(inst_asm, "Instruction too long");
+    }
+    for (int i = 0; i < 32; i++) {
+        rf[i] = rv32->get_reg(i);
+    }
 }
 
 DPI_DLLESPEC
-extern "C" void emu_dump() {
+extern "C" void cosim_dump() {
     rv32->dump();
 }

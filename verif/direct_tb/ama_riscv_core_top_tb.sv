@@ -3,12 +3,9 @@
 `include "ama_riscv_defines.v"
 `include "ama_riscv_perf.svh"
 
-import "DPI-C" function void emu_setup(string test_bin, int unsigned base_address);
-import "DPI-C" function void emu_exec();
-import "DPI-C" function void emu_dump();
-
 `define CLK_PERIOD 8
-//`define STANDALONE
+`define ENABLE_COSIM
+`define TOHOST_CHECK 1'b1
 
 // TODO: keep up to 5 verbosity levels, add list of choices?, dbg & perf levels?
 `define VERBOSITY 2           
@@ -16,9 +13,8 @@ import "DPI-C" function void emu_dump();
 `define DELIM "-----------------------"
 
 // TB
-//`define CHECKER_ACTIVE 1'b1
-//`define CHECKER_INACTIVE 1'b0
-//`define CHECK_DELAY 1
+`define CHECKER_ACTIVE 1'b1
+`define CHECKER_INACTIVE 1'b0
 `define TIMEOUT_CLOCKS 5_000_000 // TODO: make it a plus arg parameter
 
 `ifdef LOG_MINIMAL
@@ -48,6 +44,18 @@ import "DPI-C" function void emu_dump();
 `define TOHOST_PASS 32'd1
 
 `define MEM_SIZE 16384
+`define INST_ASM_LEN 64
+
+`define PRINT_INST \
+    $display("%8h : %8h %0s", cosim_pc, cosim_inst, cosim_inst_asm);
+
+import "DPI-C" function void cosim_setup(input string test_bin,
+                                         input int unsigned base_address);
+import "DPI-C" function void cosim_exec(output int unsigned pc,
+                                        output int unsigned inst,
+                                        output byte inst_asm[`INST_ASM_LEN],
+                                        output int unsigned rf[32]);
+import "DPI-C" function void cosim_dump();
 
 module ama_riscv_core_top_tb();
 
@@ -65,11 +73,9 @@ string riscv_regr_tests[] = {
 int number_of_tests = riscv_regr_tests.size; 
 int regr_num;
 
-integer i; // used for all loops
-integer done;
-integer isa_passed_dut;
 integer errors;
 integer warnings;
+bit errors_for_wave;
 wire tohost_source;
 
 // events
@@ -80,6 +86,12 @@ event ev_load_vector_done;
 event go_in_reset;
 event reset_end;
 int rst_pulses = 1;
+
+// cosim
+integer unsigned cosim_pc;
+integer unsigned cosim_inst;
+byte cosim_inst_asm[`INST_ASM_LEN];
+integer unsigned cosim_rf[32];
 
 //------------------------------------------------------------------------------
 // DUT I/O
@@ -175,33 +187,48 @@ task load_memories;
     end
 endtask
 
-task print_test_status;
-    input test_run_success;
+task check_test_status;
+    bit status_cosim = 1'b1;
+    bit status_tohost = 1'b1;
+    bit checker_exists = 1'b0;
+    
     begin
-        if (!test_run_success) begin
-            $display("Test timed out");
-        end else begin 
-            $display("Test ran to completion");
-            $display("Warnings: %2d", warnings);
-            $display("Errors:   %2d", errors);
-            
-            if (isa_passed_dut == 1) begin 
-                $display("==== PASS ====");
-            end else begin
-                $display("==== FAIL ====");
-                $display("Failed test # : %0d", `DUT_CORE.tohost[31:1]);
+        $display("\nTest ran to completion");
+        if (`TOHOST_CHECK == 1'b1) begin
+            $display("TOHOST checker enabled");
+            checker_exists = 1'b1;
+            if (`DUT_CORE.tohost !== `TOHOST_PASS) begin
+                status_tohost = 1'b0;
+                $display("Failed tohost test # : %0d", `DUT_CORE.tohost[31:1]);
             end
+        end
+
+        `ifdef ENABLE_COSIM
+        $display("Cosim checker enabled");
+        $display("Warnings: %2d", warnings);
+        $display("Errors:   %2d", errors);
+        checker_exists = 1'b1;
+        if (errors > 0) begin
+            status_cosim = 1'b0;
+            $display("Test failed: cosim errors = %0d", errors);
+        end
+        `endif
+
+        if (checker_exists == 1'b1) begin
+            if (status_cosim && status_tohost) $display("==== PASS ====");
+            else $display("==== FAIL ====");
+        end else begin
+            $display("No checkers enabled");
         end
     end
 endtask
 
 task finish_sim;
     begin
-        $display($sformatf("%0s End of the simulation %0s", `DELIM, `DELIM));
+        $display($sformatf("%0s End of the simulation %0s\n", `DELIM, `DELIM));
         $finish();
     end
 endtask
-
 
 // task print_single_instruction_results;
 //     integer last_pc;
@@ -218,27 +245,9 @@ endtask
 //     end
 // endtask
 
-//task checker_t;
-//    input string checker_name;
-//    input reg checker_active;
-//    // input reg  [ 5:0]   checker_width           ;
-//    input reg  [31:0]   checker_dut_signal      ;
-//    input reg  [31:0]   checker_model_signal    ;
-//    
-//    begin
-//        if (checker_active == 1) begin
-//            if (checker_dut_signal !== checker_model_signal) begin
-//                $display("*ERROR @ %0t. Checker: \"%0s\"; DUT: %0d, Model: %0d ", 
-//                    $time-`CHECK_DELAY, checker_name, checker_dut_signal, checker_model_signal);
-//                errors = errors + 1;
-//            end // checker compare
-//        end // checker valid
-//    end
-//endtask
-
-//`ifndef STANDALONE
-//    `include "checkers_task.sv"
-//`endif
+`ifdef ENABLE_COSIM
+`include "checkers.svh"
+`endif
 
 //------------------------------------------------------------------------------
 // Config
@@ -264,9 +273,6 @@ initial begin
     $timeformat(-9, 2, " ns", 20);
     errors = 0;
     warnings = 0;
-    done = 0;
-    isa_passed_dut = 0;
-    i = 0;
 end
 
 // initial begin
@@ -301,46 +307,38 @@ initial begin
     end
     stats = new();
 
-    $display($sformatf("%0s Simulation started %0s", `DELIM, `DELIM));
+    $display($sformatf("\n%0s Simulation started %0s", `DELIM, `DELIM));
     load_memories({test_path,".hex"});
-    emu_setup({test_path,".bin"}, `RESET_VECTOR);
+    cosim_setup({test_path,".bin"}, `RESET_VECTOR);
 
     ->go_in_reset;
     @reset_end;
 
-    fork
+    fork: run_test
     begin
         while (tohost_source !== 1'b1) begin
             @(posedge clk); #1;
             stats.update(`DUT_CORE.inst_wb, `DUT_CORE.stall_id_seq[2]);
-            if (`DUT_CORE.inst_wb_nop_or_clear == 1'b0) emu_exec();
-            //run_checkers(); // check always, when inst is nop, arch state shouldn't
-                              // changed, and it has to be confirmed in RTL
-            
-            //`ifndef STANDALONE
-            //    if (rst == 0) run_checkers;
-            //`endif
+            if (`DUT_CORE.inst_wb_nop_or_clear == 1'b0) begin
+                cosim_exec(cosim_pc, cosim_inst, cosim_inst_asm, cosim_rf);
+                `PRINT_INST // TODO: should be conditional based on verbosity
+                `ifdef ENABLE_COSIM
+                run_checkers();
+                `endif
+            end
             //print_single_instruction_results();
         end
-        done = 1;
     end
     begin
-        repeat (`TIMEOUT_CLOCKS) begin
-            if (!done) @(posedge clk);
-        end
-        if (!done) begin // timed-out
-            print_test_status(done);
-            finish_sim();
-        end
+        repeat (`TIMEOUT_CLOCKS) @(posedge clk);
+        $error("Test timed out");
+        $finish();
     end
-    join
+    join_any;
+    disable run_test;
     
-    if (`DUT_CORE.tohost === `TOHOST_PASS) isa_passed_dut = 1;
-    else isa_passed_dut = 0;
-    
-    print_test_status(done);
+    check_test_status();
     stats.display();
-    emu_dump();
     //stats.compare_dut(mmio_cycle_cnt, mmio_instr_cnt);
     finish_sim();
 end // test
