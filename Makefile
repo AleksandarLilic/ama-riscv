@@ -10,6 +10,7 @@ SIM_INC := $(DPI_ROOT)/src
 DPI_SRC := $(DPI_ROOT)/core_dpi.cpp
 DPI_OBJ := $(DPI_SRC:.cpp=.o)
 DPI_INC := $(VIVADO_ROOT)/data/xsim/include
+DPI_DEFINES := 
 DPI_LINK_LIB := -L$(VIVADO_ROOT)/lib/lnx64.o/../../tps/lnx64/gcc-9.3.0/bin/../lib64
 DPI_SO := ama-riscv-sim_dpi.so
 
@@ -32,10 +33,10 @@ $(DPI_SO): $(DPI_OBJ) $(SIM_OBJS)
 	@echo "DPI model built"
 
 $(DPI_OBJ): $(DPI_SRC)
-	$(CXX) $(CXXFLAGS) -c -o $@ $< -I$(DPI_INC) -I$(SIM_INC)
+	$(CXX) $(CXXFLAGS) -c -o $@ $< -I$(DPI_INC) -I$(SIM_INC) $(DPI_DEFINES)
 
 $(DPI_ROOT)/%.o: $(DPI_ROOT)/src/%.cpp
-	$(CXX) $(CXXFLAGS) -c -o $@ $< -I$(DPI_INC) -I$(SIM_INC)
+	$(CXX) $(CXXFLAGS) -c -o $@ $< -I$(DPI_INC) -I$(SIM_INC) $(DPI_DEFINES)
 
 compile: .compile.touchfile
 .compile.touchfile:

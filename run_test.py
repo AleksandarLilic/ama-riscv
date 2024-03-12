@@ -70,13 +70,14 @@ def check_test_status(test_log_path, test_name):
 
 def run_test(test_path, run_dir, build_dir):
     test_name = os.path.splitext(os.path.basename(test_path))[0]
+    test_path_make = os.path.splitext(test_path)[0]
     print(f"Running test <{test_name}>")
     test_dir = os.path.join(run_dir, f"test_{test_name}")
     if os.path.exists(test_dir):
         shutil.rmtree(test_dir)
     shutil.copytree(build_dir, test_dir, symlinks=True)
     make_status = subprocess.run(["make", "sim",
-                                 f"TEST_PATH={test_path}",
+                                 f"TEST_PATH={test_path_make}",
                                  f"TCLBATCH={RUN_CFG}"],
                                  stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE,
@@ -111,7 +112,8 @@ def main():
     
     create_run_cfg(args.log_wave)
     if args.test:
-        all_tests = find_all_tests([[os.path.dirname(args.test),os.path.basename(args.test)]])
+        all_tests = find_all_tests([[os.path.dirname(args.test), 
+                                     os.path.basename(args.test)]])
     elif args.testlist:
         all_tests = find_all_tests(read_from_json(args.testlist))
     else:
