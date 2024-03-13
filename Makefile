@@ -25,6 +25,7 @@ ELAB_OPTS := -debug $(ELAB_DEBUG) --incr --relax --mt 8 -sv_lib $(DPI_SO)
 
 TCLBATCH := run_cfg.tcl
 TEST_PATH :=
+TIMEOUT_CLOCKS :=
 
 all: sim
 
@@ -40,28 +41,21 @@ $(DPI_ROOT)/%.o: $(DPI_ROOT)/src/%.cpp
 
 compile: .compile.touchfile
 .compile.touchfile:
-	@echo "Compiling SystemVerilog"
 	xvlog $(COMP_OPTS_SV) -prj $(SOURCE_FILES_SV) $(VERILOG_DEFINES) > xvlog_sv.log 2>&1
-	@echo "Compiling Verilog"
 	xvlog $(COMP_OPTS_V) -prj $(SOURCE_FILES_V) $(VERILOG_DEFINES) > xvlog_v.log 2>&1
 	@rm xvlog.log xvlog.pb
 	@touch .compile.touchfile
-	@echo "RTL compilation done"
 
 elab: .elab.touchfile
 .elab.touchfile: .compile.touchfile $(DPI_SO)
-	@echo "Elaborating design"
 	xelab $(TOP) $(ELAB_OPTS) $(VERILOG_DEFINES) > xelab.log 2>&1
 	@rm xelab.pb
 	@touch .elab.touchfile
-	@echo "Elaboration done"
 
 sim: .elab.touchfile
-	@echo "Running simulation"
-	xsim $(TOP) -tclbatch $(REPO_ROOT)/$(TCLBATCH) -stats -onerror quit -testplusarg test_path=$(REPO_ROOT)/$(TEST_PATH) > test.log 2>&1
+	xsim $(TOP) -tclbatch $(REPO_ROOT)/$(TCLBATCH) -stats -onerror quit -testplusarg test_path=$(REPO_ROOT)/$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) > test.log 2>&1
 	@touch .sim.touchfile
-	@echo "Simulation done"
-	@grep "PASS\|FAIL" test.log
+	@grep "PASS\|FAIL\|Error:" test.log
 
 clean:
 	rm -rf .*touchfile

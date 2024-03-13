@@ -15,7 +15,8 @@
 // TB
 `define CHECKER_ACTIVE 1'b1
 `define CHECKER_INACTIVE 1'b0
-`define TIMEOUT_CLOCKS 5_000_000 // TODO: make it a plus arg parameter
+`define DEFAULT_TIMEOUT_CLOCKS 5_000_000
+`define RST_PULSES 2
 
 `ifdef LOG_MINIMAL
     `define LOG(x) 
@@ -62,21 +63,11 @@ module ama_riscv_core_top_tb();
 //------------------------------------------------------------------------------
 // Testbench variables
 string test_path;
-
-// Test names
-string riscv_regr_tests[] = {
-    "simple", "add", "sub", "sll", "slt", "sltu", "xor", "srl", "sra", "or",
-    "and", "addi", "slti", "sltiu", "xori", "ori", "andi", "slli", "srli",
-    "srai", "lb", "lh", "lw", "lbu", "lhu", "sb", "sh", "sw", "beq", "bne",
-    "blt", "bge", "bltu", "bgeu", "jalr", "jal", "lui", "auipc" };
-
-int number_of_tests = riscv_regr_tests.size; 
-int regr_num;
-
 int errors;
 int warnings;
 bit errors_for_wave;
 wire tohost_source;
+int unsigned timeout_clocks;
 
 // events
 event ev_rst [1:0];
@@ -85,7 +76,6 @@ event ev_load_vector;
 event ev_load_vector_done;
 event go_in_reset;
 event reset_end;
-int rst_pulses = 1;
 
 // cosim
 int unsigned cosim_pc;
@@ -187,6 +177,9 @@ task load_memories;
     end
 endtask
 
+string msg_pass = "==== PASS ====";
+string msg_fail = "==== FAIL ====";
+
 task check_test_status;
     automatic bit status_cosim = 1'b1;
     automatic bit status_tohost = 1'b1;
@@ -215,8 +208,8 @@ task check_test_status;
         `endif
 
         if (checker_exists == 1'b1) begin
-            if (status_cosim && status_tohost) $display("==== PASS ====");
-            else $display("==== FAIL ====");
+            if (status_cosim && status_tohost) $display(msg_pass);
+            else $display(msg_fail);
         end else begin
             $display("No checkers enabled");
         end
@@ -248,6 +241,16 @@ endtask
 `ifdef ENABLE_COSIM
 `include "checkers.svh"
 `endif
+
+function get_plusargs();
+    if (! $value$plusargs("test_path=%s", test_path)) begin
+        $error("test_path not defined. Exiting.");
+        $finish();
+    end
+    if (! $value$plusargs("timeout_clocks=%d", timeout_clocks)) begin
+        timeout_clocks = `DEFAULT_TIMEOUT_CLOCKS;
+    end
+endfunction
 
 //------------------------------------------------------------------------------
 // Config
@@ -282,18 +285,15 @@ end
 //     end
 // end
 
+// Reset handler
 initial begin
-    forever begin
-        @go_in_reset;
-        #1;
-        rst = 1;
-        repeat (rst_pulses) begin
-            @(posedge clk); 
-            #1;
-        end
-        rst = 0;
-        ->reset_end;
-    end
+    @go_in_reset;
+    #1;
+    rst = 1;
+    repeat (`RST_PULSES) @(posedge clk); 
+    #1;
+    rst = 0;
+    ->reset_end;
 end
 
 //------------------------------------------------------------------------------
@@ -301,10 +301,7 @@ end
 assign tohost_source = `DUT_CORE.tohost[0];
 perf_stats stats;
 initial begin
-    if (! $value$plusargs("test_path=%s", test_path)) begin
-        $error("test_path not defined. Exiting.");
-        $finish();
-    end
+    get_plusargs();
     stats = new();
 
     $display($sformatf("\n%0s Simulation started %0s", `DELIM, `DELIM));
@@ -330,8 +327,9 @@ initial begin
         end
     end
     begin
-        repeat (`TIMEOUT_CLOCKS) @(posedge clk);
+        repeat (timeout_clocks) @(posedge clk);
         $error("Test timed out");
+        $display(msg_fail);
         $finish();
     end
     join_any;
