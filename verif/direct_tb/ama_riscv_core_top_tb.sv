@@ -3,29 +3,14 @@
 `include "ama_riscv_defines.v"
 `include "ama_riscv_perf.svh"
 
-`define CLK_PERIOD 8
-`define ENABLE_COSIM
-`define TOHOST_CHECK 1'b1
-
-// TODO: keep up to 5 verbosity levels, add list of choices?, dbg & perf levels?
-`define VERBOSITY 2           
-`define LOG_MINIMAL
-`define DELIM "-----------------------"
+`define DEFAULT_HALF_PERIOD 4
 
 // TB
+`define TOHOST_CHECK 1'b1
 `define CHECKER_ACTIVE 1'b1
 `define CHECKER_INACTIVE 1'b0
 `define DEFAULT_TIMEOUT_CLOCKS 5_000_000
 `define RST_PULSES 2
-
-`ifdef LOG_MINIMAL
-    `define LOG(x) 
-`else
-    `define LOG(x) $display("%0s", $sformatf x )
-`endif
-
-`define SINGLE_TEST 1
-`define CORE_ONLY
 
 `ifdef CORE_ONLY
     `define DUT DUT_ama_riscv_core_i
@@ -47,9 +32,15 @@
 `define MEM_SIZE 16384
 `define INST_ASM_LEN 64
 
-`define PRINT_INST \
-    $display("%8h : %8h %0s", cosim_pc, cosim_inst, cosim_inst_asm);
+`define LOG(x) $display("%0s: %0s", timestamp, x);
 
+`define PRINT_INST \
+    `LOG ($sformatf("%8h : %8h %0s", cosim_pc, cosim_inst, cosim_inst_asm))
+
+`define DELIM "-----------------------"
+
+// Cosim
+`define ENABLE_COSIM
 import "DPI-C" function void cosim_setup(input string test_bin,
                                          input int unsigned base_address);
 import "DPI-C" function void cosim_exec(output int unsigned pc,
@@ -63,11 +54,14 @@ module ama_riscv_core_top_tb();
 //------------------------------------------------------------------------------
 // Testbench variables
 string test_path;
-int errors;
-int warnings;
-bit errors_for_wave;
+string timestamp;
+int errors = 0;
+int warnings = 0;
+bit errors_for_wave = 1'b0;
 wire tohost_source;
 int unsigned timeout_clocks;
+int unsigned half_period;
+real frequency;
 
 // events
 event ev_rst [1:0];
@@ -168,7 +162,7 @@ task load_memories;
     begin
         fd = $fopen(test_hex_path, "r");
         if (fd == 0) begin
-            $display("Error: Could not open file %0s", test_hex_path);
+            `LOG($sformatf("Error: Could not open file %0s", test_hex_path));
             $finish();
         end
         $fclose(fd);
@@ -216,13 +210,6 @@ task check_test_status;
     end
 endtask
 
-task finish_sim;
-    begin
-        $display($sformatf("%0s End of the simulation %0s\n", `DELIM, `DELIM));
-        $finish();
-    end
-endtask
-
 // task print_single_instruction_results;
 //     int last_pc;
 //     reg     stalled;
@@ -250,6 +237,10 @@ function get_plusargs();
     if (! $value$plusargs("timeout_clocks=%d", timeout_clocks)) begin
         timeout_clocks = `DEFAULT_TIMEOUT_CLOCKS;
     end
+    if (! $value$plusargs("half_period=%d", half_period)) begin
+        half_period = `DEFAULT_HALF_PERIOD;
+    end
+    `LOG($sformatf("Frequency: %.2f MHz", 1.0 / (half_period * 2 * 1e-3)));
 endfunction
 
 //------------------------------------------------------------------------------
@@ -269,21 +260,22 @@ endfunction
 //     end
 // end
 
-always #(`CLK_PERIOD/2) clk = ~clk;
+always #(half_period) clk = ~clk;
 
+// Timestap
 initial begin
-    // set %t scaled in ns (-9), with 2 precision digits, with the " ns" string
-    $timeformat(-9, 2, " ns", 20);
-    errors = 0;
-    warnings = 0;
+    /* set %t:
+     * - scaled in ns (-9), 
+     * - with 2 precision digits
+     * - with the " ns" string 
+     * - taking up a total of 12 characters, including the string
+     */
+    $timeformat(-9, 2, " ns", 12);
+    forever begin
+        timestamp = $sformatf("%t", $time);
+        @(posedge clk);
+    end
 end
-
-// initial begin
-//     forever begin
-//         $display("\n\n\n --- Sim time : %0t ---\n", $time);
-//         @(posedge clk);
-//     end
-// end
 
 // Reset handler
 initial begin
@@ -304,7 +296,7 @@ initial begin
     get_plusargs();
     stats = new();
 
-    $display($sformatf("\n%0s Simulation started %0s", `DELIM, `DELIM));
+    `LOG($sformatf("Simulation started"));
     load_memories({test_path,".hex"});
     cosim_setup({test_path,".bin"}, `RESET_VECTOR);
 
@@ -329,16 +321,17 @@ initial begin
     begin
         repeat (timeout_clocks) @(posedge clk);
         $error("Test timed out");
-        $display(msg_fail);
+        `LOG(msg_fail);
         $finish();
     end
     join_any;
     disable run_test;
+    `LOG("Simulation finished");
     
     check_test_status();
     stats.display();
     //stats.compare_dut(mmio_cycle_cnt, mmio_instr_cnt);
-    finish_sim();
+    $finish();
 end // test
 
 endmodule

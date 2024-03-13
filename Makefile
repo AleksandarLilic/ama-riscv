@@ -17,7 +17,7 @@ DPI_SO := ama-riscv-sim_dpi.so
 TOP := ama_riscv_core_top_tb
 SOURCE_FILES_SV := $(REPO_ROOT)/sources_sv.f
 SOURCE_FILES_V := $(REPO_ROOT)/sources_v.f
-VERILOG_DEFINES := 
+VERILOG_DEFINES := -d CORE_ONLY
 COMP_OPTS_V := --incr --relax
 COMP_OPTS_SV := -sv $(COMP_OPTS_V)
 ELAB_DEBUG := typical
@@ -79,12 +79,14 @@ sim: .elab.touchfile
 	@touch .sim.touchfile
 	@grep "PASS\|FAIL\|Error:" test.log
 
-clean:
-	rm -rf .*touchfile
-	rm -rf xsim.dir
+cleanlogs:
 	rm -rf *.log
 	rm -rf *.jou
 	rm -rf *.pb
+
+clean: cleanlogs
+	rm -rf .*touchfile
+	rm -rf xsim.dir
 	rm -rf *.wdb
 
 cleanall: clean
