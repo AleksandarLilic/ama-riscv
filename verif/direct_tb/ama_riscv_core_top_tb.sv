@@ -73,8 +73,8 @@ string riscv_regr_tests[] = {
 int number_of_tests = riscv_regr_tests.size; 
 int regr_num;
 
-integer errors;
-integer warnings;
+int errors;
+int warnings;
 bit errors_for_wave;
 wire tohost_source;
 
@@ -88,10 +88,10 @@ event reset_end;
 int rst_pulses = 1;
 
 // cosim
-integer unsigned cosim_pc;
-integer unsigned cosim_inst;
+int unsigned cosim_pc;
+int unsigned cosim_inst;
 byte cosim_inst_asm[`INST_ASM_LEN];
-integer unsigned cosim_rf[32];
+int unsigned cosim_rf[32];
 
 //------------------------------------------------------------------------------
 // DUT I/O
@@ -174,7 +174,7 @@ wire mmio_reset_cnt;
 // Testbench tasks
 task load_memories;
     input string test_hex_path;
-    integer fd;
+    int fd;
     begin
         fd = $fopen(test_hex_path, "r");
         if (fd == 0) begin
@@ -188,9 +188,9 @@ task load_memories;
 endtask
 
 task check_test_status;
-    bit status_cosim = 1'b1;
-    bit status_tohost = 1'b1;
-    bit checker_exists = 1'b0;
+    automatic bit status_cosim = 1'b1;
+    automatic bit status_tohost = 1'b1;
+    automatic bit checker_exists = 1'b0;
     
     begin
         $display("\nTest ran to completion");
@@ -231,7 +231,7 @@ task finish_sim;
 endtask
 
 // task print_single_instruction_results;
-//     integer last_pc;
+//     int last_pc;
 //     reg     stalled;
 //     begin
 //         if(`VERBOSITY >= 3) begin
@@ -253,7 +253,7 @@ endtask
 // Config
 
 // Log to file
-// integer lclk_cnt = 0;
+// int lclk_cnt = 0;
 // initial begin
 //     forever begin
 //         @(posedge clk);
