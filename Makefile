@@ -23,6 +23,21 @@ COMP_OPTS_SV := -sv $(COMP_OPTS_V)
 ELAB_DEBUG := typical
 ELAB_OPTS := -debug $(ELAB_DEBUG) --incr --relax --mt 8 -sv_lib $(DPI_SO)
 
+define get_sources
+$(foreach file,$(shell cat $(1) | grep -v -- '--include' | grep -oP '"\K[^"]+' | sed 's/\\//g'),$(shell echo $(file)))
+endef
+define get_include_dirs
+$(foreach file,$(shell cat $(1) | grep -- '--include' | grep -oP '"\K[^"]+' | sed 's/\\//g'),$(shell echo $(file)))
+endef
+
+DEPS_SV := $(call get_sources,$(SOURCE_FILES_SV))
+INC_DIRS_SV := $(call get_include_dirs,$(SOURCE_FILES_SV))
+DEPS_INC_SV := $(foreach dir,$(INC_DIRS_SV),$(shell echo $(dir))/*)
+
+DEPS_V := $(call get_sources,$(SOURCE_FILES_V))
+INC_DIRS_V := $(call get_include_dirs,$(SOURCE_FILES_V))
+DEPS_INC_V := $(foreach dir,$(INC_DIRS_V),$(shell echo $(dir))/*)
+
 TCLBATCH := run_cfg.tcl
 TEST_PATH :=
 TIMEOUT_CLOCKS :=
@@ -31,7 +46,6 @@ all: sim
 
 $(DPI_SO): $(DPI_OBJ) $(SIM_OBJS)
 	$(CXX) $(CXXFLAGS) -o $(DPI_SO) $^ $(DPI_LINK_LIB)
-	@echo "DPI model built"
 
 $(DPI_OBJ): $(DPI_SRC)
 	$(CXX) $(CXXFLAGS) -c -o $@ $< -I$(DPI_INC) -I$(SIM_INC) $(DPI_DEFINES)
@@ -40,11 +54,19 @@ $(DPI_ROOT)/%.o: $(DPI_ROOT)/src/%.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $< -I$(DPI_INC) -I$(SIM_INC) $(DPI_DEFINES)
 
 compile: .compile.touchfile
-.compile.touchfile:
-	xvlog $(COMP_OPTS_SV) -prj $(SOURCE_FILES_SV) $(VERILOG_DEFINES) > xvlog_sv.log 2>&1
-	xvlog $(COMP_OPTS_V) -prj $(SOURCE_FILES_V) $(VERILOG_DEFINES) > xvlog_v.log 2>&1
-	@rm xvlog.log xvlog.pb
+.compile.touchfile: .compile_sv.touchfile .compile_v.touchfile
+	@rm xvlog.pb
 	@touch .compile.touchfile
+
+.compile_sv.touchfile: $(DEPS_SV) $(DEPS_INC_SV)
+	xvlog $(COMP_OPTS_SV) -prj $(SOURCE_FILES_SV) $(VERILOG_DEFINES) -log temp_sv.log > xvlog_sv.log 2>&1
+	@rm temp_sv.log
+	@touch .compile_sv.touchfile
+
+.compile_v.touchfile: $(DEPS_V) $(DEPS_INC_V)
+	xvlog $(COMP_OPTS_V) -prj $(SOURCE_FILES_V) $(VERILOG_DEFINES) -log temp_v.log > xvlog_v.log 2>&1
+	@rm temp_v.log
+	@touch .compile_v.touchfile
 
 elab: .elab.touchfile
 .elab.touchfile: .compile.touchfile $(DPI_SO)
