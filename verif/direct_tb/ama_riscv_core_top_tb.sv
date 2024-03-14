@@ -47,6 +47,7 @@ import "DPI-C" function void cosim_exec(output int unsigned pc,
                                         output int unsigned inst,
                                         output byte inst_asm[`INST_ASM_LEN],
                                         output int unsigned rf[32]);
+import "DPI-C" function unsigned int cosim_get_inst_cnt();
 import "DPI-C" function void cosim_dump();
 
 module ama_riscv_core_top_tb();
@@ -155,8 +156,8 @@ wire mmio_reset_cnt;
 `endif
 
 //------------------------------------------------------------------------------
-// Testbench tasks
-task load_memories;
+// Testbench functions
+function void load_memories;
     input string test_hex_path;
     int fd;
     begin
@@ -169,12 +170,20 @@ task load_memories;
         $readmemh(test_hex_path, `DUT_IMEM, 0, `MEM_SIZE-1);
         $readmemh(test_hex_path, `DUT_DMEM, 0, `MEM_SIZE-1);
     end
-endtask
+endfunction
+
+function void check_inst_cnt;
+    $display("Cosim instruction count: %0d", cosim_get_inst_cnt());
+    $display("DUT instruction count: %0d", stats.perf_cnt_instr);
+    if (cosim_get_inst_cnt() != stats.perf_cnt_instr) begin
+        $display("Instruction count mismatch");
+    end
+endfunction
 
 string msg_pass = "==== PASS ====";
 string msg_fail = "==== FAIL ====";
 
-task check_test_status;
+function void check_test_status();
     automatic bit status_cosim = 1'b1;
     automatic bit status_tohost = 1'b1;
     automatic bit checker_exists = 1'b0;
@@ -208,7 +217,7 @@ task check_test_status;
             $display("No checkers enabled");
         end
     end
-endtask
+endfunction
 
 // task print_single_instruction_results;
 //     int last_pc;
@@ -262,15 +271,15 @@ endfunction
 
 always #(half_period) clk = ~clk;
 
-// Timestap
+// Timestamp
 initial begin
     /* set %t:
      * - scaled in ns (-9), 
      * - with 2 precision digits
      * - with the " ns" string 
-     * - taking up a total of 12 characters, including the string
+     * - taking up a total of 15 characters, including the string
      */
-    $timeformat(-9, 2, " ns", 12);
+    $timeformat(-9, 2, " ns", 15);
     forever begin
         timestamp = $sformatf("%t", $time);
         @(posedge clk);
@@ -329,6 +338,7 @@ initial begin
     `LOG("Simulation finished");
     
     check_test_status();
+    check_inst_cnt();
     stats.display();
     //stats.compare_dut(mmio_cycle_cnt, mmio_instr_cnt);
     $finish();

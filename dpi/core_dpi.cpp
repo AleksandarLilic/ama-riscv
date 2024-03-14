@@ -39,6 +39,11 @@ extern "C" void cosim_exec(
 }
 
 DPI_DLLESPEC
+extern "C" uint32_t cosim_get_inst_cnt() {
+    return rv32->get_inst_cnt();
+}
+
+DPI_DLLESPEC
 extern "C" void cosim_dump() {
     rv32->dump();
 }

@@ -61,7 +61,7 @@ class perf_stats;
         end
         cpi = real'(perf_cnt_cycle) / real'(perf_cnt_instr);
         perf_cnt_empty_cycles = perf_cnt_hw_nop + perf_cnt_flush;
-        $display("Performance stats: ");
+        $display("DUT Performance stats: ");
         $display("    Cycles: %0d, Instr: %0d, Empty cycles: %0d, CPI: %0.3f", 
                  perf_cnt_cycle, perf_cnt_instr, perf_cnt_empty_cycles, cpi);
         $display("    NOP: %0d, HW NOP: %0d, Flush: %0d",
