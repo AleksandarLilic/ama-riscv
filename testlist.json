@@ -1,3 +1,4 @@
 [
+    ["sim/sw/baremetal/*/", "*.hex"],
     ["sim/sw/riscv-isa-tests/", "*.hex"]
 ]
