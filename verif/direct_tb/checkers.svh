@@ -1,4 +1,6 @@
-task checker_t;
+function checker_t;
+    // TODO: for back-annotated GLS, timing has to be taken into account, 
+    // so might revert to task, or disable checkers for GLS
     input string name;
     input reg active;
     input reg [31:0] dut_signal;
@@ -11,9 +13,9 @@ task checker_t;
             errors = errors + 1;
         end
     end
-endtask
+endfunction
 
-task run_checkers;
+function cosim_run_checkers;
     int checker_errors_prev;
     begin
         checker_errors_prev = errors;
@@ -51,5 +53,5 @@ task run_checkers;
         checker_t("x31", `CHECKER_ACTIVE, `DUT_RF.x31_t6, cosim_rf[31]);
         //checker_t("tohost", `CHECKER_ACTIVE, `DUT_CORE.tohost, sig_chk_tohost);
         errors_for_wave = (errors != checker_errors_prev);
-    end // main task body
-endtask // run_checkers
+    end
+endfunction

@@ -17,7 +17,7 @@ DPI_SO := ama-riscv-sim_dpi.so
 TOP := ama_riscv_core_top_tb
 SOURCE_FILES_SV := $(REPO_ROOT)/sources_sv.f
 SOURCE_FILES_V := $(REPO_ROOT)/sources_v.f
-VERILOG_DEFINES := -d CORE_ONLY
+VERILOG_DEFINES := -d CORE_ONLY -d ENABLE_COSIM
 COMP_OPTS_V := --incr --relax
 COMP_OPTS_SV := -sv $(COMP_OPTS_V)
 ELAB_DEBUG := typical
@@ -41,6 +41,7 @@ DEPS_INC_V := $(foreach dir,$(INC_DIRS_V),$(shell echo $(dir))/*)
 TCLBATCH := run_cfg.tcl
 TEST_PATH :=
 TIMEOUT_CLOCKS :=
+COSIM_CHECKER := -testplusarg enable_cosim_checkers
 
 all: sim
 
@@ -59,13 +60,11 @@ compile: .compile.touchfile
 	@touch .compile.touchfile
 
 .compile_sv.touchfile: $(DEPS_SV) $(DEPS_INC_SV)
-	xvlog $(COMP_OPTS_SV) -prj $(SOURCE_FILES_SV) $(VERILOG_DEFINES) -log temp_sv.log > xvlog_sv.log 2>&1
-	@rm temp_sv.log
+	xvlog $(COMP_OPTS_SV) -prj $(SOURCE_FILES_SV) $(VERILOG_DEFINES) -log /dev/null  > xvlog_sv.log 2>&1
 	@touch .compile_sv.touchfile
 
 .compile_v.touchfile: $(DEPS_V) $(DEPS_INC_V)
-	xvlog $(COMP_OPTS_V) -prj $(SOURCE_FILES_V) $(VERILOG_DEFINES) -log temp_v.log > xvlog_v.log 2>&1
-	@rm temp_v.log
+	xvlog $(COMP_OPTS_V) -prj $(SOURCE_FILES_V) $(VERILOG_DEFINES) -log /dev/null > xvlog_v.log 2>&1
 	@touch .compile_v.touchfile
 
 elab: .elab.touchfile
@@ -75,7 +74,7 @@ elab: .elab.touchfile
 	@touch .elab.touchfile
 
 sim: .elab.touchfile
-	xsim $(TOP) -tclbatch $(REPO_ROOT)/$(TCLBATCH) -stats -onerror quit -testplusarg test_path=$(REPO_ROOT)/$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) > test.log 2>&1
+	xsim $(TOP) -tclbatch $(REPO_ROOT)/$(TCLBATCH) -stats -onerror quit -testplusarg test_path=$(REPO_ROOT)/$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) $(COSIM_CHECKER) > test.log 2>&1
 	@touch .sim.touchfile
 	@grep "PASS\|FAIL\|Error:" test.log
 

@@ -54,6 +54,8 @@ def find_all_tests(test_list):
 
 def check_make_status(make_status, msg: str):
     if make_status.returncode != 0:
+        print("Makefile steps:")
+        print(make_status.stdout.decode('utf-8'))
         raise RuntimeError(f"Error: Makefile failed to {msg}.")
 
 def check_test_status(test_log_path, test_name):
@@ -76,7 +78,7 @@ def run_test(test_path, run_dir, build_dir):
     if os.path.exists(test_dir):
         shutil.rmtree(test_dir)
     shutil.copytree(build_dir, test_dir, symlinks=True)
-    make_status = subprocess.run(["make", "sim",
+    make_status = subprocess.run(["make", "sim", f"-j{MAX_WORKERS}",
                                  f"TEST_PATH={test_path_make}",
                                  f"TCLBATCH={RUN_CFG}"],
                                  stdout=subprocess.PIPE,
@@ -147,7 +149,7 @@ def main():
 
         print("Building...")
         start_time = datetime.datetime.now()
-        make_build_log = subprocess.run(["make", "elab"],
+        make_build_log = subprocess.run(["make", "elab", f"-j{MAX_WORKERS}"],
                                         stdout=subprocess.PIPE,
                                         stderr=subprocess.PIPE,
                                         cwd=build_dir)
