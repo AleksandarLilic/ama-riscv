@@ -7,10 +7,11 @@
 
 // TB
 `define TOHOST_CHECK 1'b1
-`define CHECKER_ACTIVE 1'b1
-`define CHECKER_INACTIVE 1'b0
 `define DEFAULT_TIMEOUT_CLOCKS 5_000_000
 `define RST_PULSES 2
+// per checker enable defines
+`define CHECKER_ACTIVE 1'b1
+`define CHECKER_INACTIVE 1'b0
 
 `ifdef CORE_ONLY
     `define DUT DUT_ama_riscv_core_i
@@ -34,13 +35,13 @@
 
 `define LOG(x) $display("%0s: %0s", timestamp, x);
 
-`define PRINT_INST \
-    `LOG ($sformatf("%8h : %8h %0s", cosim_pc, cosim_inst, cosim_inst_asm))
-
 `define DELIM "-----------------------"
 
 // Cosim
-`define ENABLE_COSIM
+`ifdef ENABLE_COSIM
+`define PRINT_INST \
+    `LOG ($sformatf("%8h : %8h %0s", cosim_pc, cosim_inst, cosim_inst_asm))
+
 import "DPI-C" function void cosim_setup(input string test_bin,
                                          input int unsigned base_address);
 import "DPI-C" function void cosim_exec(output int unsigned pc,
@@ -49,6 +50,7 @@ import "DPI-C" function void cosim_exec(output int unsigned pc,
                                         output int unsigned rf[32]);
 import "DPI-C" function unsigned int cosim_get_inst_cnt();
 import "DPI-C" function void cosim_dump();
+`endif
 
 module ama_riscv_core_top_tb();
 
@@ -59,6 +61,7 @@ string timestamp;
 int errors = 0;
 int warnings = 0;
 bit errors_for_wave = 1'b0;
+bit enable_cosim_checkers = 1'b0;
 wire tohost_source;
 int unsigned timeout_clocks;
 int unsigned half_period;
@@ -172,13 +175,15 @@ function void load_memories;
     end
 endfunction
 
-function void check_inst_cnt;
+`ifdef ENABLE_COSIM
+function void cosim_check_inst_cnt;
     $display("Cosim instruction count: %0d", cosim_get_inst_cnt());
     $display("DUT instruction count: %0d", stats.perf_cnt_instr);
     if (cosim_get_inst_cnt() != stats.perf_cnt_instr) begin
         $display("Instruction count mismatch");
     end
 endfunction
+`endif
 
 string msg_pass = "==== PASS ====";
 string msg_fail = "==== FAIL ====";
@@ -200,13 +205,15 @@ function void check_test_status();
         end
 
         `ifdef ENABLE_COSIM
-        $display("Cosim checker enabled");
-        $display("Warnings: %2d", warnings);
-        $display("Errors:   %2d", errors);
-        checker_exists = 1'b1;
-        if (errors > 0) begin
-            status_cosim = 1'b0;
-            $display("Test failed: cosim errors = %0d", errors);
+        if (enable_cosim_checkers == 1'b1) begin
+            $display("Cosim checker enabled");
+            $display("Warnings: %2d", warnings);
+            $display("Errors:   %2d", errors);
+            checker_exists = 1'b1;
+            if (errors > 0) begin
+                status_cosim = 1'b0;
+                $display("Test failed: cosim errors = %0d", errors);
+            end
         end
         `endif
 
@@ -214,7 +221,7 @@ function void check_test_status();
             if (status_cosim && status_tohost) $display(msg_pass);
             else $display(msg_fail);
         end else begin
-            $display("No checkers enabled");
+            $display("Neither 'TOHOST' nor 'cosim' checker are enabled");
         end
     end
 endfunction
@@ -238,10 +245,13 @@ endfunction
 `include "checkers.svh"
 `endif
 
-function get_plusargs();
+function void get_plusargs();
     if (! $value$plusargs("test_path=%s", test_path)) begin
         $error("test_path not defined. Exiting.");
         $finish();
+    end
+    if ($test$plusargs("enable_cosim_checkers")) begin
+        enable_cosim_checkers = 1'b1;
     end
     if (! $value$plusargs("timeout_clocks=%d", timeout_clocks)) begin
         timeout_clocks = `DEFAULT_TIMEOUT_CLOCKS;
@@ -307,7 +317,9 @@ initial begin
 
     `LOG($sformatf("Simulation started"));
     load_memories({test_path,".hex"});
+    `ifdef ENABLE_COSIM
     cosim_setup({test_path,".bin"}, `RESET_VECTOR);
+    `endif
 
     ->go_in_reset;
     @reset_end;
@@ -317,13 +329,14 @@ initial begin
         while (tohost_source !== 1'b1) begin
             @(posedge clk); #1;
             stats.update(`DUT_CORE.inst_wb, `DUT_CORE.stall_id_seq[2]);
+            `ifdef ENABLE_COSIM
             if (`DUT_CORE.inst_wb_nop_or_clear == 1'b0) begin
                 cosim_exec(cosim_pc, cosim_inst, cosim_inst_asm, cosim_rf);
                 `PRINT_INST // TODO: should be conditional based on verbosity
-                `ifdef ENABLE_COSIM
-                run_checkers();
-                `endif
+                // TODO: should also print the DUT's instruction, inline with the cosim's, but independently, if cosim is disabled
+                if (enable_cosim_checkers == 1'b1) cosim_run_checkers();
             end
+            `endif
             //print_single_instruction_results();
         end
     end
@@ -338,7 +351,9 @@ initial begin
     `LOG("Simulation finished");
     
     check_test_status();
-    check_inst_cnt();
+    `ifdef ENABLE_COSIM
+    if (enable_cosim_checkers == 1'b1) cosim_check_inst_cnt();
+    `endif
     stats.display();
     //stats.compare_dut(mmio_cycle_cnt, mmio_instr_cnt);
     $finish();
