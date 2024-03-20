@@ -1,4 +1,4 @@
-function checker_t;
+function void checker_t;
     // TODO: for back-annotated GLS, timing has to be taken into account, 
     // so might revert to task, or disable checkers for GLS
     input string name;
@@ -15,7 +15,7 @@ function checker_t;
     end
 endfunction
 
-function cosim_run_checkers;
+function void cosim_run_checkers;
     int checker_errors_prev;
     begin
         checker_errors_prev = errors;

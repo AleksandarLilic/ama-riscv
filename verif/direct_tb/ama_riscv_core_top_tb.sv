@@ -39,9 +39,6 @@
 
 // Cosim
 `ifdef ENABLE_COSIM
-`define PRINT_INST \
-    `LOG ($sformatf("%8h : %8h %0s", cosim_pc, cosim_inst, cosim_inst_asm))
-
 import "DPI-C" function void cosim_setup(input string test_bin,
                                          input int unsigned base_address);
 import "DPI-C" function void cosim_exec(output int unsigned pc,
@@ -329,14 +326,19 @@ initial begin
         while (tohost_source !== 1'b1) begin
             @(posedge clk); #1;
             stats.update(`DUT_CORE.inst_wb, `DUT_CORE.stall_id_seq[2]);
-            `ifdef ENABLE_COSIM
+            `LOG($sformatf("Core fetched %8h : %8h (stalled: %0d)", 
+                           `DUT_CORE.pc_id, `DUT_CORE.inst_id_read, 
+                           `DUT_CORE.stall_id));
             if (`DUT_CORE.inst_wb_nop_or_clear == 1'b0) begin
+                `LOG($sformatf("Core retired %8h : %8h", 
+                               `DUT_CORE.pc_wb, `DUT_CORE.inst_wb));
+                `ifdef ENABLE_COSIM
                 cosim_exec(cosim_pc, cosim_inst, cosim_inst_asm, cosim_rf);
-                `PRINT_INST // TODO: should be conditional based on verbosity
-                // TODO: should also print the DUT's instruction, inline with the cosim's, but independently, if cosim is disabled
+                `LOG ($sformatf("COSIM: %8h : %8h %0s", cosim_pc, cosim_inst,
+                                cosim_inst_asm)) // TODO: should be conditional, based on verbosity
                 if (enable_cosim_checkers == 1'b1) cosim_run_checkers();
+                `endif
             end
-            `endif
             //print_single_instruction_results();
         end
     end
