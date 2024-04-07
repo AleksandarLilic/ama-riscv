@@ -6,11 +6,11 @@ SIM_SRCS := $(filter-out $(DPI_ROOT)/src/main.cpp, $(SIM_SRCS))
 SIM_OBJS := $(SIM_SRCS:.cpp=.o)
 SIM_OBJS := $(subst /src,,$(SIM_OBJS))
 SIM_INC := $(DPI_ROOT)/src
+SIM_DEFINES := -DENABLE_DASM -DENABLE_PROF
 
 DPI_SRC := $(DPI_ROOT)/core_dpi.cpp
 DPI_OBJ := $(DPI_SRC:.cpp=.o)
 DPI_INC := $(VIVADO_ROOT)/data/xsim/include
-DPI_DEFINES := 
 DPI_LINK_LIB := -L$(VIVADO_ROOT)/lib/lnx64.o/../../tps/lnx64/gcc-9.3.0/bin/../lib64
 DPI_SO := ama-riscv-sim_dpi.so
 
@@ -49,10 +49,10 @@ $(DPI_SO): $(DPI_OBJ) $(SIM_OBJS)
 	$(CXX) $(CXXFLAGS) -o $(DPI_SO) $^ $(DPI_LINK_LIB)
 
 $(DPI_OBJ): $(DPI_SRC)
-	$(CXX) $(CXXFLAGS) -c -o $@ $< -I$(DPI_INC) -I$(SIM_INC) $(DPI_DEFINES)
+	$(CXX) $(CXXFLAGS) -c -o $@ $< -I$(DPI_INC) -I$(SIM_INC) $(SIM_DEFINES)
 
 $(DPI_ROOT)/%.o: $(DPI_ROOT)/src/%.cpp
-	$(CXX) $(CXXFLAGS) -c -o $@ $< -I$(DPI_INC) -I$(SIM_INC) $(DPI_DEFINES)
+	$(CXX) $(CXXFLAGS) -c -o $@ $< -I$(DPI_INC) -I$(SIM_INC) $(SIM_DEFINES)
 
 compile: .compile.touchfile
 .compile.touchfile: .compile_sv.touchfile .compile_v.touchfile
@@ -60,7 +60,7 @@ compile: .compile.touchfile
 	@touch .compile.touchfile
 
 .compile_sv.touchfile: $(DEPS_SV) $(DEPS_INC_SV)
-	xvlog $(COMP_OPTS_SV) -prj $(SOURCE_FILES_SV) $(VERILOG_DEFINES) -log /dev/null  > xvlog_sv.log 2>&1
+	xvlog $(COMP_OPTS_SV) -prj $(SOURCE_FILES_SV) $(VERILOG_DEFINES) -log /dev/null > xvlog_sv.log 2>&1
 	@touch .compile_sv.touchfile
 
 .compile_v.touchfile: $(DEPS_V) $(DEPS_INC_V)
