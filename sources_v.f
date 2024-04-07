@@ -1,7 +1,6 @@
 verilog work \
 --include "$REPO_ROOT/src" \
 "$REPO_ROOT/src/ama_riscv_alu.v" \
-"$REPO_ROOT/src/ama_riscv_branch_compare.v" \
 "$REPO_ROOT/src/ama_riscv_control.v" \
 "$REPO_ROOT/src/ama_riscv_core_top.v" \
 "$REPO_ROOT/src/ama_riscv_core.v" \
