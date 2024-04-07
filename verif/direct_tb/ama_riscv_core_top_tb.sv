@@ -46,7 +46,7 @@ import "DPI-C" function void cosim_exec(output int unsigned pc,
                                         output byte inst_asm[`INST_ASM_LEN],
                                         output int unsigned rf[32]);
 import "DPI-C" function unsigned int cosim_get_inst_cnt();
-import "DPI-C" function void cosim_dump();
+import "DPI-C" function void cosim_finish();
 `endif
 
 module ama_riscv_core_top_tb();
@@ -334,7 +334,7 @@ initial begin
                                `DUT_CORE.pc_wb, `DUT_CORE.inst_wb));
                 `ifdef ENABLE_COSIM
                 cosim_exec(cosim_pc, cosim_inst, cosim_inst_asm, cosim_rf);
-                `LOG ($sformatf("COSIM: %8h : %8h %0s", cosim_pc, cosim_inst,
+                `LOG ($sformatf("COSIM: %8h: %8h %0s", cosim_pc, cosim_inst,
                                 cosim_inst_asm)) // TODO: should be conditional, based on verbosity
                 if (enable_cosim_checkers == 1'b1) cosim_run_checkers();
                 `endif
@@ -355,6 +355,7 @@ initial begin
     check_test_status();
     `ifdef ENABLE_COSIM
     if (enable_cosim_checkers == 1'b1) cosim_check_inst_cnt();
+    cosim_finish();
     `endif
     stats.display();
     //stats.compare_dut(mmio_cycle_cnt, mmio_instr_cnt);

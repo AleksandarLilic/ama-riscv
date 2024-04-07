@@ -15,7 +15,7 @@ DPI_DLLESPEC
 extern "C" void cosim_setup(const char *test_bin, uint32_t base_address) {
     std::string l_test_bin(test_bin);
     mem = new memory(base_address, l_test_bin);
-    rv32 = new core(base_address, mem);
+    rv32 = new core(base_address, mem, "rtl_cosim");
 }
 
 DPI_DLLESPEC
@@ -44,6 +44,6 @@ extern "C" uint32_t cosim_get_inst_cnt() {
 }
 
 DPI_DLLESPEC
-extern "C" void cosim_dump() {
-    rv32->dump();
+extern "C" void cosim_finish() {
+    rv32->finish(false);
 }
