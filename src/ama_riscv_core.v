@@ -80,8 +80,8 @@ reg  [ 4:0] rd_addr_ex              ;
 reg         store_inst_ex           ;
 reg         load_inst_ex            ;
 // from datapath
-wire        bc_out_a_eq_b           ;
-wire        bc_out_a_lt_b           ;
+wire        bc_a_eq_b;
+wire        bc_a_lt_b;
 wire [ 1:0] store_mask_offset       ;
 
 // Signals - ID stage
@@ -123,8 +123,8 @@ ama_riscv_control ama_riscv_control_i (
     .rst                (rst            ),
     // inputs
     .inst_id            (inst_id        ),
-    .bc_a_eq_b          (bc_out_a_eq_b  ),
-    .bc_a_lt_b          (bc_out_a_lt_b  ),
+    .bc_a_eq_b          (bc_a_eq_b),
+    .bc_a_lt_b          (bc_a_lt_b),
     // .bp_taken           (bp_taken       ),
     // .bp_clear           (bp_clear       ),
     .store_mask_offset  (store_mask_offset),
@@ -395,18 +395,13 @@ end
 // EX stage
 
 // Branch Compare
-wire [31:0] bc_in_a  = bc_a_sel_fwd_ex  ? writeback : rs1_data_ex;
-wire [31:0] bcs_in_b = bcs_b_sel_fwd_ex ? writeback : rs2_data_ex;
+wire [31:0] bc_a  = bc_a_sel_fwd_ex  ? writeback : rs1_data_ex;
+wire [31:0] bcs_b = bcs_b_sel_fwd_ex ? writeback : rs2_data_ex;
 
-ama_riscv_branch_compare ama_riscv_branch_compare_i (
-    // inputs
-    .op_uns     (bc_uns_ex      ),
-    .in_a       (bc_in_a        ),
-    .in_b       (bcs_in_b       ),
-    // outputs
-    .op_a_eq_b  (bc_out_a_eq_b  ),
-    .op_a_lt_b  (bc_out_a_lt_b  )
-);
+assign bc_a_eq_b = (bc_uns_ex) ? (bc_a == bcs_b) : 
+                                 ($signed(bc_a) == $signed(bcs_b));
+assign bc_a_lt_b = (bc_uns_ex) ? (bc_a < bcs_b) :
+                                 ($signed(bc_a) < $signed(bcs_b));
 
 // ALU
 wire [31:0] alu_in_a =  (alu_a_sel_fwd_ex == `ALU_A_SEL_RS1)     ?    rs1_data_ex     :
@@ -431,7 +426,7 @@ ama_riscv_alu ama_riscv_alu_i (
 // Comprised of DMEM and MM I/O
 assign store_mask_offset        = alu_out[1:0];
 wire [ 4:0] store_byte_shift    = store_mask_offset << 3;           // store_mask converted to byte shifts
-wire [31:0] dms_write_data      = bcs_in_b << store_byte_shift;     // shifts 0, 1, 2 or 3 bytes
+wire [31:0] dms_write_data      = bcs_b << store_byte_shift;     // shifts 0, 1, 2 or 3 bytes
 
 // MM I/O
 wire [31:0] mmio_write_data = dms_write_data;
