@@ -10,6 +10,8 @@ import random
 import glob
 
 RUN_CFG = "run_cfg_suite.tcl"
+CC_RED = "91m"
+CC_GREEN = "32m"
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Run RTL simulation.')
@@ -122,11 +124,9 @@ def main():
         raise ValueError("Error: No test specified.")
     
     print(f"\nRunning {len(all_tests)} tests:")
-    for t in all_tests:
-        print("   ",t)
-    print()
+    print("   " + "\n   ".join(all_tests))
 
-     # handle run directory
+    # handle run directory
     if args.rundir:
         run_dir = args.rundir
     else:
@@ -186,20 +186,22 @@ def main():
         if os.path.exists(status_file_path):
             with open(status_file_path, 'r') as status_file:
                 status = status_file.read()
-                print(status)
                 if "PASSED" not in status:
                     all_tests_passed = False
+                    cc = CC_RED
                 else:
                     tests_passed += 1
+                    cc = CC_GREEN
+                print(f"\033[{cc}{status}\033[0m")
         else:
             print(f"Status for <{test_name}> not found.")
             all_tests_passed = False
     
     print(f"\nTest suite DONE. Pass rate: {tests_passed}/{tests_num} passed;", end=" ")
     if all_tests_passed:
-        print("Test suite PASSED.\n")
+        print(f"\033[{CC_GREEN}Test suite PASSED.\033[0m\n")
     else:
-        print("Test suite FAILED.\n")
+        print(f"\033[{CC_RED}Test suite FAILED.\033[0m\n")
     
     print_runtime(start_time_suite, "Test suite")
     print()
