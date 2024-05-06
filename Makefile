@@ -6,7 +6,7 @@ SIM_SRCS := $(filter-out $(DPI_ROOT)/src/main.cpp, $(SIM_SRCS))
 SIM_OBJS := $(SIM_SRCS:.cpp=.o)
 SIM_OBJS := $(subst /src,,$(SIM_OBJS))
 SIM_INC := $(DPI_ROOT)/src
-SIM_DEFINES := -DENABLE_DASM -DENABLE_PROF
+SIM_DEFINES := -DENABLE_DASM -DENABLE_PROF -DDPI
 
 DPI_SRC := $(DPI_ROOT)/core_dpi.cpp
 DPI_OBJ := $(DPI_SRC:.cpp=.o)
@@ -69,25 +69,20 @@ compile: .compile.touchfile
 
 elab: .elab.touchfile
 .elab.touchfile: .compile.touchfile $(DPI_SO)
-	xelab $(TOP) $(ELAB_OPTS) $(VERILOG_DEFINES) > xelab.log 2>&1
+	xelab $(TOP) $(ELAB_OPTS) $(VERILOG_DEFINES) -log /dev/null > xelab.log 2>&1
 	@rm xelab.pb
 	@touch .elab.touchfile
 
 sim: .elab.touchfile
-	xsim $(TOP) -tclbatch $(REPO_ROOT)/$(TCLBATCH) -stats -onerror quit -testplusarg test_path=$(REPO_ROOT)/$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) $(COSIM_CHECKER) > test.log 2>&1
+	xsim $(TOP) -tclbatch $(REPO_ROOT)/$(TCLBATCH) -stats -onerror quit -testplusarg test_path=$(REPO_ROOT)/$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) $(COSIM_CHECKER) -log /dev/null > test.log 2>&1
 	@touch .sim.touchfile
 	@grep "PASS\|FAIL\|Error:" test.log
 
 cleanlogs:
-	rm -rf *.log
-	rm -rf *.jou
-	rm -rf *.pb
+	rm -rf *.log *.jou *.pb vivado_pid*.str
 
 clean: cleanlogs
-	rm -rf .*touchfile
-	rm -rf xsim.dir
-	rm -rf *.wdb
+	rm -rf .*touchfile xsim.dir *.wdb
 
 cleanall: clean
-	rm -f $(DPI_ROOT)/*.*o
-	rm -f *.so
+	rm -f $(DPI_ROOT)/*.*o *.so
