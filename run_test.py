@@ -12,6 +12,7 @@ import glob
 RUN_CFG = "run_cfg_suite.tcl"
 CC_RED = "91m"
 CC_GREEN = "32m"
+TEST_LOG = "test.log"
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Run RTL simulation.')
@@ -38,6 +39,10 @@ def create_run_cfg(add_log_wave):
     with open(RUN_CFG, 'w') as file:
         file.writelines(line + '\n' for line in tcl_content)
 
+def format_test_name(test_path):
+    return f"{os.path.basename(os.path.dirname(test_path))}_" + \
+        f"{os.path.splitext(os.path.basename(test_path))[0]}"
+
 def read_from_json(file_path):
     with open(file_path, 'r') as file:
         return json.load(file)
@@ -51,7 +56,8 @@ def find_all_tests(test_list):
             for file in matched_files:
                 valid_tests.append(file)
         else:
-            print(f"Warning: No files match the pattern <{test_name_pattern}> in <{path}>.")
+            print(f"Warning: No files match the pattern " + \
+                  f"<{test_name_pattern}> in <{path}>.")
     return valid_tests
 
 def check_make_status(make_status, msg: str):
@@ -68,12 +74,14 @@ def check_test_status(test_log_path, test_name):
                     return f"Test <{test_name}> PASSED."
                 elif "==== FAIL ====" in line:
                     return f"Test <{test_name}> FAILED."
-            return f"Test <{test_name}> result is inconclusive. Check {test_log_path} for details."
+            return f"Test <{test_name}> result is inconclusive. " + \
+                f"Check {test_log_path} for details."
     else:
-        return f"test.log not found at {test_log_path}. Cannot determine test result."
+        return f"{TEST_LOG} not found at {test_log_path}. " + \
+            "Cannot determine test result."
 
 def run_test(test_path, run_dir, build_dir):
-    test_name = os.path.splitext(os.path.basename(test_path))[0]
+    test_name = format_test_name(test_path)
     test_path_make = os.path.splitext(test_path)[0]
     print(f"Running test <{test_name}>")
     test_dir = os.path.join(run_dir, f"test_{test_name}")
@@ -91,7 +99,7 @@ def run_test(test_path, run_dir, build_dir):
     # write to test.status
     status_file_path = os.path.join(test_dir, "test.status")
     with open(status_file_path, 'w') as status_file:
-        status = check_test_status(os.path.join(test_dir, "test.log"), test_name)
+        status = check_test_status(os.path.join(test_dir, TEST_LOG), test_name)
         status_file.write(status)
         print(status)
 
@@ -112,7 +120,7 @@ def main():
 
     # check arguments
     if args.test and args.testlist:
-        raise ValueError("Cannot use both -t|--test and --testlist. Choose one.")
+        raise ValueError("Cannot use both -t|--test and --testlist. Choose one")
     
     create_run_cfg(args.log_wave)
     if args.test:
@@ -159,18 +167,22 @@ def main():
     
     # check if the specified number of jobs exceeds the number of CPU cores
     if args.jobs < 1:
-        raise ValueError("Error: The number of parallel jobs must be at least 1.")
+        raise ValueError("The number of parallel jobs must be at least 1.")
     if args.jobs > MAX_WORKERS:
-        print(f"Warning: The specified number of jobs ({args.jobs}) exceeds the number of available CPU cores ({MAX_WORKERS}).")
-    print(f"Running simulation with {min(args.jobs,MAX_WORKERS)} parallel jobs.")
+        print(f"Warning: The specified number of jobs ({args.jobs}) exceeds " +
+              f"the number of available CPU cores ({MAX_WORKERS}).")
+    print(f"Running simulation with {min(args.jobs,MAX_WORKERS)} parallel jobs")
 
     # run tests in parallel
     random.seed(5)
-    #sv_seed = args.seed if args.seed is not None else random.randint(0, 2**32 - 1)
+    #sv_seed = args.seed if args.seed is not None \
+    #          else random.randint(0, 2**32 - 1)
     start_time = datetime.datetime.now()
     with multiprocessing.Pool(min(args.jobs,MAX_WORKERS)) as pool:
         # create a partial function with all fixed arguments except test_name
-        partial_run_test = functools.partial(run_test, run_dir=run_dir, build_dir=build_dir)
+        partial_run_test = functools.partial(run_test,
+                                             run_dir=run_dir,
+                                             build_dir=build_dir)
         pool.map(partial_run_test, all_tests)
     print_runtime(start_time, "Simulation")
     
@@ -180,7 +192,7 @@ def main():
     tests_passed = 0
     print("\nSummary:")
     for test_path in all_tests:
-        test_name = os.path.splitext(os.path.basename(test_path))[0]
+        test_name = format_test_name(test_path)
         test_dir = os.path.join(run_dir, f"test_{test_name}")
         status_file_path = os.path.join(test_dir, "test.status")
         if os.path.exists(status_file_path):
@@ -197,7 +209,8 @@ def main():
             print(f"Status for <{test_name}> not found.")
             all_tests_passed = False
     
-    print(f"\nTest suite DONE. Pass rate: {tests_passed}/{tests_num} passed;", end=" ")
+    print(f"\nTest suite DONE. Pass rate: {tests_passed}/{tests_num} passed;",
+          end=" ")
     if all_tests_passed:
         print(f"\033[{CC_GREEN}Test suite PASSED.\033[0m\n")
     else:
