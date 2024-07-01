@@ -1,5 +1,8 @@
 CXX := g++
-CXXFLAGS := -Wall -Wextra -Werror -pedantic -g -std=gnu++17 -O3 -m64 -fPIC -shared
+CXXFLAGS := -Wall -Wextra -Werror -pedantic -std=gnu++17
+CXXFLAGS += -Ofast -s -flto -march=native -mtune=native
+CXXFLAGS += -m64 -fPIC -shared
+#CXXFLAGS += -pg
 DPI_ROOT := $(REPO_ROOT)/dpi
 SIM_SRCS := $(wildcard $(DPI_ROOT)/src/*.cpp)
 SIM_SRCS := $(filter-out $(DPI_ROOT)/src/main.cpp, $(SIM_SRCS))
