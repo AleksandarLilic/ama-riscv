@@ -3,7 +3,7 @@ import subprocess
 import datetime
 import shutil
 import argparse
-import multiprocessing
+from multiprocessing import Pool, Manager
 import functools
 import json
 import random
@@ -64,7 +64,7 @@ def check_make_status(make_status, msg: str):
     if make_status.returncode != 0:
         print("Makefile steps:")
         print(make_status.stdout.decode('utf-8'))
-        raise RuntimeError(f"Error: Makefile failed to {msg}.")
+        print(f"Error: Makefile failed to {msg}.")
 
 def check_test_status(test_log_path, test_name):
     if os.path.exists(test_log_path):
@@ -80,10 +80,13 @@ def check_test_status(test_log_path, test_name):
         return f"{TEST_LOG} not found at {test_log_path}. " + \
             "Cannot determine test result."
 
-def run_test(test_path, run_dir, build_dir):
+def run_test(test_path, run_dir, build_dir, cnt):
     test_name = format_test_name(test_path)
     test_path_make = os.path.splitext(test_path)[0]
-    print(f"Running test <{test_name}>")
+    with cnt["lock"]:
+        cnt["t"].value += 1
+        print(f"Running test {cnt['t'].value}/{cnt['total']}: <{test_name}>")
+    #print(f"Running test <{test_name}>")
     test_dir = os.path.join(run_dir, f"test_{test_name}")
     if os.path.exists(test_dir):
         shutil.rmtree(test_dir)
@@ -121,16 +124,16 @@ def main():
     # check arguments
     if args.test and args.testlist:
         raise ValueError("Cannot use both -t|--test and --testlist. Choose one")
-    
+
     create_run_cfg(args.log_wave)
     if args.test:
-        all_tests = find_all_tests([[os.path.dirname(args.test), 
+        all_tests = find_all_tests([[os.path.dirname(args.test),
                                      os.path.basename(args.test)]])
     elif args.testlist:
         all_tests = find_all_tests(read_from_json(args.testlist))
     else:
         raise ValueError("Error: No test specified.")
-    
+
     print(f"\nRunning {len(all_tests)} tests:")
     print("   " + "\n   ".join(all_tests))
 
@@ -140,10 +143,10 @@ def main():
     else:
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         run_dir = f"rv_test_{timestamp}"
-    
+
     if not os.path.exists(run_dir):
         os.makedirs(run_dir)
-    
+
     build_dir = os.path.join(run_dir, "build")
     if args.keep_build and os.path.exists(f"{build_dir}/.elab.touchfile"):
         print(f"Reusing existing build directory at <{build_dir}>")
@@ -164,7 +167,7 @@ def main():
         print_runtime(start_time, "Build")
         check_make_status(make_build_log, "build")
         print("Build DONE.")
-    
+
     # check if the specified number of jobs exceeds the number of CPU cores
     if args.jobs < 1:
         raise ValueError("The number of parallel jobs must be at least 1.")
@@ -178,14 +181,17 @@ def main():
     #sv_seed = args.seed if args.seed is not None \
     #          else random.randint(0, 2**32 - 1)
     start_time = datetime.datetime.now()
-    with multiprocessing.Pool(min(args.jobs,MAX_WORKERS)) as pool:
-        # create a partial function with all fixed arguments except test_name
-        partial_run_test = functools.partial(run_test,
-                                             run_dir=run_dir,
-                                             build_dir=build_dir)
-        pool.map(partial_run_test, all_tests)
+    with Manager() as manager:
+        cnt = manager.dict()
+        cnt["t"] = manager.Value('i', 0)
+        cnt["lock"] = manager.Lock()
+        cnt["total"] = len(all_tests)
+        with Pool(min(args.jobs,MAX_WORKERS)) as pool:
+            partial_run_test = functools.partial(run_test, run_dir=run_dir,
+                                                 build_dir=build_dir, cnt=cnt)
+            pool.map(partial_run_test, all_tests)
     print_runtime(start_time, "Simulation")
-    
+
     # check test suite results
     all_tests_passed = True
     tests_num = len(all_tests)
@@ -208,14 +214,14 @@ def main():
         else:
             print(f"Status for <{test_name}> not found.")
             all_tests_passed = False
-    
+
     print(f"\nTest suite DONE. Pass rate: {tests_passed}/{tests_num} passed;",
           end=" ")
     if all_tests_passed:
         print(f"\033[{CC_GREEN}Test suite PASSED.\033[0m\n")
     else:
         print(f"\033[{CC_RED}Test suite FAILED.\033[0m\n")
-    
+
     print_runtime(start_time_suite, "Test suite")
     print()
 
