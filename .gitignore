@@ -25,6 +25,13 @@ xcrg_*_cov_report
 *.so
 *.o
 
+# manuals/helps/profiling
+*.help
+*.man
+*_profiler.*
+*_trace.*
+*_exec.*
+
 # make touchfiles
 *touchfile
 
@@ -34,4 +41,4 @@ xcrg_*_cov_report
 
 # run artefacts
 run_cfg*.tcl
-rv_test
+rv_test*
