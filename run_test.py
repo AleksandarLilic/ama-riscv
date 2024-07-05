@@ -60,11 +60,13 @@ def find_all_tests(test_list):
                   f"<{test_name_pattern}> in <{path}>.")
     return valid_tests
 
-def check_make_status(make_status, msg: str):
+def check_make_status(make_status, msg: str) -> int:
     if make_status.returncode != 0:
         print("Makefile steps:")
         print(make_status.stdout.decode('utf-8'))
         print(f"Error: Makefile failed to {msg}.")
+        return make_status.returncode
+    return 0
 
 def check_test_status(test_log_path, test_name):
     if os.path.exists(test_log_path):
@@ -98,7 +100,7 @@ def run_test(test_path, run_dir, build_dir, cnt):
                                  stderr=subprocess.PIPE,
                                  cwd=test_dir)
     print(f"Test <{test_name}> DONE.", end=" ")
-    check_make_status(make_status, f"run test <{test_name}>")
+    _ = check_make_status(make_status, f"run test <{test_name}>")
     # write to test.status
     status_file_path = os.path.join(test_dir, "test.status")
     with open(status_file_path, 'w') as status_file:
@@ -165,7 +167,8 @@ def main():
                                         stderr=subprocess.PIPE,
                                         cwd=build_dir)
         print_runtime(start_time, "Build")
-        check_make_status(make_build_log, "build")
+        if check_make_status(make_build_log, "build") != 0:
+            raise ValueError("Error: Build failed.")
         print("Build DONE.")
 
     # check if the specified number of jobs exceeds the number of CPU cores
