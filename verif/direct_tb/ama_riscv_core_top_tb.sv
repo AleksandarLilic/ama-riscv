@@ -117,7 +117,7 @@ wire mmio_reset_cnt;
         .dmem_addr          (dmem_addr         ),
         .dmem_en            (dmem_en           ),
         .dmem_we            (dmem_we           )
-        // mmio in   
+        // mmio in
         //.mmio_instr_cnt         (mmio_instr_cnt         ),
         //.mmio_cycle_cnt         (mmio_cycle_cnt         )
         //.mmio_uart_data_out     (mmio_uart_data_out     ),
@@ -189,7 +189,7 @@ function void check_test_status();
     automatic bit status_cosim = 1'b1;
     automatic bit status_tohost = 1'b1;
     automatic bit checker_exists = 1'b0;
-    
+
     begin
         $display("\nTest ran to completion");
         if (`TOHOST_CHECK == 1'b1) begin
@@ -229,7 +229,7 @@ endfunction
 //     begin
 //         if(`VERBOSITY >= 3) begin
 //             stalled = (last_pc == dut_m_pc);
-//             $display("Instruction at PC# %2d, 0x%4h,  %s ", dut_m_pc, dut_m_pc, stalled ? "stalled " : "executed"); 
+//             $display("Instruction at PC# %2d, 0x%4h,  %s ", dut_m_pc, dut_m_pc, stalled ? "stalled " : "executed");
 //             $display("ID  stage: HEX: 'h%8h, ASM: %0s", dut_m_inst_id , dut_m_inst_id_asm );
 //             $display("EX  stage: HEX: 'h%8h, ASM: %0s", dut_m_inst_ex , dut_m_inst_ex_asm );
 //             $display("MEM stage: HEX: 'h%8h, ASM: %0s", dut_m_inst_mem, dut_m_inst_mem_asm);
@@ -281,9 +281,9 @@ always #(half_period) clk = ~clk;
 // Timestamp
 initial begin
     /* set %t:
-     * - scaled in ns (-9), 
+     * - scaled in ns (-9),
      * - with 2 precision digits
-     * - with the " ns" string 
+     * - with the " ns" string
      * - taking up a total of 15 characters, including the string
      */
     $timeformat(-9, 2, " ns", 15);
@@ -298,7 +298,7 @@ initial begin
     @go_in_reset;
     #1;
     rst = 1;
-    repeat (`RST_PULSES) @(posedge clk); 
+    repeat (`RST_PULSES) @(posedge clk);
     #1;
     rst = 0;
     ->reset_end;
@@ -320,22 +320,24 @@ initial begin
 
     ->go_in_reset;
     @reset_end;
+    `LOG("Reset released");
 
     fork: run_test
     begin
         while (tohost_source !== 1'b1) begin
             @(posedge clk); #1;
             stats.update(`DUT_CORE.inst_wb, `DUT_CORE.stall_id_seq[2]);
-            `LOG($sformatf("Core fetched %8h : %8h (stalled: %0d)", 
-                           `DUT_CORE.pc_id, `DUT_CORE.inst_id_read, 
-                           `DUT_CORE.stall_id));
+            `LOG($sformatf("Core fetched %8h : %8h %0s",
+                           `DUT_CORE.pc_id, `DUT_CORE.inst_id_read,
+                           `DUT_CORE.stall_id ? ("(stalled)") : ""));
             if (`DUT_CORE.inst_wb_nop_or_clear == 1'b0) begin
-                `LOG($sformatf("Core retired %8h : %8h", 
+                `LOG($sformatf("Core retired %8h : %8h",
                                `DUT_CORE.pc_wb, `DUT_CORE.inst_wb));
                 `ifdef ENABLE_COSIM
                 cosim_exec(cosim_pc, cosim_inst, cosim_inst_asm, cosim_rf);
-                `LOG ($sformatf("COSIM: %8h: %8h %0s", cosim_pc, cosim_inst,
-                                cosim_inst_asm)) // TODO: should be conditional, based on verbosity
+                // TODO: should be conditional, based on verbosity
+                `LOG ($sformatf("COSIM: %8h: %8h %0s",
+                                cosim_pc, cosim_inst, cosim_inst_asm))
                 if (enable_cosim_checkers == 1'b1) cosim_run_checkers();
                 `endif
             end
@@ -351,7 +353,7 @@ initial begin
     join_any;
     disable run_test;
     `LOG("Simulation finished");
-    
+
     check_test_status();
     `ifdef ENABLE_COSIM
     if (enable_cosim_checkers == 1'b1) cosim_check_inst_cnt();
