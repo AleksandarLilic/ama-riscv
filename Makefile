@@ -2,6 +2,7 @@ CXX := g++
 CXXFLAGS := -Wall -Wextra -Werror -pedantic -std=gnu++17
 CXXFLAGS += -Ofast -s -flto -march=native -mtune=native
 CXXFLAGS += -m64 -fPIC -shared
+CXXFLAGS += -Wno-unused-parameter
 #CXXFLAGS += -pg
 DPI_ROOT := $(REPO_ROOT)/dpi
 SIM_SRCS := $(wildcard $(DPI_ROOT)/src/*.cpp)
@@ -9,7 +10,7 @@ SIM_SRCS := $(filter-out $(DPI_ROOT)/src/main.cpp, $(SIM_SRCS))
 SIM_OBJS := $(SIM_SRCS:.cpp=.o)
 SIM_OBJS := $(subst /src,,$(SIM_OBJS))
 SIM_INC := $(DPI_ROOT)/src
-SIM_DEFINES := -DENABLE_DASM -DENABLE_PROF -DDPI
+SIM_DEFINES := -DDPI -DENABLE_DASM
 
 DPI_SRC := $(DPI_ROOT)/core_dpi.cpp
 DPI_OBJ := $(DPI_SRC:.cpp=.o)
@@ -48,6 +49,7 @@ COSIM_CHECKER := -testplusarg enable_cosim_checkers
 
 all: sim
 
+dpi: $(DPI_SO)
 $(DPI_SO): $(DPI_OBJ) $(SIM_OBJS)
 	$(CXX) $(CXXFLAGS) -o $(DPI_SO) $^ $(DPI_LINK_LIB)
 
