@@ -1,14 +1,14 @@
 function void checker_t;
-    // TODO: for back-annotated GLS, timing has to be taken into account, 
+    // TODO: for back-annotated GLS, timing has to be taken into account,
     // so might revert to task, or disable checkers for GLS
     input string name;
     input reg active;
     input reg [31:0] dut_signal;
     input reg [31:0] model_signal;
-    
+
     begin
         if (active == 1'b1 && dut_signal !== model_signal) begin
-            $display("ERROR @ %0t. Checker: \"%0s\"; DUT: %0d, Model: %0d ", 
+            $display("ERROR @ %0t. Checker: \"%0s\"; DUT: 0x%0h, Model: 0x%0h",
                 $time, name, dut_signal, model_signal);
             errors = errors + 1;
         end

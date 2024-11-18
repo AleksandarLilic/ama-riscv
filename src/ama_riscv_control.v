@@ -29,6 +29,7 @@ module ama_riscv_control (
     output wire        csr_en,
     output wire        csr_we,
     output wire        csr_ui,
+    output wire [ 1:0] csr_op_sel,
     output wire [ 3:0] alu_op_sel,
     output wire [ 2:0] ig_sel,
     output wire        bc_uns,
@@ -42,7 +43,7 @@ module ama_riscv_control (
     output wire        bcs_b_sel_fwd,
     output wire        rf_a_sel_fwd,
     output wire        rf_b_sel_fwd,
-    output wire [ 3:0] dmem_we  
+    output wire [ 3:0] dmem_we
 );
 
 // Signals
@@ -75,6 +76,7 @@ ama_riscv_decoder ama_riscv_decoder_i (
     .csr_en (csr_en),
     .csr_we (csr_we),
     .csr_ui (csr_ui),
+    .csr_op_sel (csr_op_sel),
     .alu_op_sel (alu_op_sel),
     .alu_a_sel (alu_a_sel),
     .alu_b_sel (alu_b_sel),
