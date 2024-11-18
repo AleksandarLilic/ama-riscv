@@ -59,6 +59,7 @@ int errors = 0;
 int warnings = 0;
 bit errors_for_wave = 1'b0;
 bit enable_cosim_checkers = 1'b0;
+bit stop_on_cosim_error = 1'b0;
 wire tohost_source;
 int unsigned timeout_clocks;
 int unsigned half_period;
@@ -247,9 +248,8 @@ function void get_plusargs();
         $error("test_path not defined. Exiting.");
         $finish();
     end
-    if ($test$plusargs("enable_cosim_checkers")) begin
-        enable_cosim_checkers = 1'b1;
-    end
+    if ($test$plusargs("enable_cosim_checkers")) enable_cosim_checkers = 1'b1;
+    if ($test$plusargs("stop_on_cosim_error")) stop_on_cosim_error = 1'b1;
     if (! $value$plusargs("timeout_clocks=%d", timeout_clocks)) begin
         timeout_clocks = `DEFAULT_TIMEOUT_CLOCKS;
     end
@@ -327,18 +327,22 @@ initial begin
         while (tohost_source !== 1'b1) begin
             @(posedge clk); #1;
             stats.update(`DUT_CORE.inst_wb, `DUT_CORE.stall_id_seq[2]);
-            `LOG($sformatf("Core fetched %8h : %8h %0s",
+            `LOG($sformatf("Core [F] %5h: %8h %0s",
                            `DUT_CORE.pc_id, `DUT_CORE.inst_id_read,
                            `DUT_CORE.stall_id ? ("(stalled)") : ""));
             if (`DUT_CORE.inst_wb_nop_or_clear == 1'b0) begin
-                `LOG($sformatf("Core retired %8h : %8h",
+                `LOG($sformatf("Core [R] %5h: %8h",
                                `DUT_CORE.pc_wb, `DUT_CORE.inst_wb));
                 `ifdef ENABLE_COSIM
                 cosim_exec(cosim_pc, cosim_inst, cosim_inst_asm, cosim_rf);
                 // TODO: should be conditional, based on verbosity
-                `LOG ($sformatf("COSIM: %8h: %8h %0s",
-                                cosim_pc, cosim_inst, cosim_inst_asm))
+                `LOG($sformatf("COSIM    %5h: %8h %0s",
+                               cosim_pc, cosim_inst, cosim_inst_asm))
                 if (enable_cosim_checkers == 1'b1) cosim_run_checkers();
+                if (stop_on_cosim_error == 1'b1 && errors > 0) begin
+                    `LOG(msg_fail);
+                    $finish();
+                end
                 `endif
             end
             //print_single_instruction_results();

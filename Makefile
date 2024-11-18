@@ -46,6 +46,7 @@ TCLBATCH := run_cfg.tcl
 TEST_PATH :=
 TIMEOUT_CLOCKS :=
 COSIM_CHECKER := -testplusarg enable_cosim_checkers
+COSIM_CHECKER += -testplusarg stop_on_cosim_error
 
 all: sim
 

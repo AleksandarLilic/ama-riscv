@@ -2,8 +2,8 @@
 `define AMA_RISCV_DEFINES
 
 // Memory map
-`define RESET_VECTOR 32'h8000_0000
-`define DMEM_RANGE 2'b10
+`define RESET_VECTOR 32'h10_000
+`define DMEM_RANGE 2'b00
 `define MMIO_RANGE 2'b01
 
 // Opcodes
@@ -56,7 +56,7 @@
 // Register File
 `define RF_X0_ZERO 5'd0 // hard-wired zero
 `define RF_X1_RA 5'd1 // return address
-`define RF_X2_SP 5'd2 // stack pointer 
+`define RF_X2_SP 5'd2 // stack pointer
 `define RF_X3_GP 5'd3 // global pointer
 `define RF_X4_TP 5'd4 // thread pointer
 `define RF_X5_T0 5'd5 // temporary/alternate link register
