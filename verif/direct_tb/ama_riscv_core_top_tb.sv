@@ -196,9 +196,10 @@ function void check_test_status();
         if (`TOHOST_CHECK == 1'b1) begin
             $display("TOHOST checker enabled");
             checker_exists = 1'b1;
-            if (`DUT_CORE.tohost !== `TOHOST_PASS) begin
+            if (`DUT_CORE.csr_tohost !== `TOHOST_PASS) begin
                 status_tohost = 1'b0;
-                $display("Failed tohost test # : %0d", `DUT_CORE.tohost[31:1]);
+                $display("Failed tohost test # : %0d",
+                         `DUT_CORE.csr_tohost[31:1]);
             end
         end
 
@@ -306,7 +307,7 @@ end
 
 //------------------------------------------------------------------------------
 // Test
-assign tohost_source = `DUT_CORE.tohost[0];
+assign tohost_source = `DUT_CORE.csr_tohost[0];
 perf_stats stats;
 initial begin
     get_plusargs();

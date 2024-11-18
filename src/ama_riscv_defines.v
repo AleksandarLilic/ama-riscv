@@ -23,6 +23,11 @@
 
 // CSR addresses
 `define CSR_TOHOST 12'h51E
+`define CSR_MSCRATCH 12'h340
+
+`define CSR_OP_SEL_ASSIGN 2'b01
+`define CSR_OP_SEL_SET_BITS 2'b10
+`define CSR_OP_SEL_CLEAR_BITS 2'b11
 
 // MUX select signals
 // PC select
