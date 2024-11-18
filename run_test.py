@@ -76,6 +76,9 @@ def check_test_status(test_log_path, test_name):
                     return f"Test <{test_name}> PASSED."
                 elif "==== FAIL ====" in line:
                     return f"Test <{test_name}> FAILED."
+                elif "cosim_exec()" in line:
+                    return f"Test <{test_name}> FAILED. " + \
+                           "Cosim stopped. Check the log for details."
             return f"Test <{test_name}> result is inconclusive. " + \
                 f"Check {test_log_path} for details."
     else:
@@ -136,8 +139,9 @@ def main():
     else:
         raise ValueError("Error: No test specified.")
 
-    print(f"\nRunning {len(all_tests)} tests:")
+    print(f"\nTestlist:")
     print("   " + "\n   ".join(all_tests))
+    print(f"Running {len(all_tests)} tests total")
 
     # handle run directory
     if args.rundir:
