@@ -58,7 +58,7 @@ string timestamp;
 int errors = 0;
 int warnings = 0;
 bit errors_for_wave = 1'b0;
-bit enable_cosim_checkers = 1'b0;
+bit cosim_chk_en = 1'b0;
 bit stop_on_cosim_error = 1'b0;
 wire tohost_source;
 int unsigned timeout_clocks;
@@ -78,6 +78,7 @@ int unsigned cosim_pc;
 int unsigned cosim_inst;
 byte cosim_inst_asm[`INST_ASM_LEN];
 int unsigned cosim_rf[32];
+logic [31:0] rf_chk_act;
 
 //------------------------------------------------------------------------------
 // DUT I/O
@@ -204,7 +205,7 @@ function void check_test_status();
         end
 
         `ifdef ENABLE_COSIM
-        if (enable_cosim_checkers == 1'b1) begin
+        if (cosim_chk_en == 1'b1) begin
             $display("Cosim checker enabled");
             $display("Warnings: %2d", warnings);
             $display("Errors:   %2d", errors);
@@ -249,7 +250,7 @@ function void get_plusargs();
         $error("test_path not defined. Exiting.");
         $finish();
     end
-    if ($test$plusargs("enable_cosim_checkers")) enable_cosim_checkers = 1'b1;
+    if ($test$plusargs("enable_cosim_checkers")) cosim_chk_en = 1'b1;
     if ($test$plusargs("stop_on_cosim_error")) stop_on_cosim_error = 1'b1;
     if (! $value$plusargs("timeout_clocks=%d", timeout_clocks)) begin
         timeout_clocks = `DEFAULT_TIMEOUT_CLOCKS;
@@ -305,6 +306,21 @@ initial begin
     ->reset_end;
 end
 
+// checker setup
+initial begin
+    rf_chk_act = 32'h0;
+    @reset_end;
+    // set bit to active when the corresponding register is first written to
+    // checker remains active for the entire test
+    // once all checkers are active, disable the setup
+    while (!(&rf_chk_act)) begin
+        @(posedge clk);
+        rf_chk_act[`DUT_RF.addr_d] = 1'b1;
+        `LOG($sformatf("RF checker active for x%0d", `DUT_RF.addr_d));
+    end
+    `LOG("All RF checkers active");
+end
+
 //------------------------------------------------------------------------------
 // Test
 assign tohost_source = `DUT_CORE.csr_tohost[0];
@@ -339,7 +355,7 @@ initial begin
                 // TODO: should be conditional, based on verbosity
                 `LOG($sformatf("COSIM    %5h: %8h %0s",
                                cosim_pc, cosim_inst, cosim_inst_asm))
-                if (enable_cosim_checkers == 1'b1) cosim_run_checkers();
+                if (cosim_chk_en == 1'b1) cosim_run_checkers(rf_chk_act);
                 if (stop_on_cosim_error == 1'b1 && errors > 0) begin
                     `LOG(msg_fail);
                     $finish();
@@ -361,7 +377,7 @@ initial begin
 
     check_test_status();
     `ifdef ENABLE_COSIM
-    if (enable_cosim_checkers == 1'b1) cosim_check_inst_cnt();
+    if (cosim_chk_en == 1'b1) cosim_check_inst_cnt();
     cosim_finish();
     `endif
     stats.display();

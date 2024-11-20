@@ -201,7 +201,6 @@ wire [31:0] imm_gen_out_id;
 // Register File
 ama_riscv_reg_file ama_riscv_reg_file_i(
     .clk    (clk),
-    .rst    (rst),
     // inputs
     .we     (reg_we_mem),
     .addr_a (rs1_addr_id),
