@@ -15,7 +15,7 @@ DPI_DLLESPEC
 extern "C" void cosim_setup(const char *test_bin, uint32_t base_address) {
     std::string l_test_bin(test_bin);
     mem = new memory(base_address, l_test_bin);
-    rv32 = new core(base_address, mem, "rtl_cosim", {0, 0});
+    rv32 = new core(base_address, mem, "rtl_cosim", {0, 0, false});
 }
 
 DPI_DLLESPEC
@@ -23,6 +23,7 @@ extern "C" void cosim_exec(
     uint32_t *pc,
     uint32_t *inst,
     char *inst_asm,
+    char *rd_val_str,
     uint32_t *rf
 ) {
     *pc = rv32->get_pc();
@@ -32,6 +33,11 @@ extern "C" void cosim_exec(
         strcpy(inst_asm, rv32->get_inst_asm().c_str());
     } else {
         strcpy(inst_asm, "Instruction too long");
+    }
+    if (INST_ASM_LEN > rv32->get_rd_val_str().length()) {
+        strcpy(rd_val_str, rv32->get_rd_val_str().c_str());
+    } else {
+        strcpy(rd_val_str, "Register value too long");
     }
     for (int i = 0; i < 32; i++) {
         rf[i] = rv32->get_reg(i);
