@@ -6,50 +6,39 @@
 #include "core.h"
 #include "svdpi.h"
 
-#define INST_ASM_LEN 64
+#define INST_ASM_LEN 80 // must match `define in the testbench
 
 memory *mem;
 core *rv32;
+cfg_t cfg; // placeholder, dc
+hw_cfg_t hw_cfg; // placeholder, dc
 
-DPI_DLLESPEC
-extern "C" void cosim_setup(const char *test_bin, uint32_t base_address) {
+DPI_DLLESPEC extern "C"
+void cosim_setup(const char *test_bin) {
     std::string l_test_bin(test_bin);
-    mem = new memory(base_address, l_test_bin);
-    rv32 = new core(base_address, mem, "rtl_cosim", {0, 0, false});
+    mem = new memory(l_test_bin, hw_cfg);
+    rv32 = new core(mem, "rtl_cosim", cfg, hw_cfg);
 }
 
-DPI_DLLESPEC
-extern "C" void cosim_exec(
-    uint32_t *pc,
-    uint32_t *inst,
-    char *inst_asm,
-    char *rd_val_str,
-    uint32_t *rf
-) {
+DPI_DLLESPEC extern "C"
+void cosim_exec(uint32_t *pc, uint32_t *inst, char *inst_asm, uint32_t *rf) {
     *pc = rv32->get_pc();
     rv32->exec_inst();
     *inst = rv32->get_inst();
+    for (int i = 0; i < 32; i++) rf[i] = rv32->get_reg(i);
     if (INST_ASM_LEN > rv32->get_inst_asm().length()) {
         strcpy(inst_asm, rv32->get_inst_asm().c_str());
     } else {
         strcpy(inst_asm, "Instruction too long");
     }
-    if (INST_ASM_LEN > rv32->get_rd_val_str().length()) {
-        strcpy(rd_val_str, rv32->get_rd_val_str().c_str());
-    } else {
-        strcpy(rd_val_str, "Register value too long");
-    }
-    for (int i = 0; i < 32; i++) {
-        rf[i] = rv32->get_reg(i);
-    }
 }
 
-DPI_DLLESPEC
-extern "C" uint32_t cosim_get_inst_cnt() {
+DPI_DLLESPEC extern "C"
+uint32_t cosim_get_inst_cnt() {
     return rv32->get_inst_cnt();
 }
 
-DPI_DLLESPEC
-extern "C" void cosim_finish() {
+DPI_DLLESPEC extern "C"
+void cosim_finish() {
     rv32->finish(false);
 }

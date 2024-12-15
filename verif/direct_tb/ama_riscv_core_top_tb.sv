@@ -31,7 +31,7 @@
 `define TOHOST_PASS 32'd1
 
 `define MEM_SIZE 16384
-`define INST_ASM_LEN 64
+`define INST_ASM_LEN 80 // must match #define in dpi wrapper
 
 `define LOG(x) $display("%0s: %0s", timestamp, x);
 
@@ -39,15 +39,20 @@
 
 // Cosim
 `ifdef ENABLE_COSIM
-import "DPI-C" function void cosim_setup(input string test_bin,
-                                         input int unsigned base_address);
-import "DPI-C" function void cosim_exec(output int unsigned pc,
-                                        output int unsigned inst,
-                                        output byte inst_asm[`INST_ASM_LEN],
-                                        output byte rd_val_str[`INST_ASM_LEN],
-                                        output int unsigned rf[32]);
-import "DPI-C" function unsigned int cosim_get_inst_cnt();
-import "DPI-C" function void cosim_finish();
+import "DPI-C" function
+void cosim_setup(input string test_bin);
+
+import "DPI-C" function
+void cosim_exec(output int unsigned pc,
+                output int unsigned inst,
+                output byte inst_asm[`INST_ASM_LEN],
+                output int unsigned rf[32]);
+
+import "DPI-C" function
+unsigned int cosim_get_inst_cnt();
+
+import "DPI-C" function
+void cosim_finish();
 `endif
 
 module ama_riscv_core_top_tb();
@@ -78,7 +83,6 @@ event reset_end;
 int unsigned cosim_pc;
 int unsigned cosim_inst;
 byte cosim_inst_asm[`INST_ASM_LEN];
-byte cosim_rd_val_str[`INST_ASM_LEN];
 int unsigned cosim_rf[32];
 logic [31:0] rf_chk_act;
 
@@ -334,7 +338,7 @@ initial begin
     `LOG($sformatf("Simulation started"));
     load_memories({test_path,".hex"});
     `ifdef ENABLE_COSIM
-    cosim_setup({test_path,".bin"}, `RESET_VECTOR);
+    cosim_setup({test_path,".bin"});
     `endif
 
     ->go_in_reset;
@@ -353,12 +357,10 @@ initial begin
                 `LOG($sformatf("Core [R] %5h: %8h",
                                `DUT_CORE.pc_wb, `DUT_CORE.inst_wb));
                 `ifdef ENABLE_COSIM
-                cosim_exec(cosim_pc, cosim_inst, cosim_inst_asm,
-                           cosim_rd_val_str, cosim_rf);
+                cosim_exec(cosim_pc, cosim_inst, cosim_inst_asm,cosim_rf);
                 // TODO: should be conditional, based on verbosity
                 `LOG($sformatf("COSIM    %5h: %8h %0s",
                                cosim_pc, cosim_inst, cosim_inst_asm))
-                `LOG($sformatf("COSIM    %15s %0s", " ", cosim_rd_val_str))
                 if (cosim_chk_en == 1'b1) cosim_run_checkers(rf_chk_act);
                 if (stop_on_cosim_error == 1'b1 && errors > 0) begin
                     `LOG(msg_fail);
