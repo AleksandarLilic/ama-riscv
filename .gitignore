@@ -42,3 +42,6 @@ xcrg_*_cov_report
 # run artefacts
 run_cfg*.tcl
 rv_test*
+
+# isa sim outputs
+out_*/
