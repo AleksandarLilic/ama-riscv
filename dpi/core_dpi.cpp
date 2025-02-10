@@ -1,23 +1,27 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+
 #include "defines.h"
 #include "memory.h"
 #include "core.h"
+#include "utils.h"
+
 #include "svdpi.h"
 
 #define INST_ASM_LEN 80 // must match `define in the testbench
 
-memory *mem;
-core *rv32;
-cfg_t cfg; // placeholder, dc
+memory* mem;
+core* rv32;
+cfg_t cfg;
 hw_cfg_t hw_cfg; // placeholder, dc
 
 DPI_DLLESPEC extern "C"
-void cosim_setup(const char *test_bin) {
-    std::string l_test_bin(test_bin);
-    mem = new memory(l_test_bin, hw_cfg);
-    rv32 = new core(mem, "rtl_cosim", cfg, hw_cfg);
+void cosim_setup(const char *test_elf) {
+    cfg.prof_pc.start = 0x10000; // FIXME: should be passed as plusarg
+    std::string l_test_elf(test_elf);
+    mem = new memory(l_test_elf, hw_cfg);
+    rv32 = new core(mem, gen_out_dir(l_test_elf, "cosim"), cfg, hw_cfg);
 }
 
 DPI_DLLESPEC extern "C"

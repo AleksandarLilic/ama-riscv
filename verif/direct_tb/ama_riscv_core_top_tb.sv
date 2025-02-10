@@ -336,9 +336,9 @@ initial begin
     stats = new();
 
     `LOG($sformatf("Simulation started"));
-    load_memories({test_path,".hex"});
+    load_memories({test_path, ".hex"});
     `ifdef ENABLE_COSIM
-    cosim_setup({test_path,".bin"});
+    cosim_setup({test_path, ".elf"});
     `endif
 
     ->go_in_reset;
