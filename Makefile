@@ -57,7 +57,7 @@ SIM_LOG := -log /dev/null > test.log 2>&1
 sim: .elab.touchfile
 	xsim $(TOP) -tclbatch $(REPO_ROOT)/$(TCLBATCH) -stats -onerror quit -testplusarg test_path=$(REPO_ROOT)/$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) $(COSIM_CHECKER) $(SIM_LOG)
 	@touch .sim.touchfile
-	@grep "PASS\|FAIL\|Error:" test.log
+	@grep "PASS\|FAIL\|Error:" test.log || echo "Can't determine test status"
 
 # DPI build
 CXX := g++
@@ -69,6 +69,7 @@ CXXFLAGS += -Wno-unused-parameter
 
 COSIM_DIR := sim/src
 COSIM_BDIR := build_dpi
+$(shell mkdir -p $(COSIM_DIR)/$(COSIM_BDIR))
 
 COSIM_SRCS := $(wildcard $(COSIM_DIR)/*.cpp)
 COSIM_SRCS += $(wildcard $(COSIM_DIR)/devices/*.cpp)

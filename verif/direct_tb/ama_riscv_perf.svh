@@ -5,7 +5,7 @@ class perf_stats;
     integer unsigned perf_cnt_instr;
     integer unsigned perf_cnt_empty_cycles;
     integer unsigned perf_cnt_nop;
-    integer unsigned perf_cnt_hw_nop;
+    integer unsigned perf_cnt_hw_stall;
     integer unsigned perf_cnt_flush;
     real unsigned cpi;
     bit at_least_once;
@@ -19,7 +19,7 @@ class perf_stats;
         perf_cnt_instr = 0;
         perf_cnt_empty_cycles = 0;
         perf_cnt_nop = 0;
-        perf_cnt_hw_nop = 0;
+        perf_cnt_hw_stall = 0;
         perf_cnt_flush = 0;
         cpi = 0;
         at_least_once = 0;
@@ -32,16 +32,17 @@ class perf_stats;
             perf_cnt_flush++;
         end else if (inst_wb == `NOP) begin
             perf_cnt_nop++;
-            if (stall_wb == 1'b1) perf_cnt_hw_nop++; // nop inserted by hw
+            if (stall_wb == 1'b1) perf_cnt_hw_stall++;
             else perf_cnt_instr++; // nop in sw
         end else begin
             perf_cnt_instr++;
         end
     endfunction
 
+    /*
     function void compare_dut(bit [31:0] DUT_cycles, bit [31:0] DUT_instr);
         if (perf_cnt_cycle != DUT_cycles) begin
-            $display("DUT Cycle count mismatch: Expected %0d, Got %0d", 
+            $display("DUT Cycle count mismatch: Expected %0d, Got %0d",
                      DUT_cycles, perf_cnt_cycle);
         end else begin
             $display("DUT Cycle count match: %0d", perf_cnt_cycle);
@@ -53,19 +54,26 @@ class perf_stats;
             $display("DUT Instruction count match: %0d", perf_cnt_instr);
         end
     endfunction
+    */
 
-    function void display();
+    function string get();
+        string sout = "";
         if (at_least_once == 1'b0) begin
-            $display("No instructions executed");
-            return;
+            sout = $sformatf("No instructions executed\n");
+            return sout;
         end
+
         cpi = real'(perf_cnt_cycle) / real'(perf_cnt_instr);
-        perf_cnt_empty_cycles = perf_cnt_hw_nop + perf_cnt_flush;
-        $display("DUT Performance stats: ");
-        $display("    Cycles: %0d, Instr: %0d, Empty cycles: %0d, CPI: %0.3f", 
-                 perf_cnt_cycle, perf_cnt_instr, perf_cnt_empty_cycles, cpi);
-        $display("    NOP: %0d, HW NOP: %0d, Flush: %0d",
-                 perf_cnt_nop, perf_cnt_hw_nop, perf_cnt_flush);
+        perf_cnt_empty_cycles = perf_cnt_hw_stall + perf_cnt_flush;
+        sout = "DUT Performance stats: \n";
+        sout = {sout, $sformatf(
+            "    Cycles: %0d, Instr: %0d, Empty cycles: %0d, CPI: %0.3f\n",
+            perf_cnt_cycle, perf_cnt_instr, perf_cnt_empty_cycles, cpi)};
+        sout = {sout, $sformatf(
+            "    SW NOP: %0d, HW Stall: %0d, Flush: %0d\n",
+            perf_cnt_nop-perf_cnt_hw_stall, perf_cnt_hw_stall, perf_cnt_flush)};
+
+        return sout;
     endfunction
 
 endclass
