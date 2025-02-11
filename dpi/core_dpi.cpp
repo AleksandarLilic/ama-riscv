@@ -25,7 +25,14 @@ void cosim_setup(const char *test_elf) {
 }
 
 DPI_DLLESPEC extern "C"
-void cosim_exec(uint32_t *pc, uint32_t *inst, char *inst_asm, uint32_t *rf) {
+void cosim_exec(
+    uint64_t clk_cnt,
+    uint32_t *pc,
+    uint32_t *inst,
+    char *inst_asm,
+    uint32_t *rf)
+{
+    rv32->update_clk(clk_cnt);
     *pc = rv32->get_pc();
     rv32->exec_inst();
     *inst = rv32->get_inst();

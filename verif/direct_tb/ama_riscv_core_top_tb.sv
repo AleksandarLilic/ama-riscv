@@ -46,10 +46,12 @@ import "DPI-C" function
 void cosim_setup(input string test_bin);
 
 import "DPI-C" function
-void cosim_exec(output int unsigned pc,
-                output int unsigned inst,
-                output byte inst_asm[`INST_ASM_LEN],
-                output int unsigned rf[32]);
+void cosim_exec(
+    input longint unsigned clk_cnt,
+    output int unsigned pc,
+    output int unsigned inst,
+    output byte inst_asm[`INST_ASM_LEN],
+    output int unsigned rf[32]);
 
 import "DPI-C" function
 unsigned int cosim_get_inst_cnt();
@@ -299,18 +301,17 @@ endfunction
 // end
 
 task single_step();
-    @(posedge clk); #1;
-
+    input longint unsigned clk_cnt;
     stats.update(`DUT_CORE.inst_wb, `DUT_CORE.stall_id_seq[2]);
     `LOG($sformatf("Core [F] %5h: %8h %0s",
                     `DUT_CORE.pc_id, `DUT_CORE.inst_id_read,
-                    `DUT_CORE.stall_id ? ("(stalled)") : ""));
+                    `DUT_CORE.stall_id ? ("(fe stalled)") : ""));
 
     if (`DUT_CORE.inst_wb_nop_or_clear == 1'b1) return;
 
     `LOG($sformatf("Core [R] %5h: %8h", `DUT_CORE.pc_wb, `DUT_CORE.inst_wb));
     `ifdef ENABLE_COSIM
-    cosim_exec(cosim_pc, cosim_inst, cosim_inst_asm,cosim_rf);
+    cosim_exec(clk_cnt, cosim_pc, cosim_inst, cosim_inst_asm, cosim_rf);
     // TODO: should be conditional, based on verbosity
     `LOG($sformatf("COSIM    %5h: %8h %0s",cosim_pc,cosim_inst,cosim_inst_asm));
     if (cosim_chk_en == 1'b1) cosim_run_checkers(rf_chk_act);
@@ -324,7 +325,13 @@ task single_step();
 endtask
 
 task run_test();
-    while (tohost_source !== 1'b1) single_step();
+    automatic longint unsigned clk_cnt = 0;
+    while (tohost_source !== 1'b1) begin
+        @(posedge clk); #1;
+        clk_cnt += 1;
+        //$display("clk_cnt: %0d", clk_cnt);
+        single_step(clk_cnt);
+    end
 endtask
 
 // clk gen
