@@ -50,7 +50,8 @@ void cosim_exec(
     input longint unsigned clk_cnt,
     output int unsigned pc,
     output int unsigned inst,
-    output byte inst_asm[`INST_ASM_LEN],
+    output string inst_asm_str,
+    output string stack_top_str,
     output int unsigned rf[32]);
 
 import "DPI-C" function
@@ -87,7 +88,8 @@ event reset_end;
 // cosim
 int unsigned cosim_pc;
 int unsigned cosim_inst;
-byte cosim_inst_asm[`INST_ASM_LEN];
+string cosim_inst_asm_str;
+string cosim_stack_top_str;
 int unsigned cosim_rf[32];
 logic [31:0] rf_chk_act;
 
@@ -300,6 +302,22 @@ endfunction
 //     end
 // end
 
+parameter SLEN = 32;
+logic [8*SLEN-1:0] cosim_stack_top_str_wave;
+
+function automatic [8*SLEN-1:0] pack_string(input string str);
+    logic [8*SLEN-1:0] packed_str;
+    integer j;
+    begin
+        packed_str = '0;
+        // place the characters starting from the highest byte
+        for (j = 0; j < SLEN && j < str.len(); j = j + 1) begin
+            packed_str[(SLEN-1-j)*8 +: 8] = str.getc(j);
+        end
+        return packed_str;
+    end
+endfunction
+
 task single_step();
     input longint unsigned clk_cnt;
     stats.update(`DUT_CORE.inst_wb, `DUT_CORE.stall_id_seq[2]);
@@ -311,9 +329,12 @@ task single_step();
 
     `LOG($sformatf("Core [R] %5h: %8h", `DUT_CORE.pc_wb, `DUT_CORE.inst_wb));
     `ifdef ENABLE_COSIM
-    cosim_exec(clk_cnt, cosim_pc, cosim_inst, cosim_inst_asm, cosim_rf);
+    cosim_exec(clk_cnt, cosim_pc, cosim_inst,
+               cosim_inst_asm_str, cosim_stack_top_str, cosim_rf);
     // TODO: should be conditional, based on verbosity
-    `LOG($sformatf("COSIM    %5h: %8h %0s",cosim_pc,cosim_inst,cosim_inst_asm));
+    cosim_stack_top_str_wave = pack_string(cosim_stack_top_str);
+    `LOG($sformatf("COSIM    %5h: %8h %0s",
+                   cosim_pc, cosim_inst, cosim_inst_asm_str));
     if (cosim_chk_en == 1'b1) cosim_run_checkers(rf_chk_act);
     if (stop_on_cosim_error == 1'b1 && errors > 0) begin
         `LOG(msg_fail);

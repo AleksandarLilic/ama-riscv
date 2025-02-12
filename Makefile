@@ -1,6 +1,11 @@
 # RTL build
 TOP := ama_riscv_core_top_tb
+
+# DPI variables needed during TB build
 DPI_SO := ama-riscv-sim_dpi.so
+DPI_ROOT := $(REPO_ROOT)/dpi
+DPI_TB_FUNCS_H := $(DPI_ROOT)/dpi_tb_functions.h
+
 SOURCE_FILES_SV := $(REPO_ROOT)/sources_sv.f
 SOURCE_FILES_V := $(REPO_ROOT)/sources_v.f
 VERILOG_DEFINES := -d CORE_ONLY -d ENABLE_COSIM
@@ -51,6 +56,9 @@ elab: .elab.touchfile
 	@rm xelab.pb
 	@touch .elab.touchfile
 
+dpi_header_gen: .compile.touchfile
+	xelab $(TOP) $(ELAB_OPTS) $(VERILOG_DEFINES) -dpiheader $(DPI_TB_FUNCS_H) -log /dev/null > xelab_dpi_header_gen.log 2>&1
+
 #SIM_LOG := -log test.log
 SIM_LOG := -log /dev/null > test.log 2>&1
 
@@ -61,7 +69,12 @@ sim: .elab.touchfile
 
 # DPI build
 CXX := g++
-CXXFLAGS := -Wall -Wextra -Werror -pedantic -std=gnu++17
+CXXFLAGS := -Wall -Wextra
+CXXFLAGS += -Wcast-qual -Wold-style-cast
+CXXFLAGS += -Wunreachable-code -Wnull-dereference
+CXXFLAGS += -Wnon-virtual-dtor -Woverloaded-virtual
+CXXFLAGS += -Werror -pedantic -std=gnu++17
+CXXFLAGS += -Wno-error=null-dereference # may be required for ELFIO only
 CXXFLAGS += -Ofast -s -flto=auto -march=native -mtune=native
 CXXFLAGS += -m64 -fPIC -shared
 CXXFLAGS += -Wno-unused-parameter
@@ -78,9 +91,7 @@ COSIM_SRCS := $(filter-out $(COSIM_DIR)/main.cpp, $(COSIM_SRCS))
 COSIM_OBJS := $(patsubst $(COSIM_DIR)/%, $(COSIM_DIR)/$(COSIM_BDIR)/%, $(COSIM_SRCS:.cpp=.o))
 COSIM_INC := -I$(COSIM_DIR) -I$(COSIM_DIR)/devices -I$(COSIM_DIR)/profilers
 COSIM_INC += -isystem $(COSIM_DIR)/external/ELFIO
-COSIM_DEFINES := -DDPI -DPROFILERS_EN -DDASM_EN
 
-DPI_ROOT := $(REPO_ROOT)/dpi
 DPI_SRC := $(DPI_ROOT)/core_dpi.cpp
 DPI_OBJ := $(DPI_SRC:.cpp=.o)
 DPI_INC := -I$(VIVADO_ROOT)/data/xsim/include
@@ -88,16 +99,16 @@ DPI_LINK_LIB := -L$(VIVADO_ROOT)/tps/lnx64/gcc-9.3.0/lib64/
 
 dpi: $(DPI_SO)
 
-$(DPI_SO): .cosim_obj.touchfile $(DPI_OBJ)
+$(DPI_SO): .cosim_obj.touchfile $(DPI_OBJ) $(DPI_TB_FUNCS_H)
 	$(CXX) $(CXXFLAGS) -o $(DPI_SO) $(DPI_OBJ) $(COSIM_OBJS) $(DPI_LINK_LIB)
 
 cosim_obj: .cosim_obj.touchfile
 .cosim_obj.touchfile: $(COSIM_SRCS)
-	$(MAKE) -C $(COSIM_DIR) obj BDIR=$(COSIM_BDIR) USER_DEFINES="$(COSIM_DEFINES)"
+	$(MAKE) -C $(COSIM_DIR) obj BDIR=$(COSIM_BDIR) DEFINES=-DDPI
 	@touch .cosim_obj.touchfile
 
 $(DPI_OBJ): $(DPI_SRC)
-	$(CXX) $(CXXFLAGS) -c -o $@ $< $(DPI_INC) $(COSIM_INC) $(COSIM_DEFINES)
+	$(CXX) $(CXXFLAGS) -c -o $@ $< $(DPI_INC) $(COSIM_INC)
 
 cleancosim:
 	$(MAKE) -C $(COSIM_DIR) cleanbuild BDIR=$(COSIM_BDIR)
@@ -107,7 +118,7 @@ cleandpi:
 	rm -rf $(DPI_ROOT)/*.*o *.so
 
 cleanlogs:
-	rm -rf *.log *.jou *.pb vivado_pid*.str
+	rm -rf *.log *.jou *.pb vivado_pid*.str out_*
 
 clean: cleanlogs
 	rm -rf .*touchfile xsim.dir *.wdb
