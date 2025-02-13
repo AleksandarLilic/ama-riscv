@@ -89,6 +89,9 @@ COSIM_SRCS += $(wildcard $(COSIM_DIR)/devices/*.cpp)
 COSIM_SRCS += $(wildcard $(COSIM_DIR)/profilers/*.cpp)
 COSIM_SRCS := $(filter-out $(COSIM_DIR)/main.cpp, $(COSIM_SRCS))
 COSIM_OBJS := $(patsubst $(COSIM_DIR)/%, $(COSIM_DIR)/$(COSIM_BDIR)/%, $(COSIM_SRCS:.cpp=.o))
+COSIM_H := $(wildcard $(COSIM_DIR)/*.h)
+COSIM_H += $(wildcard $(COSIM_DIR)/devices/*.h)
+COSIM_H += $(wildcard $(COSIM_DIR)/profilers/*.h)
 COSIM_INC := -I$(COSIM_DIR) -I$(COSIM_DIR)/devices -I$(COSIM_DIR)/profilers
 COSIM_INC += -isystem $(COSIM_DIR)/external/ELFIO
 
@@ -99,15 +102,15 @@ DPI_LINK_LIB := -L$(VIVADO_ROOT)/tps/lnx64/gcc-9.3.0/lib64/
 
 dpi: $(DPI_SO)
 
-$(DPI_SO): .cosim_obj.touchfile $(DPI_OBJ) $(DPI_TB_FUNCS_H)
+$(DPI_SO): .cosim_obj.touchfile $(DPI_OBJ)
 	$(CXX) $(CXXFLAGS) -o $(DPI_SO) $(DPI_OBJ) $(COSIM_OBJS) $(DPI_LINK_LIB)
 
 cosim_obj: .cosim_obj.touchfile
-.cosim_obj.touchfile: $(COSIM_SRCS)
+.cosim_obj.touchfile: $(COSIM_SRCS) $(COSIM_H)
 	$(MAKE) -C $(COSIM_DIR) obj BDIR=$(COSIM_BDIR) DEFINES=-DDPI
 	@touch .cosim_obj.touchfile
 
-$(DPI_OBJ): $(DPI_SRC)
+$(DPI_OBJ): $(DPI_SRC) $(DPI_TB_FUNCS_H) $(COSIM_H)
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(DPI_INC) $(COSIM_INC)
 
 cleancosim:
