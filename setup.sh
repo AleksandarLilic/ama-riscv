@@ -15,9 +15,13 @@ export REPO_ROOT
 source "$VIVADO_ROOT/.settings64-Vivado.sh"
 
 # generic run_cfg.tcl
-echo "log_wave -recursive *" > run_cfg.tcl
-echo "run all" >> run_cfg.tcl
-echo "exit" >> run_cfg.tcl
+tcl_cfg="run_cfg.tcl"
+echo "log_wave -recursive *" > $tcl_cfg
+echo "open_vcd" >> $tcl_cfg
+echo "log_vcd *" >> $tcl_cfg
+echo "run all" >> $tcl_cfg
+echo "close_vcd" >> $tcl_cfg
+echo "exit" >> $tcl_cfg
 
 # notes
 echo "REPO_ROOT=$REPO_ROOT"

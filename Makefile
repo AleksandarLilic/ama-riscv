@@ -17,17 +17,20 @@ ELAB_OPTS := -debug $(ELAB_DEBUG) --incr --relax --mt 8
 define get_sources
 $(foreach file,$(shell cat $(1) | grep -v -- '--include' | grep -oP '"\K[^"]+' | sed 's/\\//g'),$(shell echo $(file)))
 endef
+
 define get_include_dirs
 $(foreach file,$(shell cat $(1) | grep -- '--include' | grep -oP '"\K[^"]+' | sed 's/\\//g'),$(shell echo $(file)))
 endef
 
-DEPS_SV := $(call get_sources,$(SOURCE_FILES_SV))
+SRC_SV := $(call get_sources,$(SOURCE_FILES_SV))
 INC_DIRS_SV := $(call get_include_dirs,$(SOURCE_FILES_SV))
-DEPS_INC_SV := $(foreach dir,$(INC_DIRS_SV),$(shell echo $(dir))/*)
+SRC_INC_SV := $(foreach dir,$(INC_DIRS_SV),$(shell echo $(dir))/*)
+INCDIR_SV := $(foreach dir,$(INC_DIRS_SV),$(shell echo +incdir+$(dir)))
 
-DEPS_V := $(call get_sources,$(SOURCE_FILES_V))
+SRC_V := $(call get_sources,$(SOURCE_FILES_V))
 INC_DIRS_V := $(call get_include_dirs,$(SOURCE_FILES_V))
-DEPS_INC_V := $(foreach dir,$(INC_DIRS_V),$(shell echo $(dir))/*)
+SRC_INC_V := $(foreach dir,$(INC_DIRS_V),$(shell echo $(dir))/*)
+INCDIR_V := $(foreach dir,$(INC_DIRS_V),$(shell echo +incdir+$(dir)))
 
 TCLBATCH := run_cfg.tcl
 TEST_PATH :=
@@ -42,11 +45,11 @@ compile: .compile.touchfile
 	@rm xvlog.pb
 	@touch .compile.touchfile
 
-.compile_sv.touchfile: $(DEPS_SV) $(DEPS_INC_SV)
+.compile_sv.touchfile: $(SRC_SV) $(SRC_INC_SV)
 	xvlog $(COMP_OPTS_SV) -prj $(SOURCE_FILES_SV) $(VERILOG_DEFINES) -log /dev/null > xvlog_sv.log 2>&1
 	@touch .compile_sv.touchfile
 
-.compile_v.touchfile: $(DEPS_V) $(DEPS_INC_V)
+.compile_v.touchfile: $(SRC_V) $(SRC_INC_V)
 	xvlog $(COMP_OPTS_V) -prj $(SOURCE_FILES_V) $(VERILOG_DEFINES) -log /dev/null > xvlog_v.log 2>&1
 	@touch .compile_v.touchfile
 
@@ -66,6 +69,18 @@ sim: .elab.touchfile
 	xsim $(TOP) -tclbatch $(REPO_ROOT)/$(TCLBATCH) -stats -onerror quit -testplusarg test_path=$(REPO_ROOT)/$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) $(COSIM_CHECKER) $(SIM_LOG)
 	@touch .sim.touchfile
 	@grep "PASS\|FAIL\|Error:" test.log || echo "Can't determine test status"
+
+watch_slang:
+	@while inotifywait -e close_write $(SRC_SV) $(SRC_V) 2>/dev/null; do \
+		make slang; \
+		echo ""; \
+	done
+
+slang:
+	@slang $(SRC_SV) $(SRC_V) $(INCDIR_SV) $(INCDIR_V) -Wno-unconnected-port
+
+lint:
+	@verilator --lint-only $(SRC_V) $(INCDIR_SV) $(INCDIR_V) -Wall -Wpedantic > lint.log 2>&1
 
 # DPI build
 CXX := g++

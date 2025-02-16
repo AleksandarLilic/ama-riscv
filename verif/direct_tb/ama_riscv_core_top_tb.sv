@@ -1,5 +1,3 @@
-`timescale 1ns/1ps
-
 `include "ama_riscv_defines.v"
 `include "ama_riscv_perf.svh"
 
@@ -78,7 +76,6 @@ int unsigned half_period;
 real frequency;
 
 // events
-event ev_rst [1:0];
 event ev_load_stim;
 event ev_load_vector;
 event ev_load_vector_done;
@@ -171,9 +168,7 @@ wire mmio_reset_cnt;
 `endif
 
 // Testbench functions
-function int open_file();
-    input string name;
-    input string op;
+function automatic int open_file(string name, string op);
     int fd;
     begin
         fd = $fopen(name, op);
@@ -188,7 +183,7 @@ endfunction
 //string log_name = "run.log";
 //int log_fd = open_file(log_name, "w");
 
-function void load_memories;
+function automatic void load_memories;
     input string test_hex_path;
     int fd;
     begin
@@ -212,7 +207,7 @@ endfunction
 string msg_pass = "==== PASS ====";
 string msg_fail = "==== FAIL ====";
 
-function void check_test_status();
+function automatic void check_test_status();
     automatic bit status_cosim = 1'b1;
     automatic bit status_tohost = 1'b1;
     automatic bit checker_exists = 1'b0;
@@ -302,7 +297,7 @@ endfunction
 //     end
 // end
 
-parameter SLEN = 32;
+localparam int SLEN = 32;
 logic [8*SLEN-1:0] cosim_stack_top_str_wave;
 
 function automatic [8*SLEN-1:0] pack_string(input string str);
@@ -318,8 +313,7 @@ function automatic [8*SLEN-1:0] pack_string(input string str);
     end
 endfunction
 
-task single_step();
-    input longint unsigned clk_cnt;
+task automatic single_step(longint unsigned clk_cnt);
     stats.update(`DUT_CORE.inst_wb, `DUT_CORE.stall_id_seq[2]);
     `LOG($sformatf("Core [F] %5h: %8h %0s",
                     `DUT_CORE.pc_id, `DUT_CORE.inst_id_read,

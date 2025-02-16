@@ -7,7 +7,7 @@ class perf_stats;
     integer unsigned perf_cnt_nop;
     integer unsigned perf_cnt_hw_stall;
     integer unsigned perf_cnt_flush;
-    real unsigned cpi;
+    real cpi;
     bit at_least_once;
 
     function new();
