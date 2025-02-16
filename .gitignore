@@ -10,6 +10,7 @@ local/
 *.xpr
 *.wcfg
 *.wdb
+*.vcd
 *.log
 *.jou
 xsim.dir/
