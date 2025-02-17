@@ -37,13 +37,13 @@
 `define PC_SEL_START_ADDR 2'd3 // PC = Hardwired start address
 
 // ALU A operand select
-`define ALU_A_SEL_RS1 2'd0 // A = Reg[rs1]
-`define ALU_A_SEL_PC 2'd1 // A = PC
+`define ALU_A_SEL_RS1 1'd0 // A = Reg[rs1]
+`define ALU_A_SEL_PC 1'd1 // A = PC
 `define ALU_A_SEL_FWD_ALU 2'd2 // A = ALU; forwarding from MEM stage
 
 // ALU B operand select
-`define ALU_B_SEL_RS2 2'd0 // B = Reg[rs2]
-`define ALU_B_SEL_IMM 2'd1 // B = Immediate value; from Imm Gen
+`define ALU_B_SEL_RS2 1'd0 // B = Reg[rs2]
+`define ALU_B_SEL_IMM 1'd1 // B = Immediate value; from Imm Gen
 `define ALU_B_SEL_FWD_ALU 2'd2 // B = ALU; forwarding from MEM stage
 
 // Write back select

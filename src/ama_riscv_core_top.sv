@@ -1,29 +1,29 @@
-`include "ama_riscv_defines.v"
+`include "ama_riscv_defines.svh"
 
 module ama_riscv_core_top (
-    input  wire        clk,
-    input  wire        rst,
-    input  wire [31:0] mmio_instr_cnt,
-    input  wire [31:0] mmio_cycle_cnt,
-    input  wire [ 7:0] mmio_uart_data_out,
-    input  wire        mmio_data_out_valid,
-    input  wire        mmio_data_in_ready,
-    output wire        store_to_uart,
-    output wire        load_from_uart,
-    output wire        inst_wb_nop_or_clear,
-    output wire        mmio_reset_cnt,
-    output wire [ 7:0] mmio_uart_data_in
+    input  logic        clk,
+    input  logic        rst,
+    input  logic [31:0] mmio_instr_cnt,
+    input  logic [31:0] mmio_cycle_cnt,
+    input  logic [ 7:0] mmio_uart_data_out,
+    input  logic        mmio_data_out_valid,
+    input  logic        mmio_data_in_ready,
+    output logic        store_to_uart,
+    output logic        load_from_uart,
+    output logic        inst_wb_nop_or_clear,
+    output logic        mmio_reset_cnt,
+    output logic [ 7:0] mmio_uart_data_in
 );
 
 // IMEM
-wire [31:0] inst_id_read;
-wire [13:0] imem_addr;
+logic [31:0] inst_id_read;
+logic [13:0] imem_addr;
 // DMEM
-wire [31:0] dmem_write_data;
-wire [13:0] dmem_addr;
-wire        dmem_en;
-wire [ 3:0] dmem_we;
-wire [31:0] dmem_read_data_mem;
+logic [31:0] dmem_write_data;
+logic [13:0] dmem_addr;
+logic        dmem_en;
+logic [ 3:0] dmem_we;
+logic [31:0] dmem_read_data_mem;
 
 // core
 ama_riscv_core ama_riscv_core_i(

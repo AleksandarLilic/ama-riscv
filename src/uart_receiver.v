@@ -18,16 +18,16 @@ module uart_receiver #(
     parameter CLOCK_FREQ = 125_000_000,
     parameter BAUD_RATE  =     115_200)
 (
-    input   wire        clk,
-    input   wire        rst,
+    input   logic        clk,
+    input   logic        rst,
     
     // ready/valid
-    input   wire        data_out_ready,
-    output  wire        data_out_valid,
+    input   logic        data_out_ready,
+    output  logic        data_out_valid,
     
     // data path
-    input   wire        serial_in,
-    output  wire  [7:0] data_out
+    input   logic        serial_in,
+    output  logic  [7:0] data_out
 );
 
 //-----------------------------------------------------------------------------
@@ -46,15 +46,15 @@ localparam CLOCK_COUNTER_WIDTH  = $clog2(SYMBOL_EDGE_TIME);
 
 //-----------------------------------------------------------------------------
 // Signals
-wire        symbol_edge;
-wire        sample;
-wire        start;
-wire        rx_running;
+logic        symbol_edge;
+logic        sample;
+logic        start;
+logic        rx_running;
 
-reg         has_byte;
-reg   [9:0] rx_shift;
-reg   [3:0] bit_counter;
-reg   [CLOCK_COUNTER_WIDTH-1:0] clock_counter;
+logic        has_byte;
+logic  [9:0] rx_shift;
+logic  [3:0] bit_counter;
+logic  [CLOCK_COUNTER_WIDTH-1:0] clock_counter;
 
 //-----------------------------------------------------------------------------
 

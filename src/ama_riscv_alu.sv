@@ -1,18 +1,22 @@
-`include "ama_riscv_defines.v"
+`include "ama_riscv_defines.svh"
 
 module ama_riscv_alu (
-    input  wire [ 3:0] op_sel,
-    input  wire [31:0] in_a,
-    input  wire [31:0] in_b,
-    output reg  [31:0] out_s
+    input  logic [ 3:0] op_sel,
+    input  logic [31:0] in_a,
+    input  logic [31:0] in_b,
+    output logic [31:0] out_s
 );
 
-wire [63:0] in_a_double_sll = {in_a, 32'h0};
-wire [63:0] in_a_double_srl = {32'h0, in_a};
-wire [63:0] in_a_double_sra = {{32{in_a[31]}}, in_a};
-wire [ 4:0] shamt = in_b[4:0];
+logic [63:0] in_a_double_sll;
+logic [63:0] in_a_double_srl;
+logic [63:0] in_a_double_sra;
+logic [ 5:0] shamt;
+assign in_a_double_sll = {in_a, 32'h0};
+assign in_a_double_srl = {32'h0, in_a};
+assign in_a_double_sra = {{32{in_a[31]}}, in_a};
+assign shamt = {1'b0,in_b[4:0]};
 
-always @ (*) begin
+always_comb begin
     case (op_sel)
         `ALU_ADD: out_s = in_a + in_b;
         `ALU_SUB: out_s = in_a - in_b;
@@ -25,7 +29,7 @@ always @ (*) begin
         `ALU_OR: out_s = in_a | in_b;
         `ALU_AND: out_s = in_a & in_b;
         `ALU_PASS_B: out_s = in_b;
-        default: out_s = 32'h0; // invalid operation        
+        default: out_s = 32'h0; // invalid operation
     endcase
 end
 

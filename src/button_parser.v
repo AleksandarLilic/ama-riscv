@@ -19,16 +19,16 @@ module button_parser #(
     parameter SAMPLE_COUNT_MAX  = 25000,
     parameter PULSE_COUNT_MAX   = 150
 ) (
-    input   wire             clk,
-    input   wire             rst,
-    input   wire [WIDTH-1:0] btn_in,
-    output  wire [WIDTH-1:0] btn_out
+    input   logic             clk,
+    input   logic             rst,
+    input   logic [WIDTH-1:0] btn_in,
+    output  logic [WIDTH-1:0] btn_out
 );
 
 //-----------------------------------------------------------------------------
 // Signals
-wire [WIDTH-1:0] sync_signals;
-wire [WIDTH-1:0] deb_signals;
+logic [WIDTH-1:0] sync_signals;
+logic [WIDTH-1:0] deb_signals;
 
 //-----------------------------------------------------------------------------
 synchronizer # (

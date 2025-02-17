@@ -18,16 +18,16 @@ module uart_transmitter #(
     parameter CLOCK_FREQ = 125_000_000,
     parameter BAUD_RATE  =     115_200)
 (
-    input   wire        clk,
-    input   wire        rst,
+    input   logic        clk,
+    input   logic        rst,
     
     // ready/valid
-    input   wire        data_in_valid,
-    output  wire        data_in_ready,
+    input   logic        data_in_valid,
+    output  logic        data_in_ready,
     
     // data path
-    input   wire  [7:0] data_in,
-    output  reg         serial_out
+    input   logic  [7:0] data_in,
+    output  logic        serial_out
 );
 
 //-----------------------------------------------------------------------------
@@ -41,14 +41,14 @@ localparam  IDLE_BIT  = 1'b1;
 
 //-----------------------------------------------------------------------------
 // Signals
-wire        symbol_edge;
-wire        start;
+logic        symbol_edge;
+logic        start;
 
-wire        tx_running;
-reg   [8:0] buffer;
+logic        tx_running;
+logic  [8:0] buffer;
 
-reg   [3:0] bit_counter;
-reg   [CLOCK_COUNTER_WIDTH-1:0] clock_counter;
+logic  [3:0] bit_counter;
+logic  [CLOCK_COUNTER_WIDTH-1:0] clock_counter;
 
 //-----------------------------------------------------------------------------
 
