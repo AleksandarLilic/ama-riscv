@@ -20,23 +20,23 @@ module debouncer #(
     parameter WRAPPING_COUNTER_WIDTH    = $clog2(SAMPLE_COUNT_MAX),
     parameter SATURATING_COUNTER_WIDTH  = $clog2(PULSE_COUNT_MAX)
 )(
-    input   wire             clk,
-    input   wire             rst,
-    input   wire [WIDTH-1:0] glitchy_signal,
-    output  wire [WIDTH-1:0] debounced_signal
+    input   logic             clk,
+    input   logic             rst,
+    input   logic [WIDTH-1:0] glitchy_signal,
+    output  logic [WIDTH-1:0] debounced_signal
 );
 
 //-----------------------------------------------------------------------------
 // Signals
 // Wrapping counter
-reg    [WRAPPING_COUNTER_WIDTH-1:0]    wrap_cnt;
-wire   wrap_cnt_match;
+logic   [WRAPPING_COUNTER_WIDTH-1:0]    wrap_cnt;
+logic   wrap_cnt_match;
 
 // Saturating counter
 genvar i;
-reg    [SATURATING_COUNTER_WIDTH-1:0]  sat_cnt [WIDTH-1:0];
-wire   [WIDTH-1:0] sat_cnt_en;
-wire   [WIDTH-1:0] sat_cnt_match;
+logic   [SATURATING_COUNTER_WIDTH-1:0]  sat_cnt [WIDTH-1:0];
+logic   [WIDTH-1:0] sat_cnt_en;
+logic   [WIDTH-1:0] sat_cnt_match;
 
 //-----------------------------------------------------------------------------
 // Sample pulse generator

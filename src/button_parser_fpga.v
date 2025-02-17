@@ -44,8 +44,8 @@ localparam integer B_PULSE_COUNT_MAX    = 0.100 / 0.0005;
 
 //-----------------------------------------------------------------------------
 // Signals
-wire [3:0] buttons_pressed;
-reg  [3:0] count = 0;
+logic [3:0] buttons_pressed;
+logic [3:0] count = 0;
 
 //-----------------------------------------------------------------------------
 assign LEDS[5:4] = 2'b00;

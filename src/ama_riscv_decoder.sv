@@ -1,112 +1,124 @@
 `include "ama_riscv_defines.svh"
 
 module ama_riscv_decoder (
-    input  wire        clk,
-    input  wire        rst,
-    input  wire [31:0] inst_id,
-    input  wire [31:0] inst_ex,
-    input  wire        bc_a_eq_b,
-    input  wire        bc_a_lt_b,
-    // input  wire        bp_taken,
-    // input  wire        bp_clear,
-    output wire        stall_if,
-    output wire        clear_if,
-    output wire        clear_id,
-    output wire        clear_ex,
-    output wire        clear_mem,
-    output wire [ 1:0] pc_sel,
-    output wire        pc_we,
-    // output wire        imem_en,
-    output wire        load_inst,
-    output wire        store_inst,
-    output wire        branch_inst,
-    output wire        jump_inst,
-    output wire        csr_en,
-    output wire        csr_we,
-    output wire        csr_ui,
-    output wire [ 1:0] csr_op_sel,
-    output wire [ 3:0] alu_op_sel,
-    output wire        alu_a_sel,
-    output wire        alu_b_sel,
-    output wire [ 2:0] ig_sel,
-    output wire        bc_uns,
-    output wire        dmem_en,
-    output wire        load_sm_en,
-    output wire [ 1:0] wb_sel,
-    output wire        reg_we
+    input  logic        clk,
+    input  logic        rst,
+    input  logic [31:0] inst_id,
+    input  logic [31:0] inst_ex,
+    input  logic        bc_a_eq_b,
+    input  logic        bc_a_lt_b,
+    // input  logic        bp_taken,
+    // input  logic        bp_clear,
+    output logic        stall_if,
+    output logic        clear_if,
+    output logic        clear_id,
+    output logic        clear_ex,
+    output logic        clear_mem,
+    output logic [ 1:0] pc_sel,
+    output logic        pc_we,
+    // output logic        imem_en,
+    output logic        load_inst,
+    output logic        store_inst,
+    output logic        branch_inst,
+    output logic        jump_inst,
+    output logic        csr_en,
+    output logic        csr_we,
+    output logic        csr_ui,
+    output logic [ 1:0] csr_op_sel,
+    output logic [ 3:0] alu_op_sel,
+    output logic        alu_a_sel,
+    output logic        alu_b_sel,
+    output logic [ 2:0] ig_sel,
+    output logic        bc_uns,
+    output logic        dmem_en,
+    output logic        load_sm_en,
+    output logic [ 1:0] wb_sel,
+    output logic        reg_we
 );
 
 // ID stage CSR addresses
-wire  [11:0] csr_addr    =  inst_id[31:20];
+logic [11:0] csr_addr;
+assign csr_addr = inst_id[31:20];
 // ID stage register addresses
-wire  [ 4:0] rs1_addr_id =  inst_id[19:15];
-wire  [ 4:0] rd_addr_id  =  inst_id[11: 7];
+logic [ 4:0] rs1_addr_id;
+logic [ 4:0] rd_addr_id;
+assign rs1_addr_id = inst_id[19:15];
+assign rd_addr_id = inst_id[11:7];
 // ID stage functions
-wire  [ 6:0] opc7_id     =  inst_id[ 6: 0];
-wire  [ 2:0] funct3_id   =  inst_id[14:12];
-wire  [ 6:0] funct7_id   =  inst_id[31:25];
+logic [ 6:0] opc7_id;
+logic [ 2:0] funct3_id;
+logic [ 6:0] funct7_id;
+assign opc7_id = inst_id[6:0];
+assign funct3_id = inst_id[14:12];
+assign funct7_id = inst_id[31:25];
 // EX stage functions
-wire  [ 6:0] opc7_ex     =  inst_ex[ 6: 0];
-wire  [ 2:0] funct3_ex   =  inst_ex[14:12];
-wire  [ 6:0] funct7_ex   =  inst_ex[31:25];
+logic [ 6:0] opc7_ex;
+logic [ 2:0] funct3_ex;
+logic [ 6:0] funct7_ex;
+assign opc7_ex = inst_ex[ 6: 0];
+assign funct3_ex = inst_ex[14:12];
+assign funct7_ex = inst_ex[31:25];
 
 // Switch-Case outputs
-reg [ 1:0] pc_sel_r;
-reg        pc_we_r;
-reg        load_inst_r;
-reg        store_inst_r;
-reg        branch_inst_r;
-reg        jump_inst_r;
-reg        csr_en_r;
-reg        csr_we_r;
-reg        csr_ui_r;
-reg [ 1:0] csr_op_sel_r;
-reg [ 3:0] alu_op_sel_r;
-reg        alu_a_sel_r;
-reg        alu_b_sel_r;
-reg [ 2:0] ig_sel_r;
-reg        bc_uns_r;
-reg        dmem_en_r;
-reg        load_sm_en_r;
-reg [ 1:0] wb_sel_r;
-reg        reg_we_r;
+logic [ 1:0] pc_sel_r;
+logic        pc_we_r;
+logic        load_inst_r;
+logic        store_inst_r;
+logic        branch_inst_r;
+logic        jump_inst_r;
+logic        csr_en_r;
+logic        csr_we_r;
+logic        csr_ui_r;
+logic [ 1:0] csr_op_sel_r;
+logic [ 3:0] alu_op_sel_r;
+logic        alu_a_sel_r;
+logic        alu_b_sel_r;
+logic [ 2:0] ig_sel_r;
+logic        bc_uns_r;
+logic        dmem_en_r;
+logic        load_sm_en_r;
+logic [ 1:0] wb_sel_r;
+logic        reg_we_r;
 
-reg         pc_sel_rst;
-reg  [ 1:0] pc_sel_d;
-reg         pc_we_d;
-reg         load_inst_d;
-reg         store_inst_d;
-reg         branch_inst_d;
-reg         jump_inst_d;
-reg  [ 3:0] alu_op_sel_d;
-reg         alu_a_sel_d;
-reg         alu_b_sel_d;
-reg  [ 2:0] ig_sel_d;
-reg         bc_uns_d;
-reg         dmem_en_d;
-reg         load_sm_en_d;
-reg  [ 1:0] wb_sel_d;
-reg         reg_we_d;
+logic        pc_sel_rst;
+logic [ 1:0] pc_sel_d;
+logic        pc_we_d;
+logic        load_inst_d;
+logic        store_inst_d;
+logic        branch_inst_d;
+logic        jump_inst_d;
+logic [ 3:0] alu_op_sel_d;
+logic        alu_a_sel_d;
+logic        alu_b_sel_d;
+logic [ 2:0] ig_sel_d;
+logic        bc_uns_d;
+logic        dmem_en_d;
+logic        load_sm_en_d;
+logic [ 1:0] wb_sel_d;
+logic        reg_we_d;
 
 // Reset sequence
-reg  [ 2:0] reset_seq;
-always @ (posedge clk) begin
+logic [ 2:0] reset_seq;
+always_ff @(posedge clk) begin
     if (rst) reset_seq <= 3'b111;
     else reset_seq <= {reset_seq[1:0],1'b0};
 end
 
-wire rst_seq_id  = reset_seq[0]; // keeps it clear 1 clk after rst ends
-wire rst_seq_ex  = reset_seq[1]; // keeps it clear 2 clks after rst ends
-wire rst_seq_mem = reset_seq[2]; // keeps it clear 3 clks after rst ends
+logic rst_seq_id;
+logic rst_seq_ex;
+logic rst_seq_mem;
+assign rst_seq_id = reset_seq[0]; // keeps it clear 1 clk after rst ends
+assign rst_seq_ex = reset_seq[1]; // keeps it clear 2 clks after rst ends
+assign rst_seq_mem = reset_seq[2]; // keeps it clear 3 clks after rst ends
 
 // Pipeline FFs clear
-assign clear_id  = rst_seq_id;
-assign clear_ex  = rst_seq_ex;
+assign clear_id = rst_seq_id;
+assign clear_ex = rst_seq_ex;
 assign clear_mem = rst_seq_mem;
 
 // TODO: decoder should be implemented with SV struct for cleaner code
 // Decoder
-always @ (*) begin
+always_comb begin
     pc_sel_r = pc_sel_d;
     pc_we_r = pc_we_d;
     load_inst_r = load_inst_d;
@@ -312,20 +324,22 @@ always @ (*) begin
             wb_sel_r      = `WB_SEL_CSR;
             reg_we_r      = (rd_addr_id != `RF_X0_ZERO);
         end
+        default ;
     endcase
 end
 
 // Branch Resolution
-wire [ 1:0] funct3_ex_b = {funct3_ex[2], funct3_ex[0]}; // branch conditions
-reg         branch_res;
-reg         branch_inst_ex;
+logic        branch_res;
+logic        branch_inst_ex;
+logic [ 1:0] funct3_ex_b;
+assign funct3_ex_b = {funct3_ex[2], funct3_ex[0]}; // branch conditions
 
-always @ (posedge clk) begin
+always_ff @(posedge clk) begin
     if (rst) branch_inst_ex <= 1'b0;
     else branch_inst_ex <= branch_inst_r;
 end
 
-always @ (*) begin
+always_comb begin
     case (funct3_ex_b)
         `BR_SEL_BEQ: branch_res = bc_a_eq_b;
         `BR_SEL_BNE: branch_res = !bc_a_eq_b;
@@ -336,14 +350,15 @@ always @ (*) begin
 end
 
 // Jump instructions
-reg jump_inst_ex;
-always @ (posedge clk) begin
+logic jump_inst_ex;
+always_ff @(posedge clk) begin
     if (rst) jump_inst_ex <= 1'b0;
     else jump_inst_ex <= jump_inst_r;
 end
 
 // Flow change
-wire flow_change = (branch_res && branch_inst_ex) | (jump_inst_ex);
+logic flow_change;
+assign flow_change = (branch_res && branch_inst_ex) | (jump_inst_ex);
 
 // Stall
 // PC stalls directly; IMEM stall thru FF in datapath
@@ -373,7 +388,7 @@ assign wb_sel = wb_sel_r;
 assign reg_we = reg_we_r;
 
 // Store values
-always @ (posedge clk) begin
+always_ff @(posedge clk) begin
     if (rst) begin
         // load start address to pc
         pc_sel_rst <= 1'b1;

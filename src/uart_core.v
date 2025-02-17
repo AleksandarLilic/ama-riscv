@@ -24,37 +24,37 @@ module uart_core #(
     parameter CLOCK_FREQ = 125_000_000,
     parameter BAUD_RATE  =     115_200)
 (
-    input   wire        clk,
-    input   wire        rst,
+    input   logic        clk,
+    input   logic        rst,
 
-    input   wire  [7:0] data_in,
-    input   wire        data_in_valid,
-    output  wire        data_in_ready,
+    input   logic  [7:0] data_in,
+    input   logic        data_in_valid,
+    output  logic        data_in_ready,
 
-    output  wire  [7:0] data_out,
-    output  wire        data_out_valid,
-    input   wire        data_out_ready,
+    output  logic  [7:0] data_out,
+    output  logic        data_out_valid,
+    input   logic        data_out_ready,
 
-    input   wire        serial_in,
-    output  wire        serial_out
+    input   logic        serial_in,
+    output  logic        serial_out
 );
 
 //-----------------------------------------------------------------------------
 // Signals
-reg     serial_in_reg;
-reg     serial_out_reg;
-wire    serial_out_tx;
+logic    serial_in_reg;
+logic    serial_out_reg;
+logic    serial_out_tx;
 
 //-----------------------------------------------------------------------------
 
 always @ (posedge clk) begin
     if (rst) begin
-        serial_out_reg <= 0;
-        serial_in_reg  <= 0;
+        serial_out_logic<= 0;
+        serial_in_logic <= 0;
     end 
     else begin
-        serial_out_reg <= serial_out_tx;
-        serial_in_reg  <= serial_in;
+        serial_out_logic<= serial_out_tx;
+        serial_in_logic <= serial_in;
     end
 end
 

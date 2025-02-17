@@ -5,7 +5,7 @@
 // Date created:    2021-05-31
 // Author:          Aleksandar Lilic
 // Description:     Simple edge detector module that detects rising edge
-//                  on the input signal 
+//                  on the input signal
 //                  Creates a one clock wide pulse on successful detection
 //
 // Version history:
@@ -16,16 +16,16 @@
 module edge_detector #(
     parameter WIDTH = 1
 )(
-    input   wire             clk,
-    input   wire             rst,
-    input   wire [WIDTH-1:0] signal_in,
-    output  wire [WIDTH-1:0] edge_detect_pulse
+    input  logic             clk,
+    input  logic             rst,
+    input  logic [WIDTH-1:0] signal_in,
+    output logic [WIDTH-1:0] edge_detect_pulse
 );
 
 //-----------------------------------------------------------------------------
 // Signals
-reg [WIDTH-1:0] catch;
-reg [WIDTH-1:0] catch_q1;
+logic [WIDTH-1:0] catch;
+logic [WIDTH-1:0] catch_q1;
 
 //-----------------------------------------------------------------------------
 // Edge detector

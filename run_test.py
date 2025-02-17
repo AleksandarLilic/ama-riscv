@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 import subprocess
 import datetime
@@ -62,8 +64,10 @@ def find_all_tests(test_list):
 
 def check_make_status(make_status, msg: str) -> int:
     if make_status.returncode != 0:
-        print("Makefile steps:")
+        print("Makefile stdout:")
         print(make_status.stdout.decode('utf-8'))
+        print("Makefile stderr:")
+        print(make_status.stderr.decode('utf-8'))
         print(f"Error: Makefile failed to {msg}.")
         return make_status.returncode
     return 0

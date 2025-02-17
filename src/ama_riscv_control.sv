@@ -1,57 +1,60 @@
 `include "ama_riscv_defines.svh"
 
 module ama_riscv_control (
-    input  wire        clk,
-    input  wire        rst,
-    input  wire [31:0] inst_id,
-    input  wire        bc_a_eq_b,
-    input  wire        bc_a_lt_b,
- /* input  wire        bp_taken,
-    input  wire        bp_clear, */
-    input  wire [ 1:0] store_mask_offset,
-    input  wire [31:0] inst_ex,
-    input  wire        reg_we_ex,
-    input  wire        reg_we_mem,
-    input  wire [ 4:0] rd_ex,
-    input  wire [ 4:0] rd_mem,
-    input  wire        store_inst_ex,
-    output wire        stall_if,
-    output wire        clear_if,
-    output wire        clear_id,
-    output wire        clear_ex,
-    output wire        clear_mem,
-    output wire [ 1:0] pc_sel,
-    output wire        pc_we,
-    output wire        load_inst,
-    output wire        store_inst,
-    output wire        branch_inst,
-    output wire        jump_inst,
-    output wire        csr_en,
-    output wire        csr_we,
-    output wire        csr_ui,
-    output wire [ 1:0] csr_op_sel,
-    output wire [ 3:0] alu_op_sel,
-    output wire [ 2:0] ig_sel,
-    output wire        bc_uns,
-    output wire        dmem_en,
-    output wire        load_sm_en,
-    output wire [ 1:0] wb_sel,
-    output wire        reg_we,
-    output wire [ 1:0] alu_a_sel_fwd,
-    output wire [ 1:0] alu_b_sel_fwd,
-    output wire        bc_a_sel_fwd,
-    output wire        bcs_b_sel_fwd,
-    output wire        rf_a_sel_fwd,
-    output wire        rf_b_sel_fwd,
-    output wire [ 3:0] dmem_we
+    input  logic        clk,
+    input  logic        rst,
+    input  logic [31:0] inst_id,
+    input  logic        bc_a_eq_b,
+    input  logic        bc_a_lt_b,
+ /* input  logic        bp_taken,
+    input  logic        bp_clear, */
+    input  logic [ 1:0] store_mask_offset,
+    input  logic [31:0] inst_ex,
+    input  logic        reg_we_ex,
+    input  logic        reg_we_mem,
+    input  logic [ 4:0] rd_ex,
+    input  logic [ 4:0] rd_mem,
+    input  logic        store_inst_ex,
+    output logic        stall_if,
+    output logic        clear_if,
+    output logic        clear_id,
+    output logic        clear_ex,
+    output logic        clear_mem,
+    output logic [ 1:0] pc_sel,
+    output logic        pc_we,
+    output logic        load_inst,
+    output logic        store_inst,
+    output logic        branch_inst,
+    output logic        jump_inst,
+    output logic        csr_en,
+    output logic        csr_we,
+    output logic        csr_ui,
+    output logic [ 1:0] csr_op_sel,
+    output logic [ 3:0] alu_op_sel,
+    output logic [ 2:0] ig_sel,
+    output logic        bc_uns,
+    output logic        dmem_en,
+    output logic        load_sm_en,
+    output logic [ 1:0] wb_sel,
+    output logic        reg_we,
+    output logic [ 1:0] alu_a_sel_fwd,
+    output logic [ 1:0] alu_b_sel_fwd,
+    output logic        bc_a_sel_fwd,
+    output logic        bcs_b_sel_fwd,
+    output logic        rf_a_sel_fwd,
+    output logic        rf_b_sel_fwd,
+    output logic [ 3:0] dmem_we
 );
 
 // Signals
-wire         alu_a_sel;
-wire         alu_b_sel;
-wire  [ 4:0] rs1_id     = inst_id[19:15];
-wire  [ 4:0] rs2_id     = inst_id[24:20];
-wire  [ 2:0] funct3_ex  = inst_ex[14:12];
+logic        alu_a_sel;
+logic        alu_b_sel;
+logic [ 4:0] rs1_id;
+logic [ 4:0] rs2_id;
+logic [ 2:0] funct3_ex;
+assign rs1_id = inst_id[19:15];
+assign rs2_id = inst_id[24:20];
+assign funct3_ex = inst_ex[14:12];
 
 ama_riscv_decoder ama_riscv_decoder_i (
     .clk (clk),
@@ -110,7 +113,7 @@ ama_riscv_operand_forwarding ama_riscv_operand_forwarding_i (
 ama_riscv_store_mask ama_riscv_store_mask_i (
     .en (store_inst_ex),
     .offset (store_mask_offset),
-    .width (funct3_ex),
+    .width (funct3_ex[1:0]),
     .mask (dmem_we)
 );
 

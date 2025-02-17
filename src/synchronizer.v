@@ -14,24 +14,24 @@
 module synchronizer #(
     parameter WIDTH = 1
 )(
-    input   wire             clk,
-    input   wire             rst,
-    input   wire [WIDTH-1:0] async_signal,
-    output  wire [WIDTH-1:0] sync_signal
+    input  logic             clk,
+    input  logic             rst,
+    input  logic [WIDTH-1:0] async_signal,
+    output logic [WIDTH-1:0] sync_signal
 );
 
 //-----------------------------------------------------------------------------
 // Signals
-reg [WIDTH-1:0] async_signal_d1;
-reg [WIDTH-1:0] async_signal_d2;
+logic [WIDTH-1:0] async_signal_d1;
+logic [WIDTH-1:0] async_signal_d2;
 
 //-----------------------------------------------------------------------------
 always @(posedge clk) begin
     if (rst) begin
         async_signal_d1 <= {WIDTH{1'b0}};
-        async_signal_d2 <= {WIDTH{1'b0}};            
-    end 
-    else begin 
+        async_signal_d2 <= {WIDTH{1'b0}};
+    end
+    else begin
         async_signal_d1 <= async_signal;
         async_signal_d2 <= async_signal_d1;
     end

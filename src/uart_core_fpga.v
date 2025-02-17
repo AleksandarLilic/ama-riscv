@@ -14,28 +14,27 @@
 module uart_core_fpga #(
     parameter CLOCK_FREQ = 125_000_000,
     parameter BAUD_RATE  =     115_200
-    ) (
-    input         CLK_125MHZ_FPGA,
-    input   [3:0] BUTTONS,
-    input   [1:0] SWITCHES,
-    output  [5:0] LEDS,
-    input         FPGA_SERIAL_RX,
-    output        FPGA_SERIAL_TX
+)(
+    input        CLK_125MHZ_FPGA,
+    input  [3:0] BUTTONS,
+    input  [1:0] SWITCHES,
+    output [5:0] LEDS,
+    input        FPGA_SERIAL_RX,
+    output       FPGA_SERIAL_TX
 );
 //-----------------------------------------------------------------------------
 // Signals
 // UART
-wire        rst;
-reg   [7:0] data_in;
-wire  [7:0] data_out;
-wire        data_in_valid;
-wire        data_in_ready;
-wire        data_out_valid;
-wire        data_out_ready;
-
+logic       rst;
+logic [7:0] data_in;
+logic [7:0] data_out;
+logic       data_in_valid;
+logic       data_in_ready;
+logic       data_out_valid;
+logic       data_out_ready;
 // Loopback
-reg         has_char;
-reg   [7:0] char;
+logic       has_char;
+logic [7:0] char;
 
 //-----------------------------------------------------------------------------
 // Default assignments
@@ -65,31 +64,31 @@ uart_core # (
 
 //-----------------------------------------------------------------------------
 // Loopback
-// Logic below will pull a character from the uart_receiver over the 
-// ready/valid interface, modify that character, and send the character to the 
+// Logic below will pull a character from the uart_receiver over the
+// ready/valid interface, modify that character, and send the character to the
 // uart_transmitter, which will send it over the serial line.
 
 // If a ASCII letter is received, its case will be reversed and sent back. Any other
 // ASCII characters will be echoed back without any modification.
 
 always @(posedge CLK_125MHZ_FPGA) begin
-    if (rst) 
+    if (rst)
         has_char <= 1'b0;
-    else 
+    else
         has_char <= has_char ? !data_in_ready : data_out_valid;
 end
 
 always @(posedge CLK_125MHZ_FPGA) begin
-    if (!has_char) 
+    if (!has_char)
         char <= data_out;
 end
 
-always @ (*) begin
+always_comb begin
     if (char >= 8'd65 && char <= 8'd90)
         data_in = char + 8'd32;
-    else if (char >= 8'd97 && char <= 8'd122) 
+    else if (char >= 8'd97 && char <= 8'd122)
         data_in = char - 8'd32;
-    else 
+    else
         data_in = char;
 end
 
