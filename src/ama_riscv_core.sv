@@ -1,4 +1,4 @@
-`include "ama_riscv_defines.v"
+`include "ama_riscv_defines.svh"
 
 module ama_riscv_core (
     input   wire         clk,
@@ -471,7 +471,7 @@ reg        load_sm_en_mem;
 reg [ 1:0] wb_sel_mem;
 reg [31:0] csr_data_mem;
 
-always @ (posedge clk) begin
+always_ff @ (posedge clk) begin
     if (rst) begin
         // datapath
         pc_mem              <= 32'h0;
@@ -525,11 +525,11 @@ wire [ 2:0] funct3_mem = inst_mem[14:12];
 wire [ 2:0] load_sm_width = funct3_mem;
 wire [31:0] load_sm_data_out;
 reg  [31:0] load_sm_data_in;
-always @ (*) begin
+always_comb begin
     case (alu_out_mem[31:30])
         `DMEM_RANGE: load_sm_data_in = dmem_read_data_mem;
         `MMIO_RANGE: load_sm_data_in = mmio_read_data;
-        2'b00, 2'b11: load_sm_data_in = 32'h0;
+        default: load_sm_data_in = 32'h0;
     endcase
 end
 

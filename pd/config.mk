@@ -1,8 +1,10 @@
 
 export DESIGN_NAME            = ama_riscv_core
 export PLATFORM               = asap7
+#export DESIGN_NICKNAME        =
+#export FLOW_VARIANT           =
 
-export VERILOG_FILES          = $(sort $(wildcard $(REPO_ROOT)/src/ama_riscv_*.v))
+export VERILOG_FILES          = $(sort $(wildcard $(REPO_ROOT)/src/ama_riscv_*.sv))
 export SDC_FILE               = $(REPO_ROOT)/pd/constraint.sdc
 
 export CORE_UTILIZATION       = 60

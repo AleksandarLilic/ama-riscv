@@ -1,4 +1,4 @@
-`include "ama_riscv_defines.v"
+`include "ama_riscv_defines.svh"
 
 module ama_riscv_decoder (
     input  wire        clk,

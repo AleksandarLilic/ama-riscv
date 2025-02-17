@@ -1,4 +1,4 @@
-`include "ama_riscv_defines.v"
+`include "ama_riscv_defines.svh"
 `include "ama_riscv_perf.svh"
 
 `define DEFAULT_HALF_PERIOD 4
@@ -70,7 +70,7 @@ int warnings = 0;
 bit errors_for_wave = 1'b0;
 bit cosim_chk_en = 1'b0;
 bit stop_on_cosim_error = 1'b0;
-wire tohost_source;
+logic tohost_source;
 int unsigned timeout_clocks;
 int unsigned half_period;
 real frequency;
@@ -92,29 +92,29 @@ logic [31:0] rf_chk_act;
 
 //------------------------------------------------------------------------------
 // DUT I/O
-reg clk = 0;
-reg rst;
-//wire mmio_instr_cnt;
-//wire mmio_cycle_cnt;
-wire inst_wb_nop_or_clear;
-wire mmio_reset_cnt;
+logic clk = 0;
+logic rst;
+//logic mmio_instr_cnt;
+//logic mmio_cycle_cnt;
+logic inst_wb_nop_or_clear;
+logic mmio_reset_cnt;
 
 //------------------------------------------------------------------------------
 // DUT internals for checkers only
-//wire dut_internal_branch_taken = `DUT_DEC.branch_res && `DUT_DEC.branch_inst_ex;
+//logic dut_internal_branch_taken = `DUT_DEC.branch_res && `DUT_DEC.branch_inst_ex;
 
 //------------------------------------------------------------------------------
 // DUT instance
 `ifdef CORE_ONLY
     // IMEM
-    wire [31:0] inst_id_read;
-    wire [13:0] imem_addr;
+    logic [31:0] inst_id_read;
+    logic [13:0] imem_addr;
     // DMEM
-    wire [31:0] dmem_write_data;
-    wire [13:0] dmem_addr;
-    wire        dmem_en;
-    wire [ 3:0] dmem_we;
-    wire [31:0] dmem_read_data_mem;
+    logic [31:0] dmem_write_data;
+    logic [13:0] dmem_addr;
+    logic        dmem_en;
+    logic [ 3:0] dmem_we;
+    logic [31:0] dmem_read_data_mem;
 
     // core
     ama_riscv_core DUT_ama_riscv_core_i(
@@ -248,7 +248,7 @@ endfunction
 
 // task print_single_instruction_results;
 //     int last_pc;
-//     reg     stalled;
+//     logic     stalled;
 //     begin
 //         if(`VERBOSITY >= 3) begin
 //             stalled = (last_pc == dut_m_pc);

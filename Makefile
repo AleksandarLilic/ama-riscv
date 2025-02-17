@@ -27,11 +27,6 @@ INC_DIRS_SV := $(call get_include_dirs,$(SOURCE_FILES_SV))
 SRC_INC_SV := $(foreach dir,$(INC_DIRS_SV),$(shell echo $(dir))/*)
 INCDIR_SV := $(foreach dir,$(INC_DIRS_SV),$(shell echo +incdir+$(dir)))
 
-SRC_V := $(call get_sources,$(SOURCE_FILES_V))
-INC_DIRS_V := $(call get_include_dirs,$(SOURCE_FILES_V))
-SRC_INC_V := $(foreach dir,$(INC_DIRS_V),$(shell echo $(dir))/*)
-INCDIR_V := $(foreach dir,$(INC_DIRS_V),$(shell echo +incdir+$(dir)))
-
 TCLBATCH := run_cfg.tcl
 TEST_PATH :=
 TIMEOUT_CLOCKS :=
@@ -48,10 +43,6 @@ compile: .compile.touchfile
 .compile_sv.touchfile: $(SRC_SV) $(SRC_INC_SV)
 	xvlog $(COMP_OPTS_SV) -prj $(SOURCE_FILES_SV) $(VERILOG_DEFINES) -log /dev/null > xvlog_sv.log 2>&1
 	@touch .compile_sv.touchfile
-
-.compile_v.touchfile: $(SRC_V) $(SRC_INC_V)
-	xvlog $(COMP_OPTS_V) -prj $(SOURCE_FILES_V) $(VERILOG_DEFINES) -log /dev/null > xvlog_v.log 2>&1
-	@touch .compile_v.touchfile
 
 elab: .elab.touchfile
 .elab.touchfile: .compile.touchfile $(DPI_SO)

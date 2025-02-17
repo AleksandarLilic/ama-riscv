@@ -1,4 +1,4 @@
-`include "ama_riscv_defines.v"
+`include "ama_riscv_defines.svh"
 
 module ama_riscv_imm_gen (
     input  wire        clk,

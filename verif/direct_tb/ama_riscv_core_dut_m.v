@@ -21,7 +21,7 @@
 //
 //-----------------------------------------------------------------------------
 
-`include "../../src/ama_riscv_defines.v"
+`include "../../src/ama_riscv_defines.svh"
 
 // Reg File
 `define RF_WID              32

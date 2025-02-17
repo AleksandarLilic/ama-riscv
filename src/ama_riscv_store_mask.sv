@@ -1,4 +1,4 @@
-`include "ama_riscv_defines.v"
+`include "ama_riscv_defines.svh"
 
 module ama_riscv_store_mask (
     input  wire       en,
