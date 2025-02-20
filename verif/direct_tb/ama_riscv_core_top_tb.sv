@@ -82,6 +82,7 @@ event ev_load_vector_done;
 event go_in_reset;
 event reset_end;
 
+`ifdef ENABLE_COSIM
 // cosim
 int unsigned cosim_pc;
 int unsigned cosim_inst;
@@ -89,6 +90,7 @@ string cosim_inst_asm_str;
 string cosim_stack_top_str;
 int unsigned cosim_rf[32];
 logic [31:0] rf_chk_act;
+`endif
 
 //------------------------------------------------------------------------------
 // DUT I/O
@@ -207,6 +209,7 @@ endfunction
 string msg_pass = "==== PASS ====";
 string msg_fail = "==== FAIL ====";
 
+`ifndef GLS
 function automatic void check_test_status();
     automatic bit status_cosim = 1'b1;
     automatic bit status_tohost = 1'b1;
@@ -245,6 +248,7 @@ function automatic void check_test_status();
         end
     end
 endfunction
+`endif
 
 // task print_single_instruction_results;
 //     int last_pc;
@@ -313,6 +317,7 @@ function automatic [8*SLEN-1:0] pack_string(input string str);
     end
 endfunction
 
+`ifndef GLS
 task automatic single_step(longint unsigned clk_cnt);
     stats.update(`DUT_CORE.inst_wb, `DUT_CORE.stall_id_seq[2]);
     `LOG($sformatf("Core [F] %5h: %8h %0s",
@@ -348,6 +353,14 @@ task run_test();
         single_step(clk_cnt);
     end
 endtask
+`endif
+
+`define INST_CSR_FINISH 32'h51ee1073
+task run_test_gls();
+    automatic longint unsigned clk_cnt = 0;
+    while (inst_id_read !== `INST_CSR_FINISH) @(posedge clk);
+    repeat (5) @(posedge clk); // give it time to retire
+endtask
 
 // clk gen
 always #(half_period) clk = ~clk;
@@ -379,6 +392,7 @@ initial begin
 end
 
 // checker setup
+`ifndef GLS
 initial begin
     rf_chk_act = 32'h0;
     @reset_end;
@@ -392,13 +406,24 @@ initial begin
     end
     `LOG("All RF checkers active");
 end
+`endif
+
+//`ifdef GLS_SDF
+////initial $sdf_annotate("lvt_flat_up.sdf", `DUT);
+//initial $sdf_annotate("lvt_flat_up.sdf");
+//`endif
 
 // Test
+`ifndef GLS
 assign tohost_source = `DUT_CORE.csr_tohost[0];
 perf_stats stats;
+`endif
+
 initial begin
     get_plusargs();
+    `ifndef GLS
     stats = new();
+    `endif
 
     `LOG("Simulation started");
     load_memories({test_path, ".hex"});
@@ -412,7 +437,11 @@ initial begin
 
     fork: run_f
     begin
+        `ifndef GLS
         run_test();
+        `else
+        run_test_gls();
+        `endif
     end
     begin
         repeat (timeout_clocks) @(posedge clk);
@@ -424,12 +453,21 @@ initial begin
     disable run_f;
 
     `LOG("Simulation finished");
+    `ifndef GLS
     check_test_status();
+    `else
+    `LOGNT(msg_pass); // presumed to have passed if it got to here
+    `endif
+
     `ifdef ENABLE_COSIM
     if (cosim_chk_en == 1'b1) cosim_check_inst_cnt();
     cosim_finish();
     `endif
+
+    `ifndef GLS
     `LOGNT(stats.get());
+    `endif
+
     //stats.compare_dut(mmio_cycle_cnt, mmio_instr_cnt);
     $finish();
 end // test

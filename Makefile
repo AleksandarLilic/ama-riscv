@@ -9,7 +9,7 @@ DPI_TB_FUNCS_H := $(DPI_ROOT)/dpi_tb_functions.h
 RTL_DEFINES := -d CORE_ONLY -d ENABLE_COSIM
 COMP_OPTS := -sv --incr --relax
 ELAB_DEBUG ?= typical
-ELAB_OPTS := -debug $(ELAB_DEBUG) --incr --relax --mt 8
+ELAB_OPTS := -debug $(ELAB_DEBUG) --incr --relax --mt 8 -sdfroot ama_riscv_core_top_tb/DUT_ama_riscv_core_i
 
 include $(REPO_ROOT)/Makefile.inc
 
@@ -20,6 +20,30 @@ COSIM_CHECKER := -testplusarg enable_cosim_checkers
 COSIM_CHECKER += -testplusarg stop_on_cosim_error
 
 all: sim
+
+#PDK := $(REPO_ROOT)/../asap7sc7p5t_28/Verilog
+#GATES := lvt_hier.v.gates $(PDK)/asap7sc7p5t_AO_LVT_TT_201020.v $(PDK)/asap7sc7p5t_INVBUF_LVT_TT_201020.v $(PDK)/asap7sc7p5t_OA_LVT_TT_201020.v $(PDK)/asap7sc7p5t_SEQ_LVT_TT_220101.v $(PDK)/asap7sc7p5t_SIMPLE_LVT_TT_201020.v
+
+#GATES := gates_rvt_flat.v $(PDK)/asap7sc7p5t_AO_RVT_TT_201020.v $(PDK)/asap7sc7p5t_INVBUF_RVT_TT_201020.v $(PDK)/asap7sc7p5t_OA_RVT_TT_201020.v $(PDK)/asap7sc7p5t_SEQ_RVT_TT_220101.v $(PDK)/asap7sc7p5t_SIMPLE_RVT_TT_201020.v
+
+PDK := /home/alek/tools/openroad/OpenROAD-flow-scripts/flow/platforms/ihp-sg13g2/verilog
+GATES := ihp.v.gates $(PDK)/sg13g2_stdcell.v
+
+GATES_DEFS := -d CORE_ONLY -d GLS
+
+compile_gates:
+	xvlog --incr --relax $(GATES)
+
+SRC_MEMS := $(REPO_ROOT)/src/ama_riscv_dmem.sv $(REPO_ROOT)/src/ama_riscv_imem.sv
+
+compile_gates_tb:
+	xvlog -sv --incr --relax $(SRC_VERIF) $(SRC_MEMS) $(GATES_DEFS) -i src/
+
+elab_gates:
+	xelab $(TOP) $(ELAB_OPTS) $(GATES_DEFS)
+
+gls:
+	xsim $(TOP) -tclbatch $(REPO_ROOT)/$(TCLBATCH) -stats -onerror quit -testplusarg test_path=$(REPO_ROOT)/$(TEST_PATH) -testplusarg timeout_clocks=500
 
 compile: .compile.touchfile
 .compile.touchfile: $(SRC_VERIF) $(SRC_DESIGN) $(SRC_INC)
@@ -41,7 +65,6 @@ SIM_LOG := -log /dev/null > test.log 2>&1
 
 sim: .elab.touchfile
 	xsim $(TOP) -tclbatch $(REPO_ROOT)/$(TCLBATCH) -stats -onerror quit -testplusarg test_path=$(REPO_ROOT)/$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) $(COSIM_CHECKER) $(SIM_LOG)
-	@touch .sim.touchfile
 	@grep "PASS\|FAIL\|Error:" test.log || echo "Can't determine test status"
 
 watch_slang:
@@ -55,7 +78,7 @@ slang:
 	@slang $(SRC_VERIF) $(SRC_DESIGN) $(PLUS_INCDIR) -Wno-unconnected-port
 
 lint:
-	@verilator --lint-only $(SRC_DESIGN) $(PLUS_INCDIR) -Wall -Wpedantic > lint.log 2>&1
+	@verilator --lint-only $(SRC_DESIGN) -I$(REPO_ROOT)/src -Wall -Wpedantic > lint.log 2>&1
 
 # DPI build
 CXX := g++
@@ -114,6 +137,6 @@ cleanlogs:
 	rm -rf *.log *.jou *.pb vivado_pid*.str out_*
 
 clean: cleanlogs
-	rm -rf .*touchfile xsim.dir *.wdb
+	rm -rf .compile.touchfile .elab.touchfile xsim.dir *.wdb
 
 cleanall: clean cleancosim cleandpi
