@@ -10,7 +10,7 @@ module ama_riscv_decoder (
     // input  logic        bp_taken,
     // input  logic        bp_clear,
     output logic        stall_if,
-    output logic        clear_if,
+    //output logic        clear_if,
     output logic        clear_id,
     output logic        clear_ex,
     output logic        clear_mem,
@@ -20,7 +20,7 @@ module ama_riscv_decoder (
     output logic        load_inst,
     output logic        store_inst,
     output logic        branch_inst,
-    output logic        jump_inst,
+    //output logic        jump_inst,
     output logic        csr_en,
     output logic        csr_we,
     output logic        csr_ui,
@@ -372,7 +372,7 @@ assign pc_we = (stall_if) ? 1'b0 : pc_we_r; // ... (1) overwritten for now
 assign load_inst = load_inst_r;
 assign store_inst = store_inst_r;
 assign branch_inst = branch_inst_r;
-assign jump_inst = jump_inst_r;
+//assign jump_inst = jump_inst_r;
 assign csr_en = csr_en_r;
 assign csr_we = csr_we_r;
 assign csr_ui = csr_ui_r;
@@ -415,8 +415,8 @@ always_ff @(posedge clk) begin
         pc_we_d <= pc_we;
         load_inst_d <= load_inst;
         store_inst_d <= store_inst;
-        branch_inst_d <= branch_inst;
-        jump_inst_d <= jump_inst;
+        branch_inst_d <= branch_inst_r;
+        jump_inst_d <= jump_inst_r;
         alu_op_sel_d <= alu_op_sel;
         alu_a_sel_d <= alu_a_sel;
         alu_b_sel_d <= alu_b_sel;

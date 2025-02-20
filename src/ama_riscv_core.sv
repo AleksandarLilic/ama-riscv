@@ -31,7 +31,7 @@ module ama_riscv_core (
 
 // Pipeline control inputs
 logic        stall_if;
-logic        clear_if;
+//logic        clear_if;
 logic        clear_id;
 logic        clear_ex;
 logic        clear_mem;
@@ -55,8 +55,8 @@ logic [ 1:0] store_mask_offset;
 logic [31:0] inst_id;
 logic        load_inst_id;
 logic        store_inst_id;
-logic        branch_inst_id;
-logic        jump_inst_id;
+//logic        branch_inst_id;
+//logic        jump_inst_id;
 logic        csr_en_id;
 logic        csr_we_id;
 logic        csr_ui_id;
@@ -101,7 +101,7 @@ ama_riscv_control ama_riscv_control_i (
     .store_inst_ex      (store_inst_ex),
     // pipeline outputs
     .stall_if           (stall_if),
-    .clear_if           (clear_if),
+    //.clear_if           (clear_if),
     .clear_id           (clear_id),
     .clear_ex           (clear_ex),
     .clear_mem          (clear_mem),
@@ -112,8 +112,8 @@ ama_riscv_control ama_riscv_control_i (
     .pc_we              (pc_we_if),
     .load_inst          (load_inst_id),
     .store_inst         (store_inst_id),
-    .branch_inst        (branch_inst_id),
-    .jump_inst          (jump_inst_id),
+    //.branch_inst        (branch_inst_id),
+    //.jump_inst          (jump_inst_id),
     .csr_en             (csr_en_id),
     .csr_we             (csr_we_id),
     .csr_ui             (csr_ui_id),

@@ -16,7 +16,7 @@ module ama_riscv_control (
     input  logic [ 4:0] rd_mem,
     input  logic        store_inst_ex,
     output logic        stall_if,
-    output logic        clear_if,
+    //output logic        clear_if,
     output logic        clear_id,
     output logic        clear_ex,
     output logic        clear_mem,
@@ -24,8 +24,8 @@ module ama_riscv_control (
     output logic        pc_we,
     output logic        load_inst,
     output logic        store_inst,
-    output logic        branch_inst,
-    output logic        jump_inst,
+    //output logic        branch_inst,
+    //output logic        jump_inst,
     output logic        csr_en,
     output logic        csr_we,
     output logic        csr_ui,
@@ -47,6 +47,7 @@ module ama_riscv_control (
 );
 
 // Signals
+logic        branch_inst;
 logic        alu_a_sel;
 logic        alu_b_sel;
 logic [ 4:0] rs1_id;
@@ -66,7 +67,7 @@ ama_riscv_decoder ama_riscv_decoder_i (
  /* .bp_taken (bp_taken),
     .bp_clear (bp_clear), */
     .stall_if (stall_if),
-    .clear_if (clear_if),
+    //.clear_if (clear_if),
     .clear_id (clear_id),
     .clear_ex (clear_ex),
     .clear_mem (clear_mem),
@@ -75,7 +76,7 @@ ama_riscv_decoder ama_riscv_decoder_i (
     .load_inst (load_inst),
     .store_inst (store_inst),
     .branch_inst (branch_inst),
-    .jump_inst (jump_inst),
+    //.jump_inst (jump_inst),
     .csr_en (csr_en),
     .csr_we (csr_we),
     .csr_ui (csr_ui),
