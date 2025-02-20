@@ -22,6 +22,10 @@ xsc*
 vivado*
 xcrg_*_cov_report
 
+# PD
+*.v.gates
+*.sdf
+
 # libraries/obj
 *.so
 *.o
