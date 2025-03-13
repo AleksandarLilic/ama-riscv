@@ -25,6 +25,13 @@ xcrg_*_cov_report
 # PD
 *.v.gates
 *.sdf
+pd/yosys/out
+pd/yosys/reports
+pd/yosys/tmp
+pd/openroad/out
+pd/openroad/reports
+pd/openroad/save
+pd/ihp13/pdk/ihp-sg13g2/libs*
 
 # libraries/obj
 *.so
