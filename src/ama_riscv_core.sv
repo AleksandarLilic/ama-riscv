@@ -153,10 +153,7 @@ always_comb begin
 end
 
 // PC
-always_ff @(posedge clk) begin
-    if (rst) pc <= 32'h0;
-    else if (pc_we_if) pc <= pc_mux_out;
-end
+`DFF_RST_EN(pc, rst, 32'h0, pc_we_if, pc_mux_out)
 assign pc_inc4 = pc + 32'd4;
 
 // IMEM interface
@@ -164,16 +161,9 @@ assign imem_addr = pc_mux_out[15:2];
 
 // stalls
 logic stall_id;
-always_ff @(posedge clk) begin
-    if (rst) stall_id <= 1'b1;
-    else stall_id <= stall_if;
-end
-
 logic [2:0] stall_id_seq;
-always_ff @(posedge clk) begin
-    if (rst) stall_id_seq <= 3'h0;
-    else stall_id_seq <= {stall_id_seq[1:0], stall_id};
-end
+`DFF_RST(stall_id, rst, 1'b1, stall_if)
+`DFF_RST(stall_id_seq, rst, 3'h0, {stall_id_seq[1:0], stall_id})
 
 //-----------------------------------------------------------------------------
 // ID Stage
@@ -253,90 +243,30 @@ logic [ 1:0] csr_op_sel_ex;
 logic [11:0] csr_addr_ex;
 logic [ 4:0] csr_imm5;
 
-always_ff @(posedge clk) begin
-    if (rst) begin
-        // datapath
-        pc_ex            <= 32'h0;
-        rd_addr_ex       <=  5'h0;
-        rs1_data_ex      <= 32'h0;
-        rs2_data_ex      <= 32'h0;
-        imm_gen_out_ex   <= 32'h0;
-        inst_ex          <= 32'h0;
-        // control
-        load_inst_ex     <=  1'b0;
-        store_inst_ex    <=  1'b0;
-        bc_a_sel_fwd_ex  <=  1'b0;
-        bcs_b_sel_fwd_ex <=  1'b0;
-        bc_uns_ex        <=  1'b0;
-        alu_a_sel_fwd_ex <=  2'h0;
-        alu_b_sel_fwd_ex <=  2'h0;
-        alu_op_sel_ex    <=  4'h0;
-        dmem_en_ex       <=  1'b0;
-        load_sm_en_ex    <=  1'b0;
-        wb_sel_ex        <=  2'h0;
-        reg_we_ex        <=  1'b0;
-        csr_en_ex        <=  1'b0;
-        csr_we_ex        <=  1'b0;
-        csr_ui_ex        <=  1'b0;
-        csr_op_sel_ex    <=  2'h0;
-        csr_addr_ex      <= 12'h0;
-        csr_imm5         <=  5'h0;
-    end else if (clear_id) begin
-        // datapath
-        pc_ex            <= 32'h0;
-        rd_addr_ex       <=  5'h0;
-        rs1_data_ex      <= 32'h0;
-        rs2_data_ex      <= 32'h0;
-        imm_gen_out_ex   <= 32'h0;
-        inst_ex          <= 32'h0;
-        // control
-        load_inst_ex     <=  1'b0;
-        store_inst_ex    <=  1'b0;
-        bc_a_sel_fwd_ex  <=  1'b0;
-        bcs_b_sel_fwd_ex <=  1'b0;
-        bc_uns_ex        <=  1'b0;
-        alu_a_sel_fwd_ex <=  2'h0;
-        alu_b_sel_fwd_ex <=  2'h0;
-        alu_op_sel_ex    <=  4'h0;
-        dmem_en_ex       <=  1'b0;
-        load_sm_en_ex    <=  1'b0;
-        wb_sel_ex        <=  2'h0;
-        reg_we_ex        <=  1'b0;
-        csr_en_ex        <=  1'b0;
-        csr_we_ex        <=  1'b0;
-        csr_ui_ex        <=  1'b0;
-        csr_op_sel_ex    <=  2'h0;
-        csr_addr_ex      <= 12'h0;
-        csr_imm5         <=  5'h0;
-    end else begin
-        // datapath
-        pc_ex            <= pc_id;
-        rd_addr_ex       <= rd_addr_id;
-        rs1_data_ex      <= rf_a_sel_fwd_id ? writeback : rs1_data_id;
-        rs2_data_ex      <= rf_b_sel_fwd_id ? writeback : rs2_data_id;
-        imm_gen_out_ex   <= imm_gen_out_id;
-        inst_ex          <= inst_id;
-        // control
-        load_inst_ex     <= load_inst_id;
-        store_inst_ex    <= store_inst_id;
-        bc_a_sel_fwd_ex  <= bc_a_sel_fwd_id;
-        bcs_b_sel_fwd_ex <= bcs_b_sel_fwd_id;
-        bc_uns_ex        <= bc_uns_id;
-        alu_a_sel_fwd_ex <= alu_a_sel_fwd_id;
-        alu_b_sel_fwd_ex <= alu_b_sel_fwd_id;
-        alu_op_sel_ex    <= alu_op_sel_id;
-        dmem_en_ex       <= dmem_en_id;
-        load_sm_en_ex    <= load_sm_en_id;
-        wb_sel_ex        <= wb_sel_id;
-        reg_we_ex        <= reg_we_id;
-        csr_en_ex        <= csr_en_id;
-        csr_we_ex        <= csr_we_id;
-        csr_ui_ex        <= csr_ui_id;
-        csr_op_sel_ex    <= csr_op_sel_id;
-        csr_addr_ex      <= csr_addr;
-        csr_imm5         <= rs1_addr_id;
-    end
-end
+`PIPE_STAGE(clear_id, pc_ex, pc_id)
+`PIPE_STAGE(clear_id, rd_addr_ex, rd_addr_id)
+`PIPE_STAGE(clear_id, rs1_data_ex, rf_a_sel_fwd_id ? writeback : rs1_data_id)
+`PIPE_STAGE(clear_id, rs2_data_ex, rf_b_sel_fwd_id ? writeback : rs2_data_id)
+`PIPE_STAGE(clear_id, imm_gen_out_ex, imm_gen_out_id)
+`PIPE_STAGE(clear_id, inst_ex, inst_id)
+`PIPE_STAGE(clear_id, load_inst_ex, load_inst_id)
+`PIPE_STAGE(clear_id, store_inst_ex, store_inst_id)
+`PIPE_STAGE(clear_id, bc_a_sel_fwd_ex, bc_a_sel_fwd_id)
+`PIPE_STAGE(clear_id, bcs_b_sel_fwd_ex, bcs_b_sel_fwd_id)
+`PIPE_STAGE(clear_id, bc_uns_ex, bc_uns_id)
+`PIPE_STAGE(clear_id, alu_a_sel_fwd_ex, alu_a_sel_fwd_id)
+`PIPE_STAGE(clear_id, alu_b_sel_fwd_ex, alu_b_sel_fwd_id)
+`PIPE_STAGE(clear_id, alu_op_sel_ex, alu_op_sel_id)
+`PIPE_STAGE(clear_id, dmem_en_ex, dmem_en_id)
+`PIPE_STAGE(clear_id, load_sm_en_ex, load_sm_en_id)
+`PIPE_STAGE(clear_id, wb_sel_ex, wb_sel_id)
+`PIPE_STAGE(clear_id, reg_we_ex, reg_we_id)
+`PIPE_STAGE(clear_id, csr_en_ex, csr_en_id)
+`PIPE_STAGE(clear_id, csr_we_ex, csr_we_id)
+`PIPE_STAGE(clear_id, csr_ui_ex, csr_ui_id)
+`PIPE_STAGE(clear_id, csr_op_sel_ex, csr_op_sel_id)
+`PIPE_STAGE(clear_id, csr_addr_ex, csr_addr)
+`PIPE_STAGE(clear_id, csr_imm5, rs1_addr_id)
 
 //-----------------------------------------------------------------------------
 // EX stage
@@ -483,7 +413,6 @@ assign load_sm_offset_ex = store_mask_offset;
 
 //-----------------------------------------------------------------------------
 // Pipeline FF EX/MEM
-// Signals
 logic [31:0] pc_mem;
 logic [31:0] pc_mem_inc4;
 logic [31:0] alu_out_mem;
@@ -493,51 +422,16 @@ logic        load_sm_en_mem;
 logic [ 1:0] wb_sel_mem;
 logic [31:0] csr_data_mem;
 
-always_ff @(posedge clk) begin
-    if (rst) begin
-        // datapath
-        pc_mem              <= 32'h0;
-        pc_mem_inc4         <= 32'h0;
-        alu_out_mem         <= 32'h0;
-        // dmem_read_data_mem          // sync memory
-        load_sm_offset_mem  <=  2'h0;
-        inst_mem            <= 32'h0;
-        rd_addr_mem         <=  5'h0;
-        // control
-        load_sm_en_mem      <=  1'b0;
-        wb_sel_mem          <=  2'h0;
-        reg_we_mem          <=  1'b0;
-        csr_data_mem        <= 32'h0;
-    end else if (clear_ex) begin
-        // datapath
-        pc_mem              <= 32'h0;
-        pc_mem_inc4         <= 32'h0;
-        alu_out_mem         <= 32'h0;
-        // dmem_read_data_mem          // sync memory
-        load_sm_offset_mem  <=  2'h0;
-        inst_mem            <= 32'h0;
-        rd_addr_mem         <=  5'h0;
-        // control
-        load_sm_en_mem      <=  1'b0;
-        wb_sel_mem          <=  2'h0;
-        reg_we_mem          <=  1'b0;
-        csr_data_mem        <= 32'h0;
-    end else begin
-        // datapath
-        pc_mem              <= pc_ex;
-        pc_mem_inc4         <= pc_ex + 32'd4;
-        alu_out_mem         <= alu_out;
-        // dmem_read_data_mem          // sync memory
-        load_sm_offset_mem  <= load_sm_offset_ex;
-        inst_mem            <= inst_ex;
-        rd_addr_mem         <= rd_addr_ex;
-        // control
-        load_sm_en_mem      <= load_sm_en_ex;
-        wb_sel_mem          <= wb_sel_ex;
-        reg_we_mem          <= reg_we_ex;
-        csr_data_mem        <= csr_data_ex;
-    end
-end
+`PIPE_STAGE(clear_ex, pc_mem, pc_ex)
+`PIPE_STAGE(clear_ex, pc_mem_inc4, pc_ex + 32'd4)
+`PIPE_STAGE(clear_ex, alu_out_mem, alu_out)
+`PIPE_STAGE(clear_ex, load_sm_offset_mem, load_sm_offset_ex)
+`PIPE_STAGE(clear_ex, inst_mem, inst_ex)
+`PIPE_STAGE(clear_ex, rd_addr_mem, rd_addr_ex)
+`PIPE_STAGE(clear_ex, load_sm_en_mem, load_sm_en_ex)
+`PIPE_STAGE(clear_ex, wb_sel_mem, wb_sel_ex)
+`PIPE_STAGE(clear_ex, reg_we_mem, reg_we_ex)
+`PIPE_STAGE(clear_ex, csr_data_mem, csr_data_ex)
 
 //-----------------------------------------------------------------------------
 // MEM stage
@@ -580,18 +474,8 @@ assign writeback = (wb_sel_mem == `WB_SEL_DMEM) ? load_sm_data_out :
 // Pipeline FF MEM/WB
 logic [31:0] inst_wb;
 logic [31:0] pc_wb;
-always_ff @(posedge clk) begin
-    if (rst) begin
-        inst_wb <= 32'h0;
-        pc_wb <= 32'h0;
-    end else if (clear_mem) begin
-        inst_wb <= 32'h0;
-        pc_wb <= 32'h0;
-    end else begin
-        inst_wb <= inst_mem;
-        pc_wb <= pc_mem;
-    end
-end
+`PIPE_STAGE(clear_mem, inst_wb, inst_mem)
+`PIPE_STAGE(clear_mem, pc_wb, pc_mem)
 
 // For instruction counter, only care about NOPs inserted by HW
 assign inst_wb_nop_or_clear =

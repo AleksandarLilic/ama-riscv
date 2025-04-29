@@ -51,9 +51,6 @@ assign ig_out_w[0] = (i_type) ? ig_in[20] :
 assign ig_out = (disabled) ? ig_out_d : ig_out_w;
 
 // Store previous value
-always_ff @(posedge clk) begin
-    if (rst) ig_out_d <= 32'h0000;
-    else ig_out_d <= ig_out;
-end
+`DFF_RST(ig_out_d, rst, 32'h0, ig_out)
 
 endmodule

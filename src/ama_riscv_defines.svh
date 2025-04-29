@@ -2,7 +2,7 @@
 `define AMA_RISCV_DEFINES
 
 // Memory map
-`define RESET_VECTOR 32'h10_000
+`define RESET_VECTOR 32'h1_0000
 `define DMEM_RANGE 2'b00
 `define MMIO_RANGE 2'b01
 
@@ -125,4 +125,27 @@
 `define IG_J_TYPE   3'b100
 `define IG_U_TYPE   3'b101
 
-`endif
+// common blocks
+`define DFF_RST_CLR(ff, rst, rst_val, clr, clr_val, new_val) \
+    always_ff @(posedge clk) begin \
+        if (rst) ff <= rst_val; \
+        else if (clr) ff <= clr_val; \
+        else ff <= new_val; \
+    end
+
+`define PIPE_STAGE(clr, ff, new_val) \
+    `DFF_RST_CLR(ff, rst,'h0, clr, 'h0, new_val)
+
+`define DFF_RST_EN(ff, rst, rst_val, en, new_val) \
+    always_ff @(posedge clk) begin \
+        if (rst) ff <= rst_val; \
+        else if (en) ff <= new_val; \
+    end
+
+`define DFF_RST(ff, rst, rst_val, new_val) \
+    always_ff @(posedge clk) begin \
+        if (rst) ff <= rst_val; \
+        else ff <= new_val; \
+    end
+
+`endif // AMA_RISCV_DEFINES

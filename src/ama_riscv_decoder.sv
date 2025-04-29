@@ -99,10 +99,7 @@ logic        reg_we_d;
 
 // Reset sequence
 logic [ 2:0] reset_seq;
-always_ff @(posedge clk) begin
-    if (rst) reset_seq <= 3'b111;
-    else reset_seq <= {reset_seq[1:0],1'b0};
-end
+`DFF_RST(reset_seq, rst, 3'b111, {reset_seq[1:0],1'b0})
 
 logic rst_seq_id;
 logic rst_seq_ex;
@@ -165,8 +162,9 @@ always_comb begin
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
-            //                                           --------- shift -------- : ------ imm ------
-            alu_op_sel_r  = (funct3_id[1:0] == 2'b01) ? {funct7_id[5], funct3_id} : {1'b0, funct3_id};
+            alu_op_sel_r  = (funct3_id[1:0] == 2'b01) ?
+                                {funct7_id[5], funct3_id} : // shift
+                                {1'b0, funct3_id}; // imm
             alu_a_sel_r   = `ALU_A_SEL_RS1;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
             ig_sel_r      = `IG_I_TYPE;
@@ -310,8 +308,10 @@ always_comb begin
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
-            csr_en_r      = !(funct3_id[1:0] == `CSR_OP_SEL_ASSIGN && rs1_addr_id == `RF_X0_ZERO);
-            csr_we_r      = !(funct3_id[1:0] != `CSR_OP_SEL_ASSIGN && rs1_addr_id == `RF_X0_ZERO);
+            csr_en_r      = !(funct3_id[1:0] == `CSR_OP_SEL_ASSIGN &&
+                              rs1_addr_id == `RF_X0_ZERO);
+            csr_we_r      = !(funct3_id[1:0] != `CSR_OP_SEL_ASSIGN &&
+                              rs1_addr_id == `RF_X0_ZERO);
             csr_ui_r      = funct3_id[2];
             csr_op_sel_r  = funct3_id[1:0];
             // alu_op_sel_r  = *;
@@ -334,10 +334,7 @@ logic        branch_inst_ex;
 logic [ 1:0] funct3_ex_b;
 assign funct3_ex_b = {funct3_ex[2], funct3_ex[0]}; // branch conditions
 
-always_ff @(posedge clk) begin
-    if (rst) branch_inst_ex <= 1'b0;
-    else branch_inst_ex <= branch_inst_r;
-end
+`DFF_RST(branch_inst_ex, rst, 1'b0, branch_inst_r)
 
 always_comb begin
     case (funct3_ex_b)
@@ -351,10 +348,7 @@ end
 
 // Jump instructions
 logic jump_inst_ex;
-always_ff @(posedge clk) begin
-    if (rst) jump_inst_ex <= 1'b0;
-    else jump_inst_ex <= jump_inst_r;
-end
+`DFF_RST(jump_inst_ex, rst, 1'b0, jump_inst_r)
 
 // Flow change
 logic flow_change;
@@ -388,45 +382,21 @@ assign wb_sel = wb_sel_r;
 assign reg_we = reg_we_r;
 
 // Store values
-always_ff @(posedge clk) begin
-    if (rst) begin
-        // load start address to pc
-        pc_sel_rst <= 1'b1;
-        // disable or some defaults for others
-        pc_sel_d <= `PC_SEL_START_ADDR;
-        pc_we_d <= 1'b1;   // it'll increment start_address always after rst -> fine
-        load_inst_d <= 1'b0;
-        store_inst_d <= 1'b0;
-        branch_inst_d <= 1'b0;
-        jump_inst_d <= 1'b0;
-        alu_op_sel_d <= `ALU_ADD;
-        alu_a_sel_d <= `ALU_A_SEL_RS1;
-        alu_b_sel_d <= `ALU_B_SEL_RS2;
-        ig_sel_d <= `IG_DISABLED;
-        bc_uns_d <= 1'b0;
-        dmem_en_d <= 1'b0;
-        load_sm_en_d <= 1'b0;
-        wb_sel_d <= `WB_SEL_DMEM;
-        reg_we_d <= 1'b0;
-    end
-    else begin
-        pc_sel_rst <= 1'b0;
-        pc_sel_d <= pc_sel;
-        pc_we_d <= pc_we;
-        load_inst_d <= load_inst;
-        store_inst_d <= store_inst;
-        branch_inst_d <= branch_inst_r;
-        jump_inst_d <= jump_inst_r;
-        alu_op_sel_d <= alu_op_sel;
-        alu_a_sel_d <= alu_a_sel;
-        alu_b_sel_d <= alu_b_sel;
-        ig_sel_d <= ig_sel;
-        bc_uns_d <= bc_uns;
-        dmem_en_d <= dmem_en;
-        load_sm_en_d <= load_sm_en;
-        wb_sel_d <= wb_sel;
-        reg_we_d <= reg_we;
-    end
-end
+`DFF_RST(pc_sel_rst, rst, 1'b1, 1'b0)
+`DFF_RST(pc_sel_d, rst, `PC_SEL_START_ADDR, pc_sel)
+`DFF_RST(pc_we_d, rst, 1'b1, pc_we) // increments start_address always after rst
+`DFF_RST(load_inst_d, rst, 1'b0, load_inst)
+`DFF_RST(store_inst_d, rst, 1'b0, store_inst)
+`DFF_RST(branch_inst_d, rst, 1'b0, branch_inst_r)
+`DFF_RST(jump_inst_d, rst, 1'b0, jump_inst_r)
+`DFF_RST(alu_op_sel_d, rst, `ALU_ADD, alu_op_sel)
+`DFF_RST(alu_a_sel_d, rst, `ALU_A_SEL_RS1, alu_a_sel)
+`DFF_RST(alu_b_sel_d, rst, `ALU_B_SEL_RS2, alu_b_sel)
+`DFF_RST(ig_sel_d, rst, `IG_DISABLED, ig_sel)
+`DFF_RST(bc_uns_d, rst, 1'b0, bc_uns)
+`DFF_RST(dmem_en_d, rst, 1'b0, dmem_en)
+`DFF_RST(load_sm_en_d, rst, 1'b0, load_sm_en)
+`DFF_RST(wb_sel_d, rst, `WB_SEL_DMEM, wb_sel)
+`DFF_RST(reg_we_d, rst, 1'b0, reg_we)
 
 endmodule

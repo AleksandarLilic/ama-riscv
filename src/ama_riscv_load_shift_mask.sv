@@ -54,9 +54,6 @@ always_comb begin
 end
 
 // Store old value
-always_ff @(posedge clk) begin
-    if (rst) data_out_d <= 32'h0000;
-    else data_out_d <= data_out;
-end
+`DFF_RST(data_out_d, rst, 32'h0, data_out)
 
 endmodule
