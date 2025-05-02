@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 import subprocess
 import datetime
 import shutil
@@ -10,6 +11,7 @@ import functools
 import json
 import random
 import glob
+import time
 
 RUN_CFG = "run_cfg_suite.tcl"
 CC_RED = "91m"
@@ -51,6 +53,7 @@ def read_from_json(file_path):
 
 def find_all_tests(test_list):
     valid_tests = []
+    some_mismatched = False
     for path, test_name_pattern in test_list:
         full_pattern = os.path.join(path, test_name_pattern)
         matched_files = glob.glob(full_pattern)
@@ -58,8 +61,14 @@ def find_all_tests(test_list):
             for file in matched_files:
                 valid_tests.append(file)
         else:
+            some_mismatched = True
             print(f"Warning: No files match the pattern " + \
                   f"<{test_name_pattern}> in <{path}>.")
+    if some_mismatched:
+        print("Some test names are invalid. Check the testlist. " + \
+              "Proceeding with the valid tests")
+        time.sleep(3)
+
     return valid_tests
 
 def check_make_status(make_status, msg: str) -> int:
@@ -192,17 +201,24 @@ def main():
     #sv_seed = args.seed if args.seed is not None \
     #          else random.randint(0, 2**32 - 1)
     start_time = datetime.datetime.now()
-    with Manager() as manager:
-        cnt = manager.dict()
-        cnt["t"] = manager.Value('i', 0)
-        cnt["lock"] = manager.Lock()
-        cnt["total"] = len(all_tests)
-        with Pool(min(args.jobs,MAX_WORKERS)) as pool:
-            partial_run_test = functools.partial(run_test, run_dir=run_dir,
-                                                 build_dir=build_dir, cnt=cnt)
-            pool.map(partial_run_test, all_tests)
-    print_runtime(start_time, "Simulation")
+    try:
+        with Manager() as manager:
+            cnt = manager.dict()
+            cnt["t"] = manager.Value('i', 0)
+            cnt["lock"] = manager.Lock()
+            cnt["total"] = len(all_tests)
+            with Pool(min(args.jobs, MAX_WORKERS)) as pool:
+                partial_run_test = functools.partial(
+                    run_test, run_dir=run_dir, build_dir=build_dir, cnt=cnt)
+                pool.map(partial_run_test, all_tests)
 
+    except KeyboardInterrupt:
+        print("KeyboardInterrupt received. Terminating...")
+        pool.terminate()
+        pool.join() # wait for them to actually exit
+        sys.exit(1)
+
+    print_runtime(start_time, "Simulation")
     # check test suite results
     all_tests_passed = True
     tests_num = len(all_tests)

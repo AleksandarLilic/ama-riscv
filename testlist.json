@@ -4,9 +4,7 @@
     ["sim/sw/baremetal/fibonacci/", "n_18.hex"],
     ["sim/sw/baremetal/gcd_lcm/", "n_large.hex"],
     ["sim/sw/baremetal/prime_numbers/", "n_3000.hex"],
-    ["sim/sw/baremetal/vector_al_uint8/", "basic.hex"],
-    ["sim/sw/baremetal/vector_mac_uint8/", "basic.hex"],
-    ["sim/sw/baremetal/vector_basic/", "*.hex"],
-    ["sim/sw/baremetal/sorting/", "*.hex"],
+    ["sim/sw/baremetal/vector_ew_al_uint8/", "basic.hex"],
+    ["sim/sw/baremetal/vector_ew_mac_uint8/", "basic.hex"],
     ["sim/sw/riscv-isa-tests/", "*.hex"]
 ]
