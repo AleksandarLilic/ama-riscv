@@ -2,11 +2,12 @@
 TOP := ama_riscv_core_top_tb
 
 # DPI variables needed during TB build
-DPI_SO := ama-riscv-sim_dpi.so
+COSIM_DPI_SO := ama-riscv-sim_dpi.so
 DPI_ROOT := $(REPO_ROOT)/dpi
-DPI_TB_FUNCS_H := $(DPI_ROOT)/dpi_tb_functions.h
+DPI_FUNCS_H := $(DPI_ROOT)/dpi_functions.h
 
-RTL_DEFINES := -d CORE_ONLY -d ENABLE_COSIM
+RTL_DEFINES :=
+RTL_DEFINES += -d ENABLE_COSIM
 COMP_OPTS := -sv --incr --relax
 ELAB_DEBUG ?= typical
 ELAB_OPTS := -debug $(ELAB_DEBUG) --incr --relax --mt 8
@@ -28,13 +29,13 @@ compile: .compile.touchfile
 	@touch .compile.touchfile
 
 elab: .elab.touchfile
-.elab.touchfile: .compile.touchfile $(DPI_SO)
-	xelab $(TOP) $(ELAB_OPTS) -sv_lib $(DPI_SO) $(RTL_DEFINES) -log /dev/null > xelab.log 2>&1
+.elab.touchfile: .compile.touchfile $(COSIM_DPI_SO)
+	xelab $(TOP) $(ELAB_OPTS) -sv_lib $(COSIM_DPI_SO) $(RTL_DEFINES) -log /dev/null > xelab.log 2>&1
 	@rm xelab.pb
 	@touch .elab.touchfile
 
 dpi_header_gen: .compile.touchfile
-	xelab $(TOP) $(ELAB_OPTS) $(RTL_DEFINES) -dpiheader $(DPI_TB_FUNCS_H) -log /dev/null > xelab_dpi_header_gen.log 2>&1
+	xelab $(TOP) $(ELAB_OPTS) $(RTL_DEFINES) -dpiheader $(DPI_FUNCS_H) -log /dev/null > xelab_dpi_header_gen.log 2>&1
 
 #SIM_LOG := -log test.log
 SIM_LOG := -log /dev/null > test.log 2>&1
@@ -52,7 +53,7 @@ watch_slang:
 	done
 
 slang:
-	@slang $(SRC_VERIF) $(SRC_DESIGN) $(PLUS_INCDIR) -Wno-unconnected-port
+	@slang $(SRC_VERIF) $(SRC_DESIGN) $(PLUS_INCDIR) -Wno-unconnected-port -Wno-duplicate-definition
 
 lint:
 	@verilator --lint-only $(SRC_DESIGN) $(PLUS_INCDIR) -Wall -Wpedantic > lint.log 2>&1
@@ -90,17 +91,17 @@ DPI_OBJ := $(DPI_SRC:.cpp=.o)
 DPI_INC := -I$(VIVADO_ROOT)/data/xsim/include
 DPI_LINK_LIB := -L$(VIVADO_ROOT)/tps/lnx64/gcc-9.3.0/lib64/
 
-dpi: $(DPI_SO)
+dpi: $(COSIM_DPI_SO)
 
-$(DPI_SO): .cosim_obj.touchfile $(DPI_OBJ)
-	$(CXX) $(CXXFLAGS) -o $(DPI_SO) $(DPI_OBJ) $(COSIM_OBJS) $(DPI_LINK_LIB)
+$(COSIM_DPI_SO): .cosim_obj.touchfile $(DPI_OBJ)
+	$(CXX) $(CXXFLAGS) -o $(COSIM_DPI_SO) $(DPI_OBJ) $(COSIM_OBJS) $(DPI_LINK_LIB)
 
 cosim_obj: .cosim_obj.touchfile
 .cosim_obj.touchfile: $(COSIM_SRCS) $(COSIM_H)
-	$(MAKE) -C $(COSIM_DIR) obj BDIR=$(COSIM_BDIR) DEFINES=-DDPI
+	$(MAKE) -C $(COSIM_DIR) obj BDIR=$(COSIM_BDIR) DEFINES="-DDPI -DCACHE_MODE=CACHE_MODE_FUNC"
 	@touch .cosim_obj.touchfile
 
-$(DPI_OBJ): $(DPI_SRC) $(DPI_TB_FUNCS_H) $(COSIM_H)
+$(DPI_OBJ): $(DPI_SRC) $(DPI_FUNCS_H) $(COSIM_H)
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(DPI_INC) $(COSIM_INC)
 
 cleancosim:

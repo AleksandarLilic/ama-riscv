@@ -20,7 +20,7 @@ function void cosim_run_checkers;
     int checker_errors_prev;
     begin
         checker_errors_prev = errors;
-        checker_t("pc", `CHECKER_ACTIVE, `DUT_CORE.pc_wb, cosim_pc);
+        checker_t("pc", `CHECKER_ACTIVE, `DUT_CORE.pc.p.wbk, cosim_pc);
         for (int i = 1; i < 32; i = i + 1) begin
             checker_t($sformatf("x%0d", i),
                       `CHECKER_ACTIVE && rf_chk_act[i],

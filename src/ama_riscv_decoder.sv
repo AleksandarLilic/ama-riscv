@@ -3,28 +3,19 @@
 module ama_riscv_decoder (
     input  logic        clk,
     input  logic        rst,
-    input  logic [31:0] inst_id,
-    input  logic [31:0] inst_ex,
+    pipeline_if.IN      inst,
+    rv_if.TX            imem_req,
+    rv_if.RX            imem_rsp,
     input  logic        bc_a_eq_b,
     input  logic        bc_a_lt_b,
-    // input  logic        bp_taken,
-    // input  logic        bp_clear,
-    output logic        stall_if,
-    //output logic        clear_if,
-    output logic        clear_id,
-    output logic        clear_ex,
-    output logic        clear_mem,
+    output logic        bubble_dec,
+    pipeline_if.OUT     clear,
     output logic [ 1:0] pc_sel,
     output logic        pc_we,
-    // output logic        imem_en,
     output logic        load_inst,
     output logic        store_inst,
     output logic        branch_inst,
-    //output logic        jump_inst,
-    output logic        csr_en,
-    output logic        csr_we,
-    output logic        csr_ui,
-    output logic [ 1:0] csr_op_sel,
+    output csr_ctrl_t   csr_ctrl,
     output logic [ 3:0] alu_op_sel,
     output logic        alu_a_sel,
     output logic        alu_b_sel,
@@ -33,43 +24,46 @@ module ama_riscv_decoder (
     output logic        dmem_en,
     output logic        load_sm_en,
     output logic [ 1:0] wb_sel,
-    output logic        reg_we
+    output logic        rd_we
 );
 
-// ID stage CSR addresses
-logic [11:0] csr_addr;
-assign csr_addr = inst_id[31:20];
-// ID stage register addresses
-logic [ 4:0] rs1_addr_id;
-logic [ 4:0] rd_addr_id;
-assign rs1_addr_id = inst_id[19:15];
-assign rd_addr_id = inst_id[11:7];
-// ID stage functions
-logic [ 6:0] opc7_id;
-logic [ 2:0] funct3_id;
-logic [ 6:0] funct7_id;
-assign opc7_id = inst_id[6:0];
-assign funct3_id = inst_id[14:12];
-assign funct7_id = inst_id[31:25];
-// EX stage functions
-logic [ 6:0] opc7_ex;
-logic [ 2:0] funct3_ex;
-logic [ 6:0] funct7_ex;
-assign opc7_ex = inst_ex[ 6: 0];
-assign funct3_ex = inst_ex[14:12];
-assign funct7_ex = inst_ex[31:25];
+typedef enum logic [1:0] {
+    RST,
+    STEADY,
+    STALL_FLOW,
+    STALL_IMEM
+} stall_state_t;
 
-// Switch-Case outputs
+logic [11:0] csr_addr;
+assign csr_addr = inst.p.dec[31:20];
+
+logic [ 4:0] rs1_addr_dec;
+logic [ 4:0] rd_addr_dec;
+assign rs1_addr_dec = inst.p.dec[19:15];
+assign rd_addr_dec = inst.p.dec[11:7];
+
+logic [ 6:0] opc7_dec;
+logic [ 2:0] fn3_dec;
+logic [ 6:0] fn7_dec;
+assign opc7_dec = inst.p.dec[6:0];
+assign fn3_dec = inst.p.dec[14:12];
+assign fn7_dec = inst.p.dec[31:25];
+
+logic [ 6:0] opc7_exe;
+logic [ 2:0] fn3_exe;
+logic [ 6:0] fn7_exe;
+assign opc7_exe = inst.p.exe[6:0];
+assign fn3_exe = inst.p.exe[14:12];
+assign fn7_exe = inst.p.exe[31:25];
+
+// decoder outputs
 logic [ 1:0] pc_sel_r;
 logic        pc_we_r;
 logic        load_inst_r;
 logic        store_inst_r;
 logic        branch_inst_r;
 logic        jump_inst_r;
-logic        csr_en_r;
-logic        csr_we_r;
-logic        csr_ui_r;
-logic [ 1:0] csr_op_sel_r;
+csr_ctrl_t   csr_ctrl_r;
 logic [ 3:0] alu_op_sel_r;
 logic        alu_a_sel_r;
 logic        alu_b_sel_r;
@@ -78,9 +72,9 @@ logic        bc_uns_r;
 logic        dmem_en_r;
 logic        load_sm_en_r;
 logic [ 1:0] wb_sel_r;
-logic        reg_we_r;
+logic        rd_we_r;
 
-logic        pc_sel_rst;
+// saved outputs
 logic [ 1:0] pc_sel_d;
 logic        pc_we_d;
 logic        load_inst_d;
@@ -95,23 +89,27 @@ logic        bc_uns_d;
 logic        dmem_en_d;
 logic        load_sm_en_d;
 logic [ 1:0] wb_sel_d;
-logic        reg_we_d;
+logic        rd_we_d;
+
+logic rd_nz;
+assign rd_nz = (rd_addr_dec != `RF_X0_ZERO);
+
+logic rs1_nz;
+assign rs1_nz = (rs1_addr_dec == `RF_X0_ZERO);
 
 // Reset sequence
 logic [ 2:0] reset_seq;
 `DFF_RST(reset_seq, rst, 3'b111, {reset_seq[1:0],1'b0})
 
-logic rst_seq_id;
-logic rst_seq_ex;
+logic rst_seq_dec;
+logic rst_seq_exe;
 logic rst_seq_mem;
-assign rst_seq_id = reset_seq[0]; // keeps it clear 1 clk after rst ends
-assign rst_seq_ex = reset_seq[1]; // keeps it clear 2 clks after rst ends
-assign rst_seq_mem = reset_seq[2]; // keeps it clear 3 clks after rst ends
+assign rst_seq_dec = reset_seq[0]; // clear 1 clk after rst ends
+assign rst_seq_exe = reset_seq[1]; // 2 clks
+assign rst_seq_mem = reset_seq[2]; // 3 clks
 
 // Pipeline FFs clear
-assign clear_id = rst_seq_id;
-assign clear_ex = rst_seq_ex;
-assign clear_mem = rst_seq_mem;
+assign clear.p = {1'b0, rst_seq_dec, rst_seq_exe, rst_seq_mem, 1'b0};
 
 // TODO: decoder should be implemented with SV struct for cleaner code
 // Decoder
@@ -122,10 +120,7 @@ always_comb begin
     store_inst_r = store_inst_d;
     branch_inst_r = branch_inst_d;
     jump_inst_r = jump_inst_d;
-    csr_en_r = 1'b0;
-    csr_we_r = 1'b0;
-    csr_ui_r = 1'b0;
-    csr_op_sel_r = 2'h0;
+    csr_ctrl_r = {1'b0, 1'b0, 1'b0, 2'b00};
     alu_op_sel_r = alu_op_sel_d;
     alu_a_sel_r = alu_a_sel_d;
     alu_b_sel_r = alu_b_sel_d;
@@ -134,9 +129,9 @@ always_comb begin
     dmem_en_r = dmem_en_d;
     load_sm_en_r = load_sm_en_d;
     wb_sel_r = wb_sel_d;
-    reg_we_r = reg_we_d;
+    rd_we_r = rd_we_d;
 
-    case (opc7_id)
+    case (opc7_dec)
         `OPC7_R_TYPE: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
@@ -144,7 +139,7 @@ always_comb begin
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
-            alu_op_sel_r  = {funct7_id[5],funct3_id};
+            alu_op_sel_r  = {fn7_dec[5],fn3_dec};
             alu_a_sel_r   = `ALU_A_SEL_RS1;
             alu_b_sel_r   = `ALU_B_SEL_RS2;
             ig_sel_r      = `IG_DISABLED;
@@ -152,7 +147,7 @@ always_comb begin
             dmem_en_r     = 1'b0;
             load_sm_en_r  = 1'b0;
             wb_sel_r      = `WB_SEL_ALU;
-            reg_we_r      = 1'b1;
+            rd_we_r       = rd_nz;
         end
 
         `OPC7_I_TYPE: begin
@@ -162,9 +157,9 @@ always_comb begin
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
-            alu_op_sel_r  = (funct3_id[1:0] == 2'b01) ?
-                                {funct7_id[5], funct3_id} : // shift
-                                {1'b0, funct3_id}; // imm
+            alu_op_sel_r  = (fn3_dec[1:0] == 2'b01) ?
+                                {fn7_dec[5], fn3_dec} : // shift
+                                {1'b0, fn3_dec}; // imm
             alu_a_sel_r   = `ALU_A_SEL_RS1;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
             ig_sel_r      = `IG_I_TYPE;
@@ -172,7 +167,7 @@ always_comb begin
             dmem_en_r     = 1'b0;
             load_sm_en_r  = 1'b0;
             wb_sel_r      = `WB_SEL_ALU;
-            reg_we_r      = 1'b1;
+            rd_we_r       = rd_nz;
         end
 
         `OPC7_LOAD: begin
@@ -190,7 +185,7 @@ always_comb begin
             dmem_en_r     = 1'b1;
             load_sm_en_r  = 1'b1;
             wb_sel_r      = `WB_SEL_DMEM;
-            reg_we_r      = 1'b1;
+            rd_we_r       = rd_nz;
         end
 
         `OPC7_STORE: begin
@@ -208,7 +203,7 @@ always_comb begin
             dmem_en_r     = 1'b1;
             load_sm_en_r  = 1'b0;
             // wb_sel_r      = *;
-            reg_we_r      = 1'b0;
+            rd_we_r       = 1'b0;
         end
 
         `OPC7_BRANCH: begin
@@ -222,11 +217,11 @@ always_comb begin
             alu_a_sel_r   = `ALU_A_SEL_PC;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
             ig_sel_r      = `IG_B_TYPE;
-            bc_uns_r      = funct3_id[1];
+            bc_uns_r      = fn3_dec[1];
             dmem_en_r     = 1'b0;
             load_sm_en_r  = 1'b0;
             // wb_sel_r      = *;
-            reg_we_r      = 1'b0;
+            rd_we_r       = 1'b0;
         end
 
         `OPC7_JALR: begin
@@ -244,7 +239,7 @@ always_comb begin
             dmem_en_r     = 1'b0;
             // load_sm_en_r  = *;
             wb_sel_r      = `WB_SEL_INC4;
-            reg_we_r      = 1'b1;
+            rd_we_r       = rd_nz;
         end
 
         `OPC7_JAL: begin
@@ -262,7 +257,7 @@ always_comb begin
             dmem_en_r     = 1'b0;
             // load_sm_en_r  = *;
             wb_sel_r      = `WB_SEL_INC4;
-            reg_we_r      = 1'b1;
+            rd_we_r       = rd_nz;
         end
 
         `OPC7_LUI: begin
@@ -280,7 +275,7 @@ always_comb begin
             dmem_en_r     = 1'b0;
             // load_sm_en_r  = *;
             wb_sel_r      = `WB_SEL_ALU;
-            reg_we_r      = 1'b1;
+            rd_we_r       = rd_nz;
         end
 
         `OPC7_AUIPC: begin
@@ -298,7 +293,7 @@ always_comb begin
             dmem_en_r     = 1'b0;
             // load_sm_en_r  = *;
             wb_sel_r      = `WB_SEL_ALU;
-            reg_we_r      = 1'b1;
+            rd_we_r       = rd_nz;
         end
 
         `OPC7_SYSTEM: begin
@@ -308,12 +303,10 @@ always_comb begin
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
-            csr_en_r      = !(funct3_id[1:0] == `CSR_OP_SEL_ASSIGN &&
-                              rs1_addr_id == `RF_X0_ZERO);
-            csr_we_r      = !(funct3_id[1:0] != `CSR_OP_SEL_ASSIGN &&
-                              rs1_addr_id == `RF_X0_ZERO);
-            csr_ui_r      = funct3_id[2];
-            csr_op_sel_r  = funct3_id[1:0];
+            csr_ctrl_r.en = !((fn3_dec[1:0] == `CSR_OP_SEL_ASSIGN) && rs1_nz);
+            csr_ctrl_r.we = !((fn3_dec[1:0] != `CSR_OP_SEL_ASSIGN) && rs1_nz);
+            csr_ctrl_r.ui = fn3_dec[2];
+            csr_ctrl_r.op_sel = fn3_dec[1:0];
             // alu_op_sel_r  = *;
             alu_a_sel_r   = `ALU_A_SEL_RS1;
             // alu_b_sel_r   = *;
@@ -322,55 +315,162 @@ always_comb begin
             dmem_en_r     = 1'b0;
             // load_sm_en_r  = *;
             wb_sel_r      = `WB_SEL_CSR;
-            reg_we_r      = (rd_addr_id != `RF_X0_ZERO);
+            rd_we_r       = rd_nz;
         end
         default ;
     endcase
 end
 
 // Branch Resolution
-logic        branch_res;
-logic        branch_inst_ex;
-logic [ 1:0] funct3_ex_b;
-assign funct3_ex_b = {funct3_ex[2], funct3_ex[0]}; // branch conditions
+logic        branch_taken;
+logic        branch_inst_exe;
+logic [ 1:0] fn3_exe_branch;
+assign fn3_exe_branch = {fn3_exe[2], fn3_exe[0]}; // branch conditions
 
-`DFF_RST(branch_inst_ex, rst, 1'b0, branch_inst_r)
+`DFF_RST(branch_inst_exe, rst, 1'b0, branch_inst_r)
 
 always_comb begin
-    case (funct3_ex_b)
-        `BR_SEL_BEQ: branch_res = bc_a_eq_b;
-        `BR_SEL_BNE: branch_res = !bc_a_eq_b;
-        `BR_SEL_BLT: branch_res = bc_a_lt_b;
-        `BR_SEL_BGE: branch_res = bc_a_eq_b || !bc_a_lt_b;
-        default: branch_res = 1'b0;
+    case (fn3_exe_branch)
+        `BR_SEL_BEQ: branch_taken = bc_a_eq_b;
+        `BR_SEL_BNE: branch_taken = !bc_a_eq_b;
+        `BR_SEL_BLT: branch_taken = bc_a_lt_b;
+        `BR_SEL_BGE: branch_taken = bc_a_eq_b || !bc_a_lt_b;
+        default: branch_taken = 1'b0;
     endcase
 end
 
-// Jump instructions
-logic jump_inst_ex;
-`DFF_RST(jump_inst_ex, rst, 1'b0, jump_inst_r)
+// Jumps
+logic jump_inst_exe;
+`DFF_RST(jump_inst_exe, rst, 1'b0, jump_inst_r)
 
-// Flow change
-logic flow_change;
-assign flow_change = (branch_res && branch_inst_ex) | (jump_inst_ex);
+// Flow changed
+logic flow_changed;
+assign flow_changed = (branch_taken && branch_inst_exe) || jump_inst_exe;
 
 // Stall
-// PC stalls directly; IMEM stall thru FF in datapath
-assign stall_if = branch_inst_r || jump_inst_r;
+logic stall_src_flow_change;
+assign stall_src_flow_change = branch_inst_r || jump_inst_r;
+logic stall_src_imem;
+assign stall_src_imem = !imem_rsp.valid;
+
+// stall FSM
+stall_state_t state, nx_state;
+
+always_ff @(posedge clk) begin
+    if (rst) state <= RST;
+    else state <= nx_state;
+end
+
+// next state
+always_comb begin
+    nx_state = state;
+    case (state)
+        RST: begin
+            `ifdef IMEM_DELAY
+            nx_state = STALL_IMEM;
+            `else
+            nx_state = STEADY;
+            `endif
+        end
+
+        STEADY: begin
+            if (stall_src_flow_change) nx_state = STALL_FLOW;
+            else if (stall_src_imem) nx_state = STALL_IMEM;
+        end
+
+        STALL_FLOW: begin
+            if (stall_src_imem) nx_state = STALL_IMEM;
+            else nx_state = STEADY; // resolved in EXE, 1 clk currently
+        end
+
+        STALL_IMEM: begin
+            if (imem_req.ready) begin
+                if (stall_src_flow_change) nx_state = STALL_FLOW;
+                else nx_state = STEADY;
+            end
+        end
+    endcase
+end
+
+// outputs
+always_comb begin
+    pc_sel = pc_sel_d;
+    pc_we = pc_we_d;
+    imem_req.valid = 1'b0;
+    imem_rsp.ready = 1'b0;
+
+    case (state)
+        RST: begin
+            pc_sel = `PC_SEL_PC;
+            `ifdef IMEM_DELAY
+            bubble_dec = 1'b1;
+            pc_we = 1'b0;
+            `else
+            bubble_dec = 1'b0;
+            pc_we = 1'b1;
+            `endif
+            imem_req.valid = 1'b1;
+            imem_rsp.ready = 1'b1;
+        end
+
+        STEADY: begin
+            // pass decoder outputs by default
+            pc_sel = pc_sel_r;
+            pc_we = pc_we_r;
+            imem_req.valid = 1'b1;
+            imem_rsp.ready = 1'b1;
+
+            // override if in stall
+            if (stall_src_flow_change) begin
+                pc_we = 1'b0; // ... (1) overwritten for now
+                imem_req.valid = 1'b0;
+                imem_rsp.ready = 1'b0;
+            end else if (stall_src_imem) begin
+                pc_we = 1'b0;
+                imem_req.valid = 1'b0;
+                bubble_dec = 1'b1;
+            end
+        end
+
+        STALL_FLOW: begin
+            pc_sel = flow_changed ? `PC_SEL_ALU : pc_sel_r;
+            pc_we = 1'b1;
+            imem_req.valid = 1'b1;
+            imem_rsp.ready = 1'b1;
+            bubble_dec = 1'b1;
+        end
+
+        STALL_IMEM: begin
+            pc_we = 1'b0;
+            pc_sel = pc_sel_d;
+            imem_req.valid = 1'b0;
+            imem_rsp.ready = 1'b1;
+            bubble_dec = 1'b1;
+
+            if (imem_rsp.valid) begin // imem returned inst
+                // stall if inst is flow change, else proceed forward
+                if (stall_src_flow_change) begin
+                    pc_we = 1'b0; // ... (1) overwritten for now
+                    imem_req.valid = 1'b0;
+                    imem_rsp.ready = 1'b0;
+                    bubble_dec = 1'b0;
+                end else begin
+                    pc_we = 1'b1;
+                    pc_sel = pc_sel_r;
+                    imem_req.valid = 1'b1;
+                    imem_rsp.ready = 1'b1;
+                    bubble_dec = 1'b0;
+                end
+            end
+        end
+    endcase
+end
 
 // Output assignment
-assign pc_sel = (pc_sel_rst) ? `PC_SEL_START_ADDR :
-                (flow_change) ? `PC_SEL_ALU :
-                pc_sel_r;
-assign pc_we = (stall_if) ? 1'b0 : pc_we_r; // ... (1) overwritten for now
 assign load_inst = load_inst_r;
 assign store_inst = store_inst_r;
 assign branch_inst = branch_inst_r;
-//assign jump_inst = jump_inst_r;
-assign csr_en = csr_en_r;
-assign csr_we = csr_we_r;
-assign csr_ui = csr_ui_r;
-assign csr_op_sel = csr_op_sel_r;
+assign csr_ctrl = csr_ctrl_r;
 assign alu_op_sel = alu_op_sel_r;
 assign alu_a_sel = alu_a_sel_r;
 assign alu_b_sel = alu_b_sel_r;
@@ -379,12 +479,11 @@ assign bc_uns = bc_uns_r;
 assign dmem_en = dmem_en_r;
 assign load_sm_en = load_sm_en_r;
 assign wb_sel = wb_sel_r;
-assign reg_we = reg_we_r;
+assign rd_we = rd_we_r;
 
 // Store values
-`DFF_RST(pc_sel_rst, rst, 1'b1, 1'b0)
-`DFF_RST(pc_sel_d, rst, `PC_SEL_START_ADDR, pc_sel)
-`DFF_RST(pc_we_d, rst, 1'b1, pc_we) // increments start_address always after rst
+`DFF_RST(pc_sel_d, rst, `PC_SEL_PC, pc_sel)
+`DFF_RST(pc_we_d, rst, 1'b0, pc_we)
 `DFF_RST(load_inst_d, rst, 1'b0, load_inst)
 `DFF_RST(store_inst_d, rst, 1'b0, store_inst)
 `DFF_RST(branch_inst_d, rst, 1'b0, branch_inst_r)
@@ -397,6 +496,6 @@ assign reg_we = reg_we_r;
 `DFF_RST(dmem_en_d, rst, 1'b0, dmem_en)
 `DFF_RST(load_sm_en_d, rst, 1'b0, load_sm_en)
 `DFF_RST(wb_sel_d, rst, `WB_SEL_DMEM, wb_sel)
-`DFF_RST(reg_we_d, rst, 1'b0, reg_we)
+`DFF_RST(rd_we_d, rst, 1'b0, rd_we)
 
 endmodule

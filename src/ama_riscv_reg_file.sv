@@ -11,9 +11,9 @@ module ama_riscv_reg_file (
     output logic [31:0] data_b
 );
 
-logic [31:0] rf [31:1];
+logic [31:0] rf [1:31];
 
-// synchronous register write back
+// synchronous register writeback
 always_ff @(posedge clk) begin
     if (we == 1'b1 && addr_d != `RF_X0_ZERO) rf[addr_d] <= data_d;
 end

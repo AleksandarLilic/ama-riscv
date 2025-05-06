@@ -5,7 +5,7 @@
 #include "core.h"
 #include "utils.h"
 
-#include "dpi_tb_functions.h"
+#include "dpi_functions.h"
 
 memory* mem;
 core* rv32;
@@ -16,13 +16,14 @@ std::string stack_top;
 std::string inst_asm;
 
 DPI_LINKER_DECL DPI_DLLESPEC
-void cosim_setup(const char *test_elf) {
+int cosim_setup(const char *test_elf) {
     cfg.perf_event = perf_event_t::cycles;
     cfg.prof_pc.start = 0x10000; // FIXME: should be passed as plusarg
-    cfg.prof_trace = true; // FIXME: aslo plusarg
+    cfg.prof_trace = true; // FIXME: also plusarg
     std::string l_test_elf(test_elf);
     mem = new memory(l_test_elf, hw_cfg);
     rv32 = new core(mem, gen_out_dir(l_test_elf, "cosim"), cfg, hw_cfg);
+    return 0;
 }
 
 DPI_LINKER_DECL DPI_DLLESPEC

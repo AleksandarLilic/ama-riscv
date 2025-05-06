@@ -1,7 +1,7 @@
 `include "ama_riscv_defines.svh"
 `include "ama_riscv_perf.svh"
 
-`define DEFAULT_HALF_PERIOD 4
+`define DEFAULT_HALF_PERIOD 5 // ns
 
 // TB
 `define TOHOST_CHECK 1'b1
@@ -11,37 +11,33 @@
 `define CHECKER_ACTIVE 1'b1
 `define CHECKER_INACTIVE 1'b0
 
-`ifdef CORE_ONLY
-    `define DUT DUT_ama_riscv_core_i
-    `define DUT_IMEM imem_tb.mem
-    `define DUT_DMEM dmem_tb.mem
-    `define DUT_CORE `DUT
-`else // CORE_TOP
-    `define DUT DUT_ama_riscv_core_top_i
-    `define DUT_IMEM `DUT.ama_riscv_imem_i.mem
-    `define DUT_DMEM `DUT.ama_riscv_dmem_i.mem
-    `define DUT_CORE `DUT.ama_riscv_core_i
-`endif
-
+`define DUT DUT_ama_riscv_core_top_i
+`define DUT_IMEM `DUT.ama_riscv_imem_i.mem
+`define DUT_DMEM `DUT.ama_riscv_dmem_i.mem
+`define DUT_CORE `DUT.ama_riscv_core_i
 `define DUT_DEC `DUT_CORE.ama_riscv_control_i.ama_riscv_decoder_i
 `define DUT_RF `DUT_CORE.ama_riscv_reg_file_i
 
 `define TOHOST_PASS 32'd1
 
-`define MEM_SIZE 16384
 `define INST_ASM_LEN 80 // must match #define in dpi wrapper
 
-`define LOG(x) $display("%0s: %0s", timestamp, x)
+`define TO_STRING(x) `"x`"
+`define LOG(x) $display("%0t: %0s", $time, x)
+`define LOG_WARNING(x) \
+    warnings += 1; \
+    `LOG($sformatf("WARNING: %0s", x))
 `define LOGNT(x) $display("%0s", x)
-//`define LOG(x) $fwrite(log_fd, "%0s: %0s\n", timestamp, x)
+//`define LOG(x) $fwrite(log_fd, "%0t: %0s\n", $time, x)
 //`define LOGNT(x) $fwrite(log_fd, "%0s\n", x)
 
-`define DELIM "-----------------------"
+module ama_riscv_core_top_tb();
 
-// Cosim
 `ifdef ENABLE_COSIM
-import "DPI-C" function
-void cosim_setup(input string test_bin);
+
+// imported functions/tasks
+import "DPI-C" task
+cosim_setup(input string test_bin);
 
 import "DPI-C" function
 void cosim_exec(
@@ -57,14 +53,11 @@ unsigned int cosim_get_inst_cnt();
 
 import "DPI-C" function
 void cosim_finish();
-`endif
-
-module ama_riscv_core_top_tb();
+`endif // ENABLE_COSIM
 
 //------------------------------------------------------------------------------
 // Testbench variables
 string test_path;
-string timestamp;
 int errors = 0;
 int warnings = 0;
 bit errors_for_wave = 1'b0;
@@ -100,74 +93,17 @@ logic inst_wb_nop_or_clear;
 logic mmio_reset_cnt;
 
 //------------------------------------------------------------------------------
-// DUT internals for checkers only
-//logic dut_internal_branch_taken = `DUT_DEC.branch_res && `DUT_DEC.branch_inst_ex;
+// DUT instance
+ama_riscv_core_top DUT_ama_riscv_core_top_i (
+    .clk,
+    .rst,
+    .inst_wb_nop_or_clear,
+    .mmio_reset_cnt
+);
 
 //------------------------------------------------------------------------------
-// DUT instance
-`ifdef CORE_ONLY
-    // IMEM
-    logic [31:0] inst_id_read;
-    logic [13:0] imem_addr;
-    // DMEM
-    logic [31:0] dmem_write_data;
-    logic [13:0] dmem_addr;
-    logic        dmem_en;
-    logic [ 3:0] dmem_we;
-    logic [31:0] dmem_read_data_mem;
-
-    // core
-    ama_riscv_core DUT_ama_riscv_core_i(
-        .clk                (clk               ),
-        .rst                (rst               ),
-        // mem in
-        .inst_id_read       (inst_id_read      ),
-        .dmem_read_data_mem (dmem_read_data_mem),
-        // mem out
-        .imem_addr          (imem_addr         ),
-        .dmem_write_data    (dmem_write_data   ),
-        .dmem_addr          (dmem_addr         ),
-        .dmem_en            (dmem_en           ),
-        .dmem_we            (dmem_we           )
-        // mmio in
-        //.mmio_instr_cnt         (mmio_instr_cnt         ),
-        //.mmio_cycle_cnt         (mmio_cycle_cnt         )
-        //.mmio_uart_data_out     (mmio_uart_data_out     ),
-        //.mmio_data_out_valid    (mmio_data_out_valid    ),
-        //.mmio_data_in_ready     (mmio_data_in_ready     ),
-        //// mmio out
-        //.store_to_uart          (store_to_uart          ),
-        //.load_from_uart         (load_from_uart         ),
-        //.inst_wb_nop_or_clear   (inst_wb_nop_or_clear   ),
-        //.mmio_reset_cnt         (mmio_reset_cnt         ),
-        //.mmio_uart_data_in      (mmio_uart_data_in      )
-    );
-    // IMEM
-    ama_riscv_imem imem_tb (
-        .clk   (clk         ),
-        .addrb (imem_addr   ),
-        .doutb (inst_id_read)
-    );
-    // DMEM
-    ama_riscv_dmem dmem_tb (
-        .clk    (clk                ),
-        .en     (dmem_en            ),
-        .we     (dmem_we            ),
-        .addr   (dmem_addr          ),
-        .din    (dmem_write_data    ),
-        .dout   (dmem_read_data_mem )
-    );
-`else
-    ama_riscv_core_top DUT_ama_riscv_core_top_i (
-        .clk    (clk    ),
-        .rst    (rst    ),
-        // outputs
-        .inst_wb_nop_or_clear   (inst_wb_nop_or_clear   ),
-        .mmio_reset_cnt         (mmio_reset_cnt         )
-    );
-`endif
-
 // Testbench functions
+
 function automatic int open_file(string name, string op);
     int fd;
     begin
@@ -187,8 +123,8 @@ function automatic void load_memories;
     input string test_hex_path;
     int fd;
     begin
-        fd = open_file(test_hex_path, "r"); // ensure it exists and can be opened
-        $fclose(fd);
+        fd = open_file(test_hex_path, "r"); // check that it can be opened
+        $fclose(fd); // and close for the readmemh to use it
         $readmemh(test_hex_path, `DUT_IMEM, 0, `MEM_SIZE-1);
         $readmemh(test_hex_path, `DUT_DMEM, 0, `MEM_SIZE-1);
     end
@@ -246,21 +182,6 @@ function automatic void check_test_status();
     end
 endfunction
 
-// task print_single_instruction_results;
-//     int last_pc;
-//     logic     stalled;
-//     begin
-//         if(`VERBOSITY >= 3) begin
-//             stalled = (last_pc == dut_m_pc);
-//             $display("Instruction at PC# %2d, 0x%4h,  %s ", dut_m_pc, dut_m_pc, stalled ? "stalled " : "executed");
-//             $display("ID  stage: HEX: 'h%8h, ASM: %0s", dut_m_inst_id , dut_m_inst_id_asm );
-//             $display("EX  stage: HEX: 'h%8h, ASM: %0s", dut_m_inst_ex , dut_m_inst_ex_asm );
-//             $display("MEM stage: HEX: 'h%8h, ASM: %0s", dut_m_inst_mem, dut_m_inst_mem_asm);
-//             last_pc = dut_m_pc;
-//         end
-//     end
-// endtask
-
 `ifdef ENABLE_COSIM
 `include "checkers.svh"
 `endif
@@ -280,22 +201,25 @@ function void get_plusargs();
     if (!$value$plusargs("half_period=%d", half_period)) begin
         half_period = `DEFAULT_HALF_PERIOD;
     end
+    `LOGNT($sformatf("CPU core path: %0s", `TO_STRING(`DUT_CORE)));
     `LOGNT($sformatf("Frequency: %.2f MHz", 1.0 / (half_period * 2 * 1e-3)));
 endfunction
 
+/*
 // Log to file
-// int lclk_cnt = 0;
-// initial begin
-//     forever begin
-//         @(posedge clk);
-//         #1;
-//         lclk_cnt = lclk_cnt + 1;
-//         $fwrite(fd, "clk: ");
-//         $fwrite(fd, "%0d", lclk_cnt);
-//         $fwrite(fd, "; Inst WB: ");
-//         $fdisplay(fd, "%8x", `DUT_CORE.inst_wb );
-//     end
-// end
+int lclk_cnt = 0;
+initial begin
+    forever begin
+        @(posedge clk);
+        #1;
+        lclk_cnt = lclk_cnt + 1;
+        $fwrite(fd, "clk: ");
+        $fwrite(fd, "%0d", lclk_cnt);
+        $fwrite(fd, "; Inst WB: ");
+        $fdisplay(fd, "%8x", `DUT_CORE.inst.p.wbk );
+    end
+end
+*/
 
 localparam int SLEN = 32;
 logic [8*SLEN-1:0] cosim_stack_top_str_wave;
@@ -314,14 +238,15 @@ function automatic [8*SLEN-1:0] pack_string(input string str);
 endfunction
 
 task automatic single_step(longint unsigned clk_cnt);
-    stats.update(`DUT_CORE.inst_wb, `DUT_CORE.stall_id_seq[2]);
+    stats.update(`DUT_CORE.inst.p.wbk, `DUT_CORE.bubble_dec_seq[2]);
     `LOG($sformatf("Core [F] %5h: %8h %0s",
-                    `DUT_CORE.pc_id, `DUT_CORE.inst_id_read,
-                    `DUT_CORE.stall_id ? ("(fe stalled)") : ""));
+                    `DUT_CORE.pc.p.dec, `DUT_CORE.imem_rsp.data,
+                    `DUT_CORE.bubble_dec ? ("(fe stalled)") : ""));
 
     if (`DUT_CORE.inst_wb_nop_or_clear == 1'b1) return;
 
-    `LOG($sformatf("Core [R] %5h: %8h", `DUT_CORE.pc_wb, `DUT_CORE.inst_wb));
+    `LOG($sformatf(
+        "Core [R] %5h: %8h", `DUT_CORE.pc.p.wbk, `DUT_CORE.inst.p.wbk));
     `ifdef ENABLE_COSIM
     cosim_exec(clk_cnt, cosim_pc, cosim_inst,
                cosim_inst_asm_str, cosim_stack_top_str, cosim_rf);
@@ -352,21 +277,6 @@ endtask
 // clk gen
 always #(half_period) clk = ~clk;
 
-// Timestamp
-initial begin
-    /* set %t:
-     * - scaled in ns (-9),
-     * - with 2 precision digits
-     * - with the " ns" string
-     * - taking up a total of 15 characters, including the string
-     */
-    $timeformat(-9, 2, " ns", 15);
-    forever begin
-        timestamp = $sformatf("%t", $time);
-        @(posedge clk);
-    end
-end
-
 // Reset handler
 initial begin
     @go_in_reset;
@@ -387,8 +297,10 @@ initial begin
     // once all checkers are active, disable the setup
     while (!(&rf_chk_act)) begin
         @(posedge clk);
+        if (rf_chk_act[`DUT_RF.addr_d] == 1'b0) begin
+            `LOG($sformatf("RF checker active for x%0d", `DUT_RF.addr_d));
+        end
         rf_chk_act[`DUT_RF.addr_d] = 1'b1;
-        `LOG($sformatf("RF checker active for x%0d", `DUT_RF.addr_d));
     end
     `LOG("All RF checkers active");
 end
@@ -397,6 +309,14 @@ end
 assign tohost_source = `DUT_CORE.csr_tohost[0];
 perf_stats stats;
 initial begin
+    /* set %t:
+     * - scaled in ns (-9),
+     * - with 2 precision digits
+     * - with the " ns" string
+     * - taking up a total of 15 characters, including the string
+     */
+    $timeformat(-9, 2, " ns", 15);
+
     get_plusargs();
     stats = new();
 
@@ -424,6 +344,12 @@ initial begin
     disable run_f;
 
     `LOG("Simulation finished");
+    if (!(&rf_chk_act)) begin
+        `LOG_WARNING(
+            {"Test finished but not all checkers were activated. ",
+             "Something likely went wrong"});
+    end
+
     check_test_status();
     `ifdef ENABLE_COSIM
     if (cosim_chk_en == 1'b1) cosim_check_inst_cnt();

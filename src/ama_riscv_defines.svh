@@ -2,6 +2,7 @@
 `define AMA_RISCV_DEFINES
 
 // Memory map
+`define MEM_SIZE 16384
 `define RESET_VECTOR 32'h1_0000
 `define DMEM_RANGE 2'b00
 `define MMIO_RANGE 2'b01
@@ -27,14 +28,14 @@
 
 `define CSR_OP_SEL_ASSIGN 2'b01
 `define CSR_OP_SEL_SET_BITS 2'b10
-`define CSR_OP_SEL_CLEAR_BITS 2'b11
+`define CSR_OP_SEL_CLR_BITS 2'b11
 
 // MUX select signals
 // PC select
 `define PC_SEL_INC4 2'd0 // PC = PC + 4
 `define PC_SEL_ALU 2'd1 // ALU output, used for jump/branch
 `define PC_SEL_BP 2'd2 // PC = Branch prediction output
-`define PC_SEL_START_ADDR 2'd3 // PC = Hardwired start address
+`define PC_SEL_PC 2'd3 // PC = Hardwired start address
 
 // ALU A operand select
 `define ALU_A_SEL_RS1 1'd0 // A = Reg[rs1]
@@ -125,6 +126,47 @@
 `define IG_J_TYPE   3'b100
 `define IG_U_TYPE   3'b101
 
+//`define IMEM_DELAY
+
+`ifdef IMEM_DELAY
+`define IMEM_DELAY_CLK 2
+`else
+`define IMEM_DELAY_CLK 1
+`endif
+
+// interfaces
+interface rv_if #(parameter DW = 32) (input logic clk);
+    logic          valid;
+    logic          ready;
+    logic [DW-1:0] data;
+    modport TX (output valid, output data, input  ready);  // producer
+    modport RX (input  valid, input  data, output ready);  // consumer
+endinterface
+
+// structs
+interface pipeline_if #(parameter unsigned W = 32);
+    typedef struct packed {
+        logic [W-1:0] fet;
+        logic [W-1:0] dec;
+        logic [W-1:0] exe;
+        logic [W-1:0] mem;
+        logic [W-1:0] wbk;
+    } pipeline_t;
+
+    pipeline_t p;
+
+    modport IN (input p);
+    modport OUT (output p);
+
+endinterface
+
+typedef struct packed {
+    logic en;
+    logic we;
+    logic ui;
+    logic [1:0] op_sel;
+} csr_ctrl_t;
+
 // common blocks
 `define DFF_RST_CLR(ff, rst, rst_val, clr, clr_val, new_val) \
     always_ff @(posedge clk) begin \
@@ -133,8 +175,18 @@
         else ff <= new_val; \
     end
 
-`define PIPE_STAGE(clr, ff, new_val) \
+`define STAGE(clr, ff, new_val) \
     `DFF_RST_CLR(ff, rst,'h0, clr, 'h0, new_val)
+
+`define DFF_RST_CLR_EN(ff, rst, rst_val, clr, clr_val, en, new_val) \
+    always_ff @(posedge clk) begin \
+        if (rst) ff <= rst_val; \
+        else if (clr) ff <= clr_val; \
+        else if (en) ff <= new_val; \
+    end
+
+`define STAGE_EN(clr, en, ff, new_val) \
+    `DFF_RST_CLR_EN(ff, rst,'h0, clr, 'h0, en, new_val)
 
 `define DFF_RST_EN(ff, rst, rst_val, en, new_val) \
     always_ff @(posedge clk) begin \

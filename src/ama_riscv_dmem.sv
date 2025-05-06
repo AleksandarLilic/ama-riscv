@@ -1,3 +1,5 @@
+`include "ama_riscv_defines.svh"
+
 module ama_riscv_dmem (
     input  logic        clk,
     input  logic        en,
@@ -7,7 +9,7 @@ module ama_riscv_dmem (
     output logic [31:0] dout
 );
 
-logic [31:0] mem[16384-1:0];
+logic [31:0] mem [0:`MEM_SIZE-1];
 
 // dmem read
 always_ff @(posedge clk) begin

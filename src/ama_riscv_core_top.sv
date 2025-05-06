@@ -16,8 +16,9 @@ module ama_riscv_core_top (
 );
 
 // IMEM
-logic [31:0] inst_id_read;
-logic [13:0] imem_addr;
+rv_if #(.DW(14)) imem_addr_ch ();
+rv_if #(.DW(32)) imem_data_ch ();
+
 // DMEM
 logic [31:0] dmem_write_data;
 logic [13:0] dmem_addr;
@@ -29,13 +30,13 @@ logic [31:0] dmem_read_data_mem;
 ama_riscv_core ama_riscv_core_i(
     .clk (clk),
     .rst (rst),
-    .inst_id_read (inst_id_read),
-    .dmem_read_data_mem (dmem_read_data_mem),
-    .imem_addr (imem_addr),
+    .imem_req (imem_addr_ch.TX),
+    .imem_rsp (imem_data_ch.RX),
     .dmem_write_data (dmem_write_data),
     .dmem_addr (dmem_addr),
     .dmem_en (dmem_en),
     .dmem_we (dmem_we),
+    .dmem_read_data_mem (dmem_read_data_mem),
     .mmio_instr_cnt (mmio_instr_cnt),
     .mmio_cycle_cnt (mmio_cycle_cnt),
     .mmio_uart_data_out (mmio_uart_data_out),
@@ -48,14 +49,20 @@ ama_riscv_core ama_riscv_core_i(
     .mmio_uart_data_in (mmio_uart_data_in)
 );
 
-// IMEM
-ama_riscv_imem ama_riscv_imem_i (
+`ifndef USE_CACHES
+ama_riscv_imem #(
+    .D(`IMEM_DELAY_CLK)
+) ama_riscv_imem_i (
     .clk (clk),
-    .addrb (imem_addr),
-    .doutb (inst_id_read)
+    .rst (rst),
+    .req (imem_addr_ch.RX),
+    .rsp (imem_data_ch.TX)
 );
 
-// DMEM
+`else
+    `ERROR_CACHES_UNIMPLEMENTED
+`endif
+
 ama_riscv_dmem ama_riscv_dmem_i (
     .clk (clk),
     .en (dmem_en),

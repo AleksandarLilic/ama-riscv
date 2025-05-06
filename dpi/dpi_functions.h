@@ -25,9 +25,8 @@
 
 
 
-/* Imported (by SV) function */
-DPI_LINKER_DECL DPI_DLLESPEC 
- void cosim_setup(
+/* Imported (by SV) task */
+DPI_LINKER_DECL DPI_DLLESPEC int cosim_setup(
 	const char* test_bin);
 
 
