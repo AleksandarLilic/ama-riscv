@@ -22,3 +22,9 @@ PLUS_INCDIR := $(foreach dir,$(INC_DIRS),$(shell echo +incdir+$(dir)))
 get_sources_d =
 get_sources_v =
 get_include_dirs =
+
+# color coding
+GREEN  := $(shell printf "\033[0;32m")
+RED    := $(shell printf "\033[0;31m")
+YELLOW := $(shell printf "\033[0;33m")
+NC     := $(shell printf "\033[0m")

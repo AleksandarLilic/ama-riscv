@@ -43,7 +43,16 @@ SIM_LOG := -log /dev/null > test.log 2>&1
 sim: .elab.touchfile
 	xsim $(TOP) -tclbatch $(REPO_ROOT)/$(TCLBATCH) -stats -onerror quit -testplusarg test_path=$(REPO_ROOT)/$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) $(COSIM_CHECKER) $(SIM_LOG)
 	@touch .sim.touchfile
-	@grep "PASS\|FAIL\|Error:" test.log || echo "Can't determine test status"
+	@printf "Test status: "
+	@if   grep -q "PASS" test.log; then \
+		msg=`grep "PASS" test.log`; \
+		printf "$(GREEN)%s$(NC)\n" "$$msg"; \
+	elif grep -qE "FAIL|Error:" test.log; then \
+		msg=`grep -E "FAIL|Error:" test.log`; \
+		printf "$(RED)%s$(NC)\n" "$$msg"; \
+	else \
+		printf "$(YELLOW)Can't determine test status$(NC)\n"; \
+	fi
 
 watch_slang:
 	@make slang
