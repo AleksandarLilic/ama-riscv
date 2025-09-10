@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import time
+from collections import deque
 from multiprocessing import Manager, Pool
 
 RUN_CFG = "run_cfg_suite.tcl"
@@ -23,9 +24,9 @@ def parse_args():
     parser.add_argument('-t', '--test', help='Specify single test to run')
     parser.add_argument('--testlist', help='Path to a JSON file containing a list of tests')
     parser.add_argument('-r', '--rundir', help='Optional custom run directory name')
-    parser.add_argument('--keep_build', action='store_true', help='Reuse existing build directory if available')
+    parser.add_argument('-k', '--keep_build', action='store_true', help='Reuse existing build directory if available')
     parser.add_argument('-j', '--jobs', type=int, default=MAX_WORKERS, help='Number of parallel jobs to run (default: number of CPU cores)')
-    # TODO parser.add_argument('--args', help='Argument list to pass as-is to Makefile')
+    parser.add_argument('-m', '--make_args', help='Argument list to pass as-is to Makefile. Quote entire string for parser to treat it as a single argument')
     #parser.add_argument('--coverage', action='store_true', help='Enable coverage analysis')
     #parser.add_argument('--coverage-only', action='store_true', help='Only run coverage analysis. Relies on the existing test directories for the specified tests')
     #parser.add_argument('--seed', type=int, help='Seed value for the tests')
@@ -92,22 +93,25 @@ def check_make_status(make_status, msg: str) -> int:
 
 def check_test_status(test_log_path, test_name):
     if os.path.exists(test_log_path):
-        with open(test_log_path, 'r') as file:
-            for line in file:
-                if "==== PASS ====" in line:
-                    return f"Test <{test_name}> PASSED."
-                elif "==== FAIL ====" in line:
-                    return f"Test <{test_name}> FAILED."
-                elif "cosim_exec()" in line:
-                    return f"Test <{test_name}> FAILED. " + \
-                           "Cosim stopped. Check the log for details."
-            return f"Test <{test_name}> result is inconclusive. " + \
-                f"Check {test_log_path} for details."
+        errors = []
+        last_lines = deque(open(test_log_path, 'r'), maxlen=100)
+        for line in last_lines:
+            if line.startswith("Error"):
+                errors.append(line.strip())
+            if "==== PASS ====" in line:
+                return f"Test <{test_name}> PASSED."
+            elif "==== FAIL ====" in line:
+                return f"Test <{test_name}> FAILED with: " + " ".join(errors)
+            elif "cosim_exec()" in line:
+                return f"Test <{test_name}> FAILED. " + \
+                        "Cosim stopped. Check the log for details."
+        return f"Test <{test_name}> result is inconclusive. " + \
+            f"Check {test_log_path} for details."
     else:
         return f"{TEST_LOG} not found at {test_log_path}. " + \
             "Cannot determine test result."
 
-def run_test(test_path, run_dir, build_dir, cnt): # TODO: --args passed in
+def run_test(test_path, run_dir, build_dir, make_args, cnt):
     test_name = format_test_name(test_path)
     test_path_make = os.path.splitext(test_path)[0]
     with cnt["lock"]:
@@ -121,8 +125,8 @@ def run_test(test_path, run_dir, build_dir, cnt): # TODO: --args passed in
     make_cmd = [
         "make", "sim",
         f"TEST_PATH={test_path_make}",
-        f"TCLBATCH={RUN_CFG}"
-        # TODO: pass --args
+        f"TCLBATCH={RUN_CFG}",
+        make_args
     ]
     make_status = subprocess.run(
         make_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=test_dir)
@@ -133,7 +137,7 @@ def run_test(test_path, run_dir, build_dir, cnt): # TODO: --args passed in
     status_file_path = os.path.join(test_dir, "test.status")
     with open(status_file_path, 'w') as status_file:
         status = check_test_status(os.path.join(test_dir, TEST_LOG), test_name)
-        status_file.write(status)
+        status_file.write(status+"\n")
         print(status)
 
 def print_runtime(start_time, process_name):
@@ -228,7 +232,8 @@ def main():
                         run_test,
                         run_dir=run_dir,
                         build_dir=build_dir,
-                        cnt=cnt
+                        cnt=cnt,
+                        make_args=args.make_args
                     )
                 pool.map(partial_run_test, all_tests)
 
