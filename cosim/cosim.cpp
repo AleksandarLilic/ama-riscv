@@ -1,6 +1,7 @@
 #define DPI
 
 #include "defines.h"
+#include "hw_model_types.h"
 #include "memory.h"
 #include "core.h"
 #include "utils.h"
@@ -18,11 +19,15 @@ std::string inst_asm;
 DPI_LINKER_DECL DPI_DLLESPEC
 int cosim_setup(const char *test_elf) {
     cfg.perf_event = perf_event_t::cycles;
-    cfg.prof_pc.start = 0x10000; // FIXME: should be passed as plusarg
+    cfg.prof_pc.start = BASE_ADDR; // FIXME: should be passed as plusarg
     cfg.prof_trace = true; // FIXME: also plusarg
+
     std::string l_test_elf(test_elf);
-    mem = new memory(l_test_elf, hw_cfg);
-    rv32 = new core(mem, gen_out_dir(l_test_elf, "cosim"), cfg, hw_cfg);
+    cfg.out_dir = gen_out_dir(l_test_elf, "cosim");
+
+    mem = new memory(l_test_elf, cfg, hw_cfg);
+    rv32 = new core(mem, cfg, hw_cfg);
+
     return 0;
 }
 

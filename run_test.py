@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 
-import os
-import sys
-import subprocess
-import datetime
-import shutil
 import argparse
-from multiprocessing import Pool, Manager
+import datetime
 import functools
-import json
-import random
 import glob
+import json
+import os
+import random
+import shutil
+import subprocess
+import sys
 import time
+from multiprocessing import Manager, Pool
 
 RUN_CFG = "run_cfg_suite.tcl"
 CC_RED = "91m"
@@ -22,23 +22,28 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Run RTL simulation.')
     parser.add_argument('-t', '--test', help='Specify single test to run')
     parser.add_argument('--testlist', help='Path to a JSON file containing a list of tests')
-    parser.add_argument('--rundir', help='Optional custom run directory name')
-    parser.add_argument('--keep-build', action='store_true', help='Reuse existing build directory if available')
+    parser.add_argument('-r', '--rundir', help='Optional custom run directory name')
+    parser.add_argument('--keep_build', action='store_true', help='Reuse existing build directory if available')
     parser.add_argument('-j', '--jobs', type=int, default=MAX_WORKERS, help='Number of parallel jobs to run (default: number of CPU cores)')
+    # TODO parser.add_argument('--args', help='Argument list to pass as-is to Makefile')
     #parser.add_argument('--coverage', action='store_true', help='Enable coverage analysis')
     #parser.add_argument('--coverage-only', action='store_true', help='Only run coverage analysis. Relies on the existing test directories for the specified tests')
     #parser.add_argument('--seed', type=int, help='Seed value for the tests')
-    parser.add_argument('--log_wave', action='store_true', help='Include log wave command in TCL script')
+    parser.add_argument('--log_wave', action='store_true', help='Collect .wdb waveform, all modules from the top down')
+    parser.add_argument('--log_vcd', action='store_true', help='Collect .vcd waveform, all modules from the top down')
     return parser.parse_args()
 
-def create_run_cfg(add_log_wave):
+def create_run_cfg(log_wave, log_vcd):
     tcl_content = []
-    if add_log_wave:
+    if log_wave:
         tcl_content.append("log_wave -recursive *")
-    tcl_content.extend([
-        "run all",
-        "exit"
-    ])
+    if log_vcd:
+        tcl_content.append("open_vcd test_wave.vcd")
+        tcl_content.append("log_vcd *")
+    tcl_content.append("run all")
+    if log_vcd:
+        tcl_content.append("close_vcd")
+    tcl_content.append("exit")
 
     with open(RUN_CFG, 'w') as file:
         file.writelines(line + '\n' for line in tcl_content)
@@ -64,10 +69,14 @@ def find_all_tests(test_list):
             some_mismatched = True
             print(f"Warning: No files match the pattern " + \
                   f"<{test_name_pattern}> in <{path}>.")
+
     if some_mismatched:
-        print("Some test names are invalid. Check the testlist. " + \
-              "Proceeding with the valid tests")
-        time.sleep(3)
+        print("Some test names are invalid. Check the test name/testlist")
+        if len(valid_tests) == 0:
+            raise ValueError("Error: No valid tests specified")
+        else:
+            print("Proceeding with the valid tests")
+            time.sleep(3)
 
     return valid_tests
 
@@ -98,7 +107,7 @@ def check_test_status(test_log_path, test_name):
         return f"{TEST_LOG} not found at {test_log_path}. " + \
             "Cannot determine test result."
 
-def run_test(test_path, run_dir, build_dir, cnt):
+def run_test(test_path, run_dir, build_dir, cnt): # TODO: --args passed in
     test_name = format_test_name(test_path)
     test_path_make = os.path.splitext(test_path)[0]
     with cnt["lock"]:
@@ -109,12 +118,15 @@ def run_test(test_path, run_dir, build_dir, cnt):
     if os.path.exists(test_dir):
         shutil.rmtree(test_dir)
     shutil.copytree(build_dir, test_dir, symlinks=True)
-    make_status = subprocess.run(["make", "sim", f"-j{MAX_WORKERS}",
-                                 f"TEST_PATH={test_path_make}",
-                                 f"TCLBATCH={RUN_CFG}"],
-                                 stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE,
-                                 cwd=test_dir)
+    make_cmd = [
+        "make", "sim",
+        f"TEST_PATH={test_path_make}",
+        f"TCLBATCH={RUN_CFG}"
+        # TODO: pass --args
+    ]
+    make_status = subprocess.run(
+        make_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=test_dir)
+
     print(f"Test <{test_name}> DONE.", end=" ")
     _ = check_make_status(make_status, f"run test <{test_name}>")
     # write to test.status
@@ -129,11 +141,11 @@ def print_runtime(start_time, process_name):
     elapsed_time = end_time - start_time
     hours, remainder = divmod(elapsed_time.seconds, 3600)
     minutes, seconds = divmod(remainder, 60)
-    print(f"{process_name} runtime: ", end="")
-    if hours:
-        print(f"{hours}h {minutes}m {seconds}s")
-    else:
-        print(f"{minutes}m {seconds}s")
+    print(
+        f"{process_name} runtime:",
+        f"{hours}h" if hours else "",
+        f"{minutes}m {seconds}s",
+    )
 
 def main():
     start_time_suite = datetime.datetime.now()
@@ -143,10 +155,11 @@ def main():
     if args.test and args.testlist:
         raise ValueError("Cannot use both -t|--test and --testlist. Choose one")
 
-    create_run_cfg(args.log_wave)
+    create_run_cfg(args.log_wave, args.log_vcd)
     if args.test:
-        all_tests = find_all_tests([[os.path.dirname(args.test),
-                                     os.path.basename(args.test)]])
+        all_tests = find_all_tests(
+            [[os.path.dirname(args.test), os.path.basename(args.test)]]
+        )
     elif args.testlist:
         all_tests = find_all_tests(read_from_json(args.testlist))
     else:
@@ -161,7 +174,7 @@ def main():
         run_dir = args.rundir
     else:
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        run_dir = f"rv_test_{timestamp}"
+        run_dir = f"testrun_{timestamp}"
 
     if not os.path.exists(run_dir):
         os.makedirs(run_dir)
@@ -177,12 +190,14 @@ def main():
         linked_makefile_path = os.path.join(build_dir, "Makefile")
         os.symlink(makefile_path, linked_makefile_path)
 
-        print("Building...")
+        print(f"Building in {build_dir}")
         start_time = datetime.datetime.now()
-        make_build_log = subprocess.run(["make", "elab", f"-j{MAX_WORKERS}"],
-                                        stdout=subprocess.PIPE,
-                                        stderr=subprocess.PIPE,
-                                        cwd=build_dir)
+        make_build_log = subprocess.run(
+            ["make", "elab", f"-j{MAX_WORKERS}"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=build_dir
+        )
         print_runtime(start_time, "Build")
         if check_make_status(make_build_log, "build") != 0:
             raise ValueError("Error: Build failed.")
@@ -194,7 +209,7 @@ def main():
     if args.jobs > MAX_WORKERS:
         print(f"Warning: The specified number of jobs ({args.jobs}) exceeds " +
               f"the number of available CPU cores ({MAX_WORKERS}).")
-    print(f"Running simulation with {min(args.jobs,MAX_WORKERS)} parallel jobs")
+    #print(f"Running simulation with {min(args.jobs,MAX_WORKERS)} workers")
 
     # run tests in parallel
     random.seed(5)
@@ -208,8 +223,13 @@ def main():
             cnt["lock"] = manager.Lock()
             cnt["total"] = len(all_tests)
             with Pool(min(args.jobs, MAX_WORKERS)) as pool:
-                partial_run_test = functools.partial(
-                    run_test, run_dir=run_dir, build_dir=build_dir, cnt=cnt)
+                partial_run_test = \
+                    functools.partial(
+                        run_test,
+                        run_dir=run_dir,
+                        build_dir=build_dir,
+                        cnt=cnt
+                    )
                 pool.map(partial_run_test, all_tests)
 
     except KeyboardInterrupt:

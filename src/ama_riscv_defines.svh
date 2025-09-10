@@ -3,7 +3,7 @@
 
 // Memory map
 `define MEM_SIZE 16384
-`define RESET_VECTOR 32'h1_0000
+`define RESET_VECTOR 32'h4_0000
 `define DMEM_RANGE 2'b00
 `define MMIO_RANGE 2'b01
 
@@ -139,6 +139,7 @@ interface rv_if #(parameter DW = 32) (input logic clk);
     logic          valid;
     logic          ready;
     logic [DW-1:0] data;
+    localparam unsigned W = DW;
     modport TX (output valid, output data, input  ready);  // producer
     modport RX (input  valid, input  data, output ready);  // consumer
 endinterface

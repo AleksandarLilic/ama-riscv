@@ -261,17 +261,23 @@ task automatic single_step(longint unsigned clk_cnt);
     end
     `endif
     //print_single_instruction_results();
-
 endtask
 
 task run_test();
+    automatic int unsigned clks_to_retire_csr_inst = 1;
     automatic longint unsigned clk_cnt = 0;
     while (tohost_source !== 1'b1) begin
         @(posedge clk); #1;
         clk_cnt += 1;
-        //$display("clk_cnt: %0d", clk_cnt);
         single_step(clk_cnt);
     end
+
+    repeat(clks_to_retire_csr_inst) begin // retire csr inst to match isa sim
+        @(posedge clk); #1;
+        clk_cnt += 1;
+        single_step(clk_cnt);
+    end
+
 endtask
 
 // clk gen
@@ -299,8 +305,8 @@ initial begin
         @(posedge clk);
         if (rf_chk_act[`DUT_RF.addr_d] == 1'b0) begin
             `LOG($sformatf("RF checker active for x%0d", `DUT_RF.addr_d));
+            rf_chk_act[`DUT_RF.addr_d] = 1'b1;
         end
-        rf_chk_act[`DUT_RF.addr_d] = 1'b1;
     end
     `LOG("All RF checkers active");
 end

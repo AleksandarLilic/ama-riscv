@@ -14,10 +14,10 @@ export REPO_ROOT
 # vivado
 source "$VIVADO_ROOT/.settings64-Vivado.sh"
 
-# generic run_cfg.tcl
+# generic run_cfg.tcl, collects waves from the entire design as .wdb and .vcd
 tcl_cfg="run_cfg.tcl"
 echo "log_wave -recursive *" > $tcl_cfg
-echo "open_vcd" >> $tcl_cfg
+echo "open_vcd test_wave.vcd" >> $tcl_cfg
 echo "log_vcd *" >> $tcl_cfg
 echo "run all" >> $tcl_cfg
 echo "close_vcd" >> $tcl_cfg

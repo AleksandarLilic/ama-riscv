@@ -1,10 +1,15 @@
 # RTL build
 TOP := ama_riscv_core_top_tb
 
-# DPI variables needed during TB build
-COSIM_DPI_SO := ama-riscv-sim_dpi.so
-DPI_ROOT := $(REPO_ROOT)/dpi
-DPI_FUNCS_H := $(DPI_ROOT)/dpi_functions.h
+# terminology:
+# - ISA_SIM: ama-riscv-sim, C++
+# - COSIM: wrapper around ISA_SIM, C++
+# - DPI: interface between SV and C++; term is also used as a build switch for ama-riscv-sim
+
+# COSIM variables needed during TB build
+COSIM_SO := ama-riscv-cosim.so
+COSIM_ROOT := $(REPO_ROOT)/cosim
+DPI_FUNCS_H := $(COSIM_ROOT)/dpi_functions.h
 
 RTL_DEFINES :=
 RTL_DEFINES += -d ENABLE_COSIM
@@ -29,8 +34,8 @@ compile: .compile.touchfile
 	@touch .compile.touchfile
 
 elab: .elab.touchfile
-.elab.touchfile: .compile.touchfile $(COSIM_DPI_SO)
-	xelab $(TOP) $(ELAB_OPTS) -sv_lib $(COSIM_DPI_SO) $(RTL_DEFINES) -log /dev/null > xelab.log 2>&1
+.elab.touchfile: .compile.touchfile $(COSIM_SO)
+	xelab $(TOP) $(ELAB_OPTS) -sv_lib $(COSIM_SO) $(RTL_DEFINES) -log /dev/null > xelab.log 2>&1
 	@rm xelab.pb
 	@touch .elab.touchfile
 
@@ -40,13 +45,23 @@ dpi_header_gen: .compile.touchfile
 #SIM_LOG := -log test.log
 SIM_LOG := -log /dev/null > test.log 2>&1
 
+# used to limit the number of delta cycles during simulation, default is 10000
+# prevents large logs and long runtimes when debugging accidental comb. loops
+MAX_DELTA = -maxdeltaid 100
+
 sim: .elab.touchfile
-	xsim $(TOP) -tclbatch $(REPO_ROOT)/$(TCLBATCH) -stats -onerror quit -testplusarg test_path=$(REPO_ROOT)/$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) $(COSIM_CHECKER) $(SIM_LOG)
+	xsim $(TOP) -tclbatch $(REPO_ROOT)/$(TCLBATCH) -stats -onerror quit -testplusarg test_path=$(REPO_ROOT)/$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) $(COSIM_CHECKER) $(SIM_LOG) $(MAX_DELTA)
 	@touch .sim.touchfile
+
+	@msg=`grep "Simulation finished" test.log`; \
+	printf "%s\n" "$$msg";
+
 	@printf "Test status: "
-	@if   grep -q "PASS" test.log; then \
+	@if grep -q "PASS" test.log; then \
 		msg=`grep "PASS" test.log`; \
 		printf "$(GREEN)%s$(NC)\n" "$$msg"; \
+		msg=`grep "DUT instruction count" test.log`; \
+		printf "%s\n" "$$msg"; \
 	elif grep -qE "FAIL|Error:" test.log; then \
 		msg=`grep -E "FAIL|Error:" test.log`; \
 		printf "$(RED)%s$(NC)\n" "$$msg"; \
@@ -67,7 +82,7 @@ slang:
 lint:
 	@verilator --lint-only $(SRC_DESIGN) $(PLUS_INCDIR) -Wall -Wpedantic > lint.log 2>&1
 
-# DPI build
+# COSIM build
 CXX := g++
 CXXFLAGS := -Wall -Wextra
 CXXFLAGS += -Wcast-qual -Wold-style-cast
@@ -80,50 +95,56 @@ CXXFLAGS += -m64 -fPIC -shared
 CXXFLAGS += -Wno-unused-parameter
 #CXXFLAGS += -pg
 
-COSIM_DIR := $(REPO_ROOT)/sim/src
-COSIM_BDIR := build_dpi
-$(shell mkdir -p $(COSIM_DIR)/$(COSIM_BDIR))
+ISA_SIM_DIR := $(REPO_ROOT)/sim/src
+ISA_SIM_BDIR := build_cosim
+$(shell mkdir -p $(ISA_SIM_DIR)/$(ISA_SIM_BDIR))
 
-COSIM_SRCS := $(wildcard $(COSIM_DIR)/*.cpp)
-COSIM_SRCS += $(wildcard $(COSIM_DIR)/devices/*.cpp)
-COSIM_SRCS += $(wildcard $(COSIM_DIR)/profilers/*.cpp)
-COSIM_SRCS := $(filter-out %main.cpp, $(COSIM_SRCS))
-COSIM_OBJS := $(patsubst $(COSIM_DIR)/%, $(COSIM_DIR)/$(COSIM_BDIR)/%, $(COSIM_SRCS:.cpp=.o))
-COSIM_H := $(wildcard $(COSIM_DIR)/*.h)
-COSIM_H += $(wildcard $(COSIM_DIR)/devices/*.h)
-COSIM_H += $(wildcard $(COSIM_DIR)/profilers/*.h)
-COSIM_INC := -I$(COSIM_DIR) -I$(COSIM_DIR)/devices -I$(COSIM_DIR)/profilers
-COSIM_INC += -isystem $(COSIM_DIR)/external/ELFIO
+ISA_SIM_SRCS := $(wildcard $(ISA_SIM_DIR)/*.cpp)
+ISA_SIM_SRCS += $(wildcard $(ISA_SIM_DIR)/devices/*.cpp)
+ISA_SIM_SRCS += $(wildcard $(ISA_SIM_DIR)/profilers/*.cpp)
+ISA_SIM_SRCS := $(filter-out %main.cpp, $(ISA_SIM_SRCS))
 
-DPI_SRC := $(DPI_ROOT)/core_dpi.cpp
-DPI_OBJ := $(DPI_SRC:.cpp=.o)
-DPI_INC := -I$(VIVADO_ROOT)/data/xsim/include
+ISA_SIM_OBJS := $(patsubst $(ISA_SIM_DIR)/%, $(ISA_SIM_DIR)/$(ISA_SIM_BDIR)/%, $(ISA_SIM_SRCS:.cpp=.o))
+
+ISA_SIM_H := $(wildcard $(ISA_SIM_DIR)/*.h)
+ISA_SIM_H += $(wildcard $(ISA_SIM_DIR)/devices/*.h)
+ISA_SIM_H += $(wildcard $(ISA_SIM_DIR)/profilers/*.h)
+
+ISA_SIM_INC := -I$(ISA_SIM_DIR) -I$(ISA_SIM_DIR)/devices -I$(ISA_SIM_DIR)/profilers -I$(ISA_SIM_DIR)/hw_models
+ISA_SIM_INC += -isystem $(ISA_SIM_DIR)/external/ELFIO
+
+COSIM_SRC := $(COSIM_ROOT)/cosim.cpp
+COSIM_OBJ := $(COSIM_SRC:.cpp=.o)
+COSIM_INC := -I$(VIVADO_ROOT)/data/xsim/include
 DPI_LINK_LIB := -L$(VIVADO_ROOT)/tps/lnx64/gcc-9.3.0/lib64/
 
-dpi: $(COSIM_DPI_SO)
+cosim: $(COSIM_SO)
 
-$(COSIM_DPI_SO): .cosim_obj.touchfile $(DPI_OBJ)
-	$(CXX) $(CXXFLAGS) -o $(COSIM_DPI_SO) $(DPI_OBJ) $(COSIM_OBJS) $(DPI_LINK_LIB)
+$(COSIM_SO): .isa_sim_obj.touchfile $(COSIM_OBJ)
+	$(CXX) $(CXXFLAGS) -o $(COSIM_SO) $(COSIM_OBJ) $(ISA_SIM_OBJS) $(DPI_LINK_LIB)
 
-cosim_obj: .cosim_obj.touchfile
-.cosim_obj.touchfile: $(COSIM_SRCS) $(COSIM_H)
-	$(MAKE) -C $(COSIM_DIR) obj BDIR=$(COSIM_BDIR) DEFINES="-DDPI -DCACHE_MODE=CACHE_MODE_FUNC"
-	@touch .cosim_obj.touchfile
+isa_sim_obj: .isa_sim_obj.touchfile
+.isa_sim_obj.touchfile: $(ISA_SIM_SRCS) $(ISA_SIM_H)
+	$(MAKE) -C $(ISA_SIM_DIR) obj BDIR=$(ISA_SIM_BDIR) DEFINES="-DDPI -DCACHE_MODE=CACHE_MODE_FUNC"
+	@touch .isa_sim_obj.touchfile
 
-$(DPI_OBJ): $(DPI_SRC) $(DPI_FUNCS_H) $(COSIM_H)
-	$(CXX) $(CXXFLAGS) -c -o $@ $< $(DPI_INC) $(COSIM_INC)
+$(COSIM_OBJ): $(COSIM_SRC) $(DPI_FUNCS_H) $(ISA_SIM_H)
+	$(CXX) $(CXXFLAGS) -c -o $@ $< $(COSIM_INC) $(ISA_SIM_INC)
+
+# cleaning
+cleanisasim:
+	$(MAKE) -C $(ISA_SIM_DIR) cleanbuild BDIR=$(ISA_SIM_BDIR)
+	rm -rf .isa_sim_obj.touchfile
 
 cleancosim:
-	$(MAKE) -C $(COSIM_DIR) cleanbuild BDIR=$(COSIM_BDIR)
-	rm -rf .cosim_obj.touchfile
-
-cleandpi:
-	rm -rf $(DPI_ROOT)/*.*o *.so
+	rm -rf $(COSIM_ROOT)/*.*o *.so
 
 cleanlogs:
 	rm -rf *.log *.jou *.pb vivado_pid*.str out_*
 
-clean: cleanlogs
-	rm -rf .*touchfile xsim.dir *.wdb
+cleanrtl: cleanlogs
+	rm -rf .compile.touchfile .elab.touchfile .sim.touchfile xsim.dir *.wdb *.vcd
 
-cleanall: clean cleancosim cleandpi
+clean: cleanrtl
+
+cleanall: cleanrtl cleanisasim cleancosim
