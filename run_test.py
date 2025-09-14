@@ -12,6 +12,7 @@ import subprocess
 import sys
 import time
 from collections import deque
+from dataclasses import dataclass
 from multiprocessing import Manager, Pool
 
 RUN_CFG = "run_cfg_suite.tcl"
@@ -19,19 +20,26 @@ CC_RED = "91m"
 CC_GREEN = "32m"
 TEST_LOG = "test.log"
 
+@dataclass
+class make_args:
+    timeout_clocks: int
+    log_level: str
+
 def parse_args():
-    parser = argparse.ArgumentParser(description='Run RTL simulation.')
-    parser.add_argument('-t', '--test', help='Specify single test to run')
-    parser.add_argument('--testlist', help='Path to a JSON file containing a list of tests')
-    parser.add_argument('-r', '--rundir', help='Optional custom run directory name')
-    parser.add_argument('-k', '--keep_build', action='store_true', help='Reuse existing build directory if available')
-    parser.add_argument('-j', '--jobs', type=int, default=MAX_WORKERS, help='Number of parallel jobs to run (default: number of CPU cores)')
-    parser.add_argument('-m', '--make_args', help='Argument list to pass as-is to Makefile. Quote entire string for parser to treat it as a single argument')
-    #parser.add_argument('--coverage', action='store_true', help='Enable coverage analysis')
-    #parser.add_argument('--coverage-only', action='store_true', help='Only run coverage analysis. Relies on the existing test directories for the specified tests')
-    #parser.add_argument('--seed', type=int, help='Seed value for the tests')
-    parser.add_argument('--log_wave', action='store_true', help='Collect .wdb waveform, all modules from the top down')
-    parser.add_argument('--log_vcd', action='store_true', help='Collect .vcd waveform, all modules from the top down')
+    parser = argparse.ArgumentParser(description="Run RTL simulation.")
+    parser.add_argument('-t', '--test', help="Specify single test to run")
+    parser.add_argument('--testlist', help="Path to a JSON file containing a list of tests")
+    parser.add_argument('-r', '--rundir', help="Optional custom run directory name")
+    parser.add_argument('-k', '--keep_build', action='store_true', default=False, help="Reuse existing build if available")
+    parser.add_argument('-b', '--rebuild_all', action='store_true', default=False, help="Rebuild everything: RTL, ISA sim, cosim. Takes priority over -k if both are specified")
+    parser.add_argument('-j', '--jobs', type=int, default=MAX_WORKERS, help="Number of parallel jobs to run (default: number of CPU cores)")
+    parser.add_argument('-c', '--timeout_clocks', type=int, default=500_000, help="Number of clocks before simulations times out")
+    parser.add_argument('-v', '--log_level', type=str, default="WARN", help="Log level during simulation")
+    #parser.add_argument('--coverage', action='store_true', help="Enable coverage analysis")
+    #parser.add_argument('--coverage-only', action='store_true', help="Only run coverage analysis. Relies on the existing test directories for the specified tests")
+    #parser.add_argument('--seed', type=int, help="Seed value for the tests")
+    parser.add_argument('--log_wave', action='store_true', help="Collect .wdb waveform, all modules from the top down")
+    parser.add_argument('--log_vcd', action='store_true', help="Collect .vcd waveform, all modules from the top down")
     return parser.parse_args()
 
 def create_run_cfg(log_wave, log_vcd):
@@ -81,16 +89,6 @@ def find_all_tests(test_list):
 
     return valid_tests
 
-def check_make_status(make_status, msg: str) -> int:
-    if make_status.returncode != 0:
-        print("Makefile stdout:")
-        print(make_status.stdout.decode('utf-8'))
-        print("Makefile stderr:")
-        print(make_status.stderr.decode('utf-8'))
-        print(f"Error: Makefile failed to {msg}.")
-        return make_status.returncode
-    return 0
-
 def check_test_status(test_log_path, test_name):
     if os.path.exists(test_log_path):
         errors = []
@@ -111,13 +109,45 @@ def check_test_status(test_log_path, test_name):
         return f"{TEST_LOG} not found at {test_log_path}. " + \
             "Cannot determine test result."
 
+def build_tb(build_dir, force_rebuild):
+    if os.path.exists(build_dir):
+        shutil.rmtree(build_dir)
+    os.makedirs(build_dir)
+    makefile_path = os.path.join(os.getcwd(), "Makefile")
+    linked_makefile_path = os.path.join(build_dir, "Makefile")
+    os.symlink(makefile_path, linked_makefile_path)
+
+    print(f"Building in {build_dir}... ", end='', flush=True)
+    start_time = datetime.datetime.now()
+    make_cmd = [
+        "make", "elab",
+        "ISA_SIM_BDIR=build_cosim_runtest",
+        f"-j{MAX_WORKERS}",
+    ]
+    if force_rebuild:
+        make_cmd.append("-B")
+    make_status = subprocess.run(
+        make_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=build_dir
+    )
+
+    build_log = os.path.join(build_dir, "build.log")
+    with open(build_log, 'w') as f:
+        f.write(make_status.stdout.decode('utf-8'))
+        f.write(make_status.stderr.decode('utf-8'))
+
+    if make_status.returncode != 0:
+        raise ValueError(f"Error: Build failed. "
+                         f"Check build log '{build_log}' for details.")
+
+    print_runtime(start_time, "Build done,")
+
 def run_test(test_path, run_dir, build_dir, make_args, cnt):
     test_name = format_test_name(test_path)
     test_path_make = os.path.splitext(test_path)[0]
     with cnt["lock"]:
         cnt["t"].value += 1
         print(f"Running test {cnt['t'].value}/{cnt['total']}: <{test_name}>")
-    #print(f"Running test <{test_name}>")
+
     test_dir = os.path.join(run_dir, f"test_{test_name}")
     if os.path.exists(test_dir):
         shutil.rmtree(test_dir)
@@ -126,21 +156,30 @@ def run_test(test_path, run_dir, build_dir, make_args, cnt):
         "make", "sim",
         f"TEST_PATH={test_path_make}",
         f"TCLBATCH={RUN_CFG}",
-        make_args
+        f"TIMEOUT_CLOCKS={make_args.timeout_clocks}",
+        f"LOG_LEVEL={make_args.log_level}",
     ]
     make_status = subprocess.run(
         make_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=test_dir)
 
+    test_log = os.path.join(test_dir, "test.log")
+    with open(test_log, 'w') as f:
+        f.write(make_status.stdout.decode('utf-8'))
+        f.write(make_status.stderr.decode('utf-8'))
+
     print(f"Test <{test_name}> DONE.", end=" ")
-    _ = check_make_status(make_status, f"run test <{test_name}>")
+    if make_status.returncode != 0:
+        raise ValueError(f"Error: Run test <{test_name}> failed. "
+                         f"Check test log '{test_log}' for details.")
+
     # write to test.status
     status_file_path = os.path.join(test_dir, "test.status")
     with open(status_file_path, 'w') as status_file:
-        status = check_test_status(os.path.join(test_dir, TEST_LOG), test_name)
+        status = check_test_status(test_log, test_name)
         status_file.write(status+"\n")
         print(status)
 
-def print_runtime(start_time, process_name):
+def print_runtime(start_time, process_name, end='\n'):
     end_time = datetime.datetime.now()
     elapsed_time = end_time - start_time
     hours, remainder = divmod(elapsed_time.seconds, 3600)
@@ -149,11 +188,13 @@ def print_runtime(start_time, process_name):
         f"{process_name} runtime:",
         f"{hours}h" if hours else "",
         f"{minutes}m {seconds}s",
+        end=end
     )
 
 def main():
     start_time_suite = datetime.datetime.now()
     args = parse_args()
+    ma = make_args(args.timeout_clocks, args.log_level)
 
     # check arguments
     if args.test and args.testlist:
@@ -164,14 +205,14 @@ def main():
         all_tests = find_all_tests(
             [[os.path.dirname(args.test), os.path.basename(args.test)]]
         )
+        print(f"\nRunning {all_tests[0]}")
     elif args.testlist:
         all_tests = find_all_tests(read_from_json(args.testlist))
+        print(f"\nTestlist:")
+        print("   " + "\n   ".join(all_tests))
+        print(f"Running {len(all_tests)} test(s) total")
     else:
         raise ValueError("Error: No test specified.")
-
-    print(f"\nTestlist:")
-    print("   " + "\n   ".join(all_tests))
-    print(f"Running {len(all_tests)} tests total")
 
     # handle run directory
     if args.rundir:
@@ -187,25 +228,7 @@ def main():
     if args.keep_build and os.path.exists(f"{build_dir}/.elab.touchfile"):
         print(f"Reusing existing build directory at <{build_dir}>")
     else:
-        if os.path.exists(build_dir):
-            shutil.rmtree(build_dir)
-        os.makedirs(build_dir)
-        makefile_path = os.path.join(os.getcwd(), "Makefile")
-        linked_makefile_path = os.path.join(build_dir, "Makefile")
-        os.symlink(makefile_path, linked_makefile_path)
-
-        print(f"Building in {build_dir}")
-        start_time = datetime.datetime.now()
-        make_build_log = subprocess.run(
-            ["make", "elab", f"-j{MAX_WORKERS}"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            cwd=build_dir
-        )
-        print_runtime(start_time, "Build")
-        if check_make_status(make_build_log, "build") != 0:
-            raise ValueError("Error: Build failed.")
-        print("Build DONE.")
+        build_tb(build_dir, args.rebuild_all)
 
     # check if the specified number of jobs exceeds the number of CPU cores
     if args.jobs < 1:
@@ -215,10 +238,10 @@ def main():
               f"the number of available CPU cores ({MAX_WORKERS}).")
     #print(f"Running simulation with {min(args.jobs,MAX_WORKERS)} workers")
 
-    # run tests in parallel
-    random.seed(5)
+    #random.seed(5)
     #sv_seed = args.seed if args.seed is not None \
     #          else random.randint(0, 2**32 - 1)
+    # run tests in parallel
     start_time = datetime.datetime.now()
     try:
         with Manager() as manager:
@@ -233,7 +256,7 @@ def main():
                         run_dir=run_dir,
                         build_dir=build_dir,
                         cnt=cnt,
-                        make_args=args.make_args
+                        make_args=ma
                     )
                 pool.map(partial_run_test, all_tests)
 
@@ -267,12 +290,12 @@ def main():
             print(f"Status for <{test_name}> not found.")
             all_tests_passed = False
 
-    print(f"\nTest suite DONE. Pass rate: {tests_passed}/{tests_num} passed;",
+    print(f"Test suite DONE. Pass rate: {tests_passed}/{tests_num} passed;",
           end=" ")
     if all_tests_passed:
-        print(f"\033[{CC_GREEN}Test suite PASSED.\033[0m\n")
+        print(f"\033[{CC_GREEN}Test suite PASSED.\033[0m")
     else:
-        print(f"\033[{CC_RED}Test suite FAILED.\033[0m\n")
+        print(f"\033[{CC_RED}Test suite FAILED.\033[0m")
 
     print_runtime(start_time_suite, "Test suite")
     print()

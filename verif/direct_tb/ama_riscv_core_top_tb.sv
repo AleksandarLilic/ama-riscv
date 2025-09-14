@@ -23,12 +23,28 @@
 `define INST_ASM_LEN 80 // must match #define in dpi wrapper
 
 `define TO_STRING(x) `"x`"
+
 `define LOG(x) $display("%0t: %0s", $time, x)
-`define LOG_WARNING(x) \
-    warnings += 1; \
-    `LOG($sformatf("WARNING: %0s", x))
 `define LOGNT(x) $display("%0s", x)
-//`define LOG(x) $fwrite(log_fd, "%0t: %0s\n", $time, x)
+
+`define LOG_E(x) \
+    errors += 1; \
+    if (log_level >= LOG_ERROR) `LOG($sformatf("ERROR: %0s", x))
+
+`define LOG_W(x) \
+    warnings += 1; \
+    if (log_level >= LOG_WARN) `LOG($sformatf("WARNING: %0s", x))
+
+`define LOG_I(x) \
+    if (log_level >= LOG_INFO) `LOG($sformatf("INFO: %0s", x))
+
+`define LOG_V(x) \
+    if (log_level >= LOG_VERBOSE) `LOG($sformatf("VERBOSE: %0s", x))
+
+`define LOG_D(x) \
+    if (log_level >= LOG_DEBUG) `LOG($sformatf("DEBUG: %0s", x))
+
+//`define LOG_V(x) $fwrite(log_fd, "%0t: %0s\n", $time, x)
 //`define LOGNT(x) $fwrite(log_fd, "%0s\n", x)
 
 module ama_riscv_core_top_tb();
@@ -67,6 +83,16 @@ logic tohost_source;
 int unsigned timeout_clocks;
 int unsigned half_period;
 real frequency;
+// very crude log levels
+int log_level;
+typedef enum int {
+    LOG_NONE = 0,
+    LOG_ERROR = 1,
+    LOG_WARN = 2,
+    LOG_INFO = 3,
+    LOG_VERBOSE = 4,
+    LOG_DEBUG = 5
+} log_level_e;
 
 // events
 event ev_load_stim;
@@ -187,22 +213,41 @@ endfunction
 `endif
 
 function void get_plusargs();
-    if (!$value$plusargs("test_path=%s", test_path)) begin
-        $error("test_path not defined. Exiting.");
-        $finish();
+    automatic string tmp_str;
+    begin
+        if (!$value$plusargs("test_path=%s", test_path)) begin
+            $error("test_path not defined. Exiting.");
+            $finish();
+        end
+        `ifdef ENABLE_COSIM
+        if ($test$plusargs("enable_cosim_checkers")) cosim_chk_en = 1'b1;
+        if ($test$plusargs("stop_on_cosim_error")) stop_on_cosim_error = 1'b1;
+        `endif
+        if (!$value$plusargs("timeout_clocks=%d", timeout_clocks)) begin
+            timeout_clocks = `DEFAULT_TIMEOUT_CLOCKS;
+        end
+        if (!$value$plusargs("half_period=%d", half_period)) begin
+            half_period = `DEFAULT_HALF_PERIOD;
+        end
+        if (!$value$plusargs("log_level=%s", tmp_str)) begin
+            log_level = LOG_INFO;
+        end else begin
+            if      (tmp_str == "NONE")     log_level = LOG_NONE;
+            else if (tmp_str == "ERROR")    log_level = LOG_ERROR;
+            else if (tmp_str == "WARN")     log_level = LOG_WARN;
+            else if (tmp_str == "INFO")     log_level = LOG_INFO;
+            else if (tmp_str == "VERBOSE")  log_level = LOG_VERBOSE;
+            else if (tmp_str == "DEBUG")    log_level = LOG_DEBUG;
+            else begin
+                $display("Unknown log_level=%s, defaulting to INFO", tmp_str);
+                log_level = LOG_INFO;
+                tmp_str = "INFO";
+            end
+            $display("Using log level '%s'", tmp_str);
+        end
+        `LOGNT($sformatf("CPU core path: %0s", `TO_STRING(`DUT_CORE)));
+        `LOGNT($sformatf("Frequency: %.2f MHz", 1.0 / (half_period * 2 * 1e-3)));
     end
-    `ifdef ENABLE_COSIM
-    if ($test$plusargs("enable_cosim_checkers")) cosim_chk_en = 1'b1;
-    if ($test$plusargs("stop_on_cosim_error")) stop_on_cosim_error = 1'b1;
-    `endif
-    if (!$value$plusargs("timeout_clocks=%d", timeout_clocks)) begin
-        timeout_clocks = `DEFAULT_TIMEOUT_CLOCKS;
-    end
-    if (!$value$plusargs("half_period=%d", half_period)) begin
-        half_period = `DEFAULT_HALF_PERIOD;
-    end
-    `LOGNT($sformatf("CPU core path: %0s", `TO_STRING(`DUT_CORE)));
-    `LOGNT($sformatf("Frequency: %.2f MHz", 1.0 / (half_period * 2 * 1e-3)));
 endfunction
 
 /*
@@ -239,27 +284,33 @@ endfunction
 
 task automatic single_step(longint unsigned clk_cnt);
     stats.update(`DUT_CORE.inst.p.wbk, `DUT_CORE.bubble_dec_seq[2]);
-    `LOG($sformatf("Core [F] %5h: %8h %0s",
-                    `DUT_CORE.pc.p.dec, `DUT_CORE.imem_rsp.data,
-                    `DUT_CORE.bubble_dec ? ("(fe stalled)") : ""));
+    `LOG_V($sformatf("Core [F] %5h: %8h %0s",
+                    `DUT_CORE.pc.p.dec,
+                    `DUT_CORE.imem_rsp.data,
+                    `DUT_CORE.bubble_dec ? ("(fe stalled)") : "")
+    );
 
     if (`DUT_CORE.inst_wb_nop_or_clear == 1'b1) return;
 
-    `LOG($sformatf(
-        "Core [R] %5h: %8h", `DUT_CORE.pc.p.wbk, `DUT_CORE.inst.p.wbk));
+    `LOG_V($sformatf(
+        "Core [R] %5h: %8h", `DUT_CORE.pc.p.wbk, `DUT_CORE.inst.p.wbk)
+    );
+
     `ifdef ENABLE_COSIM
     cosim_exec(clk_cnt, cosim_pc, cosim_inst,
                cosim_inst_asm_str, cosim_stack_top_str, cosim_rf);
     // TODO: should be conditional, based on verbosity
     cosim_stack_top_str_wave = pack_string(cosim_stack_top_str);
-    `LOG($sformatf("COSIM    %5h: %8h %0s",
-                   cosim_pc, cosim_inst, cosim_inst_asm_str));
+    `LOG_V($sformatf(
+        "COSIM    %5h: %8h %0s", cosim_pc, cosim_inst, cosim_inst_asm_str)
+    );
     if (cosim_chk_en == 1'b1) cosim_run_checkers(rf_chk_act);
     if (stop_on_cosim_error == 1'b1 && errors > 0) begin
-        `LOG(msg_fail);
+        `LOG_I(msg_fail);
         $finish();
     end
     `endif
+
     //print_single_instruction_results();
 endtask
 
@@ -304,11 +355,11 @@ initial begin
     while (!(&rf_chk_act)) begin
         @(posedge clk);
         if (rf_chk_act[`DUT_RF.addr_d] == 1'b0) begin
-            `LOG($sformatf("RF checker active for x%0d", `DUT_RF.addr_d));
+            `LOG_V($sformatf("RF checker active for x%0d", `DUT_RF.addr_d));
             rf_chk_act[`DUT_RF.addr_d] = 1'b1;
         end
     end
-    `LOG("All RF checkers active");
+    `LOG_I("All RF checkers active");
 end
 
 // Test
@@ -326,7 +377,7 @@ initial begin
     get_plusargs();
     stats = new();
 
-    `LOG("Simulation started");
+    `LOG_I("Simulation started");
     load_memories({test_path, ".hex"});
     `ifdef ENABLE_COSIM
     cosim_setup({test_path, ".elf"});
@@ -334,7 +385,7 @@ initial begin
 
     ->go_in_reset;
     @reset_end;
-    `LOG("Reset released");
+    `LOG_I("Reset released");
 
     fork: run_f
     begin
@@ -343,15 +394,15 @@ initial begin
     begin
         repeat (timeout_clocks) @(posedge clk);
         $error("Test timed out");
-        `LOG(msg_fail);
+        `LOG_I(msg_fail);
         $finish();
     end
     join_any;
     disable run_f;
 
-    `LOG("Simulation finished");
+    `LOG_I("Simulation finished");
     if (!(&rf_chk_act)) begin
-        `LOG_WARNING(
+        `LOG_W(
             {"Test finished but not all checkers were activated. ",
              "Something likely went wrong"});
     end
