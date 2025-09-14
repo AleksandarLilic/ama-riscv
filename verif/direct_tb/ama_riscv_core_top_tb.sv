@@ -306,7 +306,7 @@ task automatic single_step(longint unsigned clk_cnt);
     );
     if (cosim_chk_en == 1'b1) cosim_run_checkers(rf_chk_act);
     if (stop_on_cosim_error == 1'b1 && errors > 0) begin
-        `LOG_I(msg_fail);
+        `LOGNT(msg_fail);
         $finish();
     end
     `endif
@@ -393,8 +393,8 @@ initial begin
     end
     begin
         repeat (timeout_clocks) @(posedge clk);
-        $error("Test timed out");
-        `LOG_I(msg_fail);
+        `LOG_E("Test timed out");
+        `LOGNT(msg_fail);
         $finish();
     end
     join_any;

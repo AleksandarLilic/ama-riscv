@@ -94,7 +94,7 @@ def check_test_status(test_log_path, test_name):
         errors = []
         last_lines = deque(open(test_log_path, 'r'), maxlen=100)
         for line in last_lines:
-            if line.startswith("Error"):
+            if "ERROR" in line:
                 errors.append(line.strip())
             if "==== PASS ====" in line:
                 return f"Test <{test_name}> PASSED."
