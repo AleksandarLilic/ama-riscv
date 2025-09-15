@@ -113,15 +113,20 @@ def build_tb(build_dir, force_rebuild):
     if os.path.exists(build_dir):
         shutil.rmtree(build_dir)
     os.makedirs(build_dir)
-    makefile_path = os.path.join(os.getcwd(), "Makefile")
-    linked_makefile_path = os.path.join(build_dir, "Makefile")
-    os.symlink(makefile_path, linked_makefile_path)
 
+    def set_up_links(dest_dir, source_names):
+        for s in source_names:
+            path = os.path.join(os.getcwd(), s)
+            linked_path = os.path.join(dest_dir, s)
+            os.symlink(path, linked_path)
+
+    set_up_links(build_dir, ["Makefile", "Makefile.inc", "cosim"])
     print(f"Building in {build_dir}... ", end='', flush=True)
     start_time = datetime.datetime.now()
     make_cmd = [
         "make", "elab",
-        "ISA_SIM_BDIR=build_cosim_runtest",
+        "ISA_SIM_BDIR=build_obj_runtest",
+        "COSIM_BDIR=build_runtest",
         f"-j{MAX_WORKERS}",
     ]
     if force_rebuild:
