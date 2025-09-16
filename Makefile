@@ -50,6 +50,7 @@ MAX_DELTA = -maxdeltaid 100
 
 sim: .elab.touchfile
 	xsim $(TOP) -tclbatch $(REPO_ROOT)/$(TCLBATCH) -stats -onerror quit -testplusarg test_path=$(REPO_ROOT)/$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) -testplusarg log_level=$(LOG_LEVEL) $(COSIM_CHECKER) $(SIM_LOG) $(MAX_DELTA)
+	@rm xsim.jou
 	@touch .sim.touchfile
 
 watch_slang:
@@ -74,3 +75,5 @@ cleanrtl: cleanlogs
 clean: cleanrtl
 
 cleanall: cleanrtl cleancosim cleanisa
+
+PHONY: lint slang watch_slang cleanrtl cleancosim cleanisa cleanall

@@ -78,4 +78,4 @@ cleanisa:
 	$(MAKE) -C $(ISA_SIM_DIR) cleanbuild COSIM_BDIR=$(ISA_SIM_BDIR)
 	rm -f .isa_sim_obj.touchfile
 
-PHONY: isa_sim_obj cosim_obj obj cleancosim cleanisa
+PHONY: cleancosim cleanisa

@@ -7,6 +7,7 @@ import glob
 import json
 import os
 import random
+import shlex
 import shutil
 import subprocess
 import sys
@@ -159,11 +160,22 @@ def run_test(test_path, run_dir, build_dir, make_args, cnt):
     shutil.copytree(build_dir, test_dir, symlinks=True)
     make_cmd = [
         "make", "sim",
+        "ISA_SIM_BDIR=build_obj_runtest",
+        "COSIM_BDIR=build_runtest",
         f"TEST_PATH={test_path_make}",
         f"TCLBATCH={RUN_CFG}",
         f"TIMEOUT_CLOCKS={make_args.timeout_clocks}",
         f"LOG_LEVEL={make_args.log_level}",
     ]
+
+    run_sh = os.path.join(test_dir, "run.sh") # save cmd for rerun if needed
+    with open(run_sh, "w") as f:
+        f.write("#!/bin/sh\n")
+        # quote each argument so spaces/special chars survive
+        f.write(" ".join(shlex.quote(arg) for arg in make_cmd))
+        f.write("\n")
+    os.chmod(run_sh, 0o755)
+
     make_status = subprocess.run(
         make_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=test_dir)
 
