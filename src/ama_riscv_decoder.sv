@@ -367,7 +367,7 @@ always_comb begin
     case (state)
         RST: begin
             `ifdef IMEM_DELAY
-            nx_state = STALL_IMEM;
+            nx_state = STALL_IMEM; // mem needs fixed number of cycles for rsp
             `else
             nx_state = STEADY;
             `endif
@@ -398,6 +398,7 @@ always_comb begin
     pc_we = pc_we_d;
     imem_req.valid = 1'b0;
     imem_rsp.ready = 1'b0;
+    bubble_dec = 1'b0;
 
     case (state)
         RST: begin
