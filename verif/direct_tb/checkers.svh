@@ -8,9 +8,10 @@ function void checker_t;
 
     begin
         if (active == 1'b1 && dut_signal !== model_signal) begin
-            $display("ERROR @ %0t. Checker: \"%0s\"; DUT: 0x%0h, Model: 0x%0h",
-                $time, name, dut_signal, model_signal);
-            errors = errors + 1;
+            `LOG_E($sformatf(
+                "Mismatch @ %0t. Checker: \"%0s\"; DUT: 0x%0h, Model: 0x%0h",
+                $time, name, dut_signal, model_signal)
+            );
         end
     end
 endfunction
@@ -22,10 +23,11 @@ function void cosim_run_checkers;
         checker_errors_prev = errors;
         checker_t("pc", `CHECKER_ACTIVE, `DUT_CORE.pc.p.wbk, cosim_pc);
         for (int i = 1; i < 32; i = i + 1) begin
-            checker_t($sformatf("x%0d", i),
-                      `CHECKER_ACTIVE && rf_chk_act[i],
-                      `DUT_RF.rf[i],
-                      cosim_rf[i]
+            checker_t(
+                $sformatf("x%0d", i),
+                `CHECKER_ACTIVE && rf_chk_act[i],
+                `DUT_RF.rf[i],
+                cosim_rf[i]
             );
         end
         //checker_t("tohost", `CHECKER_ACTIVE, `DUT_CORE.tohost, sig_chk_tohost);

@@ -24,7 +24,7 @@
 
 `define TO_STRING(x) `"x`"
 
-`define LOG(x) $display("%0t: %0s", $time, x)
+`define LOG(x) $display("%12t: %0s", $time, x)
 `define LOGNT(x) $display("%0s", x)
 
 `define LOG_E(x) \
@@ -216,7 +216,7 @@ function void get_plusargs();
     automatic string tmp_str;
     begin
         if (!$value$plusargs("test_path=%s", test_path)) begin
-            $error("test_path not defined. Exiting.");
+            `LOG_E("test_path not defined. Exiting.");
             $finish();
         end
         `ifdef ENABLE_COSIM
@@ -239,11 +239,12 @@ function void get_plusargs();
             else if (tmp_str == "VERBOSE")  log_level = LOG_VERBOSE;
             else if (tmp_str == "DEBUG")    log_level = LOG_DEBUG;
             else begin
-                $display("Unknown log_level=%s, defaulting to INFO", tmp_str);
+                `LOGNT($sformatf(
+                    "Unknown log_level=%s, defaulting to INFO", tmp_str));
                 log_level = LOG_INFO;
                 tmp_str = "INFO";
             end
-            $display("Using log level '%s'", tmp_str);
+            `LOGNT($sformatf("Using log level '%s'", tmp_str));
         end
         `LOGNT($sformatf("CPU core path: %0s", `TO_STRING(`DUT_CORE)));
         `LOGNT($sformatf("Frequency: %.2f MHz", 1.0 / (half_period * 2 * 1e-3)));
@@ -334,6 +335,16 @@ endtask
 // clk gen
 always #(half_period) clk = ~clk;
 
+initial begin
+    // set %t:
+    // - scaled in ns (-9),
+    // - with 0 precision digits
+    // - with the " ns" string
+    // - taking up a total of 12 characters, including the string
+    //
+    $timeformat(-9, 0, " ns", 12);
+end
+
 // Reset handler
 initial begin
     @go_in_reset;
@@ -366,14 +377,7 @@ end
 assign tohost_source = `DUT_CORE.csr_tohost[0];
 perf_stats stats;
 initial begin
-    /* set %t:
-     * - scaled in ns (-9),
-     * - with 2 precision digits
-     * - with the " ns" string
-     * - taking up a total of 15 characters, including the string
-     */
-    $timeformat(-9, 2, " ns", 15);
-
+    `LOGNT("");
     get_plusargs();
     stats = new();
 
