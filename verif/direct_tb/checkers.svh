@@ -3,14 +3,14 @@ function void checker_t;
     // so might revert to task, or disable checkers for GLS
     input string name;
     input reg active;
-    input reg [31:0] dut_signal;
-    input reg [31:0] model_signal;
+    input reg [31:0] dut_val;
+    input reg [31:0] model_val;
 
     begin
-        if (active == 1'b1 && dut_signal !== model_signal) begin
+        if (active == 1'b1 && dut_val !== model_val) begin
             `LOG_E($sformatf(
-                "Mismatch @ %0t. Checker: \"%0s\"; DUT: 0x%0h, Model: 0x%0h",
-                $time, name, dut_signal, model_signal)
+                "Mismatch @ %0t. Checker: \"%0s\"; DUT: 0x%8h, Model: 0x%8h",
+                $time, name, dut_val, model_val)
             );
         end
     end
@@ -22,6 +22,7 @@ function void cosim_run_checkers;
     begin
         checker_errors_prev = errors;
         checker_t("pc", `CHECKER_ACTIVE, `DUT_CORE.pc.p.wbk, cosim_pc);
+        checker_t("inst", `CHECKER_ACTIVE, `DUT_CORE.inst.p.wbk, cosim_inst);
         for (int i = 1; i < 32; i = i + 1) begin
             checker_t(
                 $sformatf("x%0d", i),

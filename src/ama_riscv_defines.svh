@@ -201,4 +201,15 @@ typedef struct packed {
         else ff <= new_val; \
     end
 
+// testbench defines, probably to be moved
+int log_level;
+typedef enum int {
+    LOG_NONE = 0,
+    LOG_ERROR = 1,
+    LOG_WARN = 2,
+    LOG_INFO = 3,
+    LOG_VERBOSE = 4,
+    LOG_DEBUG = 5
+} log_level_e;
+
 `endif // AMA_RISCV_DEFINES

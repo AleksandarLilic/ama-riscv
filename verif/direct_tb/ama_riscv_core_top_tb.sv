@@ -20,8 +20,6 @@
 
 `define TOHOST_PASS 32'd1
 
-`define INST_ASM_LEN 80 // must match #define in dpi wrapper
-
 `define TO_STRING(x) `"x`"
 
 `define LOG(x) $display("%12t: %0s", $time, x)
@@ -29,20 +27,25 @@
 
 `define LOG_E(x) \
     errors += 1; \
-    if (log_level >= LOG_ERROR) `LOG($sformatf("ERROR: %0s", x))
+    if (ama_riscv_core_top_tb.log_level >= LOG_ERROR) \
+    `LOG($sformatf("ERROR: %0s", x))
 
 `define LOG_W(x) \
     warnings += 1; \
-    if (log_level >= LOG_WARN) `LOG($sformatf("WARNING: %0s", x))
+    if (ama_riscv_core_top_tb.log_level >= LOG_WARN) \
+    `LOG($sformatf("WARNING: %0s", x))
 
 `define LOG_I(x) \
-    if (log_level >= LOG_INFO) `LOG($sformatf("INFO: %0s", x))
+    if (ama_riscv_core_top_tb.log_level >= LOG_INFO) \
+    `LOG($sformatf("INFO: %0s", x))
 
 `define LOG_V(x) \
-    if (log_level >= LOG_VERBOSE) `LOG($sformatf("VERBOSE: %0s", x))
+    if (ama_riscv_core_top_tb.log_level >= LOG_VERBOSE) \
+    `LOG($sformatf("VERBOSE: %0s", x))
 
 `define LOG_D(x) \
-    if (log_level >= LOG_DEBUG) `LOG($sformatf("DEBUG: %0s", x))
+    if (ama_riscv_core_top_tb.log_level >= LOG_DEBUG) \
+    `LOG($sformatf("DEBUG: %0s", x))
 
 //`define LOG_V(x) $fwrite(log_fd, "%0t: %0s\n", $time, x)
 //`define LOGNT(x) $fwrite(log_fd, "%0s\n", x)
@@ -83,16 +86,7 @@ logic tohost_source;
 int unsigned timeout_clocks;
 int unsigned half_period;
 real frequency;
-// very crude log levels
 int log_level;
-typedef enum int {
-    LOG_NONE = 0,
-    LOG_ERROR = 1,
-    LOG_WARN = 2,
-    LOG_INFO = 3,
-    LOG_VERBOSE = 4,
-    LOG_DEBUG = 5
-} log_level_e;
 
 // events
 event ev_load_stim;
@@ -285,10 +279,11 @@ endfunction
 
 task automatic single_step(longint unsigned clk_cnt);
     stats.update(`DUT_CORE.inst.p.wbk, `DUT_CORE.bubble_dec_seq[2]);
-    `LOG_V($sformatf("Core [F] %5h: %8h %0s",
-                    `DUT_CORE.pc.p.dec,
-                    `DUT_CORE.imem_rsp.data,
-                    `DUT_CORE.bubble_dec ? ("(fe stalled)") : "")
+    `LOG_V($sformatf(
+        "Core [F] %5h: %8h %0s",
+        `DUT_CORE.pc.p.dec,
+        `DUT_CORE.imem_rsp.data,
+        `DUT_CORE.bubble_dec ? ("(fe stalled)") : "")
     );
 
     if (`DUT_CORE.inst_wb_nop_or_clear == 1'b1) return;
@@ -307,6 +302,7 @@ task automatic single_step(longint unsigned clk_cnt);
     );
     if (cosim_chk_en == 1'b1) cosim_run_checkers(rf_chk_act);
     if (stop_on_cosim_error == 1'b1 && errors > 0) begin
+        `LOG_I("Exiting on first error");
         `LOGNT(msg_fail);
         $finish();
     end
@@ -357,17 +353,22 @@ initial begin
 end
 
 // checker setup
+logic [4:0] dut_rf_addr;
 initial begin
     rf_chk_act = 32'h0;
     @reset_end;
     // set bit to active when the corresponding register is first written to
     // checker remains active for the entire test
     // once all checkers are active, disable the setup
+    rf_chk_act[0] = 1'b1; // x0 active right away, same as PC and inst
     while (!(&rf_chk_act)) begin
         @(posedge clk);
-        if (rf_chk_act[`DUT_RF.addr_d] == 1'b0) begin
-            `LOG_V($sformatf("RF checker active for x%0d", `DUT_RF.addr_d));
-            rf_chk_act[`DUT_RF.addr_d] = 1'b1;
+        dut_rf_addr = `DUT_RF.addr_d;
+        if ((rf_chk_act[dut_rf_addr] == 1'b0) && (`DUT_RF.we)) begin
+            #1;
+            `LOG_V($sformatf(
+                "First write to x%0d. Checker activated", dut_rf_addr));
+            rf_chk_act[dut_rf_addr] = 1'b1;
         end
     end
     `LOG_I("All RF checkers active");
