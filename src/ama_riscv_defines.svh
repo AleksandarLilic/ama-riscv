@@ -168,37 +168,54 @@ typedef struct packed {
     logic [1:0] op_sel;
 } csr_ctrl_t;
 
-// common blocks
-`define DFF_RST_CLR(ff, rst, rst_val, clr, clr_val, new_val) \
+// DFF macros
+`define DFF_CI_RI_RVI_CLR_CLRVI(_clr, _d, _q) \
     always_ff @(posedge clk) begin \
-        if (rst) ff <= rst_val; \
-        else if (clr) ff <= clr_val; \
-        else ff <= new_val; \
+        if (rst) _q <= 'h0; \
+        else if (_clr) _q <= 'h0; \
+        else _q <= _d; \
     end
 
-`define STAGE(clr, ff, new_val) \
-    `DFF_RST_CLR(ff, rst,'h0, clr, 'h0, new_val)
-
-`define DFF_RST_CLR_EN(ff, rst, rst_val, clr, clr_val, en, new_val) \
+`define DFF_CI_RI_RVI_CLR_CLRVI_EN(_clr, _en, _d, _q) \
     always_ff @(posedge clk) begin \
-        if (rst) ff <= rst_val; \
-        else if (clr) ff <= clr_val; \
-        else if (en) ff <= new_val; \
+        if (rst) _q <= 'h0; \
+        else if (_clr) _q <= 'h0; \
+        else if (_en) _q <= _d; \
     end
 
-`define STAGE_EN(clr, en, ff, new_val) \
-    `DFF_RST_CLR_EN(ff, rst,'h0, clr, 'h0, en, new_val)
+`define STAGE(_clr, _d, _q) \
+    `DFF_CI_RI_RVI_CLR_CLRVI(_clr, _d, _q)
 
-`define DFF_RST_EN(ff, rst, rst_val, en, new_val) \
+`define STAGE_EN(_clr, _en, _d, _q) \
+    `DFF_CI_RI_RVI_CLR_CLRVI_EN(_clr, _en, _d, _q)
+
+`define DFF_CI_RI_RV(_rstv, _d, _q) \
     always_ff @(posedge clk) begin \
-        if (rst) ff <= rst_val; \
-        else if (en) ff <= new_val; \
+        if (rst) _q <= _rstv; \
+        else _q <= _d; \
     end
 
-`define DFF_RST(ff, rst, rst_val, new_val) \
+`define DFF_CI_RI_RVI(_d, _q) \
     always_ff @(posedge clk) begin \
-        if (rst) ff <= rst_val; \
-        else ff <= new_val; \
+        if (rst) _q <= 'h0; \
+        else _q <= _d; \
+    end
+
+`define DFF_CI_RI_RVI_EN(en, _d, _q) \
+    always_ff @(posedge clk) begin \
+        if (rst) _q <= 'h0; \
+        else if (en) _q <= _d; \
+    end
+
+`define DFF_CI_EN(en, _d, _q) \
+    always_ff @(posedge clk) begin \
+        if (en) _q <= _d; \
+    end
+
+`define DFF_CI_RI_RV_EN(_rstv, en, _d, _q) \
+    always_ff @(posedge clk) begin \
+        if (rst) _q <= _rstv; \
+        else if (en) _q <= _d; \
     end
 
 // testbench defines, probably to be moved

@@ -54,6 +54,6 @@ always_comb begin
 end
 
 // Store old value
-`DFF_RST(data_out_d, rst, 32'h0, data_out)
+`DFF_CI_RI_RVI(data_out, data_out_d)
 
 endmodule

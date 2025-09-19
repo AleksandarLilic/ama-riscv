@@ -128,7 +128,7 @@ always_comb begin
     endcase
 end
 
-`DFF_RST_EN(pc.p.fet, rst, `RESET_VECTOR, pc_we_fet, pc_mux_out)
+`DFF_CI_RI_RV_EN(`RESET_VECTOR, pc_we_fet, pc_mux_out, pc.p.fet)
 assign pc_inc4 = pc.p.fet + 32'd4;
 
 // IMEM interface
@@ -203,27 +203,27 @@ logic [11:0] csr_addr_exe;
 logic [ 4:0] csr_imm5;
 
 //`STAGE(clear.p.dec, pc.p.exe, pc.p.dec)
-`STAGE_EN(clear.p.dec, !bubble_dec, pc.p.exe, pc.p.dec) // don't propagate on bubble
-`STAGE(clear.p.dec, rd_addr.p.exe, rd_addr.p.dec)
-`STAGE(clear.p.dec, rs1_data_exe, rf_a_sel_fwd_dec ? writeback : rs1_data_dec)
-`STAGE(clear.p.dec, rs2_data_exe, rf_b_sel_fwd_dec ? writeback : rs2_data_dec)
-`STAGE(clear.p.dec, imm_gen_out_exe, imm_gen_out_dec)
-`STAGE(clear.p.dec, inst.p.exe, inst.p.dec)
-`STAGE(clear.p.dec, load_inst_exe, load_inst_dec)
-`STAGE(clear.p.dec, store_inst_exe, store_inst_dec)
-`STAGE(clear.p.dec, bc_a_sel_fwd_exe, bc_a_sel_fwd_dec)
-`STAGE(clear.p.dec, bcs_b_sel_fwd_exe, bcs_b_sel_fwd_dec)
-`STAGE(clear.p.dec, bc_uns_exe, bc_uns_dec)
-`STAGE(clear.p.dec, alu_a_sel_fwd_exe, alu_a_sel_fwd_dec)
-`STAGE(clear.p.dec, alu_b_sel_fwd_exe, alu_b_sel_fwd_dec)
-`STAGE(clear.p.dec, alu_op_sel_exe, alu_op_sel_dec)
-`STAGE(clear.p.dec, dmem_en_exe, dmem_en_dec)
-`STAGE(clear.p.dec, load_sm_en_exe, load_sm_en_dec)
-`STAGE(clear.p.dec, wb_sel_exe, wb_sel_dec)
-`STAGE(clear.p.dec, rd_we.p.exe, rd_we.p.dec)
-`STAGE(clear.p.dec, csr_ctrl_exe, csr_ctrl_dec)
-`STAGE(clear.p.dec, csr_addr_exe, csr_addr)
-`STAGE(clear.p.dec, csr_imm5, rs1_addr_dec)
+`STAGE_EN(clear.p.dec, !bubble_dec, pc.p.dec, pc.p.exe) // don't propagate on bubble
+`STAGE(clear.p.dec, rd_addr.p.dec, rd_addr.p.exe)
+`STAGE(clear.p.dec, rf_a_sel_fwd_dec ? writeback : rs1_data_dec, rs1_data_exe)
+`STAGE(clear.p.dec, rf_b_sel_fwd_dec ? writeback : rs2_data_dec, rs2_data_exe)
+`STAGE(clear.p.dec, imm_gen_out_dec, imm_gen_out_exe)
+`STAGE(clear.p.dec, inst.p.dec, inst.p.exe)
+`STAGE(clear.p.dec, load_inst_dec, load_inst_exe)
+`STAGE(clear.p.dec, store_inst_dec, store_inst_exe)
+`STAGE(clear.p.dec, bc_a_sel_fwd_dec, bc_a_sel_fwd_exe)
+`STAGE(clear.p.dec, bcs_b_sel_fwd_dec, bcs_b_sel_fwd_exe)
+`STAGE(clear.p.dec, bc_uns_dec, bc_uns_exe)
+`STAGE(clear.p.dec, alu_a_sel_fwd_dec, alu_a_sel_fwd_exe)
+`STAGE(clear.p.dec, alu_b_sel_fwd_dec, alu_b_sel_fwd_exe)
+`STAGE(clear.p.dec, alu_op_sel_dec, alu_op_sel_exe)
+`STAGE(clear.p.dec, dmem_en_dec, dmem_en_exe)
+`STAGE(clear.p.dec, load_sm_en_dec, load_sm_en_exe)
+`STAGE(clear.p.dec, wb_sel_dec, wb_sel_exe)
+`STAGE(clear.p.dec, rd_we.p.dec, rd_we.p.exe)
+`STAGE(clear.p.dec, csr_ctrl_dec, csr_ctrl_exe)
+`STAGE(clear.p.dec, csr_addr, csr_addr_exe)
+`STAGE(clear.p.dec, rs1_addr_dec, csr_imm5)
 
 //------------------------------------------------------------------------------
 // EXE stage
@@ -380,16 +380,16 @@ logic        load_sm_en_mem;
 logic [ 1:0] wb_sel_mem;
 logic [31:0] csr_data_mem;
 
-`STAGE(clear.p.exe, pc.p.mem, pc.p.exe)
-`STAGE(clear.p.exe, pc_mem_inc4, pc.p.exe + 32'd4)
-`STAGE(clear.p.exe, alu_out_mem, alu_out)
-`STAGE(clear.p.exe, load_sm_offset_mem, load_sm_offset_exe)
-`STAGE(clear.p.exe, inst.p.mem, inst.p.exe)
-`STAGE(clear.p.exe, rd_addr.p.mem, rd_addr.p.exe)
-`STAGE(clear.p.exe, load_sm_en_mem, load_sm_en_exe)
-`STAGE(clear.p.exe, wb_sel_mem, wb_sel_exe)
-`STAGE(clear.p.exe, rd_we.p.mem, rd_we.p.exe)
-`STAGE(clear.p.exe, csr_data_mem, csr_data_exe)
+`STAGE(clear.p.exe, pc.p.exe, pc.p.mem)
+`STAGE(clear.p.exe, pc.p.exe + 32'd4, pc_mem_inc4)
+`STAGE(clear.p.exe, alu_out, alu_out_mem)
+`STAGE(clear.p.exe, load_sm_offset_exe, load_sm_offset_mem)
+`STAGE(clear.p.exe, inst.p.exe, inst.p.mem)
+`STAGE(clear.p.exe, rd_addr.p.exe, rd_addr.p.mem)
+`STAGE(clear.p.exe, load_sm_en_exe, load_sm_en_mem)
+`STAGE(clear.p.exe, wb_sel_exe, wb_sel_mem)
+`STAGE(clear.p.exe, rd_we.p.exe, rd_we.p.mem)
+`STAGE(clear.p.exe, csr_data_exe, csr_data_mem)
 
 //------------------------------------------------------------------------------
 // MEM stage
@@ -430,11 +430,11 @@ assign writeback = (wb_sel_mem == `WB_SEL_DMEM) ? load_sm_data_out :
 
 //------------------------------------------------------------------------------
 // Pipeline FF MEM/WB
-`STAGE(clear.p.mem, inst.p.wbk, inst.p.mem)
-`STAGE(clear.p.mem, pc.p.wbk, pc.p.mem)
+`STAGE(clear.p.mem, inst.p.mem, inst.p.wbk)
+`STAGE(clear.p.mem, pc.p.mem, pc.p.wbk)
 
 logic [2:0] bubble_dec_seq;
-`DFF_RST(bubble_dec_seq, rst, 3'h0, {bubble_dec_seq[1:0], bubble_dec})
+`DFF_CI_RI_RVI({bubble_dec_seq[1:0], bubble_dec}, bubble_dec_seq)
 
 // For instruction counter, only care about NOPs inserted by HW
 assign inst_wb_nop_or_clear = (

@@ -99,7 +99,7 @@ assign rs1_nz = (rs1_addr_dec == `RF_X0_ZERO);
 
 // Reset sequence
 logic [ 2:0] reset_seq;
-`DFF_RST(reset_seq, rst, 3'b111, {reset_seq[1:0],1'b0})
+`DFF_CI_RI_RV(3'b111, {reset_seq[1:0],1'b0}, reset_seq)
 
 logic rst_seq_dec;
 logic rst_seq_exe;
@@ -327,7 +327,7 @@ logic        branch_inst_exe;
 logic [ 1:0] fn3_exe_branch;
 assign fn3_exe_branch = {fn3_exe[2], fn3_exe[0]}; // branch conditions
 
-`DFF_RST(branch_inst_exe, rst, 1'b0, branch_inst_r)
+`DFF_CI_RI_RVI(branch_inst_r, branch_inst_exe)
 
 always_comb begin
     case (fn3_exe_branch)
@@ -341,7 +341,7 @@ end
 
 // Jumps
 logic jump_inst_exe;
-`DFF_RST(jump_inst_exe, rst, 1'b0, jump_inst_r)
+`DFF_CI_RI_RVI(jump_inst_r, jump_inst_exe)
 
 // Flow changed
 logic flow_changed;
@@ -483,20 +483,20 @@ assign wb_sel = wb_sel_r;
 assign rd_we = rd_we_r;
 
 // Store values
-`DFF_RST(pc_sel_d, rst, `PC_SEL_PC, pc_sel)
-`DFF_RST(pc_we_d, rst, 1'b0, pc_we)
-`DFF_RST(load_inst_d, rst, 1'b0, load_inst)
-`DFF_RST(store_inst_d, rst, 1'b0, store_inst)
-`DFF_RST(branch_inst_d, rst, 1'b0, branch_inst_r)
-`DFF_RST(jump_inst_d, rst, 1'b0, jump_inst_r)
-`DFF_RST(alu_op_sel_d, rst, `ALU_ADD, alu_op_sel)
-`DFF_RST(alu_a_sel_d, rst, `ALU_A_SEL_RS1, alu_a_sel)
-`DFF_RST(alu_b_sel_d, rst, `ALU_B_SEL_RS2, alu_b_sel)
-`DFF_RST(ig_sel_d, rst, `IG_DISABLED, ig_sel)
-`DFF_RST(bc_uns_d, rst, 1'b0, bc_uns)
-`DFF_RST(dmem_en_d, rst, 1'b0, dmem_en)
-`DFF_RST(load_sm_en_d, rst, 1'b0, load_sm_en)
-`DFF_RST(wb_sel_d, rst, `WB_SEL_DMEM, wb_sel)
-`DFF_RST(rd_we_d, rst, 1'b0, rd_we)
+`DFF_CI_RI_RV(`PC_SEL_PC, pc_sel, pc_sel_d)
+`DFF_CI_RI_RVI(pc_we, pc_we_d)
+`DFF_CI_RI_RVI(load_inst, load_inst_d)
+`DFF_CI_RI_RVI(store_inst, store_inst_d)
+`DFF_CI_RI_RVI(branch_inst_r, branch_inst_d)
+`DFF_CI_RI_RVI(jump_inst_r, jump_inst_d)
+`DFF_CI_RI_RV(`ALU_ADD, alu_op_sel, alu_op_sel_d)
+`DFF_CI_RI_RV(`ALU_A_SEL_RS1, alu_a_sel, alu_a_sel_d)
+`DFF_CI_RI_RV(`ALU_B_SEL_RS2, alu_b_sel, alu_b_sel_d)
+`DFF_CI_RI_RV(`IG_DISABLED, ig_sel, ig_sel_d)
+`DFF_CI_RI_RVI(bc_uns, bc_uns_d)
+`DFF_CI_RI_RVI(dmem_en, dmem_en_d)
+`DFF_CI_RI_RVI(load_sm_en, load_sm_en_d)
+`DFF_CI_RI_RV(`WB_SEL_DMEM, wb_sel, wb_sel_d)
+`DFF_CI_RI_RVI(rd_we, rd_we_d)
 
 endmodule

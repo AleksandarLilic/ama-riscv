@@ -50,6 +50,6 @@ logic [31:0] d_out_d;
 assign d_out = (disabled) ? d_out_d : d_out_w;
 
 // Store previous value
-`DFF_RST(d_out_d, rst, 32'h0, d_out)
+`DFF_CI_RI_RVI(d_out, d_out_d)
 
 endmodule
