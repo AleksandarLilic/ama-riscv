@@ -7,7 +7,7 @@ class perf_stats;
     integer unsigned perf_cnt_nop;
     integer unsigned perf_cnt_hw_stall;
     integer unsigned perf_cnt_flush;
-    real cpi;
+    real cpi, ipc;
     bit at_least_once;
 
     function new();
@@ -22,6 +22,7 @@ class perf_stats;
         perf_cnt_hw_stall = 0;
         perf_cnt_flush = 0;
         cpi = 0;
+        ipc = 0;
         at_least_once = 0;
     endfunction
 
@@ -64,11 +65,13 @@ class perf_stats;
         end
 
         cpi = real'(perf_cnt_cycle) / real'(perf_cnt_instr);
+        ipc = 1/cpi;
         perf_cnt_empty_cycles = perf_cnt_hw_stall + perf_cnt_flush;
         sout = "DUT Performance stats: \n";
         sout = {sout, $sformatf(
-            "    Cycles: %0d, Instr: %0d, Empty cycles: %0d, CPI: %0.3f\n",
-            perf_cnt_cycle, perf_cnt_instr, perf_cnt_empty_cycles, cpi)};
+            {"    Cycles: %0d, Instr: %0d, Empty cycles: %0d,",
+             " CPI: %0.3f (IPC: %0.3f)\n"},
+            perf_cnt_cycle, perf_cnt_instr, perf_cnt_empty_cycles, cpi, ipc)};
         sout = {sout, $sformatf(
             "    SW NOP: %0d, HW Stall: %0d, Flush: %0d\n",
             perf_cnt_nop-perf_cnt_hw_stall, perf_cnt_hw_stall, perf_cnt_flush)};
