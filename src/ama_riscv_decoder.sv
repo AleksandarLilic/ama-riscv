@@ -350,16 +350,16 @@ assign flow_changed = (branch_taken && branch_inst_exe) || jump_inst_exe;
 // Stall
 logic stall_src_flow_change;
 assign stall_src_flow_change = branch_inst_r || jump_inst_r;
+
 logic stall_src_imem;
-assign stall_src_imem = !imem_rsp.valid;
+//assign stall_src_imem = !imem_rsp.valid;
+assign stall_src_imem = !imem_req.ready;
 
 // stall FSM
 stall_state_t state, nx_state;
 
-always_ff @(posedge clk) begin
-    if (rst) state <= RST;
-    else state <= nx_state;
-end
+// state transition
+`DFF_CI_RI_RV(RST, nx_state, state)
 
 // next state
 always_comb begin
@@ -410,6 +410,8 @@ always_comb begin
             bubble_dec = 1'b0;
             pc_we = 1'b1;
             `endif
+
+            // reset vector on boot
             imem_req.valid = 1'b1;
             imem_rsp.ready = 1'b1;
         end

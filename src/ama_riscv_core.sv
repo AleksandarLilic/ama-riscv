@@ -144,7 +144,7 @@ assign inst.p.dec = bubble_dec ? `NOP : imem_rsp.data;
 logic [31:0] writeback;
 
 // Signals - DEC stage
-assign pc.p.dec = pc.p.fet;
+assign pc.p.dec = bubble_dec ? 'h0 : pc.p.fet;
 // reg file
 logic [ 4:0] rs1_addr_dec;
 logic [ 4:0] rs2_addr_dec;
