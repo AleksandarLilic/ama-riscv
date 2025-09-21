@@ -24,6 +24,12 @@ rv_if_da #(.AW(CORE_ADDR_BUS_W), .DW(CORE_DATA_BUS)) dmem_req_ch ();
 rv_if #(.DW(CORE_DATA_BUS)) dmem_rsp_ch ();
 logic [ 3:0] dmem_we; // to be removed with dcache
 
+`ifdef USE_CACHES
+// main mem
+rv_if #(.DW(MEM_ADDR_BUS)) mem_addr_ch_imem ();
+rv_if #(.DW(MEM_DATA_BUS)) mem_data_ch_imem ();
+`endif
+
 // core
 ama_riscv_core ama_riscv_core_i(
     .clk (clk),
@@ -45,6 +51,7 @@ ama_riscv_core ama_riscv_core_i(
     .mmio_uart_data_in (mmio_uart_data_in)
 );
 
+`ifndef USE_CACHES
 ama_riscv_imem #(
     .D(`IMEM_DELAY_CLK)
 ) ama_riscv_imem_i (
@@ -54,11 +61,34 @@ ama_riscv_imem #(
     .rsp (imem_rsp_ch.TX)
 );
 
+`else
+ama_riscv_icache ama_riscv_icache_i (
+    .clk (clk),
+    .rst (rst),
+    .req_core (imem_addr_ch.RX),
+    .rsp_core (imem_data_ch.TX),
+    .req_mem (mem_addr_ch_imem.TX),
+    .rsp_mem (mem_data_ch_imem.RX)
+);
+`endif
+
+// TODO: move under caches as well later
 ama_riscv_dmem ama_riscv_dmem_i (
     .clk (clk),
     .we (dmem_we),
     .req (dmem_req_ch.RX),
     .rsp (dmem_rsp_ch.TX)
 );
+
+`ifdef USE_CACHES
+ama_riscv_mem ama_riscv_mem_i (
+    .clk (clk),
+    .rst (rst),
+    .req_imem (mem_addr_ch_imem.RX),
+    .rsp_imem (mem_data_ch_imem.TX)
+);
+`endif
+
+// TODO: MMIO to be moved here
 
 endmodule
