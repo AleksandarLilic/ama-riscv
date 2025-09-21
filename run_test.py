@@ -204,7 +204,7 @@ def print_runtime(start_time, process_name, end='\n'):
     print(
         f"{process_name} runtime:",
         f"{hours}h" if hours else "",
-        f"{minutes}m {seconds}s",
+        f"{minutes}m {seconds+1}s", # rounds down, correct +1 for sec here
         end=end
     )
 
@@ -288,6 +288,7 @@ def main():
     all_tests_passed = True
     tests_num = len(all_tests)
     tests_passed = 0
+    failed_tests = []
     print("\nSummary:")
     for test_path in all_tests:
         test_name = format_test_name(test_path)
@@ -299,10 +300,11 @@ def main():
                 if "PASSED" not in status:
                     all_tests_passed = False
                     cc = CC_RED
+                    failed_tests.append(status)
                 else:
                     tests_passed += 1
                     cc = CC_GREEN
-                print(f"\033[{cc}{status}\033[0m")
+                print(f"\033[{cc}{status}\033[0m", end='')
         else:
             print(f"Status for <{test_name}> not found.")
             all_tests_passed = False
@@ -313,6 +315,8 @@ def main():
         print(f"\033[{CC_GREEN}Test suite PASSED.\033[0m")
     else:
         print(f"\033[{CC_RED}Test suite FAILED.\033[0m")
+        print("\nFailed tests:")
+        print("".join(failed_tests))
 
     print_runtime(start_time_suite, "Test suite")
     print()
