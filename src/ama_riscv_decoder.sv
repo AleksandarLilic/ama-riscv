@@ -368,6 +368,8 @@ always_comb begin
         RST: begin
             `ifdef IMEM_DELAY
             nx_state = STALL_IMEM; // mem needs fixed number of cycles for rsp
+            `elsif USE_CACHES
+            nx_state = STALL_IMEM; // cold caches at boot
             `else
             nx_state = STEADY;
             `endif
@@ -403,7 +405,11 @@ always_comb begin
     case (state)
         RST: begin
             pc_sel = `PC_SEL_PC;
+
             `ifdef IMEM_DELAY
+            bubble_dec = 1'b1;
+            pc_we = 1'b0;
+            `elsif USE_CACHES
             bubble_dec = 1'b1;
             pc_we = 1'b0;
             `else
