@@ -156,6 +156,24 @@ parameter unsigned CORE_ADDR_BUS_B = CORE_ADDR_BUS_W + 2; // 16
 parameter unsigned CORE_DATA_BUS = 32;
 /* verilator lint_on UNUSEDPARAM */
 
+parameter unsigned MEM_DATA_BUS = 128;
+parameter unsigned MEM_DATA_BUS_B = MEM_DATA_BUS >> 3; // 16
+parameter unsigned CACHE_LINE_SIZE_B = 64;
+parameter unsigned CACHE_LINE_SIZE = CACHE_LINE_SIZE_B << 3; // 512
+parameter unsigned MEM_TRANSFERS_PER_CL = CACHE_LINE_SIZE/MEM_DATA_BUS; // 4
+
+parameter unsigned CACHE_LINE_ADDR_B = $clog2(CACHE_LINE_SIZE_B); // 6
+parameter unsigned CACHE_TO_MEM_OFFSET = $clog2(MEM_DATA_BUS_B); // 4 bits less -> 128 (mem) vs 32 bits ($)
+parameter unsigned MEM_ADDR_BUS = CORE_ADDR_BUS_B - CACHE_TO_MEM_OFFSET; // 16 - 4 = 12
+
+parameter unsigned TAG_W = CORE_ADDR_BUS_B - CACHE_LINE_ADDR_B; // 10
+
+typedef enum logic [1:0] {
+    RST,
+    READY, // ready for next request, also services hit in a single cycle
+    MISS // miss, go to main memory
+} cache_state_t;
+
 `ifdef IMEM_DELAY
 `define IMEM_DELAY_CLK 3
 `else

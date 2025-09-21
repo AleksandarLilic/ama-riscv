@@ -16,3 +16,5 @@ sv work \
 "$REPO_ROOT/src/ama_riscv_operand_forwarding.sv" \
 "$REPO_ROOT/src/ama_riscv_reg_file.sv" \
 "$REPO_ROOT/src/ama_riscv_store_mask.sv" \
+"$REPO_ROOT/src/ama_riscv_icache.sv" \
+"$REPO_ROOT/src/ama_riscv_mem.sv" \

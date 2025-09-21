@@ -9,6 +9,7 @@ TOP := ama_riscv_core_top_tb
 RTL_DEFINES ?=
 RTL_DEFINES += -d ENABLE_COSIM
 #RTL_DEFINES += -d IMEM_DELAY
+RTL_DEFINES += -d USE_CACHES
 COMP_OPTS := -sv --incr --relax
 ELAB_DEBUG ?= typical
 ELAB_OPTS := -debug $(ELAB_DEBUG) --incr --relax --mt 8

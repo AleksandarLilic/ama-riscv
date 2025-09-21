@@ -2,6 +2,75 @@
 `include "ama_riscv_tb_defines.svh"
 `include "ama_riscv_perf.svh"
 
+`define DEFAULT_HALF_PERIOD 5 // ns
+
+// TB
+`define TOHOST_CHECK 1'b1
+`define DEFAULT_TIMEOUT_CLOCKS 5_000_000
+`define RST_PULSES 2
+// per checker enable defines
+`define CHECKER_ACTIVE 1'b1
+`define CHECKER_INACTIVE 1'b0
+
+// DUT define
+`define DUT DUT_ama_riscv_core_top_i
+
+// DUT core defines
+`define DUT_CORE `DUT.ama_riscv_core_i
+`define DUT_DEC `DUT_CORE.ama_riscv_control_i.ama_riscv_decoder_i
+`define DUT_RF `DUT_CORE.ama_riscv_reg_file_i
+
+// DUT memory defines
+`ifndef USE_CACHES
+`define DUT_IMEM `DUT.ama_riscv_imem_i.mem
+`else
+`define DUT_IC `DUT.ama_riscv_icache_i
+`define DUT_MEM `DUT.ama_riscv_mem_i.mem
+`endif
+`define DUT_DMEM `DUT.ama_riscv_dmem_i.mem
+
+`define TOHOST_PASS 32'd1
+
+`define TO_STRING(x) `"x`"
+
+`define LOG(x) $display("%12t: %0s", $time, x)
+`define LOGNT(x) $display("%0s", x)
+
+int log_level;
+typedef enum int {
+    LOG_NONE = 0,
+    LOG_ERROR = 1,
+    LOG_WARN = 2,
+    LOG_INFO = 3,
+    LOG_VERBOSE = 4,
+    LOG_DEBUG = 5
+} log_level_e;
+
+`define LOG_E(x) \
+    errors += 1; \
+    if (ama_riscv_core_top_tb.log_level >= LOG_ERROR) \
+    `LOG($sformatf("ERROR: %0s", x))
+
+`define LOG_W(x) \
+    warnings += 1; \
+    if (ama_riscv_core_top_tb.log_level >= LOG_WARN) \
+    `LOG($sformatf("WARNING: %0s", x))
+
+`define LOG_I(x) \
+    if (ama_riscv_core_top_tb.log_level >= LOG_INFO) \
+    `LOG($sformatf("INFO: %0s", x))
+
+`define LOG_V(x) \
+    if (ama_riscv_core_top_tb.log_level >= LOG_VERBOSE) \
+    `LOG($sformatf("VERBOSE: %0s", x))
+
+`define LOG_D(x) \
+    if (ama_riscv_core_top_tb.log_level >= LOG_DEBUG) \
+    `LOG($sformatf("DEBUG: %0s", x))
+
+//`define LOG_V(x) $fwrite(log_fd, "%0t: %0s\n", $time, x)
+//`define LOGNT(x) $fwrite(log_fd, "%0s\n", x)
+
 module ama_riscv_core_top_tb();
 
 `ifdef ENABLE_COSIM
@@ -112,8 +181,20 @@ function automatic void load_memories;
     begin
         fd = open_file(test_hex_path, "r"); // check that it can be opened
         $fclose(fd); // and close for the readmemh to use it
+
+        // fiddling with icache atm
+        `ifdef USE_CACHES
+        `LOG_D("Loading icache");
+        $readmemh({test_hex_path, ".128"}, `DUT_MEM, 0, (MEM_SIZE_W>>2)-1);
+        `LOG_D("Finished loading icache");
+        `else
         $readmemh(test_hex_path, `DUT_IMEM, 0, MEM_SIZE_W-1);
+        `endif
+
+        // dcache loaded in any case
+        `LOG_D("Loading dmem");
         $readmemh(test_hex_path, `DUT_DMEM, 0, MEM_SIZE_W-1);
+        `LOG_D("Finished loading dmem");
     end
 endfunction
 
@@ -407,6 +488,16 @@ initial begin
     ->reset_end;
 end
 
+`ifdef USE_CACHES
+integer miss_cnt = 'h0;
+initial begin
+    forever begin
+        @(posedge clk);
+        if ((`DUT_IC.state == READY) && (`DUT_IC.nx_state == MISS)) miss_cnt += 1;
+    end
+end
+`endif
+
 // checker setup
 logic [4:0] dut_rf_addr;
 initial begin
@@ -447,6 +538,15 @@ initial begin
     @reset_end;
     `LOG_I("Reset released");
 
+    /*
+    // prefill icache
+    `ifdef USE_CACHES
+    `DUT_IC.cl_data = 'h00000813_00000793_00000713_00000693_00000613_00000593_00000513_00000493_00000413_00000393_00000313_00000293_00000213_00000193_00000113_00000093;
+    `DUT_IC.cl_tag = 'h0;
+    `DUT_IC.cl_valid = 'b1;
+    `endif
+    */
+
     fork: run_f
     begin
         run_test();
@@ -474,6 +574,10 @@ initial begin
     `endif
     `LOGNT(stats.get());
     //stats.compare_dut(mmio_cycle_cnt, mmio_instr_cnt);
+
+    `ifdef USE_CACHES
+    $display("miss cnt: %0d", miss_cnt);
+    `endif
     $finish();
 end // test
 
