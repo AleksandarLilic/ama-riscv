@@ -10,10 +10,10 @@ module ama_riscv_imem #(
     rv_if.TX     rsp
 );
 
-logic [31:0] mem [0:`MEM_SIZE-1];
+logic [31:0] mem [0:MEM_SIZE_W-1];
 
 generate
-    if (D == 1) begin : g_lat1
+    if (D == 1) begin: g_lat1
         // always ready; CPU can issue a new address every cycle
         assign req.ready = 1'b1;
 
@@ -23,16 +23,16 @@ generate
                 rsp.valid <= 1'b0;
             end else begin
                 rsp.valid <= req.valid;
-                if (req.valid) rsp.data <= mem[req.data[13:0]];
+                if (req.valid) rsp.data <= mem[req.data];
             end
         end
     end
 
-    else begin : g_latN
+    else begin: g_latN
+        logic busy;
         logic [$clog2(D):0] cnt;
-        logic               busy;
-        logic [31:0]        data_r;
-        logic [31:0]        data;
+        logic [CORE_DATA_BUS-1:0] data_r;
+        logic [CORE_DATA_BUS-1:0] data;
 
         // handshake toward the CPU
         assign req.ready = ~busy; // accept only when idle
@@ -49,9 +49,8 @@ generate
                     busy <= 1'b1;
                     cnt <= D-2;
                     rsp.valid <= 1'b0;
-                    data_r <= mem[req.data[13:0]]; // initiate the read
-                end
-                else if (busy) begin // request in flight
+                    data_r <= mem[req.data]; // initiate the read
+                end else if (busy) begin // request in flight
                     if (cnt != 0) begin
                         cnt <= cnt - 1;
                     end else begin // end if latency window, output the data

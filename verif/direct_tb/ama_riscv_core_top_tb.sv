@@ -145,8 +145,8 @@ function automatic void load_memories;
     begin
         fd = open_file(test_hex_path, "r"); // check that it can be opened
         $fclose(fd); // and close for the readmemh to use it
-        $readmemh(test_hex_path, `DUT_IMEM, 0, `MEM_SIZE-1);
-        $readmemh(test_hex_path, `DUT_DMEM, 0, `MEM_SIZE-1);
+        $readmemh(test_hex_path, `DUT_IMEM, 0, MEM_SIZE_W-1);
+        $readmemh(test_hex_path, `DUT_DMEM, 0, MEM_SIZE_W-1);
     end
 endfunction
 
@@ -283,23 +283,19 @@ task automatic single_step(longint unsigned clk_cnt);
         "Core [F] %5h: %8h %0s",
         `DUT_CORE.pc.p.dec,
         `DUT_CORE.imem_rsp.data,
-        `DUT_CORE.bubble_dec ? ("(fe stalled)") : "")
-    );
+        `DUT_CORE.bubble_dec ? ("(fe stalled)") : ""));
 
     if (`DUT_CORE.inst_wb_nop_or_clear == 1'b1) return;
 
     `LOG_V($sformatf(
-        "Core [R] %5h: %8h", `DUT_CORE.pc.p.wbk, `DUT_CORE.inst.p.wbk)
-    );
+        "Core [R] %5h: %8h", `DUT_CORE.pc.p.wbk, `DUT_CORE.inst.p.wbk));
 
     `ifdef ENABLE_COSIM
     cosim_exec(clk_cnt, cosim_pc, cosim_inst,
                cosim_inst_asm_str, cosim_stack_top_str, cosim_rf);
-    // TODO: should be conditional, based on verbosity
-    cosim_stack_top_str_wave = pack_string(cosim_stack_top_str);
     `LOG_V($sformatf(
-        "COSIM    %5h: %8h %0s", cosim_pc, cosim_inst, cosim_inst_asm_str)
-    );
+        "COSIM    %5h: %8h %0s", cosim_pc, cosim_inst, cosim_inst_asm_str));
+    cosim_stack_top_str_wave = pack_string(cosim_stack_top_str);
     if (cosim_chk_en == 1'b1) cosim_run_checkers(rf_chk_act);
     if (stop_on_cosim_error == 1'b1 && errors > 0) begin
         `LOG_I("Exiting on first error");

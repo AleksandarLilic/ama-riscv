@@ -2,7 +2,6 @@
 `define AMA_RISCV_DEFINES
 
 // Memory map
-`define MEM_SIZE 16384
 `define RESET_VECTOR 32'h4_0000
 `define DMEM_RANGE 2'b00
 `define MMIO_RANGE 2'b01
@@ -126,7 +125,19 @@
 `define IG_J_TYPE   3'b100
 `define IG_U_TYPE   3'b101
 
-//`define IMEM_DELAY
+// Memory parameters
+// *_B - byte
+// *_H - half
+// *_W - word
+// *_D - doubleword
+// *_Q - quadword
+// *_L - line (module-specific)
+// no suffix - number of bits, or if otherwise specified in the parameter name (eg 'offset')
+
+parameter unsigned MEM_SIZE_W = 16384; // words, 64KB
+parameter unsigned CORE_ADDR_BUS_W = $clog2(MEM_SIZE_W); // 14
+parameter unsigned CORE_ADDR_BUS_B = CORE_ADDR_BUS_W + 2; // 16
+parameter unsigned CORE_DATA_BUS = 32;
 
 `ifdef IMEM_DELAY
 `define IMEM_DELAY_CLK 2

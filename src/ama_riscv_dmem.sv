@@ -9,7 +9,7 @@ module ama_riscv_dmem (
     output logic [31:0] dout
 );
 
-logic [31:0] mem [0:`MEM_SIZE-1];
+logic [31:0] mem [0:MEM_SIZE_W-1];
 
 // dmem read
 always_ff @(posedge clk) begin
@@ -18,7 +18,7 @@ end
 
 // dmem write with byte enable
 always_ff @(posedge clk) begin
-    for (int i = 0; i < 4; i = i+1) begin
+    for (int i = 0; i < 4; i = i + 1) begin
         if (we[i] && en) mem[addr][i*8 +: 8] <= din[i*8 +: 8];
     end
 end
