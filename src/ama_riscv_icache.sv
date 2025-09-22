@@ -4,8 +4,8 @@ module ama_riscv_icache #(
     parameter int unsigned ADDR_W = CORE_ADDR_BUS_W,
     parameter int unsigned DATA_W = CORE_DATA_BUS,
     parameter int unsigned BUS_W = MEM_DATA_BUS,
-    parameter int unsigned SETS = 1,
-    parameter int unsigned WAYS = 1
+    parameter int unsigned SETS = 4 // must be power of 2
+    //parameter int unsigned WAYS = 1
 )(
     input  logic clk,
     input  logic rst,
@@ -16,18 +16,34 @@ module ama_riscv_icache #(
     // TODO: write enables for dcache flavor
 );
 
+if (SETS > 1024) begin
+    $error("icache SETS > 1024 - can't be bigger than the entire memory");
+end
+
+if (!is_pow2(SETS)) begin
+    $error("icache SETS not power of 2");
+end
+
+//if (WAYS > 2) $error("icache WAYS > 2 currently not supported");
+
+parameter int unsigned INDEX_BITS = $clog2(SETS);
+
+logic [DATA_W-1-4:0] core_req_addr_64b_aligned;
+assign core_req_addr_64b_aligned = (req_core.data >> 4);
 logic [TAG_W-1:0] core_req_tag;
-assign core_req_tag = (req_core.data >> 4); // 64B aligned
+assign core_req_tag = (core_req_addr_64b_aligned >> INDEX_BITS);
+logic [INDEX_BITS-1:0] core_req_idx;
+assign core_req_idx = core_req_addr_64b_aligned & (SETS - 1);
 
 // single cache line
-logic [CACHE_LINE_SIZE-1:0] cl_data;
-logic [TAG_W-1:0] cl_tag;
-logic cl_valid;
+logic [CACHE_LINE_SIZE-1:0] cl_data [SETS-1:0];
+logic [TAG_W-1:0] cl_tag [SETS-1:0];
+logic [0:0] cl_valid [SETS-1:0];
 
 logic tag_match;
-assign tag_match = (cl_tag == core_req_tag);
+assign tag_match = (cl_tag[core_req_idx] == core_req_tag);
 logic hit, hit_d;
-assign hit = &{tag_match, req_core.valid, req_core.ready, cl_valid};
+assign hit = &{tag_match, req_core.valid, req_core.ready, cl_valid[core_req_idx]};
 `DFF_CI_RI_RVI(hit, hit_d)
 
 // TODO DPI 1: query from cpp model
@@ -45,21 +61,21 @@ assign mem_start_addr = (core_addr_d >> 2) & ~'b11; // align to first block
 cache_state_t state, nx_state;
 
 logic pending_req, pending_req_d;
-logic [CORE_ADDR_BUS_W-1:0] pending_addr;
+logic [CORE_ADDR_BUS_W-1:0] pending_core_addr;
 logic [MEM_ADDR_BUS-1:0] mem_start_addr_hold;
 always_ff @(posedge clk) begin
     if (rst) begin
         pending_req <= 1'b0;
-        pending_addr <= 'h0;
+        pending_core_addr <= 'h0;
         mem_start_addr_hold <= 'h0;
     end else if ((state == READY) && (nx_state == MISS)) begin
         `LOG_D($sformatf("saving pending request; with core addr byte at 0x%5h", req_core.data<<2));
         pending_req = 1'b1;
-        pending_addr <= core_addr_d;
+        pending_core_addr <= core_addr_d;
         mem_start_addr_hold <= mem_start_addr;
     end else if (pending_req && (state == READY)) begin
         pending_req = 1'b0;
-        pending_addr <= 'h0;
+        pending_core_addr <= 'h0;
     end
 end
 
@@ -73,12 +89,29 @@ logic mem_transfer_done;
 assign mem_transfer_done =
     (rsp_mem.valid && (mem_bus_cnt_d == (MEM_TRANSFERS_PER_CL - 1)));
 
-`DFF_CI_RI_RVI_EN(mem_transfer_done, (mem_start_addr_hold >> 2), cl_tag)
-`DFF_CI_RI_RVI_EN(mem_transfer_done, 1'b1, cl_valid)
+logic [DATA_W-1-4:0] core_req_addr_64b_aligned_pending;
+assign core_req_addr_64b_aligned_pending = (pending_core_addr >> 4);
+logic [INDEX_BITS-1:0] core_req_idx_pending;
+assign core_req_idx_pending = core_req_addr_64b_aligned_pending & (SETS - 1);
+
+`DFF_CI_RI_RVI_EN(
+    mem_transfer_done,
+    (mem_start_addr_hold >> (2 + INDEX_BITS)),
+    cl_tag[core_req_idx_pending]
+)
+
+always_ff @(posedge clk) begin
+    if (rst) begin
+        for (int i = 0; i < SETS; i++) cl_valid[i] <= 1'b0;
+    end else if (mem_transfer_done) begin
+        cl_valid[core_req_idx_pending] <= 1'b1;
+    end
+end
+
 `DFF_CI_EN(
     rsp_mem.valid,
     rsp_mem.data,
-    cl_data[(MEM_DATA_BUS*mem_bus_cnt_d) +: MEM_DATA_BUS]
+    cl_data[core_req_idx_pending][(MEM_DATA_BUS*mem_bus_cnt_d) +: MEM_DATA_BUS]
 )
 
 // debug signals
@@ -123,6 +156,7 @@ always_comb begin
 end
 
 logic [CORE_ADDR_BUS_W-1:0] core_addr_d_cl_word;
+logic [INDEX_BITS-1:0] core_addr_d_idx;
 // outputs
 always_comb begin
     // to/from core
@@ -135,6 +169,7 @@ always_comb begin
     rsp_mem.ready = 1'b0;
     // others
     core_addr_d_cl_word = 'h0;
+    core_addr_d_idx = 'h0;
 
     case (state)
         RST: begin
@@ -148,16 +183,22 @@ always_comb begin
             req_core.ready = 1'b1;
             if (pending_req && !new_core_req) begin
                 // service the pending request after miss
-                core_addr_d_cl_word = (pending_addr & 4'hf);
-                rsp_core.data = cl_data[core_addr_d_cl_word << (3+2) +: 32];
+                core_addr_d_cl_word = (pending_core_addr & 4'hf);
+                rsp_core.data = cl_data[core_req_idx_pending]
+                                       [(core_addr_d_cl_word << (2+3)) +: 32];
                 rsp_core.valid = 1'b1;
                 `LOG_D($sformatf("icache OUT complete pending request; cache at word %0d; core at byte 0x%5h; with output %8h", core_addr_d_cl_word, core_addr_d<<2, rsp_core.data));
+
             end else if (new_core_req) begin
                 if (hit_d) begin
+                    core_addr_d_idx = ((core_addr_d >> 4) & (SETS - 1));
                     core_addr_d_cl_word = (core_addr_d & 4'hf);
-                    rsp_core.data = cl_data[core_addr_d_cl_word << (3+2) +: 32];
+                    rsp_core.data =
+                        cl_data[core_addr_d_idx]
+                               [(core_addr_d_cl_word << (2+3)) +: 32];
                     rsp_core.valid = 1'b1;
                     `LOG_D($sformatf("icache OUT hit; cache at word %0d; core at byte 0x%5h; with output %8h", core_addr_d_cl_word, core_addr_d<<2, rsp_core.data));
+
                 end else begin
                     // handle miss, initiate memory read
                     req_mem.data = mem_start_addr;
