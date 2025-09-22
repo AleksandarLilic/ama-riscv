@@ -62,7 +62,9 @@ ama_riscv_imem #(
 );
 
 `else
-ama_riscv_icache ama_riscv_icache_i (
+ama_riscv_icache #(
+    .SETS (4)
+) ama_riscv_icache_i (
     .clk (clk),
     .rst (rst),
     .req_core (imem_addr_ch.RX),
