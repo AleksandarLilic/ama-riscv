@@ -140,6 +140,11 @@ typedef enum logic [4:0] {
     RF_X31_T6 = 5'd31 // temporary
 } rf_addr_t;
 
+// helper build-time functions
+function automatic bit is_pow2 (int x);
+    return (x > 0) && ((x & (x - 1)) == 0);
+endfunction
+
 // Memory parameters
 // *_B - byte
 // *_H - half
