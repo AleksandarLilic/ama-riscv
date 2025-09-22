@@ -1,5 +1,6 @@
 *.swp
 local/
+src/rtl_scratchpad.ipynb
 
 # Vivado files
 *.cache
