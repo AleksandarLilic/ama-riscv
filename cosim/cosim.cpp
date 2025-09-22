@@ -18,7 +18,7 @@ std::string inst_asm;
 
 DPI_LINKER_DECL DPI_DLLESPEC
 int cosim_setup(const char *test_elf) {
-    cfg.perf_event = perf_event_t::cycles;
+    cfg.perf_event = perf_event_t::cycle;
     cfg.prof_pc.start = BASE_ADDR; // FIXME: should be passed as plusarg
     cfg.prof_trace = true; // FIXME: also plusarg
 
