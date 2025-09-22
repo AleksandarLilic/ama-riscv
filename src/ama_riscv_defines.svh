@@ -134,6 +134,11 @@ typedef enum logic [3:0] {
 `define IG_J_TYPE   3'b100
 `define IG_U_TYPE   3'b101
 
+// helper build-time functions
+function automatic bit is_pow2 (int x);
+    return (x > 0) && ((x & (x - 1)) == 0);
+endfunction
+
 // Memory parameters
 // *_B - byte
 // *_H - half
