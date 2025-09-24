@@ -24,6 +24,14 @@ if (!is_pow2(SETS)) begin
     $error("icache SETS not power of 2");
 end
 
+typedef struct packed {
+    logic valid;
+    logic [TAG_W-1:0] tag;
+    logic [CACHE_LINE_SIZE-1:0] data;
+} cache_line_t;
+
+cache_line_t arr [SETS-1:0];
+
 //if (WAYS > 2) $error("icache WAYS > 2 currently not supported");
 
 parameter int unsigned INDEX_BITS = $clog2(SETS);
@@ -35,15 +43,11 @@ assign core_req_tag = (core_req_addr_64b_aligned >> INDEX_BITS);
 logic [INDEX_BITS-1:0] core_req_idx;
 assign core_req_idx = core_req_addr_64b_aligned & (SETS - 1);
 
-// single cache line
-logic [CACHE_LINE_SIZE-1:0] cl_data [SETS-1:0];
-logic [TAG_W-1:0] cl_tag [SETS-1:0];
-logic [0:0] cl_valid [SETS-1:0];
-
 logic tag_match;
-assign tag_match = (cl_tag[core_req_idx] == core_req_tag);
+assign tag_match = (arr[core_req_idx].tag == core_req_tag);
 logic hit, hit_d;
-assign hit = &{tag_match, req_core.valid, req_core.ready, cl_valid[core_req_idx]};
+assign hit =
+    &{tag_match, req_core.valid, req_core.ready, arr[core_req_idx].valid};
 `DFF_CI_RI_RVI(hit, hit_d)
 
 // TODO DPI 1: query from cpp model
@@ -68,12 +72,12 @@ always_ff @(posedge clk) begin
         pending_req <= 1'b0;
         pending_core_addr <= 'h0;
         mem_start_addr_hold <= 'h0;
-    end else if ((state == READY) && (nx_state == MISS)) begin
+    end else if ((state == IC_READY) && (nx_state == IC_MISS)) begin
         `LOG_D($sformatf("saving pending request; with core addr byte at 0x%5h", req_core.data<<2));
         pending_req = 1'b1;
         pending_core_addr <= core_addr_d;
         mem_start_addr_hold <= mem_start_addr;
-    end else if (pending_req && (state == READY)) begin
+    end else if (pending_req && (state == IC_READY)) begin
         pending_req = 1'b0;
         pending_core_addr <= 'h0;
     end
@@ -97,21 +101,22 @@ assign core_req_idx_pending = core_req_addr_64b_aligned_pending & (SETS - 1);
 `DFF_CI_RI_RVI_EN(
     mem_transfer_done,
     (mem_start_addr_hold >> (2 + INDEX_BITS)),
-    cl_tag[core_req_idx_pending]
+    arr[core_req_idx_pending].tag
 )
 
 always_ff @(posedge clk) begin
     if (rst) begin
-        for (int i = 0; i < SETS; i++) cl_valid[i] <= 1'b0;
+        for (int i = 0; i < SETS; i++) arr[i].valid <= 1'b0;
     end else if (mem_transfer_done) begin
-        cl_valid[core_req_idx_pending] <= 1'b1;
+        arr[core_req_idx_pending].valid <= 1'b1;
     end
 end
 
 `DFF_CI_EN(
     rsp_mem.valid,
     rsp_mem.data,
-    cl_data[core_req_idx_pending][(MEM_DATA_BUS*mem_bus_cnt_d) +: MEM_DATA_BUS]
+    arr[core_req_idx_pending]
+    .data[(MEM_DATA_BUS*mem_bus_cnt_d) +: MEM_DATA_BUS]
 )
 
 // debug signals
@@ -126,30 +131,32 @@ assign req_core_bytes_valid = (
     (req_core.data<<2) & {CORE_ADDR_BUS_B{req_core.valid}});
 
 // state transition
-`DFF_CI_RI_RV(RST, nx_state, state)
+`DFF_CI_RI_RV(IC_RESET, nx_state, state)
 
 // next state
 always_comb begin
     nx_state = state;
     case (state)
-        RST: begin
-            `LOG_D($sformatf(">> I$ STATE RST"));
-            nx_state = READY;
+        IC_RESET: begin
+            `LOG_D($sformatf(">> I$ STATE IC_RESET"));
+            nx_state = IC_READY;
         end
 
-        READY: begin
-            `LOG_D($sformatf(">> I$ STATE READY"));
+        IC_READY: begin
+            `LOG_D($sformatf(">> I$ STATE IC_READY"));
             if ((new_core_req) && (!hit_d)) begin
-                nx_state = MISS;
-                `LOG_D($sformatf(">> I$ next state: MISS; missed on core addr byte: 0x%0h", req_core.data<<2));
+                nx_state = IC_MISS;
+                `LOG_D($sformatf(">> I$ next state: IC_MISS; missed on core addr byte: 0x%0h", req_core.data<<2));
             end
         end
 
-        MISS: begin
-            `LOG_D($sformatf(">> I$ STATE MISS"));
+        IC_MISS: begin
+            `LOG_D($sformatf(">> I$ STATE IC_MISS"));
             // count 4 beats after main mem responds and go to ready
             `LOG_D($sformatf(">> I$ miss state; cnt %0d", mem_bus_cnt));
-            if (mem_bus_cnt_d == (MEM_TRANSFERS_PER_CL - 1)) nx_state = READY;
+            if (mem_bus_cnt_d == (MEM_TRANSFERS_PER_CL - 1)) begin
+                nx_state = IC_READY;
+            end
         end
 
     endcase
@@ -172,20 +179,21 @@ always_comb begin
     core_addr_d_idx = 'h0;
 
     case (state)
-        RST: begin
+        IC_RESET: begin
             rsp_core.valid = 1'b0;
             req_core.ready = 1'b0;
             req_mem.valid = 1'b0;
             rsp_mem.ready = 1'b0;
         end
 
-        READY: begin
+        IC_READY: begin
             req_core.ready = 1'b1;
             if (pending_req && !new_core_req) begin
                 // service the pending request after miss
                 core_addr_d_cl_word = (pending_core_addr & 4'hf);
-                rsp_core.data = cl_data[core_req_idx_pending]
-                                       [(core_addr_d_cl_word << (2+3)) +: 32];
+                rsp_core.data =
+                    arr[core_req_idx_pending]
+                    .data[(core_addr_d_cl_word << (2+3)) +: 32];
                 rsp_core.valid = 1'b1;
                 `LOG_D($sformatf("icache OUT complete pending request; cache at word %0d; core at byte 0x%5h; with output %8h", core_addr_d_cl_word, core_addr_d<<2, rsp_core.data));
 
@@ -194,8 +202,8 @@ always_comb begin
                     core_addr_d_idx = ((core_addr_d >> 4) & (SETS - 1));
                     core_addr_d_cl_word = (core_addr_d & 4'hf);
                     rsp_core.data =
-                        cl_data[core_addr_d_idx]
-                               [(core_addr_d_cl_word << (2+3)) +: 32];
+                        arr[core_addr_d_idx]
+                        .data[(core_addr_d_cl_word << (2+3)) +: 32];
                     rsp_core.valid = 1'b1;
                     `LOG_D($sformatf("icache OUT hit; cache at word %0d; core at byte 0x%5h; with output %8h", core_addr_d_cl_word, core_addr_d<<2, rsp_core.data));
 
@@ -212,8 +220,8 @@ always_comb begin
             end
         end
 
-        MISS: begin
-            // 1 clk at the end to wait in MISS for last mem response
+        IC_MISS: begin
+            // 1 clk at the end to wait in IC_MISS for last mem response
             if (mem_bus_cnt > 0) begin
                 req_mem.data = (mem_start_addr_hold + mem_bus_cnt);
                 `LOG_D($sformatf("icache miss OUT; bus packet: %0d", (mem_start_addr_hold + mem_bus_cnt)));
