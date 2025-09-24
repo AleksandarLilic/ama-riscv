@@ -61,7 +61,7 @@ $(COSIM_TARGET): .isa_sim_obj.touchfile $(COSIM_OBJS)
 isa_sim_obj: .isa_sim_obj.touchfile
 .isa_sim_obj.touchfile: $(ISA_SIM_SRCS) $(ISA_SIM_H)
 	@echo "Building ISA SIM"
-	$(MAKE) -C $(ISA_SIM_DIR) obj BDIR=$(ISA_SIM_BDIR) DEFINES="-DDPI -DCACHE_MODE=CACHE_MODE_FUNC"
+	$(MAKE) -C $(ISA_SIM_DIR) obj_for_cosim BDIR=$(ISA_SIM_BDIR) DEFINES="-DDPI -DCACHE_MODE=CACHE_MODE_FUNC"
 	@touch .isa_sim_obj.touchfile
 
 $(COSIM_ROOT)/$(COSIM_BDIR)/%.o: $(COSIM_ROOT)/%.cpp $(DPI_FUNCS_H) $(ISA_SIM_H)
