@@ -174,9 +174,9 @@ parameter unsigned MEM_ADDR_BUS = CORE_ADDR_BUS_B - CACHE_TO_MEM_OFFSET; // 16 -
 parameter unsigned TAG_W = CORE_ADDR_BUS_B - CACHE_LINE_ADDR_B; // 10
 
 typedef enum logic [1:0] {
-    RST,
-    READY, // ready for next request, also services hit in a single cycle
-    MISS // miss, go to main memory
+    IC_RESET,
+    IC_READY, // ready for next request, also services hit in the next cycle
+    IC_MISS // miss, go to main memory
 } cache_state_t;
 
 `ifdef IMEM_DELAY

@@ -488,16 +488,6 @@ initial begin
     ->reset_end;
 end
 
-`ifdef USE_CACHES
-integer miss_cnt = 'h0;
-initial begin
-    forever begin
-        @(posedge clk);
-        if ((`DUT_IC.state == READY) && (`DUT_IC.nx_state == MISS)) miss_cnt += 1;
-    end
-end
-`endif
-
 // checker setup
 logic [4:0] dut_rf_addr;
 initial begin
@@ -575,9 +565,6 @@ initial begin
     `LOGNT(stats.get());
     //stats.compare_dut(mmio_cycle_cnt, mmio_instr_cnt);
 
-    `ifdef USE_CACHES
-    $display("miss cnt: %0d", miss_cnt);
-    `endif
     $finish();
 end // test
 
