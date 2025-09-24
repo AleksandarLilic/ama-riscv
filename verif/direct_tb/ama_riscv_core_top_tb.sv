@@ -153,8 +153,8 @@ endfunction
 `ifdef ENABLE_COSIM
 function void cosim_check_inst_cnt;
     `LOGNT($sformatf("Cosim instruction count: %0d", cosim_get_inst_cnt()));
-    `LOGNT($sformatf("DUT instruction count: %0d", stats.perf_cnt_instr));
-    if (cosim_get_inst_cnt() != stats.perf_cnt_instr) begin
+    `LOGNT($sformatf("DUT instruction count: %0d", stats.get_inst()));
+    if (cosim_get_inst_cnt() != stats.get_inst()) begin
         `LOGNT($sformatf("Instruction count mismatch"));
     end
 endfunction
