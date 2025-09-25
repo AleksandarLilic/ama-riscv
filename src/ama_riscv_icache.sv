@@ -24,17 +24,24 @@ if (!is_pow2(SETS)) begin
     $error("icache SETS not power of 2");
 end
 
+parameter int unsigned WAYS = 1; // currently only direct-mapped supported
+//if (WAYS > 2) $error("icache WAYS > 2 currently not supported");
+
 typedef struct packed {
     logic valid;
+    // logic lru_cnt; // for 2-way set associative
     logic [TAG_W-1:0] tag;
     logic [CACHE_LINE_SIZE-1:0] data;
 } cache_line_t;
 
-cache_line_t arr [SETS-1:0];
+typedef struct packed {
+    cache_line_t [SETS-1:0] cl;
+} cache_way_t;
 
-//if (WAYS > 2) $error("icache WAYS > 2 currently not supported");
+cache_way_t [WAYS-1:0] arr;
 
 parameter int unsigned INDEX_BITS = $clog2(SETS);
+parameter int unsigned way_idx = 0;
 
 logic [DATA_W-1-4:0] core_req_addr_64b_aligned;
 assign core_req_addr_64b_aligned = (req_core.data >> 4);
@@ -44,10 +51,11 @@ logic [INDEX_BITS-1:0] core_req_idx;
 assign core_req_idx = core_req_addr_64b_aligned & (SETS - 1);
 
 logic tag_match;
-assign tag_match = (arr[core_req_idx].tag == core_req_tag);
+assign tag_match = (arr[way_idx].cl[core_req_idx].tag == core_req_tag);
+logic core_handshaked;
+assign core_handshaked = (req_core.valid && req_core.ready);
 logic hit, hit_d;
-assign hit =
-    &{tag_match, req_core.valid, req_core.ready, arr[core_req_idx].valid};
+assign hit = &{tag_match, core_handshaked, arr[way_idx].cl[core_req_idx].valid};
 `DFF_CI_RI_RVI(hit, hit_d)
 
 // TODO DPI 1: query from cpp model
@@ -101,21 +109,21 @@ assign core_req_idx_pending = core_req_addr_64b_aligned_pending & (SETS - 1);
 `DFF_CI_RI_RVI_EN(
     mem_transfer_done,
     (mem_start_addr_hold >> (2 + INDEX_BITS)),
-    arr[core_req_idx_pending].tag
+    arr[way_idx].cl[core_req_idx_pending].tag
 )
 
 always_ff @(posedge clk) begin
     if (rst) begin
-        for (int i = 0; i < SETS; i++) arr[i].valid <= 1'b0;
+        for (int i = 0; i < SETS; i++) arr[way_idx].cl[i].valid <= 1'b0;
     end else if (mem_transfer_done) begin
-        arr[core_req_idx_pending].valid <= 1'b1;
+        arr[way_idx].cl[core_req_idx_pending].valid <= 1'b1;
     end
 end
 
 `DFF_CI_EN(
     rsp_mem.valid,
     rsp_mem.data,
-    arr[core_req_idx_pending]
+    arr[way_idx].cl[core_req_idx_pending]
     .data[(MEM_DATA_BUS*mem_bus_cnt_d) +: MEM_DATA_BUS]
 )
 
@@ -192,7 +200,7 @@ always_comb begin
                 // service the pending request after miss
                 core_addr_d_cl_word = (pending_core_addr & 4'hf);
                 rsp_core.data =
-                    arr[core_req_idx_pending]
+                    arr[way_idx].cl[core_req_idx_pending]
                     .data[(core_addr_d_cl_word << (2+3)) +: 32];
                 rsp_core.valid = 1'b1;
                 `LOG_D($sformatf("icache OUT complete pending request; cache at word %0d; core at byte 0x%5h; with output %8h", core_addr_d_cl_word, core_addr_d<<2, rsp_core.data));
@@ -202,7 +210,7 @@ always_comb begin
                     core_addr_d_idx = ((core_addr_d >> 4) & (SETS - 1));
                     core_addr_d_cl_word = (core_addr_d & 4'hf);
                     rsp_core.data =
-                        arr[core_addr_d_idx]
+                        arr[way_idx].cl[core_addr_d_idx]
                         .data[(core_addr_d_cl_word << (2+3)) +: 32];
                     rsp_core.valid = 1'b1;
                     `LOG_D($sformatf("icache OUT hit; cache at word %0d; core at byte 0x%5h; with output %8h", core_addr_d_cl_word, core_addr_d<<2, rsp_core.data));
