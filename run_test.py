@@ -31,6 +31,7 @@ def parse_args():
     parser.add_argument('-t', '--test', help="Specify single test to run")
     parser.add_argument('--testlist', help="Path to a JSON file containing a list of tests")
     parser.add_argument('-r', '--rundir', help="Optional custom run directory name")
+    parser.add_argument('-o', '--build_only', action='store_true', help="Only build the testbench")
     parser.add_argument('-k', '--keep_build', action='store_true', default=False, help="Reuse existing build if available")
     parser.add_argument('-b', '--rebuild_all', action='store_true', default=False, help="Rebuild everything: RTL, ISA sim, cosim. Takes priority over -k if both are specified")
     parser.add_argument('-j', '--jobs', type=int, default=MAX_WORKERS, help="Number of parallel jobs to run (default: number of CPU cores)")
@@ -246,6 +247,10 @@ def main():
         print(f"Reusing existing build directory at <{build_dir}>")
     else:
         build_tb(build_dir, args.rebuild_all)
+
+    if args.build_only:
+        print(f"Building done at <{build_dir}>. Exiting")
+        sys.exit(0)
 
     # check if the specified number of jobs exceeds the number of CPU cores
     if args.jobs < 1:
