@@ -65,7 +65,22 @@ void cosim_exec(
     output int unsigned inst,
     output string inst_asm_str,
     output string stack_top_str,
-    output int unsigned rf[32]);
+    output int unsigned rf[32]
+);
+
+import "DPI-C" function
+void cosim_add_te(
+    input longint unsigned clk_cnt,
+    input int unsigned inst_wbk,
+    input int unsigned pc_wbk,
+    input int unsigned x2_sp,
+    input byte dmem_addr,
+    input byte dmem_size,
+    input byte branch_taken,
+    input byte ic_hm,
+    input byte dc_hm,
+    input byte bp_hm
+);
 
 import "DPI-C" function
 unsigned int cosim_get_inst_cnt();
@@ -277,34 +292,126 @@ function automatic [8*SLEN-1:0] pack_string(input string str);
     end
 endfunction
 
+`ifdef USE_CACHES
+integer miss_cnt = 'h0; // move to a struct?
+function automatic byte get_icache_status();
+    byte ic_hm;
+    bit ic_miss;
+    bit ic_service_pending_req;
+    bit ic_hit;
+    begin
+        ic_hm = hw_status_t_none;
+
+        ic_miss = (
+            ((`DUT_IC.state == IC_READY)) &&
+            (`DUT_IC.nx_state == IC_MISS)
+        );
+        ic_service_pending_req = (
+            (`DUT_IC.pending_req && !`DUT_IC.new_core_req)
+        );
+        ic_hit = (`DUT_IC.new_core_req && `DUT_IC.hit_d);
+        if (ic_miss) ic_hm = hw_status_t_miss;
+        else if (ic_service_pending_req || ic_hit) ic_hm = hw_status_t_hit;
+        miss_cnt += ic_miss;
+
+        return ic_hm;
+    end
+endfunction
+
+function automatic byte get_dcache_status();
+    byte dc_hm;
+    begin
+        dc_hm = hw_status_t_none;
+        // TODO: to be implemented, no dcache atm
+        return dc_hm;
+    end
+endfunction
+`endif
+
+`ifdef USE_BP
+function automatic byte get_bp_status();
+    byte bp_hm;
+    begin
+        bp_hm = hw_status_t_none;
+        // TODO: to be implemented, no bp atm
+        return bp_hm;
+    end
+endfunction
+`endif
+
+function automatic add_trace_entry(longint unsigned clk_cnt);
+    byte unsigned dc_hm;
+    byte unsigned bp_hm;
+    begin
+        dc_hm = hw_status_t_none;
+        bp_hm = hw_status_t_none;
+
+        cosim_add_te(
+            clk_cnt,
+            `DUT_CORE.inst.p.wbk & ~{32{`DUT_CORE.inst_wb_nop_or_clear}},
+            `DUT_CORE.pc.p.wbk & ~{32{`DUT_CORE.inst_wb_nop_or_clear}},
+            `DUT_RF.rf[2],
+
+            1'b0, // FIXME: temp tied to 0. dmem_addr
+            1'b0, // FIXME: temp tied to 0. dmem size
+            1'b0, // FIXME: temp tied to 0. `DUT_DEC.branch_taken_wbk,
+
+            `ifdef USE_CACHES
+            get_icache_status(),
+            get_dcache_status(),
+            `else
+            hw_status_t_none, // no icache
+            hw_status_t_none, // no dcache
+            `endif
+
+            `ifdef USE_BP
+            get_bp_status()
+            `else
+            hw_status_t_none // no bp
+            `endif
+        );
+    end
+endfunction
+
+string core_ret;
+string isa_ret;
+
 task automatic single_step(longint unsigned clk_cnt);
     stats.update(`DUT_CORE.inst.p.wbk, `DUT_CORE.bubble_dec_seq[2]);
     `LOG_V($sformatf(
         "Core [F] %5h: %8h %0s",
         `DUT_CORE.pc.p.dec,
         `DUT_CORE.imem_rsp.data,
-        `DUT_CORE.bubble_dec ? ("(fe stalled)") : ""));
+        `DUT_CORE.bubble_dec ? ("(fe stalled)") : "")
+    );
 
+    `ifdef ENABLE_COSIM
+    add_trace_entry(clk_cnt);
+    `endif
+    // cosim advances only if rtl retires an instruction
     if (`DUT_CORE.inst_wb_nop_or_clear == 1'b1) return;
-
-    `LOG_V($sformatf(
-        "Core [R] %5h: %8h", `DUT_CORE.pc.p.wbk, `DUT_CORE.inst.p.wbk));
 
     `ifdef ENABLE_COSIM
     cosim_exec(clk_cnt, cosim_pc, cosim_inst,
                cosim_inst_asm_str, cosim_stack_top_str, cosim_rf);
-    `LOG_V($sformatf(
-        "COSIM    %5h: %8h %0s", cosim_pc, cosim_inst, cosim_inst_asm_str));
+
+    core_ret = $sformatf(
+        "Core [R] %5h: %8h", `DUT_CORE.pc.p.wbk, `DUT_CORE.inst.p.wbk);
+    isa_ret = $sformatf(
+        "COSIM    %5h: %8h %0s", cosim_pc, cosim_inst, cosim_inst_asm_str);
+    `LOG_V(core_ret);
+    `LOG_V(isa_ret);
+
     cosim_stack_top_str_wave = pack_string(cosim_stack_top_str);
     if (cosim_chk_en == 1'b1) cosim_run_checkers(rf_chk_act);
     if (stop_on_cosim_error == 1'b1 && errors > 0) begin
+        `LOG_E(core_ret);
+        `LOG_E(isa_ret);
         `LOG_I("Exiting on first error");
         `LOGNT(msg_fail);
         $finish();
     end
     `endif
-
-    //print_single_instruction_results();
 endtask
 
 task run_test();

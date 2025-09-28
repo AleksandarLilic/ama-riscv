@@ -43,6 +43,21 @@ DPI_LINKER_DECL DPI_DLLESPEC
 
 /* Imported (by SV) function */
 DPI_LINKER_DECL DPI_DLLESPEC 
+ void cosim_add_te(
+	uint64_t clk_cnt ,
+	unsigned int inst_wbk ,
+	unsigned int pc_wbk ,
+	unsigned int x2_sp ,
+	char dmem_addr ,
+	char dmem_size ,
+	char branch_taken ,
+	char ic_hm ,
+	char dc_hm ,
+	char bp_hm);
+
+
+/* Imported (by SV) function */
+DPI_LINKER_DECL DPI_DLLESPEC 
  unsigned int cosim_get_inst_cnt(
 );
 

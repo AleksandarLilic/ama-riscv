@@ -16,11 +16,14 @@ hw_cfg_t hw_cfg; // placeholder, dc
 std::string stack_top;
 std::string inst_asm;
 
+trace_entry te;
+
 DPI_LINKER_DECL DPI_DLLESPEC
 int cosim_setup(const char *test_elf) {
     cfg.perf_event = perf_event_t::cycle;
     cfg.prof_pc.start = BASE_ADDR; // FIXME: should be passed as plusarg
     cfg.prof_trace = true; // FIXME: also plusarg
+    cfg.dpi_prof_on_boot = true; // FIXME: also plusarg
 
     std::string l_test_elf(test_elf);
     cfg.out_dir = gen_out_dir(l_test_elf, "cosim");
@@ -29,6 +32,34 @@ int cosim_setup(const char *test_elf) {
     rv32 = new core(mem, cfg, hw_cfg);
 
     return 0;
+}
+
+DPI_LINKER_DECL DPI_DLLESPEC
+void cosim_add_te(
+    uint64_t clk_cnt,
+    unsigned int inst_wbk,
+    unsigned int pc_wbk,
+    unsigned int x2_sp,
+    char dmem_addr ,
+    char dmem_size ,
+    char branch_taken,
+    char ic_hm,
+    char dc_hm,
+    char bp_hm)
+{
+    te.inst = inst_wbk;
+    te.pc = pc_wbk;
+    // te.next_pc = 0u; // next_pc not always known in DPI, default from rst_te
+    te.sp = x2_sp;
+    te.taken = branch_taken;
+    te.inst_size = 4; // always 4 bytes in DPI, RV32C not supported
+    te.dmem = dmem_addr;
+    te.dmem_size = dmem_size;
+    te.sample_cnt = clk_cnt; // every clock is this called
+    te.ic_hm = ic_hm;
+    te.dc_hm = dc_hm;
+    te.bp_hm = bp_hm;
+    rv32->save_trace_entry(te);
 }
 
 DPI_LINKER_DECL DPI_DLLESPEC
@@ -44,7 +75,7 @@ void cosim_exec(
     stack_top = rv32->get_callstack_top_str().c_str();
     *stack_top_str = stack_top.c_str();
 
-    rv32->update_clk(clk_cnt);
+    rv32->update_clk(clk_cnt); // issue for profiling for multiple windows
     *pc = rv32->get_pc();
     rv32->exec_inst();
     *inst = rv32->get_inst();
