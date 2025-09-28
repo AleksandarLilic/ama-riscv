@@ -67,8 +67,8 @@ ama_riscv_icache #(
 ) ama_riscv_icache_i (
     .clk (clk),
     .rst (rst),
-    .req_core (imem_addr_ch.RX),
-    .rsp_core (imem_data_ch.TX),
+    .req_core (imem_req_ch.RX),
+    .rsp_core (imem_rsp_ch.TX),
     .req_mem (mem_addr_ch_imem.TX),
     .rsp_mem (mem_data_ch_imem.RX)
 );
