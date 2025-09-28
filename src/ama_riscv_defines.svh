@@ -147,12 +147,22 @@ parameter unsigned CORE_DATA_BUS = 32;
 
 // interfaces
 interface rv_if #(parameter DW = 32) (input logic clk);
-    logic          valid;
-    logic          ready;
+    //localparam unsigned W = DW;
+    logic valid;
+    logic ready;
     logic [DW-1:0] data;
-    localparam unsigned W = DW;
-    modport TX (output valid, output data, input  ready);  // producer
-    modport RX (input  valid, input  data, output ready);  // consumer
+    modport TX (output valid, output data, input  ready); // producer
+    modport RX (input  valid, input  data, output ready); // consumer
+endinterface
+
+interface rv_if_d2 #(parameter DW1 = 32,parameter DW2 = 32 ) (input logic clk);
+    //localparam unsigned W = DW;
+    logic valid;
+    logic ready;
+    logic [DW1-1:0] data1;
+    logic [DW2-1:0] data2;
+    modport TX (output valid, output data1, output data2, input  ready); // prod
+    modport RX (input  valid, input  data1, input  data2, output ready); // cons
 endinterface
 
 // structs

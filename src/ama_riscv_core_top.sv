@@ -16,27 +16,23 @@ module ama_riscv_core_top (
 );
 
 // IMEM
-rv_if #(.DW(CORE_ADDR_BUS_W)) imem_addr_ch ();
-rv_if #(.DW(CORE_DATA_BUS)) imem_data_ch ();
+rv_if #(.DW(CORE_ADDR_BUS_W)) imem_req_ch ();
+rv_if #(.DW(CORE_DATA_BUS)) imem_rsp_ch ();
 
 // DMEM
-logic [CORE_DATA_BUS-1:0] dmem_write_data;
-logic [CORE_ADDR_BUS_W-1:0] dmem_addr;
-logic        dmem_en;
-logic [ 3:0] dmem_we;
-logic [CORE_DATA_BUS-1:0] dmem_read_data_mem;
+rv_if_d2 #(.DW1(CORE_ADDR_BUS_W), .DW2(CORE_DATA_BUS)) dmem_req_ch ();
+rv_if #(.DW(CORE_DATA_BUS)) dmem_rsp_ch ();
+logic [ 3:0] dmem_we; // to be removed with dcache
 
 // core
 ama_riscv_core ama_riscv_core_i(
     .clk (clk),
     .rst (rst),
-    .imem_req (imem_addr_ch.TX),
-    .imem_rsp (imem_data_ch.RX),
-    .dmem_write_data (dmem_write_data),
-    .dmem_addr (dmem_addr),
-    .dmem_en (dmem_en),
+    .imem_req (imem_req_ch.TX),
+    .imem_rsp (imem_rsp_ch.RX),
     .dmem_we (dmem_we),
-    .dmem_read_data_mem (dmem_read_data_mem),
+    .dmem_req (dmem_req_ch.TX),
+    .dmem_rsp (dmem_rsp_ch.RX),
     .mmio_instr_cnt (mmio_instr_cnt),
     .mmio_cycle_cnt (mmio_cycle_cnt),
     .mmio_uart_data_out (mmio_uart_data_out),
@@ -54,17 +50,15 @@ ama_riscv_imem #(
 ) ama_riscv_imem_i (
     .clk (clk),
     .rst (rst),
-    .req (imem_addr_ch.RX),
-    .rsp (imem_data_ch.TX)
+    .req (imem_req_ch.RX),
+    .rsp (imem_rsp_ch.TX)
 );
 
 ama_riscv_dmem ama_riscv_dmem_i (
     .clk (clk),
-    .en (dmem_en),
     .we (dmem_we),
-    .addr (dmem_addr),
-    .din (dmem_write_data),
-    .dout (dmem_read_data_mem)
+    .req (dmem_req_ch.RX),
+    .rsp (dmem_rsp_ch.TX)
 );
 
 endmodule

@@ -7,11 +7,9 @@ module ama_riscv_core (
     rv_if.TX            imem_req,
     rv_if.RX            imem_rsp,
     // dmem
-    output logic [31:0] dmem_write_data,
-    output logic [13:0] dmem_addr,
-    output logic        dmem_en,
     output logic [ 3:0] dmem_we,
-    input  logic [31:0] dmem_read_data_mem,
+    rv_if_d2.TX         dmem_req,
+    rv_if.RX            dmem_rsp,
     // mmio in
     input  logic [31:0] mmio_instr_cnt,
     input  logic [31:0] mmio_cycle_cnt,
@@ -309,10 +307,10 @@ end
 // Data Memory Space
 // Comprised of DMEM and MM I/O
 logic [ 4:0] store_byte_shift; // store_mask converted to byte shifts
-logic [31:0] dms_write_data; // shifts 0, 1, 2 or 3 bytes
+logic [31:0] data_to_store; // shifts 0, 1, 2 or 3 bytes
 assign store_mask_offset = alu_out[1:0];
 assign store_byte_shift = store_mask_offset << 3;
-assign dms_write_data = bcs_b << store_byte_shift;
+assign data_to_store = bcs_b << store_byte_shift;
 
 // MM I/O
 logic [31:0] mmio_read_data;
@@ -320,7 +318,7 @@ logic [31:0] mmio_write_data;
 logic [ 2:0] mmio_addr;
 logic        mmio_en;
 logic [ 3:0] mmio_we;
-assign mmio_write_data = dms_write_data;
+assign mmio_write_data = data_to_store;
 assign mmio_addr = alu_out[ 4:2];
 assign mmio_en = (alu_out[31:30] == `MMIO_RANGE) && dmem_en_exe;
 assign mmio_we = {4{(alu_out[31:30] == `MMIO_RANGE)}} & dmem_we_exe;
@@ -365,9 +363,9 @@ end
 //------------------------------------------------------------------------------
 // DMEM
 logic [ 1:0] load_sm_offset_exe;
-assign dmem_write_data = dms_write_data;
-assign dmem_addr = alu_out[15:2];
-assign dmem_en = (alu_out[31:30] == `DMEM_RANGE) && dmem_en_exe;
+assign dmem_req.data2 = data_to_store;
+assign dmem_req.data1 = alu_out[15:2];
+assign dmem_req.valid = (alu_out[31:30] == `DMEM_RANGE) && dmem_en_exe;
 assign dmem_we = {4{(alu_out[31:30] == `DMEM_RANGE)}} & dmem_we_exe;
 assign load_sm_offset_exe = store_mask_offset;
 
@@ -403,7 +401,7 @@ logic [ 2:0] load_sm_width;
 assign load_sm_width = fn3_mem;
 always_comb begin
     case (alu_out_mem[31:30])
-        `DMEM_RANGE: load_sm_data_in = dmem_read_data_mem;
+        `DMEM_RANGE: load_sm_data_in = dmem_rsp.data;
         `MMIO_RANGE: load_sm_data_in = mmio_read_data;
         default: load_sm_data_in = 32'h0;
     endcase
