@@ -237,7 +237,7 @@ always_comb begin
             ig_sel_r      = `IG_I_TYPE;
             // bc_uns_r      = *;
             dmem_en_r     = 1'b0;
-            // load_sm_en_r  = *;
+            load_sm_en_r  = 1'b0;
             wb_sel_r      = `WB_SEL_INC4;
             rd_we_r       = rd_nz;
         end
@@ -255,7 +255,7 @@ always_comb begin
             ig_sel_r      = `IG_J_TYPE;
             // bc_uns_r      = *;
             dmem_en_r     = 1'b0;
-            // load_sm_en_r  = *;
+            load_sm_en_r  = 1'b0;
             wb_sel_r      = `WB_SEL_INC4;
             rd_we_r       = rd_nz;
         end
@@ -273,7 +273,7 @@ always_comb begin
             ig_sel_r      = `IG_U_TYPE;
             // bc_uns_r      = *;
             dmem_en_r     = 1'b0;
-            // load_sm_en_r  = *;
+            load_sm_en_r  = 1'b0;
             wb_sel_r      = `WB_SEL_ALU;
             rd_we_r       = rd_nz;
         end
@@ -291,7 +291,7 @@ always_comb begin
             ig_sel_r      = `IG_U_TYPE;
             // bc_uns_r      = *;
             dmem_en_r     = 1'b0;
-            // load_sm_en_r  = *;
+            load_sm_en_r  = 1'b0;
             wb_sel_r      = `WB_SEL_ALU;
             rd_we_r       = rd_nz;
         end
@@ -313,7 +313,7 @@ always_comb begin
             // ig_sel_r      = *;
             // bc_uns_r      = *;
             dmem_en_r     = 1'b0;
-            // load_sm_en_r  = *;
+            load_sm_en_r  = 1'b0;
             wb_sel_r      = `WB_SEL_CSR;
             rd_we_r       = rd_nz;
         end
