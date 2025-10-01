@@ -1,4 +1,5 @@
 `include "ama_riscv_defines.svh"
+`include "ama_riscv_tb_defines.svh"
 
 module ama_riscv_icache #(
     parameter int unsigned SETS = 4 // must be power of 2
@@ -13,12 +14,12 @@ module ama_riscv_icache #(
 );
 
 // validate parameters
-if (SETS > 1024) begin
-    $error("icache SETS > 1024 - can't be bigger than the entire memory");
+if (SETS > 1024) begin: check_sets_size
+    $error("dcache SETS > 1024 - can't be bigger than the entire memory");
 end
 
-if (!is_pow2(SETS)) begin
-    $error("icache SETS not power of 2");
+if (!is_pow2(SETS)) begin: check_sets_pow2
+    $error("dcache SETS not power of 2");
 end
 
 parameter int unsigned WAYS = 1; // currently only direct-mapped supported
@@ -27,15 +28,15 @@ parameter int unsigned WAYS = 1; // currently only direct-mapped supported
 parameter int unsigned INDEX_BITS = $clog2(SETS);
 
 // custom types
-typedef struct packed {
+typedef struct {
     logic valid;
     // logic lru_cnt; // for 2-way set associative
     logic [TAG_W-1:0] tag;
     logic [CACHE_LINE_SIZE-1:0] data;
 } cache_line_t;
 
-typedef struct packed {
-    cache_line_t [SETS-1:0] cl;
+typedef struct {
+    cache_line_t cl [SETS-1:0] ;
 } cache_way_t;
 
 typedef struct packed {
@@ -66,7 +67,7 @@ get_w_idx(input logic [CORE_ADDR_BUS_W-1:0] addr);
 endfunction
 
 // implementation
-cache_way_t [WAYS-1:0] arr;
+cache_way_t arr [WAYS-1:0];
 
 parameter int unsigned way_idx = 0; // TODO: implement set associativity
 
@@ -116,27 +117,23 @@ logic mem_transfer_done;
 assign mem_transfer_done =
     (rsp_mem.valid && (mem_bus_cnt_d == (MEM_TRANSFERS_PER_CL - 1)));
 
-`DFF_CI_RI_RVI_EN(
-    mem_transfer_done,
-    (cr_pend.mem_start_addr >> (2 + INDEX_BITS)),
-    arr[way_idx].cl[get_idx(cr_pend.addr)].tag
-)
-
 always_ff @(posedge clk) begin
     if (rst) begin
-        for (int i = 0; i < SETS; i++) arr[way_idx].cl[i].valid <= 1'b0;
-    end else if (mem_transfer_done) begin
-        arr[way_idx].cl[get_idx(cr_pend.addr)].valid <= 1'b1;
+        for (int i = 0; i < SETS; i++) begin
+            arr[way_idx].cl[i].valid <= 1'b0;
+        end
+    end else if (rsp_mem.valid) begin // loading cache line from mem
+        arr[way_idx]
+            .cl[get_idx(cr_pend.addr)]
+            .data[(MEM_DATA_BUS*mem_bus_cnt_d) +: MEM_DATA_BUS] <= rsp_mem.data;
+        // on the last transfer, update valid and tag
+        if (mem_transfer_done) begin
+            arr[way_idx].cl[get_idx(cr_pend.addr)].valid <= 1'b1;
+            arr[way_idx].cl[get_idx(cr_pend.addr)].tag <=
+                (cr_pend.mem_start_addr >> (2 + INDEX_BITS));
+        end
     end
 end
-
-`DFF_CI_EN(
-    rsp_mem.valid,
-    rsp_mem.data,
-    arr[way_idx]
-        .cl[get_idx(cr_pend.addr)]
-        .data[(MEM_DATA_BUS*mem_bus_cnt_d) +: MEM_DATA_BUS]
-)
 
 // debug signals
 logic dbg_serving_pending_req;
