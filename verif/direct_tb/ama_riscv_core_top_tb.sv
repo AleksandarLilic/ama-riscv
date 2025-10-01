@@ -261,21 +261,18 @@ integer miss_cnt = 'h0; // move to a struct?
 function automatic byte get_icache_status();
     byte ic_hm;
     bit ic_miss;
-    bit ic_service_pending_req;
+    bit ic_handle_pending_req;
     bit ic_hit;
     begin
         ic_hm = hw_status_t_none;
 
-        ic_miss = (
-            ((`DUT_IC.state == IC_READY)) &&
-            (`DUT_IC.nx_state == IC_MISS)
-        );
-        ic_service_pending_req = (
+        ic_miss = (`DUT_IC.new_core_req_d && !`DUT_IC.hit_d);
+        ic_handle_pending_req = (
             (`DUT_IC.cr_pend.active && !`DUT_IC.new_core_req_d)
         );
         ic_hit = (`DUT_IC.new_core_req_d && `DUT_IC.hit_d);
         if (ic_miss) ic_hm = hw_status_t_miss;
-        else if (ic_service_pending_req || ic_hit) ic_hm = hw_status_t_hit;
+        else if (ic_handle_pending_req || ic_hit) ic_hm = hw_status_t_hit;
         miss_cnt += ic_miss;
 
         return ic_hm;
