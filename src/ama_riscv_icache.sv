@@ -72,7 +72,6 @@ parameter int unsigned way_idx = 0; // TODO: implement set associativity
 
 logic [CORE_ADDR_BUS_W-1:0] cr_addr, cr_d_addr;
 assign cr_addr = req_core.data; // just rename for clarity
-`DFF_CI_RI_RVI(cr_addr, cr_d_addr);
 
 logic tag_match;
 assign tag_match = (arr[way_idx].cl[get_idx(cr_addr)].tag == get_tag(cr_addr));
@@ -84,7 +83,8 @@ assign new_core_req = (req_core.valid && req_core.ready);
 logic hit, hit_d;
 assign hit =
     &{tag_match, new_core_req, arr[way_idx].cl[get_idx(cr_addr)].valid};
-`DFF_CI_RI_RVI(hit, hit_d)
+`DFF_CI_RI_RVI_EN(new_core_req, hit, hit_d)
+`DFF_CI_RI_RVI_EN(new_core_req, cr_addr, cr_d_addr);
 
 // TODO DPI 1: query from cpp model
 
