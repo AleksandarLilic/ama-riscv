@@ -175,9 +175,9 @@ parameter unsigned TAG_W = CORE_ADDR_BUS_B - CACHE_LINE_ADDR_B; // 10
 
 typedef enum logic [1:0] {
     IC_RESET,
-    IC_READY, // ready for next request, also services hit in the next cycle
+    IC_READY, // ready for next request, services load hit in the next cycle
     IC_MISS // miss, go to main memory
-} cache_state_t;
+} icache_state_t;
 
 `ifdef IMEM_DELAY
 `define IMEM_DELAY_CLK 3

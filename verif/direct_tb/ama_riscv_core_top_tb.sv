@@ -340,9 +340,9 @@ function automatic byte get_icache_status();
             (`DUT_IC.nx_state == IC_MISS)
         );
         ic_service_pending_req = (
-            (`DUT_IC.pending_req && !`DUT_IC.new_core_req)
+            (`DUT_IC.cr_pend.active && !`DUT_IC.new_core_req_d)
         );
-        ic_hit = (`DUT_IC.new_core_req && `DUT_IC.hit_d);
+        ic_hit = (`DUT_IC.new_core_req_d && `DUT_IC.hit_d);
         if (ic_miss) ic_hm = hw_status_t_miss;
         else if (ic_service_pending_req || ic_hit) ic_hm = hw_status_t_hit;
         miss_cnt += ic_miss;
