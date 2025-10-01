@@ -101,7 +101,7 @@ always_ff @(posedge clk) begin
         cr_pend <= '{1'b0, 'h0, 'h0};
     end else if ((state == IC_READY) && (nx_state == IC_MISS)) begin
         cr_pend <= '{1'b1, cr_d_addr, mem_start_addr_d};
-        `LOG_D($sformatf("saving pending request; with core addr byte at 0x%5h", cr_addr<<2));
+        // `LOG_D($sformatf("saving pending request; with core addr byte at 0x%5h", cr_addr<<2));
     end else if (cr_pend.active && (state == IC_READY)) begin
         cr_pend <= '{1'b0, 'h0, 'h0};
     end
@@ -156,20 +156,20 @@ always_comb begin
     case (state)
         IC_RESET: begin
             nx_state = IC_READY;
-            `LOG_D($sformatf(">> I$ STATE IC_RESET"));
+            // `LOG_D($sformatf(">> I$ STATE IC_RESET"));
         end
 
         IC_READY: begin
-            `LOG_D($sformatf(">> I$ STATE IC_READY"));
+            // `LOG_D($sformatf(">> I$ STATE IC_READY"));
             if ((new_core_req_d) && (!hit_d)) begin
                 nx_state = IC_MISS;
-                `LOG_D($sformatf(">> I$ next state: IC_MISS; missed on core addr byte: 0x%0h", cr_addr<<2));
+                // `LOG_D($sformatf(">> I$ next state: IC_MISS; missed on core addr byte: 0x%0h", cr_addr<<2));
             end
         end
 
         IC_MISS: begin
-            `LOG_D($sformatf(">> I$ STATE IC_MISS"));
-            `LOG_D($sformatf(">> I$ miss state; cnt %0d", mem_bus_cnt));
+            // `LOG_D($sformatf(">> I$ STATE IC_MISS"));
+            // `LOG_D($sformatf(">> I$ miss state; cnt %0d", mem_bus_cnt));
             if (mem_bus_cnt_d == (MEM_TRANSFERS_PER_CL - 1)) begin
                 nx_state = IC_READY;
             end
@@ -207,7 +207,7 @@ always_comb begin
                 rsp_core.data = arr[way_idx]
                     .cl[get_idx(cr_pend.addr)]
                     .data[get_w_idx(cr_pend.addr) +: CORE_DATA_BUS];
-                `LOG_D($sformatf("icache OUT complete pending request; cache at word %0d; core at byte 0x%5h; with output %8h", get_w_idx(cr_pend.addr), cr_d_addr<<2, rsp_core.data));
+                // `LOG_D($sformatf("icache OUT complete pending request; cache at word %0d; core at byte 0x%5h; with output %8h", get_w_idx(cr_pend.addr), cr_d_addr<<2, rsp_core.data));
 
             end else if (new_core_req_d) begin
                 if (hit_d) begin
@@ -215,7 +215,7 @@ always_comb begin
                     rsp_core.data = arr[way_idx]
                         .cl[get_idx(cr_d_addr)]
                         .data[get_w_idx(cr_d_addr) +: CORE_DATA_BUS];
-                    `LOG_D($sformatf("icache OUT hit; cache at word %0d; core at byte 0x%5h; with output %8h", get_idx(cr_d_addr), cr_d_addr<<2, rsp_core.data));
+                    // `LOG_D($sformatf("icache OUT hit; cache at word %0d; core at byte 0x%5h; with output %8h", get_idx(cr_d_addr), cr_d_addr<<2, rsp_core.data));
 
                 end else begin
                     // handle miss, initiate memory read
@@ -225,7 +225,7 @@ always_comb begin
                     rsp_mem.ready = 1'b1;
                     req_mem.valid = 1'b1;
                     req_mem.data = mem_start_addr_d;
-                    `LOG_D($sformatf("icache OUT H->M transition; core at byte 0x%5h; mem_start_addr_d: %0d 0x%5h", cr_d_addr<<2, mem_start_addr_d, mem_start_addr_d));
+                    // `LOG_D($sformatf("icache OUT H->M transition; core at byte 0x%5h; mem_start_addr_d: %0d 0x%5h", cr_d_addr<<2, mem_start_addr_d, mem_start_addr_d));
                 end
             end
         end
@@ -236,7 +236,7 @@ always_comb begin
                 rsp_mem.ready = 1'b1;
                 req_mem.valid = 1'b1;
                 req_mem.data = (cr_pend.mem_start_addr + mem_bus_cnt);
-                `LOG_D($sformatf("icache miss OUT; bus packet: %0d", (cr_pend.mem_start_addr + mem_bus_cnt)));
+                // `LOG_D($sformatf("icache miss OUT; bus packet: %0d", (cr_pend.mem_start_addr + mem_bus_cnt)));
             end
         end
 
