@@ -40,8 +40,8 @@ void cosim_add_te(
     unsigned int inst_wbk,
     unsigned int pc_wbk,
     unsigned int x2_sp,
-    char dmem_addr ,
-    char dmem_size ,
+    char dmem_addr,
+    char dmem_size,
     char branch_taken,
     char ic_hm,
     char dc_hm,
@@ -65,11 +65,11 @@ void cosim_add_te(
 DPI_LINKER_DECL DPI_DLLESPEC
 void cosim_exec(
     uint64_t clk_cnt,
-    uint32_t* pc,
-    uint32_t* inst,
+    unsigned int* pc,
+    unsigned int* inst,
     const char** inst_asm_str,
     const char** stack_top_str,
-    uint32_t* rf)
+    unsigned int rf[32])
 {
     // before the instruction - callstack is updated at the end of previous inst
     stack_top = rv32->get_callstack_top_str().c_str();
