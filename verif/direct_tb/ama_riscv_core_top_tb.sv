@@ -1,4 +1,5 @@
 `include "ama_riscv_defines.svh"
+`include "ama_riscv_tb_defines.svh"
 `include "ama_riscv_perf.svh"
 
 `define DEFAULT_HALF_PERIOD 5 // ns
@@ -24,6 +25,16 @@
 
 `define LOG(x) $display("%12t: %0s", $time, x)
 `define LOGNT(x) $display("%0s", x)
+
+int log_level;
+typedef enum int {
+    LOG_NONE = 0,
+    LOG_ERROR = 1,
+    LOG_WARN = 2,
+    LOG_INFO = 3,
+    LOG_VERBOSE = 4,
+    LOG_DEBUG = 5
+} log_level_e;
 
 `define LOG_E(x) \
     errors += 1; \
@@ -339,7 +350,7 @@ function automatic byte get_bp_status();
 endfunction
 `endif
 
-function automatic add_trace_entry(longint unsigned clk_cnt);
+function automatic void add_trace_entry(longint unsigned clk_cnt);
     byte unsigned dc_hm;
     byte unsigned bp_hm;
     begin

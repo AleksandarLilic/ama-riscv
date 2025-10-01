@@ -46,6 +46,7 @@ def parse_args():
 
 def create_run_cfg(log_wave, log_vcd):
     tcl_content = []
+    tcl_content.append("# AUTOMATICALLY GENERATED FILE. DO NOT EDIT.")
     if log_wave:
         tcl_content.append("log_wave -recursive *")
     if log_vcd:

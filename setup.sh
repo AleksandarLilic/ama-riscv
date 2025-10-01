@@ -19,7 +19,8 @@ alias run='${REPO_ROOT}/run_test.py'
 
 # generic run_cfg.tcl, collects waves from the entire design as .wdb and .vcd
 tcl_cfg="run_cfg.tcl"
-echo "log_wave -recursive *" > $tcl_cfg
+echo "# AUTOMATICALLY GENERATED FILE. DO NOT EDIT." > $tcl_cfg
+echo "log_wave -recursive *" >> $tcl_cfg
 #echo "open_vcd test_wave.vcd" >> $tcl_cfg
 #echo "log_vcd *" >> $tcl_cfg
 echo "run all" >> $tcl_cfg
