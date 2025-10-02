@@ -7,18 +7,20 @@
 `define MMIO_RANGE 2'b01
 
 // Opcodes
-`define OPC7_R_TYPE 7'b011_0011 // R-type
-`define OPC7_I_TYPE 7'b001_0011 // I-type
-`define OPC7_LOAD 7'b000_0011 // I-type
-`define OPC7_STORE 7'b010_0011 // S-type
-`define OPC7_BRANCH 7'b110_0011 // B-type
-`define OPC7_JALR 7'b110_0111 // I-type
-`define OPC7_JAL 7'b110_1111 // J-type
-`define OPC7_LUI 7'b011_0111 // U-type
-`define OPC7_AUIPC 7'b001_0111 // U-type
-`define OPC7_SYSTEM 7'b111_0011 // I-type, System
+typedef enum logic [6:0] {
+    OPC7_R_TYPE = 7'b011_0011,
+    OPC7_I_TYPE = 7'b001_0011,
+    OPC7_LOAD = 7'b000_0011,
+    OPC7_STORE = 7'b010_0011,
+    OPC7_BRANCH = 7'b110_0011,
+    OPC7_JALR = 7'b110_0111,
+    OPC7_JAL = 7'b110_1111,
+    OPC7_LUI = 7'b011_0111,
+    OPC7_AUIPC = 7'b001_0111,
+    OPC7_SYSTEM = 7'b111_0011
+} opc7_t;
 
-// NOP
+// NOP inst
 `define NOP 32'h13 // addi x0 x0 0
 
 // CSR addresses
@@ -105,17 +107,19 @@
 `define DMEM_OFF_3  2'd3
 
 // ALU
-`define ALU_ADD     4'b0000
-`define ALU_SUB     4'b1000
-`define ALU_SLL     4'b0001
-`define ALU_SRL     4'b0101
-`define ALU_SRA     4'b1101
-`define ALU_SLT     4'b0010
-`define ALU_SLTU    4'b0011
-`define ALU_XOR     4'b0100
-`define ALU_OR      4'b0110
-`define ALU_AND     4'b0111
-`define ALU_PASS_B  4'b1111
+typedef enum logic [3:0] {
+    ALU_OP_ADD = 4'b0000,
+    ALU_OP_SUB = 4'b1000,
+    ALU_OP_SLL = 4'b0001,
+    ALU_OP_SRL = 4'b0101,
+    ALU_OP_SRA = 4'b1101,
+    ALU_OP_SLT = 4'b0010,
+    ALU_OP_SLTU = 4'b0011,
+    ALU_OP_XOR = 4'b0100,
+    ALU_OP_OR = 4'b0110,
+    ALU_OP_AND = 4'b0111,
+    ALU_OP_PASS_B = 4'b1111
+} alu_op_t;
 
 // Imm Gen
 `define IG_DISABLED 3'b000
@@ -197,10 +201,24 @@ typedef struct packed {
         else _q <= _d; \
     end
 
+`define DFF_CI_RI_RV_CLR_CLRVI(_rstv, _clr, _d, _q) \
+    always_ff @(posedge clk) begin \
+        if (rst) _q <= _rstv; \
+        else if (_clr) _q <= _rstv; \
+        else _q <= _d; \
+    end
+
 `define DFF_CI_RI_RVI_CLR_CLRVI_EN(_clr, _en, _d, _q) \
     always_ff @(posedge clk) begin \
         if (rst) _q <= 'h0; \
         else if (_clr) _q <= 'h0; \
+        else if (_en) _q <= _d; \
+    end
+
+`define DFF_CI_RI_RV_CLR_CLRVI_EN(_rstv, _clr, _en, _d, _q) \
+    always_ff @(posedge clk) begin \
+        if (rst) _q <= _rstv; \
+        else if (_clr) _q <= _rstv; \
         else if (_en) _q <= _d; \
     end
 
@@ -209,6 +227,14 @@ typedef struct packed {
 
 `define STAGE_EN(_clr, _en, _d, _q) \
     `DFF_CI_RI_RVI_CLR_CLRVI_EN(_clr, _en, _d, _q)
+
+// explicit reset value for enum types
+// _rstv moved to middle to align visually with STAGE_EN macro
+`define STAGE_RV(_clr, _rstv, _d, _q) \
+    `DFF_CI_RI_RV_CLR_CLRVI(_rstv, _clr, _d, _q)
+
+`define STAGE_EN_RV(_clr, _en, _rstv, _d, _q) \
+    `DFF_CI_RI_RV_CLR_CLRVI_EN(_rstv, _clr, _en, _d, _q)
 
 `define DFF_CI_RI_RV(_rstv, _d, _q) \
     always_ff @(posedge clk) begin \

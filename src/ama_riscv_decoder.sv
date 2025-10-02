@@ -16,7 +16,7 @@ module ama_riscv_decoder (
     output logic        store_inst,
     output logic        branch_inst,
     output csr_ctrl_t   csr_ctrl,
-    output logic [ 3:0] alu_op_sel,
+    output alu_op_t     alu_op_sel,
     output logic        alu_a_sel,
     output logic        alu_b_sel,
     output logic [ 2:0] ig_sel,
@@ -45,7 +45,7 @@ assign rd_addr_dec = inst.p.dec[11:7];
 logic [ 6:0] opc7_dec;
 logic [ 2:0] fn3_dec;
 logic [ 6:0] fn7_dec;
-assign opc7_dec = inst.p.dec[6:0];
+assign opc7_dec = opc7_t'(inst.p.dec[6:0]);
 assign fn3_dec = inst.p.dec[14:12];
 assign fn7_dec = inst.p.dec[31:25];
 
@@ -81,7 +81,7 @@ logic        load_inst_d;
 logic        store_inst_d;
 logic        branch_inst_d;
 logic        jump_inst_d;
-logic [ 3:0] alu_op_sel_d;
+alu_op_t     alu_op_sel_d;
 logic        alu_a_sel_d;
 logic        alu_b_sel_d;
 logic [ 2:0] ig_sel_d;
@@ -132,7 +132,7 @@ always_comb begin
     rd_we_r = rd_we_d;
 
     case (opc7_dec)
-        `OPC7_R_TYPE: begin
+        OPC7_R_TYPE: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
             load_inst_r   = 1'b0;
@@ -150,7 +150,7 @@ always_comb begin
             rd_we_r       = rd_nz;
         end
 
-        `OPC7_I_TYPE: begin
+        OPC7_I_TYPE: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
             load_inst_r   = 1'b0;
@@ -170,14 +170,14 @@ always_comb begin
             rd_we_r       = rd_nz;
         end
 
-        `OPC7_LOAD: begin
+        OPC7_LOAD: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
             load_inst_r   = 1'b1;
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
-            alu_op_sel_r  = `ALU_ADD;
+            alu_op_sel_r  = ALU_OP_ADD;
             alu_a_sel_r   = `ALU_A_SEL_RS1;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
             ig_sel_r      = `IG_I_TYPE;
@@ -188,14 +188,14 @@ always_comb begin
             rd_we_r       = rd_nz;
         end
 
-        `OPC7_STORE: begin
+        OPC7_STORE: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
             load_inst_r   = 1'b0;
             store_inst_r  = 1'b1;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
-            alu_op_sel_r  = `ALU_ADD;
+            alu_op_sel_r  = ALU_OP_ADD;
             alu_a_sel_r   = `ALU_A_SEL_RS1;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
             ig_sel_r      = `IG_S_TYPE;
@@ -206,14 +206,14 @@ always_comb begin
             rd_we_r       = 1'b0;
         end
 
-        `OPC7_BRANCH: begin
+        OPC7_BRANCH: begin
             pc_sel_r      = `PC_SEL_INC4;   // to change to branch predictor
             pc_we_r       = 1'b1;           // assumes branch predictor ... (1)
             load_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b1;
             jump_inst_r   = 1'b0;
-            alu_op_sel_r  = `ALU_ADD;
+            alu_op_sel_r  = ALU_OP_ADD;
             alu_a_sel_r   = `ALU_A_SEL_PC;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
             ig_sel_r      = `IG_B_TYPE;
@@ -224,14 +224,14 @@ always_comb begin
             rd_we_r       = 1'b0;
         end
 
-        `OPC7_JALR: begin
+        OPC7_JALR: begin
             pc_sel_r      = `PC_SEL_ALU;    // to change to branch predictor
             pc_we_r       = 1'b1;           // assumes branch predictor ... (1)
             load_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b1;
-            alu_op_sel_r  = `ALU_ADD;
+            alu_op_sel_r  = ALU_OP_ADD;
             alu_a_sel_r   = `ALU_A_SEL_RS1;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
             ig_sel_r      = `IG_I_TYPE;
@@ -242,14 +242,14 @@ always_comb begin
             rd_we_r       = rd_nz;
         end
 
-        `OPC7_JAL: begin
+        OPC7_JAL: begin
             pc_sel_r      = `PC_SEL_ALU;    // to change to branch predictor
             pc_we_r       = 1'b1;           // assumes branch predictor ... (1)
             load_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b1;
-            alu_op_sel_r  = `ALU_ADD;
+            alu_op_sel_r  = ALU_OP_ADD;
             alu_a_sel_r   = `ALU_A_SEL_PC;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
             ig_sel_r      = `IG_J_TYPE;
@@ -260,14 +260,14 @@ always_comb begin
             rd_we_r       = rd_nz;
         end
 
-        `OPC7_LUI: begin
+        OPC7_LUI: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
             load_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
-            alu_op_sel_r  = `ALU_PASS_B;
+            alu_op_sel_r  = ALU_OP_PASS_B;
             // alu_a_sel_r   = *;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
             ig_sel_r      = `IG_U_TYPE;
@@ -278,14 +278,14 @@ always_comb begin
             rd_we_r       = rd_nz;
         end
 
-        `OPC7_AUIPC: begin
+        OPC7_AUIPC: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
             load_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
-            alu_op_sel_r  = `ALU_ADD;
+            alu_op_sel_r  = ALU_OP_ADD;
             alu_a_sel_r   = `ALU_A_SEL_PC;
             alu_b_sel_r   = `ALU_B_SEL_IMM;
             ig_sel_r      = `IG_U_TYPE;
@@ -296,7 +296,7 @@ always_comb begin
             rd_we_r       = rd_nz;
         end
 
-        `OPC7_SYSTEM: begin
+        OPC7_SYSTEM: begin
             pc_sel_r      = `PC_SEL_INC4;
             pc_we_r       = 1'b1;
             load_inst_r   = 1'b0;
@@ -474,7 +474,7 @@ assign load_inst = load_inst_r;
 assign store_inst = store_inst_r;
 assign branch_inst = branch_inst_r;
 assign csr_ctrl = csr_ctrl_r;
-assign alu_op_sel = alu_op_sel_r;
+assign alu_op_sel = alu_op_t'(alu_op_sel_r);
 assign alu_a_sel = alu_a_sel_r;
 assign alu_b_sel = alu_b_sel_r;
 assign ig_sel = ig_sel_r;
@@ -491,7 +491,7 @@ assign rd_we = rd_we_r;
 `DFF_CI_RI_RVI(store_inst, store_inst_d)
 `DFF_CI_RI_RVI(branch_inst_r, branch_inst_d)
 `DFF_CI_RI_RVI(jump_inst_r, jump_inst_d)
-`DFF_CI_RI_RV(`ALU_ADD, alu_op_sel, alu_op_sel_d)
+`DFF_CI_RI_RV(ALU_OP_ADD, alu_op_sel, alu_op_sel_d)
 `DFF_CI_RI_RV(`ALU_A_SEL_RS1, alu_a_sel, alu_a_sel_d)
 `DFF_CI_RI_RV(`ALU_B_SEL_RS2, alu_b_sel, alu_b_sel_d)
 `DFF_CI_RI_RV(`IG_DISABLED, ig_sel, ig_sel_d)

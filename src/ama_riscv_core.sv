@@ -49,7 +49,7 @@ logic        load_inst_dec;
 logic        store_inst_dec;
 csr_ctrl_t   csr_ctrl_dec;
 logic [ 2:0] imm_gen_sel_dec;
-logic [ 3:0] alu_op_sel_dec;
+alu_op_t     alu_op_sel_dec;
 logic [ 1:0] alu_a_sel_fwd_dec;
 logic [ 1:0] alu_b_sel_fwd_dec;
 logic        bc_a_sel_fwd_dec;
@@ -192,7 +192,7 @@ logic        bcs_b_sel_fwd_exe;
 logic        bc_uns_exe;
 logic [ 1:0] alu_a_sel_fwd_exe;
 logic [ 1:0] alu_b_sel_fwd_exe;
-logic [ 3:0] alu_op_sel_exe;
+alu_op_t     alu_op_sel_exe;
 logic        dmem_en_exe;
 logic        load_sm_en_exe;
 logic [ 1:0] wb_sel_exe;
@@ -200,11 +200,17 @@ csr_ctrl_t   csr_ctrl_exe;
 logic [11:0] csr_addr_exe;
 logic [ 4:0] csr_imm5;
 
+logic [31:0] rs1_data_fwd_dec;
+logic [31:0] rs2_data_fwd_dec;
+assign rs1_data_fwd_dec = rf_a_sel_fwd_dec ? writeback : rs1_data_dec;
+assign rs2_data_fwd_dec = rf_b_sel_fwd_dec ? writeback : rs2_data_dec;
+
 //`STAGE(clear.p.dec, pc.p.exe, pc.p.dec)
-`STAGE_EN(clear.p.dec, !bubble_dec, pc.p.dec, pc.p.exe) // don't propagate on bubble
+// don't propagate PC on bubble, rest is fine
+`STAGE_EN(clear.p.dec, !bubble_dec, pc.p.dec, pc.p.exe)
 `STAGE(clear.p.dec, rd_addr.p.dec, rd_addr.p.exe)
-`STAGE(clear.p.dec, rf_a_sel_fwd_dec ? writeback : rs1_data_dec, rs1_data_exe)
-`STAGE(clear.p.dec, rf_b_sel_fwd_dec ? writeback : rs2_data_dec, rs2_data_exe)
+`STAGE(clear.p.dec, rs1_data_fwd_dec, rs1_data_exe)
+`STAGE(clear.p.dec, rs2_data_fwd_dec, rs2_data_exe)
 `STAGE(clear.p.dec, imm_gen_out_dec, imm_gen_out_exe)
 `STAGE(clear.p.dec, inst.p.dec, inst.p.exe)
 `STAGE(clear.p.dec, load_inst_dec, load_inst_exe)
@@ -214,7 +220,7 @@ logic [ 4:0] csr_imm5;
 `STAGE(clear.p.dec, bc_uns_dec, bc_uns_exe)
 `STAGE(clear.p.dec, alu_a_sel_fwd_dec, alu_a_sel_fwd_exe)
 `STAGE(clear.p.dec, alu_b_sel_fwd_dec, alu_b_sel_fwd_exe)
-`STAGE(clear.p.dec, alu_op_sel_dec, alu_op_sel_exe)
+`STAGE_RV(clear.p.dec, ALU_OP_ADD, alu_op_sel_dec, alu_op_sel_exe)
 `STAGE(clear.p.dec, dmem_en_dec, dmem_en_exe)
 `STAGE(clear.p.dec, load_sm_en_dec, load_sm_en_exe)
 `STAGE(clear.p.dec, wb_sel_dec, wb_sel_exe)

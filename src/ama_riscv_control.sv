@@ -24,7 +24,7 @@ module ama_riscv_control (
     //output logic        branch_inst,
     //output logic        jump_inst,
     output csr_ctrl_t   csr_ctrl,
-    output logic [ 3:0] alu_op_sel,
+    output alu_op_t     alu_op_sel,
     output logic [ 2:0] ig_sel,
     output logic        bc_uns,
     output logic        dmem_en,
