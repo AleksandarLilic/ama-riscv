@@ -65,7 +65,7 @@ logic [ 1:0] wb_sel_dec;
 logic [ 3:0] dmem_we_exe;
 
 // Signals - FET stage
-logic [ 1:0] pc_sel_fet;
+pc_sel_t     pc_sel_fet;
 logic        pc_we_fet;
 
 //------------------------------------------------------------------------------
@@ -118,10 +118,10 @@ logic [31:0] alu_out;
 
 always_comb begin
     case (pc_sel_fet)
-        `PC_SEL_INC4: pc_mux_out = pc_inc4;
-        `PC_SEL_ALU: pc_mux_out = alu_out;
-        //`PC_SEL_BP: pc_mux_out =  bp_out;
-        `PC_SEL_PC: pc_mux_out = pc.p.fet;
+        PC_SEL_INC4: pc_mux_out = pc_inc4;
+        PC_SEL_ALU: pc_mux_out = alu_out;
+        //PC_SEL_BP: pc_mux_out =  bp_out;
+        PC_SEL_PC: pc_mux_out = pc.p.fet;
         default: pc_mux_out = pc_inc4;
     endcase
 end

@@ -17,7 +17,7 @@ module ama_riscv_control (
     input  logic        store_inst_exe,
     output logic        bubble_dec,
     pipeline_if.OUT     clear,
-    output logic [ 1:0] pc_sel,
+    output pc_sel_t     pc_sel,
     output logic        pc_we,
     output logic        load_inst,
     output logic        store_inst,

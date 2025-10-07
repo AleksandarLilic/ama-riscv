@@ -10,7 +10,7 @@ module ama_riscv_decoder (
     input  logic        bc_a_lt_b,
     output logic        bubble_dec,
     pipeline_if.OUT     clear,
-    output logic [ 1:0] pc_sel,
+    output pc_sel_t     pc_sel,
     output logic        pc_we,
     output logic        load_inst,
     output logic        store_inst,
@@ -57,7 +57,7 @@ assign fn3_exe = inst.p.exe[14:12];
 assign fn7_exe = inst.p.exe[31:25];
 
 // decoder outputs
-logic [ 1:0] pc_sel_r;
+pc_sel_t     pc_sel_r;
 logic        pc_we_r;
 logic        load_inst_r;
 logic        store_inst_r;
@@ -75,7 +75,7 @@ logic [ 1:0] wb_sel_r;
 logic        rd_we_r;
 
 // saved outputs
-logic [ 1:0] pc_sel_d;
+pc_sel_t     pc_sel_d;
 logic        pc_we_d;
 logic        load_inst_d;
 logic        store_inst_d;
@@ -133,7 +133,7 @@ always_comb begin
 
     case (opc7_dec)
         OPC7_R_TYPE: begin
-            pc_sel_r      = `PC_SEL_INC4;
+            pc_sel_r      = PC_SEL_INC4;
             pc_we_r       = 1'b1;
             load_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
@@ -151,7 +151,7 @@ always_comb begin
         end
 
         OPC7_I_TYPE: begin
-            pc_sel_r      = `PC_SEL_INC4;
+            pc_sel_r      = PC_SEL_INC4;
             pc_we_r       = 1'b1;
             load_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
@@ -171,7 +171,7 @@ always_comb begin
         end
 
         OPC7_LOAD: begin
-            pc_sel_r      = `PC_SEL_INC4;
+            pc_sel_r      = PC_SEL_INC4;
             pc_we_r       = 1'b1;
             load_inst_r   = 1'b1;
             store_inst_r  = 1'b0;
@@ -189,7 +189,7 @@ always_comb begin
         end
 
         OPC7_STORE: begin
-            pc_sel_r      = `PC_SEL_INC4;
+            pc_sel_r      = PC_SEL_INC4;
             pc_we_r       = 1'b1;
             load_inst_r   = 1'b0;
             store_inst_r  = 1'b1;
@@ -207,7 +207,7 @@ always_comb begin
         end
 
         OPC7_BRANCH: begin
-            pc_sel_r      = `PC_SEL_INC4;   // to change to branch predictor
+            pc_sel_r      = PC_SEL_INC4;    // to change to branch predictor
             pc_we_r       = 1'b1;           // assumes branch predictor ... (1)
             load_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
@@ -225,7 +225,7 @@ always_comb begin
         end
 
         OPC7_JALR: begin
-            pc_sel_r      = `PC_SEL_ALU;    // to change to branch predictor
+            pc_sel_r      = PC_SEL_ALU;     // to change to branch predictor
             pc_we_r       = 1'b1;           // assumes branch predictor ... (1)
             load_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
@@ -243,7 +243,7 @@ always_comb begin
         end
 
         OPC7_JAL: begin
-            pc_sel_r      = `PC_SEL_ALU;    // to change to branch predictor
+            pc_sel_r      = PC_SEL_ALU;     // to change to branch predictor
             pc_we_r       = 1'b1;           // assumes branch predictor ... (1)
             load_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
@@ -261,7 +261,7 @@ always_comb begin
         end
 
         OPC7_LUI: begin
-            pc_sel_r      = `PC_SEL_INC4;
+            pc_sel_r      = PC_SEL_INC4;
             pc_we_r       = 1'b1;
             load_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
@@ -279,7 +279,7 @@ always_comb begin
         end
 
         OPC7_AUIPC: begin
-            pc_sel_r      = `PC_SEL_INC4;
+            pc_sel_r      = PC_SEL_INC4;
             pc_we_r       = 1'b1;
             load_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
@@ -297,7 +297,7 @@ always_comb begin
         end
 
         OPC7_SYSTEM: begin
-            pc_sel_r      = `PC_SEL_INC4;
+            pc_sel_r      = PC_SEL_INC4;
             pc_we_r       = 1'b1;
             load_inst_r   = 1'b0;
             store_inst_r  = 1'b0;
@@ -402,7 +402,8 @@ always_comb begin
 
     case (state)
         RST: begin
-            pc_sel = `PC_SEL_PC;
+            pc_sel = PC_SEL_PC;
+
             `ifdef IMEM_DELAY
             bubble_dec = 1'b1;
             pc_we = 1'b0;
@@ -436,7 +437,7 @@ always_comb begin
         end
 
         STALL_FLOW: begin
-            pc_sel = flow_changed ? `PC_SEL_ALU : pc_sel_r;
+            pc_sel = flow_changed ? PC_SEL_ALU : pc_sel_r;
             pc_we = 1'b1;
             imem_req.valid = 1'b1;
             imem_rsp.ready = 1'b1;
@@ -485,7 +486,7 @@ assign wb_sel = wb_sel_r;
 assign rd_we = rd_we_r;
 
 // Store values
-`DFF_CI_RI_RV(`PC_SEL_PC, pc_sel, pc_sel_d)
+`DFF_CI_RI_RV(PC_SEL_PC, pc_sel, pc_sel_d)
 `DFF_CI_RI_RVI(pc_we, pc_we_d)
 `DFF_CI_RI_RVI(load_inst, load_inst_d)
 `DFF_CI_RI_RVI(store_inst, store_inst_d)

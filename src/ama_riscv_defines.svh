@@ -33,10 +33,12 @@ typedef enum logic [6:0] {
 
 // MUX select signals
 // PC select
-`define PC_SEL_INC4 2'd0 // PC = PC + 4
-`define PC_SEL_ALU 2'd1 // ALU output, used for jump/branch
-`define PC_SEL_BP 2'd2 // PC = Branch prediction output
-`define PC_SEL_PC 2'd3 // PC = Hardwired start address
+typedef enum logic[1:0] {
+    PC_SEL_INC4 = 2'd0, // PC = PC + 4
+    PC_SEL_ALU = 2'd1, // ALU output, used for jump/branch
+    PC_SEL_BP = 2'd2, // PC = Branch prediction output
+    PC_SEL_PC = 2'd3 // PC = Hardwired start address
+} pc_sel_t;
 
 // ALU A operand select
 `define ALU_A_SEL_RS1 1'd0 // A = Reg[rs1]
