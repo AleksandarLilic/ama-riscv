@@ -14,12 +14,16 @@ module ama_riscv_icache #(
 );
 
 // validate parameters
-if (SETS > 1024) begin: check_sets_size
-    $error("dcache SETS > 1024 - can't be bigger than the entire memory");
+if (SETS < 1) begin: check_sets_size_min
+    $error("icache SETS < 1 - must be at least 1");
+end
+
+if (SETS > 1024) begin: check_sets_size_max
+    $error("icache SETS > 1024 - can't be bigger than the entire memory");
 end
 
 if (!is_pow2(SETS)) begin: check_sets_pow2
-    $error("dcache SETS not power of 2");
+    $error("icache SETS not power of 2");
 end
 
 parameter int unsigned WAYS = 1; // currently only direct-mapped supported
@@ -28,11 +32,19 @@ parameter int unsigned WAYS = 1; // currently only direct-mapped supported
 parameter int unsigned INDEX_BITS = $clog2(SETS);
 
 // custom types
+typedef union packed {
+    logic [CACHE_LINE_SIZE-1:0] f; // flat view
+    logic [CACHE_LINE_SIZE/MEM_DATA_BUS-1:0] [MEM_DATA_BUS-1:0] q; // mem bus
+    logic [CACHE_LINE_SIZE/CORE_DATA_BUS-1:0] [CORE_DATA_BUS-1:0] w; // inst 32
+    // logic [CACHE_LINE_SIZE/16-1:0] [15:0] h; // inst 16 (compressed isa)
+    // logic [CACHE_LINE_SIZE/8-1:0] [7:0] b; // byte
+} cache_line_data_t;
+
 typedef struct {
     logic valid;
     // logic lru_cnt; // for 2-way set associative
     logic [TAG_W-1:0] tag;
-    logic [CACHE_LINE_SIZE-1:0] data;
+    cache_line_data_t data;
 } cache_line_t;
 
 typedef struct {
@@ -59,11 +71,6 @@ endfunction
 function [CORE_ADDR_BUS_W-1:0]
 get_cl_word(input logic [CORE_ADDR_BUS_W-1:0] addr);
     get_cl_word = addr & 4'hf;
-endfunction
-
-function [CORE_ADDR_BUS_W-1:0]
-get_w_idx(input logic [CORE_ADDR_BUS_W-1:0] addr);
-    get_w_idx = (get_cl_word(addr) << (2+3));
 endfunction
 
 // implementation
@@ -108,14 +115,14 @@ always_ff @(posedge clk) begin
 end
 
 parameter unsigned CNT_WIDTH = $clog2(MEM_TRANSFERS_PER_CL);
-logic [CNT_WIDTH-1:0] mem_bus_cnt;
-`DFF_CI_RI_RVI_EN(req_mem.valid, (mem_bus_cnt + 'h1), mem_bus_cnt)
-logic [CNT_WIDTH-1:0] mem_bus_cnt_d;
-`DFF_CI_RI_RVI(mem_bus_cnt, mem_bus_cnt_d)
+logic [CNT_WIDTH-1:0] mem_miss_cnt;
+`DFF_CI_RI_RVI_EN(req_mem.valid, (mem_miss_cnt + 'h1), mem_miss_cnt)
+logic [CNT_WIDTH-1:0] mem_miss_cnt_d;
+`DFF_CI_RI_RVI(mem_miss_cnt, mem_miss_cnt_d)
 
 logic mem_transfer_done;
 assign mem_transfer_done =
-    (rsp_mem.valid && (mem_bus_cnt_d == (MEM_TRANSFERS_PER_CL - 1)));
+    (rsp_mem.valid && (mem_miss_cnt_d == (MEM_TRANSFERS_PER_CL - 1)));
 
 always_ff @(posedge clk) begin
     if (rst) begin
@@ -125,7 +132,8 @@ always_ff @(posedge clk) begin
     end else if (rsp_mem.valid) begin // loading cache line from mem
         arr[way_idx]
             .cl[get_idx(cr_pend.addr)]
-            .data[(MEM_DATA_BUS*mem_bus_cnt_d) +: MEM_DATA_BUS] <= rsp_mem.data;
+            .data
+            .q[mem_miss_cnt_d] <= rsp_mem.data;
         // on the last transfer, update valid and tag
         if (mem_transfer_done) begin
             arr[way_idx].cl[get_idx(cr_pend.addr)].valid <= 1'b1;
@@ -169,8 +177,8 @@ always_comb begin
 
         IC_MISS: begin
             // `LOG_D($sformatf(">> I$ STATE IC_MISS"));
-            // `LOG_D($sformatf(">> I$ miss state; cnt %0d", mem_bus_cnt));
-            if (mem_bus_cnt_d == (MEM_TRANSFERS_PER_CL - 1)) begin
+            // `LOG_D($sformatf(">> I$ miss state; cnt %0d", mem_miss_cnt));
+            if (mem_miss_cnt_d == (MEM_TRANSFERS_PER_CL - 1)) begin
                 nx_state = IC_READY;
             end
         end
@@ -206,15 +214,17 @@ always_comb begin
                 rsp_core.valid = 1'b1;
                 rsp_core.data = arr[way_idx]
                     .cl[get_idx(cr_pend.addr)]
-                    .data[get_w_idx(cr_pend.addr) +: CORE_DATA_BUS];
-                // `LOG_D($sformatf("icache OUT complete pending request; cache at word %0d; core at byte 0x%5h; with output %8h", get_w_idx(cr_pend.addr), cr_d_addr<<2, rsp_core.data));
+                    .data
+                    .w[get_cl_word(cr_pend.addr)];
+                // `LOG_D($sformatf("icache OUT complete pending request; cache at word %0d; core at byte 0x%5h; with output %8h", get_cl_word(cr_pend.addr), cr_d_addr<<2, rsp_core.data));
 
             end else if (new_core_req_d) begin
                 if (hit_d) begin
                     rsp_core.valid = 1'b1;
                     rsp_core.data = arr[way_idx]
                         .cl[get_idx(cr_d_addr)]
-                        .data[get_w_idx(cr_d_addr) +: CORE_DATA_BUS];
+                        .data
+                        .w[get_cl_word(cr_d_addr)];
                     // `LOG_D($sformatf("icache OUT hit; cache at word %0d; core at byte 0x%5h; with output %8h", get_idx(cr_d_addr), cr_d_addr<<2, rsp_core.data));
 
                 end else begin
@@ -232,11 +242,11 @@ always_comb begin
 
         IC_MISS: begin
             // 1 clk at the end to wait in IC_MISS for last mem response
-            if (mem_bus_cnt > 0) begin
+            if (mem_miss_cnt > 0) begin
                 rsp_mem.ready = 1'b1;
                 req_mem.valid = 1'b1;
-                req_mem.data = (cr_pend.mem_start_addr + mem_bus_cnt);
-                // `LOG_D($sformatf("icache miss OUT; bus packet: %0d", (cr_pend.mem_start_addr + mem_bus_cnt)));
+                req_mem.data = (cr_pend.mem_start_addr + mem_miss_cnt);
+                // `LOG_D($sformatf("icache miss OUT; bus packet: %0d", (cr_pend.mem_start_addr + mem_miss_cnt)));
             end
         end
 
