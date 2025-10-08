@@ -94,8 +94,6 @@ assign hit =
 `DFF_CI_RI_RVI_EN(new_core_req, hit, hit_d)
 `DFF_CI_RI_RVI_EN(new_core_req, cr_addr, cr_d_addr);
 
-// TODO DPI 1: query from cpp model
-
 // cache line (64B) to mem bus (16B) addressing, from core addr (4B)
 logic [MEM_ADDR_BUS-1:0] mem_start_addr_d; // address aligned to first mem block
 assign mem_start_addr_d = (cr_d_addr >> 2) & ~'b11;
@@ -103,13 +101,14 @@ assign mem_start_addr_d = (cr_d_addr >> 2) & ~'b11;
 icache_state_t state, nx_state;
 core_request_pending_t cr_pend;
 
+logic save_pending, clear_pending;
 always_ff @(posedge clk) begin
     if (rst) begin
         cr_pend <= '{1'b0, 'h0, 'h0};
-    end else if ((state == IC_READY) && (nx_state == IC_MISS)) begin
+    end else if (save_pending) begin
         cr_pend <= '{1'b1, cr_d_addr, mem_start_addr_d};
         // `LOG_D($sformatf("saving pending request; with core addr byte at 0x%5h", cr_addr<<2));
-    end else if (cr_pend.active && (state == IC_READY)) begin
+    end else if (clear_pending) begin
         cr_pend <= '{1'b0, 'h0, 'h0};
     end
 end
@@ -198,6 +197,8 @@ always_comb begin
     req_mem.valid = 1'b0;
     req_mem.data = 'h0;
     rsp_mem.ready = 1'b0;
+    save_pending = 1'b0;
+    clear_pending = 1'b0;
 
     case (state)
         IC_RESET: begin
@@ -216,6 +217,7 @@ always_comb begin
                     .cl[get_idx(cr_pend.addr)]
                     .data
                     .w[get_cl_word(cr_pend.addr)];
+                clear_pending = 1'b1;
                 // `LOG_D($sformatf("icache OUT complete pending request; cache at word %0d; core at byte 0x%5h; with output %8h", get_cl_word(cr_pend.addr), cr_d_addr<<2, rsp_core.data));
 
             end else if (new_core_req_d) begin
@@ -235,6 +237,7 @@ always_comb begin
                     rsp_mem.ready = 1'b1;
                     req_mem.valid = 1'b1;
                     req_mem.data = mem_start_addr_d;
+                    save_pending = 1'b1;
                     // `LOG_D($sformatf("icache OUT H->M transition; core at byte 0x%5h; mem_start_addr_d: %0d 0x%5h", cr_d_addr<<2, mem_start_addr_d, mem_start_addr_d));
                 end
             end
