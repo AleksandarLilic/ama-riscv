@@ -329,12 +329,12 @@ string core_ret;
 string isa_ret;
 
 task automatic single_step(longint unsigned clk_cnt);
-    stats.update(`DUT_CORE.inst.p.wbk, `DUT_CORE.bubble_dec_seq[2]);
+    stats.update(`DUT_CORE.inst.p.wbk, `DUT_CORE.bubble_track[2]);
     `LOG_V($sformatf(
         "Core [F] %5h: %8h %0s",
         `DUT_CORE.pc.p.dec,
         `DUT_CORE.imem_rsp.data,
-        `DUT_CORE.bubble_dec ? ("(fe stalled)") : "")
+        `DUT_CORE.bubble_decoder ? ("(fe stalled)") : "")
     );
 
     `ifdef ENABLE_COSIM

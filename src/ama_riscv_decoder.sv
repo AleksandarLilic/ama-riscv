@@ -9,7 +9,6 @@ module ama_riscv_decoder (
     input  logic        bc_a_eq_b,
     input  logic        bc_a_lt_b,
     output logic        bubble_dec,
-    pipeline_if.OUT     clear,
     output pc_sel_t     pc_sel,
     output logic        pc_we,
     output logic        load_inst,
@@ -93,23 +92,8 @@ logic        rd_we_d;
 
 logic rd_nz;
 assign rd_nz = (rd_addr_dec != `RF_X0_ZERO);
-
 logic rs1_nz;
 assign rs1_nz = (rs1_addr_dec == `RF_X0_ZERO);
-
-// Reset sequence
-logic [ 2:0] reset_seq;
-`DFF_CI_RI_RV(3'b111, {reset_seq[1:0],1'b0}, reset_seq)
-
-logic rst_seq_dec;
-logic rst_seq_exe;
-logic rst_seq_mem;
-assign rst_seq_dec = reset_seq[0]; // clear 1 clk after rst ends
-assign rst_seq_exe = reset_seq[1]; // 2 clks
-assign rst_seq_mem = reset_seq[2]; // 3 clks
-
-// Pipeline FFs clear
-assign clear.p = {1'b0, rst_seq_dec, rst_seq_exe, rst_seq_mem, 1'b0};
 
 // TODO: decoder should be implemented with SV struct for cleaner code
 // Decoder

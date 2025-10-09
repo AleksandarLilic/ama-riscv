@@ -16,7 +16,6 @@ module ama_riscv_control (
     input  logic [ 4:0] rd_mem,
     input  logic        store_inst_exe,
     output logic        bubble_dec,
-    pipeline_if.OUT     clear,
     output pc_sel_t     pc_sel,
     output logic        pc_we,
     output logic        load_inst,
@@ -62,7 +61,6 @@ ama_riscv_decoder ama_riscv_decoder_i (
  /* .bp_taken (bp_taken),
     .bp_clear (bp_clear), */
     .bubble_dec (bubble_dec),
-    .clear (clear),
     .pc_sel (pc_sel),
     .pc_we (pc_we),
     .load_inst (load_inst),
