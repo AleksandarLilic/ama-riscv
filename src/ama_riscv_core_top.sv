@@ -20,7 +20,7 @@ rv_if #(.DW(CORE_ADDR_BUS_W)) imem_req_ch ();
 rv_if #(.DW(CORE_DATA_BUS)) imem_rsp_ch ();
 
 // DMEM
-rv_if_d2 #(.DW1(CORE_ADDR_BUS_W), .DW2(CORE_DATA_BUS)) dmem_req_ch ();
+rv_if_da #(.AW(CORE_ADDR_BUS_W), .DW(CORE_DATA_BUS)) dmem_req_ch ();
 rv_if #(.DW(CORE_DATA_BUS)) dmem_rsp_ch ();
 logic [ 3:0] dmem_we; // to be removed with dcache
 

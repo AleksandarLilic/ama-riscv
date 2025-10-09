@@ -97,16 +97,19 @@ typedef enum logic[1:0] {
 `define RF_X31_T6 5'd31 // temporary
 
 // DMEM access
-// DMEM Width
-`define DMEM_BYTE   2'd0
-`define DMEM_HALF   2'd1
-`define DMEM_WORD   2'd2
+typedef enum logic [2:0] {
+    DMEM_DTYPE_BYTE = 3'b000,
+    DMEM_DTYPE_HALF = 3'b001,
+    DMEM_DTYPE_WORD = 3'b010,
+    DMEM_DTYPE_UBYTE = 3'b100,
+    DMEM_DTYPE_UHALF = 3'b101
+} dmem_dtype_t;
 
 // DMEM Offset
-`define DMEM_OFF_0  2'd0
-`define DMEM_OFF_1  2'd1
-`define DMEM_OFF_2  2'd2
-`define DMEM_OFF_3  2'd3
+`define DMEM_BYTE_OFF_0  2'd0
+`define DMEM_BYTE_OFF_1  2'd1
+`define DMEM_BYTE_OFF_2  2'd2
+`define DMEM_BYTE_OFF_3  2'd3
 
 // ALU
 typedef enum logic [3:0] {
@@ -152,7 +155,9 @@ parameter unsigned CORE_DATA_BUS = 32;
 `endif
 
 // interfaces
-interface rv_if #(parameter DW = 32) (input logic clk);
+/* verilator lint_off DECLFILENAME */
+// generic rv interface
+interface rv_if #(parameter DW = 32) (/* input logic clk */);
     //localparam unsigned W = DW;
     logic valid;
     logic ready;
@@ -161,17 +166,17 @@ interface rv_if #(parameter DW = 32) (input logic clk);
     modport RX (input  valid, input  data, output ready); // consumer
 endinterface
 
-interface rv_if_d2 #(parameter DW1 = 32,parameter DW2 = 32 ) (input logic clk);
+// rv interface with data and address (da) bus
+interface rv_if_da #(parameter AW = 32, parameter DW = 32) ();
     //localparam unsigned W = DW;
     logic valid;
     logic ready;
-    logic [DW1-1:0] data1;
-    logic [DW2-1:0] data2;
-    modport TX (output valid, output data1, output data2, input  ready); // prod
-    modport RX (input  valid, input  data1, input  data2, output ready); // cons
+    logic [AW-1:0] addr;
+    logic [DW-1:0] wdata;
+    modport TX (output valid, output addr, output wdata, input  ready); // prod
+    modport RX (input  valid, input  addr, input  wdata, output ready); // cons
 endinterface
 
-// structs
 interface pipeline_if #(parameter unsigned W = 32);
     typedef struct packed {
         logic [W-1:0] fet;
@@ -187,6 +192,7 @@ interface pipeline_if #(parameter unsigned W = 32);
     modport OUT (output p);
 
 endinterface
+/* verilator lint_on DECLFILENAME */
 
 typedef struct packed {
     logic en;

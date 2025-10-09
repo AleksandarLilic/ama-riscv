@@ -8,7 +8,7 @@ module ama_riscv_core (
     rv_if.RX            imem_rsp,
     // dmem
     output logic [ 3:0] dmem_we,
-    rv_if_d2.TX         dmem_req,
+    rv_if_da.TX         dmem_req,
     rv_if.RX            dmem_rsp,
     // mmio in
     input  logic [31:0] mmio_instr_cnt,
@@ -369,11 +369,13 @@ end
 //------------------------------------------------------------------------------
 // DMEM
 logic [ 1:0] load_sm_offset_exe;
-assign dmem_req.data2 = data_to_store;
-assign dmem_req.data1 = alu_out[15:2];
+assign dmem_req.wdata = data_to_store;
+assign dmem_req.addr = alu_out[15:2];
 assign dmem_req.valid = (alu_out[31:30] == `DMEM_RANGE) && dmem_en_exe;
 assign dmem_we = {4{(alu_out[31:30] == `DMEM_RANGE)}} & dmem_we_exe;
 assign load_sm_offset_exe = store_mask_offset;
+dmem_dtype_t dtype_exe;
+assign dtype_exe = dmem_dtype_t'(inst.p.exe[14:12]); // fn3 to dtype
 
 //------------------------------------------------------------------------------
 // Pipeline FF EXE/MEM
