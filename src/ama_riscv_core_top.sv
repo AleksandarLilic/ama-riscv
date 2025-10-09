@@ -25,9 +25,9 @@ rv_if #(.DW(CORE_DATA_BUS)) dmem_rsp_ch ();
 logic [ 3:0] dmem_we; // to be removed with dcache
 
 `ifdef USE_CACHES
-// main mem
-rv_if #(.DW(MEM_ADDR_BUS)) mem_addr_ch_imem ();
-rv_if #(.DW(MEM_DATA_BUS)) mem_data_ch_imem ();
+// main mem <-> icache
+rv_if #(.DW(MEM_ADDR_BUS)) mem_r_req_ch_imem ();
+rv_if #(.DW(MEM_DATA_BUS)) mem_r_rsp_ch_imem ();
 `endif
 
 // core
@@ -63,14 +63,15 @@ ama_riscv_imem #(
 
 `else
 ama_riscv_icache #(
-    .SETS (4)
+    .SETS (4),
+    .WAYS (2)
 ) ama_riscv_icache_i (
     .clk (clk),
     .rst (rst),
     .req_core (imem_req_ch.RX),
     .rsp_core (imem_rsp_ch.TX),
-    .req_mem (mem_addr_ch_imem.TX),
-    .rsp_mem (mem_data_ch_imem.RX)
+    .req_mem (mem_r_req_ch_imem.TX),
+    .rsp_mem (mem_r_rsp_ch_imem.RX)
 );
 `endif
 
@@ -86,8 +87,8 @@ ama_riscv_dmem ama_riscv_dmem_i (
 ama_riscv_mem ama_riscv_mem_i (
     .clk (clk),
     .rst (rst),
-    .req_imem (mem_addr_ch_imem.RX),
-    .rsp_imem (mem_data_ch_imem.TX)
+    .req_imem (mem_r_req_ch_imem.RX),
+    .rsp_imem (mem_r_rsp_ch_imem.TX)
 );
 `endif
 
