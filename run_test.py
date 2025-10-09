@@ -19,6 +19,7 @@ from multiprocessing import Manager, Pool
 RUN_CFG = "run_cfg_suite.tcl"
 CC_RED = "91m"
 CC_GREEN = "32m"
+INDENT = " " * 4
 TEST_LOG = "test.log"
 
 @dataclass
@@ -98,11 +99,11 @@ def check_test_status(test_log_path, test_name):
         last_lines = deque(open(test_log_path, 'r'), maxlen=100)
         for line in last_lines:
             if "ERROR" in line:
-                errors.append(line.strip())
+                errors.append(f"\n{INDENT}{line.strip()}")
             if "==== PASS ====" in line:
                 return f"Test <{test_name}> PASSED."
             elif "==== FAIL ====" in line:
-                return f"Test <{test_name}> FAILED with: " + " ".join(errors)
+                return f"Test <{test_name}> FAILED with: " + "".join(errors)
             elif "cosim_exec()" in line:
                 return f"Test <{test_name}> FAILED. " + \
                         "Cosim stopped. Check the log for details."
@@ -157,6 +158,7 @@ def run_test(test_path, run_dir, build_dir, make_args, cnt):
         print(f"Running test {cnt['t'].value}/{cnt['total']}: <{test_name}>")
 
     test_dir = os.path.join(run_dir, f"test_{test_name}")
+    test_log = os.path.join(test_dir, "test.log")
     if os.path.exists(test_dir):
         shutil.rmtree(test_dir)
     shutil.copytree(build_dir, test_dir, symlinks=True)
@@ -181,7 +183,6 @@ def run_test(test_path, run_dir, build_dir, make_args, cnt):
     make_status = subprocess.run(
         make_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=test_dir)
 
-    test_log = os.path.join(test_dir, "test.log")
     with open(test_log, 'w') as f:
         f.write(make_status.stdout.decode('utf-8'))
         f.write(make_status.stderr.decode('utf-8'))
@@ -306,7 +307,7 @@ def main():
                 if "PASSED" not in status:
                     all_tests_passed = False
                     cc = CC_RED
-                    failed_tests.append(status)
+                    failed_tests.append(f"\n{INDENT}{test_name}")
                 else:
                     tests_passed += 1
                     cc = CC_GREEN
@@ -315,13 +316,13 @@ def main():
             print(f"Status for <{test_name}> not found.")
             all_tests_passed = False
 
-    print(f"Test suite DONE. Pass rate: {tests_passed}/{tests_num} passed;",
+    print(f"\nTest suite DONE. Pass rate: {tests_passed}/{tests_num} passed;",
           end=" ")
     if all_tests_passed:
         print(f"\033[{CC_GREEN}Test suite PASSED.\033[0m")
     else:
         print(f"\033[{CC_RED}Test suite FAILED.\033[0m")
-        print("\nFailed tests:")
+        print("\nFailed tests:", end='')
         print("".join(failed_tests))
 
     print_runtime(start_time_suite, "Test suite")
