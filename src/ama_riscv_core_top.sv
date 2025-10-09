@@ -28,6 +28,10 @@ logic [ 3:0] dmem_we; // to be removed with dcache
 // main mem <-> icache
 rv_if #(.DW(MEM_ADDR_BUS)) mem_r_req_ch_imem ();
 rv_if #(.DW(MEM_DATA_BUS)) mem_r_rsp_ch_imem ();
+// main mem <-> dcache
+rv_if #(.DW(MEM_ADDR_BUS)) mem_r_req_ch_dmem ();
+rv_if_da #(.AW(MEM_ADDR_BUS), .DW(MEM_DATA_BUS)) mem_w_req_ch_dmem ();
+rv_if #(.DW(MEM_DATA_BUS)) mem_r_rsp_ch_dmem ();
 `endif
 
 // core
@@ -88,7 +92,10 @@ ama_riscv_mem ama_riscv_mem_i (
     .clk (clk),
     .rst (rst),
     .req_imem (mem_r_req_ch_imem.RX),
-    .rsp_imem (mem_r_rsp_ch_imem.TX)
+    .rsp_imem (mem_r_rsp_ch_imem.TX),
+    .req_dmem_r (mem_r_req_ch_dmem.RX),
+    .req_dmem_w (mem_w_req_ch_dmem.RX),
+    .rsp_dmem (mem_r_rsp_ch_dmem.TX)
 );
 `endif
 

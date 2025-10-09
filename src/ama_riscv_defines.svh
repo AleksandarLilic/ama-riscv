@@ -164,6 +164,7 @@ parameter unsigned CORE_DATA_BUS = 32;
 parameter unsigned MEM_DATA_BUS = 128;
 parameter unsigned MEM_DATA_BUS_B = MEM_DATA_BUS >> 3; // 16
 parameter unsigned CACHE_LINE_SIZE_B = 64;
+parameter unsigned CACHE_LINE_B_MASK = CACHE_LINE_SIZE_B - 1; // 63 aka 0x3F
 parameter unsigned CACHE_LINE_SIZE = CACHE_LINE_SIZE_B << 3; // 512
 parameter unsigned MEM_TRANSFERS_PER_CL = CACHE_LINE_SIZE/MEM_DATA_BUS; // 4
 
@@ -178,6 +179,18 @@ typedef enum logic [1:0] {
     IC_READY, // ready for next request, services load hit in the next cycle
     IC_MISS // miss, go to main memory
 } icache_state_t;
+
+typedef enum logic [1:0] {
+    DC_RESET,
+    DC_READY, // ready for next request, services load hit in the next cycle
+    DC_MISS, // miss, go to main memory
+    DC_EVICT // write back dirty line to main memory, then go to miss
+} dcache_state_t;
+
+typedef enum logic {
+    DMEM_READ = 0,
+    DMEM_WRITE = 1
+} dmem_rtype_t;
 
 `ifdef IMEM_DELAY
 `define IMEM_DELAY_CLK 3
@@ -210,6 +223,32 @@ interface rv_if_da #(parameter AW = 32, parameter DW = 32) ();
     logic [DW-1:0] wdata;
     modport TX (output valid, output addr, output wdata, input  ready); // prod
     modport RX (input  valid, input  addr, input  wdata, output ready); // cons
+endinterface
+
+// rv interface for dcache
+interface rv_if_dc #(parameter AW = 32, parameter DW = 32) ();
+    logic valid;
+    logic ready;
+    dmem_rtype_t rtype;
+    dmem_dtype_t dtype;
+    logic [AW-1:0] addr;
+    logic [DW-1:0] wdata;
+    modport TX (
+        output valid,
+        output addr,
+        output wdata,
+        output dtype,
+        output rtype,
+        input  ready
+    );
+    modport RX (
+        input  valid,
+        input  addr,
+        input  wdata,
+        input  dtype,
+        input  rtype,
+        output ready
+    );
 endinterface
 
 // not all stages will be used by every instatiation
