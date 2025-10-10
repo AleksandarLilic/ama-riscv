@@ -30,7 +30,7 @@ module ama_riscv_core (
 pipeline_if #(.W(32)) inst ();
 pipeline_if #(.W(32)) pc ();
 pipeline_if #(.W(1)) flush ();
-pipeline_if #(.W(5)) rd_addr ();
+pipeline_if_typed #(.T(rf_addr_t)) rd_addr ();
 pipeline_if #(.W(1)) rd_we ();
 
 // Reset sequence
@@ -38,7 +38,8 @@ logic [ 2:0] reset_seq;
 `DFF_CI_RI_RV(3'b111, {reset_seq[1:0], 1'b0}, reset_seq)
 
 // Pipeline control inputs
-logic        bubble_decoder;
+decoder_t    decoded;
+fe_ctrl_t    fe_ctrl;
 
 // Signals - EXE stage
 logic        store_inst_exe;
@@ -49,31 +50,16 @@ logic        bc_a_lt_b;
 logic [ 1:0] store_mask_offset;
 
 // Signals - DEC stage
-logic        load_inst_dec;
-logic        store_inst_dec;
-logic        branch_inst_dec;
-csr_ctrl_t   csr_ctrl_dec;
-ig_sel_t     imm_gen_sel_dec;
-alu_op_t     alu_op_sel_dec;
-alu_a_sel_t  alu_a_sel_dec;
-alu_b_sel_t  alu_b_sel_dec;
 alu_a_sel_t  alu_a_sel_fwd_dec;
 alu_b_sel_t  alu_b_sel_fwd_dec;
 logic        bc_a_sel_fwd_dec;
 logic        bcs_b_sel_fwd_dec;
 logic        rf_a_sel_fwd_dec;
 logic        rf_b_sel_fwd_dec;
-logic        bc_uns_dec;
-logic        dmem_en_dec;
-logic        load_sm_en_dec;
 pipeline_if_typed #(.T(wb_sel_t)) wb_sel ();
 
 // Signals - EXE stage
 logic [ 3:0] dmem_we_exe;
-
-// Signals - FET stage
-pc_sel_t     pc_sel_fet;
-logic        pc_we_fet;
 
 //------------------------------------------------------------------------------
 // FET Stage
@@ -82,7 +68,7 @@ logic [31:0] pc_inc4;
 logic [31:0] alu_out;
 
 always_comb begin
-    case (pc_sel_fet)
+    case (fe_ctrl.pc_sel)
         PC_SEL_INC4: pc_mux_out = pc_inc4;
         PC_SEL_ALU: pc_mux_out = alu_out;
         //PC_SEL_BP: pc_mux_out =  bp_out;
@@ -91,7 +77,7 @@ always_comb begin
     endcase
 end
 
-`DFF_CI_RI_RV_EN(`RESET_VECTOR, pc_we_fet, pc_mux_out, pc.fet)
+`DFF_CI_RI_RV_EN(`RESET_VECTOR, fe_ctrl.pc_we, pc_mux_out, pc.fet)
 assign pc_inc4 = pc.fet + 32'd4;
 
 // IMEM interface
@@ -101,8 +87,8 @@ assign imem_req.data = pc_mux_out[15:2];
 // DEC Stage
 
 // Bubble up?
-assign inst.dec = bubble_decoder ? `NOP : imem_rsp.data;
-assign pc.dec = bubble_decoder ? 'h0 : pc.fet;
+assign inst.dec = fe_ctrl.bubble ? `NOP : imem_rsp.data;
+assign pc.dec = fe_ctrl.bubble ? 'h0 : pc.fet;
 
 ama_riscv_decoder ama_riscv_decoder_i (
     .clk (clk),
@@ -114,30 +100,18 @@ ama_riscv_decoder ama_riscv_decoder_i (
     .bc_a_eq_b (bc_a_eq_b),
     .bc_a_lt_b (bc_a_lt_b),
     // outputs
-    .bubble_dec (bubble_decoder),
-    .pc_sel (pc_sel_fet),
-    .pc_we (pc_we_fet),
-    .load_inst (load_inst_dec),
-    .store_inst (store_inst_dec),
-    .branch_inst (branch_inst_dec),
-    .csr_ctrl (csr_ctrl_dec),
-    .alu_op_sel (alu_op_sel_dec),
-    .alu_a_sel (alu_a_sel_dec),
-    .alu_b_sel (alu_b_sel_dec),
-    .ig_sel (imm_gen_sel_dec),
-    .bc_uns (bc_uns_dec),
-    .dmem_en (dmem_en_dec),
-    .load_sm_en (load_sm_en_dec),
-    .wb_sel (wb_sel.dec),
-    .rd_we (rd_we.dec)
+    .decoded (decoded),
+    .fe_ctrl (fe_ctrl)
 );
 
+assign wb_sel.dec = decoded.wb_sel;
+assign rd_we.dec = decoded.rd_we;
 // Signals - MEM stage
 logic [31:0] writeback;
 
 // reg file
-logic [ 4:0] rs1_addr_dec;
-logic [ 4:0] rs2_addr_dec;
+rf_addr_t rs1_addr_dec;
+rf_addr_t rs2_addr_dec;
 logic [11:0] csr_addr;
 logic [31:0] rd_data;
 logic [31:0] rs1_data_dec;
@@ -169,7 +143,7 @@ ama_riscv_imm_gen ama_riscv_imm_gen_i(
     .clk (clk),
     .rst (rst),
     // inputs
-    .sel_in (imm_gen_sel_dec),
+    .sel_in (decoded.ig_sel),
     .d_in (imm_gen_in),
     // outputs
     .d_out (imm_gen_out_dec)
@@ -178,14 +152,14 @@ ama_riscv_imm_gen ama_riscv_imm_gen_i(
  ama_riscv_operand_forwarding ama_riscv_operand_forwarding_i (
     // inputs
     .rd_we (rd_we.IN),
-    .store_inst_dec (store_inst_dec),
-    .branch_inst_dec (branch_inst_dec),
+    .store_inst_dec (decoded.store_inst),
+    .branch_inst_dec (decoded.branch_inst),
     .rs1_dec (rs1_addr_dec),
     .rs2_dec (rs2_addr_dec),
     .rd_exe (rd_addr.exe),
     .rd_mem (rd_addr.mem),
-    .alu_a_sel_dec (alu_a_sel_dec),
-    .alu_b_sel_dec (alu_b_sel_dec),
+    .alu_a_sel_dec (decoded.alu_a_sel),
+    .alu_b_sel_dec (decoded.alu_b_sel),
     // outputs
     .alu_a_sel_fwd (alu_a_sel_fwd_dec),
     .alu_b_sel_fwd (alu_b_sel_fwd_dec),
@@ -220,25 +194,25 @@ assign rs2_data_fwd_dec = rf_b_sel_fwd_dec ? writeback : rs2_data_dec;
 
 //`STAGE(flush.dec, pc.exe, pc.dec)
 // don't propagate PC on bubble, rest is fine
-`STAGE_EN(flush.dec, !bubble_decoder, pc.dec, pc.exe)
-`STAGE(flush.dec, rd_addr.dec, rd_addr.exe)
+`STAGE_EN(flush.dec, !fe_ctrl.bubble, pc.dec, pc.exe)
+`STAGE_RV(flush.dec, RF_X0_ZERO, rd_addr.dec, rd_addr.exe)
 `STAGE(flush.dec, rs1_data_fwd_dec, rs1_data_exe)
 `STAGE(flush.dec, rs2_data_fwd_dec, rs2_data_exe)
 `STAGE(flush.dec, imm_gen_out_dec, imm_gen_out_exe)
 `STAGE(flush.dec, inst.dec, inst.exe)
-`STAGE(flush.dec, load_inst_dec, load_inst_exe)
-`STAGE(flush.dec, store_inst_dec, store_inst_exe)
+`STAGE(flush.dec, decoded.load_inst, load_inst_exe)
+`STAGE(flush.dec, decoded.store_inst, store_inst_exe)
 `STAGE(flush.dec, bc_a_sel_fwd_dec, bc_a_sel_fwd_exe)
 `STAGE(flush.dec, bcs_b_sel_fwd_dec, bcs_b_sel_fwd_exe)
-`STAGE(flush.dec, bc_uns_dec, bc_uns_exe)
+`STAGE(flush.dec, decoded.bc_uns, bc_uns_exe)
 `STAGE(flush.dec, alu_a_sel_fwd_dec, alu_a_sel_fwd_exe)
 `STAGE(flush.dec, alu_b_sel_fwd_dec, alu_b_sel_fwd_exe)
-`STAGE_RV(flush.dec, ALU_OP_ADD, alu_op_sel_dec, alu_op_sel_exe)
-`STAGE(flush.dec, dmem_en_dec, dmem_en_exe)
-`STAGE(flush.dec, load_sm_en_dec, load_sm_en_exe)
+`STAGE_RV(flush.dec, ALU_OP_ADD, decoded.alu_op_sel, alu_op_sel_exe)
+`STAGE(flush.dec, decoded.dmem_en, dmem_en_exe)
+`STAGE(flush.dec, decoded.load_sm_en, load_sm_en_exe)
 `STAGE_RV(flush.dec, WB_SEL_ALU, wb_sel.dec, wb_sel.exe)
 `STAGE(flush.dec, rd_we.dec, rd_we.exe)
-`STAGE(flush.dec, csr_ctrl_dec, csr_ctrl_exe)
+`STAGE(flush.dec, decoded.csr_ctrl, csr_ctrl_exe)
 `STAGE(flush.dec, csr_addr, csr_addr_exe)
 `STAGE(flush.dec, rs1_addr_dec, csr_imm5)
 
@@ -410,7 +384,7 @@ logic [31:0] csr_data_mem;
 `STAGE(flush.exe, alu_out, alu_out_mem)
 `STAGE(flush.exe, load_sm_offset_exe, load_sm_offset_mem)
 `STAGE(flush.exe, inst.exe, inst.mem)
-`STAGE(flush.exe, rd_addr.exe, rd_addr.mem)
+`STAGE_RV(flush.exe, RF_X0_ZERO, rd_addr.exe, rd_addr.mem)
 `STAGE(flush.exe, load_sm_en_exe, load_sm_en_mem)
 `STAGE_RV(flush.exe, WB_SEL_ALU, wb_sel.exe, wb_sel.mem)
 `STAGE(flush.exe, rd_we.exe, rd_we.mem)
@@ -456,7 +430,7 @@ assign writeback = (wb_sel.mem == WB_SEL_DMEM) ? load_sm_data_out :
 `STAGE(flush.mem, pc.mem, pc.wbk)
 
 logic [2:0] bubble_track;
-`DFF_CI_RI_RVI({bubble_track[1:0], bubble_decoder}, bubble_track)
+`DFF_CI_RI_RVI({bubble_track[1:0], fe_ctrl.bubble}, bubble_track)
 
 // For instruction counter, only care about NOPs inserted by HW
 assign inst_wb_nop_or_clear = (
@@ -472,5 +446,30 @@ assign flush.dec = reset_seq[0]; // TODO: eventually also BP
 assign flush.exe = reset_seq[1];
 assign flush.mem = reset_seq[2];
 assign flush.wbk = 1'b0;
+
+/* pipeline_if #(.W(1)) stall ();
+pipeline_if #(.W(1)) conv_s2b ();
+pipeline_if #(.W(1)) bubble ();
+
+logic stall_src_flow_change; // FIXME: proper output from decoder
+assign stall_src_flow_change =
+    DUT_ama_riscv_core_top_i
+    .ama_riscv_core_i
+    .ama_riscv_decoder_i
+    .stall_src_flow_change;
+
+assign stall.fet = stall_src_flow_change; // FIXME: only considers flow, not imem stall
+assign stall.dec = 1'b0;
+assign stall.exe = 1'b0;
+assign stall.mem = 1'b0; //dc_stall;
+assign stall.wbk = 1'b0;
+
+`DFF_CI_RI_RVI(stall, conv_s2b)
+
+assign bubble.fet = 1'b0; // can't bubble in fetch
+assign bubble.dec = conv_s2b.fet;
+assign bubble.exe = conv_s2b.dec; // which is never currently
+assign bubble.mem = conv_s2b.exe; // also never
+assign bubble.wbk = conv_s2b.mem; // dc stall currently */
 
 endmodule

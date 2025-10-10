@@ -61,7 +61,6 @@ typedef enum logic [1:0] {
     WB_SEL_CSR = 2'd3 // Reg[rd] = CSR data
 } wb_sel_t;
 
-// Branch Resolution
 typedef enum logic [1:0] {
     BRANCH_SEL_BEQ = 2'd0, // Branch Equal
     BRANCH_SEL_BNE = 2'd1, // Branch Not Equal
@@ -69,41 +68,6 @@ typedef enum logic [1:0] {
     BRANCH_SEL_BGE = 2'd3  // Branch Greater Than
 } branch_sel_t;
 
-// Register File
-`define RF_X0_ZERO 5'd0 // hard-wired zero
-`define RF_X1_RA 5'd1 // return address
-`define RF_X2_SP 5'd2 // stack pointer
-`define RF_X3_GP 5'd3 // global pointer
-`define RF_X4_TP 5'd4 // thread pointer
-`define RF_X5_T0 5'd5 // temporary/alternate link register
-`define RF_X6_T1 5'd6 // temporary
-`define RF_X7_T2 5'd7 // temporary
-`define RF_X8_S0 5'd8 // saved register/frame pointer
-`define RF_X9_S1 5'd9 // saved register
-`define RF_X10_A0 5'd10 // function argument/return value
-`define RF_X11_A1 5'd11 // function argument/return value
-`define RF_X12_A2 5'd12 // function argument
-`define RF_X13_A3 5'd13 // function argument
-`define RF_X14_A4 5'd14 // function argument
-`define RF_X15_A5 5'd15 // function argument
-`define RF_X16_A6 5'd16 // function argument
-`define RF_X17_A7 5'd17 // function argument
-`define RF_X18_S2 5'd18 // saved register
-`define RF_X19_S3 5'd19 // saved register
-`define RF_X20_S4 5'd20 // saved register
-`define RF_X21_S5 5'd21 // saved register
-`define RF_X22_S6 5'd22 // saved register
-`define RF_X23_S7 5'd23 // saved register
-`define RF_X24_S8 5'd24 // saved register
-`define RF_X25_S9 5'd25 // saved register
-`define RF_X26_S10 5'd26 // saved register
-`define RF_X27_S11 5'd27 // saved register
-`define RF_X28_T3 5'd28 // temporary
-`define RF_X29_T4 5'd29 // temporary
-`define RF_X30_T5 5'd30 // temporary
-`define RF_X31_T6 5'd31 // temporary
-
-// DMEM access
 typedef enum logic [2:0] {
     DMEM_DTYPE_BYTE = 3'b000,
     DMEM_DTYPE_HALF = 3'b001,
@@ -118,7 +82,6 @@ typedef enum logic [2:0] {
 `define DMEM_BYTE_OFF_2  2'd2
 `define DMEM_BYTE_OFF_3  2'd3
 
-// ALU
 typedef enum logic [3:0] {
     ALU_OP_ADD = 4'b0000,
     ALU_OP_SUB = 4'b1000,
@@ -133,7 +96,6 @@ typedef enum logic [3:0] {
     ALU_OP_PASS_B = 4'b1111
 } alu_op_t;
 
-// Imm Gen
 typedef enum logic [2:0] {
     IG_DISABLED = 3'b000,
     IG_I_TYPE = 3'b001,
@@ -142,6 +104,41 @@ typedef enum logic [2:0] {
     IG_J_TYPE = 3'b100,
     IG_U_TYPE = 3'b101
 } ig_sel_t;
+
+typedef enum logic [4:0] {
+    RF_X0_ZERO = 5'd0, // hard-wired zero
+    RF_X1_RA = 5'd1, // return address
+    RF_X2_SP = 5'd2, // stack pointer
+    RF_X3_GP = 5'd3, // global pointer
+    RF_X4_TP = 5'd4, // thread pointer
+    RF_X5_T0 = 5'd5, // temporary/alternate link register
+    RF_X6_T1 = 5'd6, // temporary
+    RF_X7_T2 = 5'd7, // temporary
+    RF_X8_S0 = 5'd8, // saved register/frame pointer
+    RF_X9_S1 = 5'd9, // saved register
+    RF_X10_A0 = 5'd10, // function argument/return value
+    RF_X11_A1 = 5'd11, // function argument/return value
+    RF_X12_A2 = 5'd12, // function argument
+    RF_X13_A3 = 5'd13, // function argument
+    RF_X14_A4 = 5'd14, // function argument
+    RF_X15_A5 = 5'd15, // function argument
+    RF_X16_A6 = 5'd16, // function argument
+    RF_X17_A7 = 5'd17, // function argument
+    RF_X18_S2 = 5'd18, // saved register
+    RF_X19_S3 = 5'd19, // saved register
+    RF_X20_S4 = 5'd20, // saved register
+    RF_X21_S5 = 5'd21, // saved register
+    RF_X22_S6 = 5'd22, // saved register
+    RF_X23_S7 = 5'd23, // saved register
+    RF_X24_S8 = 5'd24, // saved register
+    RF_X25_S9 = 5'd25, // saved register
+    RF_X26_S10 = 5'd26, // saved register
+    RF_X27_S11 = 5'd27, // saved register
+    RF_X28_T3 = 5'd28, // temporary
+    RF_X29_T4 = 5'd29, // temporary
+    RF_X30_T5 = 5'd30, // temporary
+    RF_X31_T6 = 5'd31 // temporary
+} rf_addr_t;
 
 // Memory parameters
 // *_B - byte
@@ -224,6 +221,54 @@ typedef struct packed {
     logic ui;
     csr_op_sel_t op_sel;
 } csr_ctrl_t;
+
+typedef struct packed {
+    logic bubble;
+    pc_sel_t pc_sel;
+    logic pc_we;
+} fe_ctrl_t;
+
+typedef struct packed {
+    logic load_inst;
+    logic store_inst;
+    logic branch_inst;
+    logic jump_inst;
+    csr_ctrl_t csr_ctrl;
+    alu_op_t alu_op_sel;
+    alu_a_sel_t alu_a_sel;
+    alu_b_sel_t alu_b_sel;
+    ig_sel_t ig_sel;
+    logic bc_uns;
+    logic dmem_en;
+    logic load_sm_en;
+    wb_sel_t wb_sel;
+    logic rd_we;
+} decoder_t;
+
+`define FE_CTRL_RST_VAL \
+    '{ \
+        bubble: 1'b1, \
+        pc_sel: PC_SEL_INC4, \
+        pc_we: 1'b0 \
+    }
+
+`define DECODER_RST_VAL \
+    '{ \
+        load_inst: 1'b0, \
+        store_inst: 1'b0, \
+        branch_inst: 1'b0, \
+        jump_inst: 1'b0, \
+        csr_ctrl: '{en: 1'b0, we: 1'b0, ui: 1'b0, op_sel: CSR_OP_SEL_NONE}, \
+        alu_op_sel: ALU_OP_ADD, \
+        alu_a_sel: ALU_A_SEL_RS1, \
+        alu_b_sel: ALU_B_SEL_RS2, \
+        ig_sel: IG_DISABLED, \
+        bc_uns: 1'b0, \
+        dmem_en: 1'b0, \
+        load_sm_en: 1'b0, \
+        wb_sel: WB_SEL_ALU, \
+        rd_we: 1'b0 \
+    }
 
 // DFF macros
 `define DFF_CI_RI_RVI_CLR_CLRVI(_clr, _d, _q) \
@@ -324,19 +369,19 @@ get_fn7_b5(input logic [31:0] inst);
     get_fn7_b5 = inst[30];
 endfunction
 
-function automatic logic [4:0]
+function automatic rf_addr_t
 get_rs1(input logic [31:0] inst);
-    get_rs1 = inst[19:15];
+    get_rs1 = rf_addr_t'(inst[19:15]);
 endfunction
 
-function automatic logic [4:0]
+function automatic rf_addr_t
 get_rs2(input logic [31:0] inst);
-    get_rs2 = inst[24:20];
+    get_rs2 = rf_addr_t'(inst[24:20]);
 endfunction
 
-function automatic logic [4:0]
+function automatic rf_addr_t
 get_rd(input logic [31:0] inst);
-    get_rd = inst[11:7];
+    get_rd = rf_addr_t'(inst[11:7]);
 endfunction
 /* verilator lint_on UNUSEDPARAM */
 

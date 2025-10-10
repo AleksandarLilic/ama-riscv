@@ -334,7 +334,7 @@ task automatic single_step(longint unsigned clk_cnt);
         "Core [F] %5h: %8h %0s",
         `DUT_CORE.pc.dec,
         `DUT_CORE.imem_rsp.data,
-        `DUT_CORE.bubble_decoder ? ("(fe stalled)") : "")
+        `DUT_CORE.fe_ctrl.bubble ? ("(fe stalled)") : "")
     );
 
     `ifdef ENABLE_COSIM

@@ -5,10 +5,10 @@ module ama_riscv_operand_forwarding (
     pipeline_if.IN      rd_we,
     input  logic        store_inst_dec,
     input  logic        branch_inst_dec,
-    input  logic [ 4:0] rs1_dec,
-    input  logic [ 4:0] rs2_dec,
-    input  logic [ 4:0] rd_exe,
-    input  logic [ 4:0] rd_mem,
+    input  rf_addr_t    rs1_dec,
+    input  rf_addr_t    rs2_dec,
+    input  rf_addr_t    rd_exe,
+    input  rf_addr_t    rd_mem,
     input  alu_a_sel_t  alu_a_sel_dec,
     input  alu_b_sel_t  alu_b_sel_dec,
     // outputs
@@ -27,8 +27,8 @@ logic op_b_wr_valid_exe;
 logic rf_a_wr_valid_mem;
 logic rf_b_wr_valid_mem;
 
-assign rs1_nz = (rs1_dec != `RF_X0_ZERO);
-assign rs2_nz = (rs2_dec != `RF_X0_ZERO);
+assign rs1_nz = (rs1_dec != RF_X0_ZERO);
+assign rs2_nz = (rs2_dec != RF_X0_ZERO);
 assign op_a_wr_valid_exe = (rs1_nz && (rs1_dec == rd_exe) && rd_we.exe);
 assign op_b_wr_valid_exe = (rs2_nz && (rs2_dec == rd_exe) && rd_we.exe);
 assign rf_a_wr_valid_mem = (rs1_nz && (rs1_dec == rd_mem) && rd_we.mem);
