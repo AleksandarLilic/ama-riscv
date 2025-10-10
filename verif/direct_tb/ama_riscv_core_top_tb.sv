@@ -223,7 +223,7 @@ initial begin
         $fwrite(fd, "clk: ");
         $fwrite(fd, "%0d", lclk_cnt);
         $fwrite(fd, "; Inst WB: ");
-        $fdisplay(fd, "%8x", `DUT_CORE.inst.p.wbk );
+        $fdisplay(fd, "%8x", `DUT_CORE.inst.wbk );
     end
 end
 */
@@ -300,8 +300,8 @@ function automatic void add_trace_entry(longint unsigned clk_cnt);
 
         cosim_add_te(
             clk_cnt,
-            `DUT_CORE.inst.p.wbk & ~{32{`DUT_CORE.inst_wb_nop_or_clear}},
-            `DUT_CORE.pc.p.wbk & ~{32{`DUT_CORE.inst_wb_nop_or_clear}},
+            `DUT_CORE.inst.wbk & ~{32{`DUT_CORE.inst_wb_nop_or_clear}},
+            `DUT_CORE.pc.wbk & ~{32{`DUT_CORE.inst_wb_nop_or_clear}},
             `DUT_RF.rf[2],
 
             1'b0, // FIXME: temp tied to 0. dmem_addr
@@ -329,10 +329,10 @@ string core_ret;
 string isa_ret;
 
 task automatic single_step(longint unsigned clk_cnt);
-    stats.update(`DUT_CORE.inst.p.wbk, `DUT_CORE.bubble_track[2]);
+    stats.update(`DUT_CORE.inst.wbk, `DUT_CORE.bubble_track[2]);
     `LOG_V($sformatf(
         "Core [F] %5h: %8h %0s",
-        `DUT_CORE.pc.p.dec,
+        `DUT_CORE.pc.dec,
         `DUT_CORE.imem_rsp.data,
         `DUT_CORE.bubble_decoder ? ("(fe stalled)") : "")
     );
@@ -348,7 +348,7 @@ task automatic single_step(longint unsigned clk_cnt);
                cosim_inst_asm_str, cosim_stack_top_str, cosim_rf);
 
     core_ret = $sformatf(
-        "Core [R] %5h: %8h", `DUT_CORE.pc.p.wbk, `DUT_CORE.inst.p.wbk);
+        "Core [R] %5h: %8h", `DUT_CORE.pc.wbk, `DUT_CORE.inst.wbk);
     isa_ret = $sformatf(
         "COSIM    %5h: %8h %0s", cosim_pc, cosim_inst, cosim_inst_asm_str);
     `LOG_V(core_ret);

@@ -21,8 +21,8 @@ function void cosim_run_checkers;
     int checker_errors_prev;
     begin
         checker_errors_prev = errors;
-        checker_t("pc", `CHECKER_ACTIVE, `DUT_CORE.pc.p.wbk, cosim_pc);
-        checker_t("inst", `CHECKER_ACTIVE, `DUT_CORE.inst.p.wbk, cosim_inst);
+        checker_t("pc", `CHECKER_ACTIVE, `DUT_CORE.pc.wbk, cosim_pc);
+        checker_t("inst", `CHECKER_ACTIVE, `DUT_CORE.inst.wbk, cosim_inst);
         for (int i = 1; i < 32; i = i + 1) begin
             checker_t(
                 $sformatf("x%0d", i),

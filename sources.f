@@ -5,7 +5,6 @@ sv work \
 "$REPO_ROOT/verif/direct_tb/ama_riscv_tb_defines.svh" \
 "$REPO_ROOT/verif/direct_tb/ama_riscv_core_top_tb.sv" \
 "$REPO_ROOT/src/ama_riscv_alu.sv" \
-"$REPO_ROOT/src/ama_riscv_control.sv" \
 "$REPO_ROOT/src/ama_riscv_core_top.sv" \
 "$REPO_ROOT/src/ama_riscv_core.sv" \
 "$REPO_ROOT/src/ama_riscv_decoder.sv" \

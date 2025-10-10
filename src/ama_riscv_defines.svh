@@ -27,12 +27,14 @@ typedef enum logic [6:0] {
 `define CSR_TOHOST 12'h51E
 `define CSR_MSCRATCH 12'h340
 
-`define CSR_OP_SEL_ASSIGN 2'b01
-`define CSR_OP_SEL_SET_BITS 2'b10
-`define CSR_OP_SEL_CLR_BITS 2'b11
+// control signal enums
+typedef enum logic [1:0] {
+    CSR_OP_SEL_NONE = 2'b00,
+    CSR_OP_SEL_ASSIGN = 2'b01,
+    CSR_OP_SEL_SET_BITS = 2'b10,
+    CSR_OP_SEL_CLR_BITS = 2'b11
+} csr_op_sel_t;
 
-// MUX select signals
-// PC select
 typedef enum logic[1:0] {
     PC_SEL_INC4 = 2'd0, // PC = PC + 4
     PC_SEL_ALU = 2'd1, // ALU output, used for jump/branch
@@ -40,27 +42,32 @@ typedef enum logic[1:0] {
     PC_SEL_PC = 2'd3 // PC = Hardwired start address
 } pc_sel_t;
 
-// ALU A operand select
-`define ALU_A_SEL_RS1 1'd0 // A = Reg[rs1]
-`define ALU_A_SEL_PC 1'd1 // A = PC
-`define ALU_A_SEL_FWD_ALU 2'd2 // A = ALU; forwarding from MEM stage
+typedef enum logic [1:0] {
+    ALU_A_SEL_RS1 = 2'd0, // A = Reg[rs1]
+    ALU_A_SEL_PC = 2'd1, // A = PC
+    ALU_A_SEL_FWD_ALU = 2'd2 // A = ALU; forwarding from MEM stage
+} alu_a_sel_t;
 
-// ALU B operand select
-`define ALU_B_SEL_RS2 1'd0 // B = Reg[rs2]
-`define ALU_B_SEL_IMM 1'd1 // B = Immediate value; from Imm Gen
-`define ALU_B_SEL_FWD_ALU 2'd2 // B = ALU; forwarding from MEM stage
+typedef enum logic [1:0] {
+    ALU_B_SEL_RS2 = 2'd0, // B = Reg[rs2]
+    ALU_B_SEL_IMM = 2'd1, // B = Immediate value; from Imm Gen
+    ALU_B_SEL_FWD_ALU = 2'd2 // B = ALU; forwarding from MEM stage
+} alu_b_sel_t;
 
-// Write back select
-`define WB_SEL_DMEM 2'd0 // Reg[rd] = DMEM[ALU]
-`define WB_SEL_ALU 2'd1 // Reg[rd] = ALU
-`define WB_SEL_INC4 2'd2 // Reg[rd] = PC + 4
-`define WB_SEL_CSR 2'd3 // Reg[rd] = CSR data
+typedef enum logic [1:0] {
+    WB_SEL_DMEM = 2'd0, // Reg[rd] = DMEM[ALU]
+    WB_SEL_ALU = 2'd1, // Reg[rd] = ALU
+    WB_SEL_INC4 = 2'd2, // Reg[rd] = PC + 4
+    WB_SEL_CSR = 2'd3 // Reg[rd] = CSR data
+} wb_sel_t;
 
 // Branch Resolution
-`define BR_SEL_BEQ 2'd0 // Branch Equal
-`define BR_SEL_BNE 2'd1 // Branch Not Equal
-`define BR_SEL_BLT 2'd2 // Branch Less Than
-`define BR_SEL_BGE 2'd3 // Branch Greater Than
+typedef enum logic [1:0] {
+    BRANCH_SEL_BEQ = 2'd0, // Branch Equal
+    BRANCH_SEL_BNE = 2'd1, // Branch Not Equal
+    BRANCH_SEL_BLT = 2'd2, // Branch Less Than
+    BRANCH_SEL_BGE = 2'd3  // Branch Greater Than
+} branch_sel_t;
 
 // Register File
 `define RF_X0_ZERO 5'd0 // hard-wired zero
@@ -127,12 +134,14 @@ typedef enum logic [3:0] {
 } alu_op_t;
 
 // Imm Gen
-`define IG_DISABLED 3'b000
-`define IG_I_TYPE   3'b001
-`define IG_S_TYPE   3'b010
-`define IG_B_TYPE   3'b011
-`define IG_J_TYPE   3'b100
-`define IG_U_TYPE   3'b101
+typedef enum logic [2:0] {
+    IG_DISABLED = 3'b000,
+    IG_I_TYPE = 3'b001,
+    IG_S_TYPE = 3'b010,
+    IG_B_TYPE = 3'b011,
+    IG_J_TYPE = 3'b100,
+    IG_U_TYPE = 3'b101
+} ig_sel_t;
 
 // Memory parameters
 // *_B - byte
@@ -143,10 +152,12 @@ typedef enum logic [3:0] {
 // *_L - line (module-specific)
 // no suffix - number of bits, or if otherwise specified in the parameter name (eg 'offset')
 
+/* verilator lint_off UNUSEDPARAM */
 parameter unsigned MEM_SIZE_W = 16384; // words, 64KB
 parameter unsigned CORE_ADDR_BUS_W = $clog2(MEM_SIZE_W); // 14
 parameter unsigned CORE_ADDR_BUS_B = CORE_ADDR_BUS_W + 2; // 16
 parameter unsigned CORE_DATA_BUS = 32;
+/* verilator lint_on UNUSEDPARAM */
 
 `ifdef IMEM_DELAY
 `define IMEM_DELAY_CLK 2
@@ -160,7 +171,10 @@ parameter unsigned CORE_DATA_BUS = 32;
 interface rv_if #(parameter DW = 32) (/* input logic clk */);
     //localparam unsigned W = DW;
     logic valid;
+    // some modules are always ready and don't use the signal
+    /* verilator lint_off UNUSEDSIGNAL */
     logic ready;
+    /* verilator lint_on UNUSEDSIGNAL */
     logic [DW-1:0] data;
     modport TX (output valid, output data, input  ready); // producer
     modport RX (input  valid, input  data, output ready); // consumer
@@ -168,37 +182,47 @@ endinterface
 
 // rv interface with data and address (da) bus
 interface rv_if_da #(parameter AW = 32, parameter DW = 32) ();
-    //localparam unsigned W = DW;
     logic valid;
+    /* verilator lint_off UNUSEDSIGNAL */
     logic ready;
+    /* verilator lint_on UNUSEDSIGNAL */
     logic [AW-1:0] addr;
     logic [DW-1:0] wdata;
     modport TX (output valid, output addr, output wdata, input  ready); // prod
     modport RX (input  valid, input  addr, input  wdata, output ready); // cons
 endinterface
 
+// not all stages will be used by every instatiation
+/* verilator lint_off UNUSEDSIGNAL */
 interface pipeline_if #(parameter unsigned W = 32);
-    typedef struct packed {
-        logic [W-1:0] fet;
-        logic [W-1:0] dec;
-        logic [W-1:0] exe;
-        logic [W-1:0] mem;
-        logic [W-1:0] wbk;
-    } pipeline_t;
-
-    pipeline_t p;
-
-    modport IN (input p);
-    modport OUT (output p);
-
+    logic [W-1:0] fet;
+    logic [W-1:0] dec;
+    logic [W-1:0] exe;
+    logic [W-1:0] mem;
+    logic [W-1:0] wbk;
+    modport IN (input fet, dec, exe, mem, wbk);
+    modport OUT (output fet, dec, exe, mem, wbk);
 endinterface
+/* verilator lint_on UNUSEDSIGNAL */
+
+/* verilator lint_off UNUSEDSIGNAL */
+interface pipeline_if_typed #(parameter type T = logic [CORE_DATA_BUS-1:0]);
+    T fet;
+    T dec;
+    T exe;
+    T mem;
+    T wbk;
+    modport IN  (input  fet, dec, exe, mem, wbk);
+    modport OUT (output fet, dec, exe, mem, wbk);
+endinterface
+/* verilator lint_on UNUSEDSIGNAL */
 /* verilator lint_on DECLFILENAME */
 
 typedef struct packed {
     logic en;
     logic we;
     logic ui;
-    logic [1:0] op_sel;
+    csr_op_sel_t op_sel;
 } csr_ctrl_t;
 
 // DFF macros
@@ -272,5 +296,48 @@ typedef struct packed {
         if (rst) _q <= _rstv; \
         else if (en) _q <= _d; \
     end
+
+// helpers
+/* verilator lint_off UNUSEDSIGNAL */
+function automatic opc7_t
+get_opc7(input logic [31:0] inst);
+    get_opc7 = opc7_t'(inst[6:0]);
+endfunction
+
+function automatic logic [2:0]
+get_fn3(input logic [31:0] inst);
+    get_fn3 = inst[14:12];
+endfunction
+
+function automatic branch_sel_t
+get_branch_sel(input logic [31:0] inst);
+    get_branch_sel = branch_sel_t'({inst[14], inst[12]});
+endfunction
+
+function automatic logic [6:0]
+get_fn7(input logic [31:0] inst);
+    get_fn7 = inst[31:25];
+endfunction
+
+function automatic logic
+get_fn7_b5(input logic [31:0] inst);
+    get_fn7_b5 = inst[30];
+endfunction
+
+function automatic logic [4:0]
+get_rs1(input logic [31:0] inst);
+    get_rs1 = inst[19:15];
+endfunction
+
+function automatic logic [4:0]
+get_rs2(input logic [31:0] inst);
+    get_rs2 = inst[24:20];
+endfunction
+
+function automatic logic [4:0]
+get_rd(input logic [31:0] inst);
+    get_rd = inst[11:7];
+endfunction
+/* verilator lint_on UNUSEDPARAM */
 
 `endif // AMA_RISCV_DEFINES

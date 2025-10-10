@@ -3,7 +3,7 @@
 module ama_riscv_imm_gen (
     input  logic        clk,
     input  logic        rst,
-    input  logic [ 2:0] sel_in,
+    input  ig_sel_t     sel_in,
     input  logic [31:7] d_in,
     output logic [31:0] d_out
 );
@@ -14,14 +14,13 @@ logic s_type;
 logic b_type;
 logic j_type;
 logic u_type;
-assign disabled = (sel_in == `IG_DISABLED);
-assign i_type = (sel_in == `IG_I_TYPE);
-assign s_type = (sel_in == `IG_S_TYPE);
-assign b_type = (sel_in == `IG_B_TYPE);
-assign j_type = (sel_in == `IG_J_TYPE);
-assign u_type = (sel_in == `IG_U_TYPE);
+assign disabled = (sel_in == IG_DISABLED);
+assign i_type = (sel_in == IG_I_TYPE);
+assign s_type = (sel_in == IG_S_TYPE);
+assign b_type = (sel_in == IG_B_TYPE);
+assign j_type = (sel_in == IG_J_TYPE);
+assign u_type = (sel_in == IG_U_TYPE);
 
-// MUXes
 logic [31:0] d_out_w;
 assign d_out_w[31:20] = (u_type) ? d_in[31:20] :
                       /* others */ {12{d_in[31]}}; // s-ext

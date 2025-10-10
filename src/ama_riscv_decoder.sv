@@ -3,9 +3,9 @@
 module ama_riscv_decoder (
     input  logic        clk,
     input  logic        rst,
-    pipeline_if.IN      inst,
     rv_if.TX            imem_req,
     rv_if.RX            imem_rsp,
+    pipeline_if.IN      inst,
     input  logic        bc_a_eq_b,
     input  logic        bc_a_lt_b,
     output logic        bubble_dec,
@@ -16,13 +16,13 @@ module ama_riscv_decoder (
     output logic        branch_inst,
     output csr_ctrl_t   csr_ctrl,
     output alu_op_t     alu_op_sel,
-    output logic        alu_a_sel,
-    output logic        alu_b_sel,
-    output logic [ 2:0] ig_sel,
+    output alu_a_sel_t  alu_a_sel,
+    output alu_b_sel_t  alu_b_sel,
+    output ig_sel_t     ig_sel,
     output logic        bc_uns,
     output logic        dmem_en,
     output logic        load_sm_en,
-    output logic [ 1:0] wb_sel,
+    output wb_sel_t     wb_sel,
     output logic        rd_we
 );
 
@@ -33,27 +33,17 @@ typedef enum logic [1:0] {
     STALL_IMEM
 } stall_state_t;
 
-logic [11:0] csr_addr;
-assign csr_addr = inst.p.dec[31:20];
-
 logic [ 4:0] rs1_addr_dec;
 logic [ 4:0] rd_addr_dec;
-assign rs1_addr_dec = inst.p.dec[19:15];
-assign rd_addr_dec = inst.p.dec[11:7];
+assign rs1_addr_dec = get_rs1(inst.dec);
+assign rd_addr_dec = get_rd(inst.dec);
 
-logic [ 6:0] opc7_dec;
+opc7_t       opc7_dec;
 logic [ 2:0] fn3_dec;
-logic [ 6:0] fn7_dec;
-assign opc7_dec = opc7_t'(inst.p.dec[6:0]);
-assign fn3_dec = inst.p.dec[14:12];
-assign fn7_dec = inst.p.dec[31:25];
-
-logic [ 6:0] opc7_exe;
-logic [ 2:0] fn3_exe;
-logic [ 6:0] fn7_exe;
-assign opc7_exe = inst.p.exe[6:0];
-assign fn3_exe = inst.p.exe[14:12];
-assign fn7_exe = inst.p.exe[31:25];
+logic        fn7_dec_b5;
+assign opc7_dec = get_opc7(inst.dec);
+assign fn3_dec = get_fn3(inst.dec);
+assign fn7_dec_b5 = get_fn7_b5(inst.dec);
 
 // decoder outputs
 pc_sel_t     pc_sel_r;
@@ -63,14 +53,14 @@ logic        store_inst_r;
 logic        branch_inst_r;
 logic        jump_inst_r;
 csr_ctrl_t   csr_ctrl_r;
-logic [ 3:0] alu_op_sel_r;
-logic        alu_a_sel_r;
-logic        alu_b_sel_r;
-logic [ 2:0] ig_sel_r;
+alu_op_t     alu_op_sel_r;
+alu_a_sel_t  alu_a_sel_r;
+alu_b_sel_t  alu_b_sel_r;
+ig_sel_t     ig_sel_r;
 logic        bc_uns_r;
 logic        dmem_en_r;
 logic        load_sm_en_r;
-logic [ 1:0] wb_sel_r;
+wb_sel_t     wb_sel_r;
 logic        rd_we_r;
 
 // saved outputs
@@ -81,13 +71,13 @@ logic        store_inst_d;
 logic        branch_inst_d;
 logic        jump_inst_d;
 alu_op_t     alu_op_sel_d;
-logic        alu_a_sel_d;
-logic        alu_b_sel_d;
-logic [ 2:0] ig_sel_d;
+alu_a_sel_t  alu_a_sel_d;
+alu_b_sel_t  alu_b_sel_d;
+ig_sel_t     ig_sel_d;
 logic        bc_uns_d;
 logic        dmem_en_d;
 logic        load_sm_en_d;
-logic [ 1:0] wb_sel_d;
+wb_sel_t     wb_sel_d;
 logic        rd_we_d;
 
 logic rd_nz;
@@ -104,7 +94,7 @@ always_comb begin
     store_inst_r = store_inst_d;
     branch_inst_r = branch_inst_d;
     jump_inst_r = jump_inst_d;
-    csr_ctrl_r = {1'b0, 1'b0, 1'b0, 2'b00};
+    csr_ctrl_r = {1'b0, 1'b0, 1'b0, CSR_OP_SEL_NONE};
     alu_op_sel_r = alu_op_sel_d;
     alu_a_sel_r = alu_a_sel_d;
     alu_b_sel_r = alu_b_sel_d;
@@ -123,14 +113,14 @@ always_comb begin
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
-            alu_op_sel_r  = {fn7_dec[5],fn3_dec};
-            alu_a_sel_r   = `ALU_A_SEL_RS1;
-            alu_b_sel_r   = `ALU_B_SEL_RS2;
-            ig_sel_r      = `IG_DISABLED;
+            alu_op_sel_r  = alu_op_t'({fn7_dec_b5, fn3_dec});
+            alu_a_sel_r   = ALU_A_SEL_RS1;
+            alu_b_sel_r   = ALU_B_SEL_RS2;
+            ig_sel_r      = IG_DISABLED;
             // bc_uns_r      = *;
             dmem_en_r     = 1'b0;
             load_sm_en_r  = 1'b0;
-            wb_sel_r      = `WB_SEL_ALU;
+            wb_sel_r      = WB_SEL_ALU;
             rd_we_r       = rd_nz;
         end
 
@@ -142,15 +132,15 @@ always_comb begin
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
             alu_op_sel_r  = (fn3_dec[1:0] == 2'b01) ?
-                                {fn7_dec[5], fn3_dec} : // shift
-                                {1'b0, fn3_dec}; // imm
-            alu_a_sel_r   = `ALU_A_SEL_RS1;
-            alu_b_sel_r   = `ALU_B_SEL_IMM;
-            ig_sel_r      = `IG_I_TYPE;
+                                alu_op_t'({fn7_dec_b5, fn3_dec}) : // shift
+                                alu_op_t'({1'b0, fn3_dec}); // imm
+            alu_a_sel_r   = ALU_A_SEL_RS1;
+            alu_b_sel_r   = ALU_B_SEL_IMM;
+            ig_sel_r      = IG_I_TYPE;
             // bc_uns_r      = *;
             dmem_en_r     = 1'b0;
             load_sm_en_r  = 1'b0;
-            wb_sel_r      = `WB_SEL_ALU;
+            wb_sel_r      = WB_SEL_ALU;
             rd_we_r       = rd_nz;
         end
 
@@ -162,13 +152,13 @@ always_comb begin
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
             alu_op_sel_r  = ALU_OP_ADD;
-            alu_a_sel_r   = `ALU_A_SEL_RS1;
-            alu_b_sel_r   = `ALU_B_SEL_IMM;
-            ig_sel_r      = `IG_I_TYPE;
+            alu_a_sel_r   = ALU_A_SEL_RS1;
+            alu_b_sel_r   = ALU_B_SEL_IMM;
+            ig_sel_r      = IG_I_TYPE;
             // bc_uns_r      = *;
             dmem_en_r     = 1'b1;
             load_sm_en_r  = 1'b1;
-            wb_sel_r      = `WB_SEL_DMEM;
+            wb_sel_r      = WB_SEL_DMEM;
             rd_we_r       = rd_nz;
         end
 
@@ -180,9 +170,9 @@ always_comb begin
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
             alu_op_sel_r  = ALU_OP_ADD;
-            alu_a_sel_r   = `ALU_A_SEL_RS1;
-            alu_b_sel_r   = `ALU_B_SEL_IMM;
-            ig_sel_r      = `IG_S_TYPE;
+            alu_a_sel_r   = ALU_A_SEL_RS1;
+            alu_b_sel_r   = ALU_B_SEL_IMM;
+            ig_sel_r      = IG_S_TYPE;
             // bc_uns_r      = *;
             dmem_en_r     = 1'b1;
             load_sm_en_r  = 1'b0;
@@ -198,9 +188,9 @@ always_comb begin
             branch_inst_r = 1'b1;
             jump_inst_r   = 1'b0;
             alu_op_sel_r  = ALU_OP_ADD;
-            alu_a_sel_r   = `ALU_A_SEL_PC;
-            alu_b_sel_r   = `ALU_B_SEL_IMM;
-            ig_sel_r      = `IG_B_TYPE;
+            alu_a_sel_r   = ALU_A_SEL_PC;
+            alu_b_sel_r   = ALU_B_SEL_IMM;
+            ig_sel_r      = IG_B_TYPE;
             bc_uns_r      = fn3_dec[1];
             dmem_en_r     = 1'b0;
             load_sm_en_r  = 1'b0;
@@ -216,13 +206,13 @@ always_comb begin
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b1;
             alu_op_sel_r  = ALU_OP_ADD;
-            alu_a_sel_r   = `ALU_A_SEL_RS1;
-            alu_b_sel_r   = `ALU_B_SEL_IMM;
-            ig_sel_r      = `IG_I_TYPE;
+            alu_a_sel_r   = ALU_A_SEL_RS1;
+            alu_b_sel_r   = ALU_B_SEL_IMM;
+            ig_sel_r      = IG_I_TYPE;
             // bc_uns_r      = *;
             dmem_en_r     = 1'b0;
             load_sm_en_r  = 1'b0;
-            wb_sel_r      = `WB_SEL_INC4;
+            wb_sel_r      = WB_SEL_INC4;
             rd_we_r       = rd_nz;
         end
 
@@ -234,13 +224,13 @@ always_comb begin
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b1;
             alu_op_sel_r  = ALU_OP_ADD;
-            alu_a_sel_r   = `ALU_A_SEL_PC;
-            alu_b_sel_r   = `ALU_B_SEL_IMM;
-            ig_sel_r      = `IG_J_TYPE;
+            alu_a_sel_r   = ALU_A_SEL_PC;
+            alu_b_sel_r   = ALU_B_SEL_IMM;
+            ig_sel_r      = IG_J_TYPE;
             // bc_uns_r      = *;
             dmem_en_r     = 1'b0;
             load_sm_en_r  = 1'b0;
-            wb_sel_r      = `WB_SEL_INC4;
+            wb_sel_r      = WB_SEL_INC4;
             rd_we_r       = rd_nz;
         end
 
@@ -253,12 +243,12 @@ always_comb begin
             jump_inst_r   = 1'b0;
             alu_op_sel_r  = ALU_OP_PASS_B;
             // alu_a_sel_r   = *;
-            alu_b_sel_r   = `ALU_B_SEL_IMM;
-            ig_sel_r      = `IG_U_TYPE;
+            alu_b_sel_r   = ALU_B_SEL_IMM;
+            ig_sel_r      = IG_U_TYPE;
             // bc_uns_r      = *;
             dmem_en_r     = 1'b0;
             load_sm_en_r  = 1'b0;
-            wb_sel_r      = `WB_SEL_ALU;
+            wb_sel_r      = WB_SEL_ALU;
             rd_we_r       = rd_nz;
         end
 
@@ -270,13 +260,13 @@ always_comb begin
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
             alu_op_sel_r  = ALU_OP_ADD;
-            alu_a_sel_r   = `ALU_A_SEL_PC;
-            alu_b_sel_r   = `ALU_B_SEL_IMM;
-            ig_sel_r      = `IG_U_TYPE;
+            alu_a_sel_r   = ALU_A_SEL_PC;
+            alu_b_sel_r   = ALU_B_SEL_IMM;
+            ig_sel_r      = IG_U_TYPE;
             // bc_uns_r      = *;
             dmem_en_r     = 1'b0;
             load_sm_en_r  = 1'b0;
-            wb_sel_r      = `WB_SEL_ALU;
+            wb_sel_r      = WB_SEL_ALU;
             rd_we_r       = rd_nz;
         end
 
@@ -287,18 +277,18 @@ always_comb begin
             store_inst_r  = 1'b0;
             branch_inst_r = 1'b0;
             jump_inst_r   = 1'b0;
-            csr_ctrl_r.en = !((fn3_dec[1:0] == `CSR_OP_SEL_ASSIGN) && rs1_nz);
-            csr_ctrl_r.we = !((fn3_dec[1:0] != `CSR_OP_SEL_ASSIGN) && rs1_nz);
+            csr_ctrl_r.en = !((fn3_dec[1:0] == CSR_OP_SEL_ASSIGN) && rs1_nz);
+            csr_ctrl_r.we = !((fn3_dec[1:0] != CSR_OP_SEL_ASSIGN) && rs1_nz);
             csr_ctrl_r.ui = fn3_dec[2];
-            csr_ctrl_r.op_sel = fn3_dec[1:0];
+            csr_ctrl_r.op_sel = csr_op_sel_t'(fn3_dec[1:0]);
             // alu_op_sel_r  = *;
-            alu_a_sel_r   = `ALU_A_SEL_RS1;
+            alu_a_sel_r   = ALU_A_SEL_RS1;
             // alu_b_sel_r   = *;
             // ig_sel_r      = *;
             // bc_uns_r      = *;
             dmem_en_r     = 1'b0;
             load_sm_en_r  = 1'b0;
-            wb_sel_r      = `WB_SEL_CSR;
+            wb_sel_r      = WB_SEL_CSR;
             rd_we_r       = rd_nz;
         end
         default ;
@@ -308,17 +298,17 @@ end
 // Branch Resolution
 logic        branch_taken;
 logic        branch_inst_exe;
-logic [ 1:0] fn3_exe_branch;
-assign fn3_exe_branch = {fn3_exe[2], fn3_exe[0]}; // branch conditions
+branch_sel_t branch_sel_exe;
+assign branch_sel_exe = get_branch_sel(inst.exe);
 
 `DFF_CI_RI_RVI(branch_inst_r, branch_inst_exe)
 
 always_comb begin
-    case (fn3_exe_branch)
-        `BR_SEL_BEQ: branch_taken = bc_a_eq_b;
-        `BR_SEL_BNE: branch_taken = !bc_a_eq_b;
-        `BR_SEL_BLT: branch_taken = bc_a_lt_b;
-        `BR_SEL_BGE: branch_taken = bc_a_eq_b || !bc_a_lt_b;
+    case (branch_sel_exe)
+        BRANCH_SEL_BEQ: branch_taken = bc_a_eq_b;
+        BRANCH_SEL_BNE: branch_taken = !bc_a_eq_b;
+        BRANCH_SEL_BLT: branch_taken = bc_a_lt_b;
+        BRANCH_SEL_BGE: branch_taken = bc_a_eq_b || !bc_a_lt_b;
         default: branch_taken = 1'b0;
     endcase
 end
@@ -458,6 +448,7 @@ end
 assign load_inst = load_inst_r;
 assign store_inst = store_inst_r;
 assign branch_inst = branch_inst_r;
+//assign jump_inst = jump_inst_r;
 assign csr_ctrl = csr_ctrl_r;
 assign alu_op_sel = alu_op_t'(alu_op_sel_r);
 assign alu_a_sel = alu_a_sel_r;
@@ -477,13 +468,13 @@ assign rd_we = rd_we_r;
 `DFF_CI_RI_RVI(branch_inst_r, branch_inst_d)
 `DFF_CI_RI_RVI(jump_inst_r, jump_inst_d)
 `DFF_CI_RI_RV(ALU_OP_ADD, alu_op_sel, alu_op_sel_d)
-`DFF_CI_RI_RV(`ALU_A_SEL_RS1, alu_a_sel, alu_a_sel_d)
-`DFF_CI_RI_RV(`ALU_B_SEL_RS2, alu_b_sel, alu_b_sel_d)
-`DFF_CI_RI_RV(`IG_DISABLED, ig_sel, ig_sel_d)
+`DFF_CI_RI_RV(ALU_A_SEL_RS1, alu_a_sel, alu_a_sel_d)
+`DFF_CI_RI_RV(ALU_B_SEL_RS2, alu_b_sel, alu_b_sel_d)
+`DFF_CI_RI_RV(IG_DISABLED, ig_sel, ig_sel_d)
 `DFF_CI_RI_RVI(bc_uns, bc_uns_d)
 `DFF_CI_RI_RVI(dmem_en, dmem_en_d)
 `DFF_CI_RI_RVI(load_sm_en, load_sm_en_d)
-`DFF_CI_RI_RV(`WB_SEL_DMEM, wb_sel, wb_sel_d)
+`DFF_CI_RI_RV(WB_SEL_DMEM, wb_sel, wb_sel_d)
 `DFF_CI_RI_RVI(rd_we, rd_we_d)
 
 endmodule

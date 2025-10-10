@@ -5,19 +5,19 @@ module ama_riscv_load_shift_mask (
     input  logic        rst,
     input  logic        en,
     input  logic [ 1:0] offset,
-    input  logic [ 2:0] width,
+    input  dmem_dtype_t dtype,
     input  logic [31:0] data_in,
     output logic [31:0] data_out
 );
 
 logic        data_sign;
-logic [ 1:0] data_width;
+logic [ 2:0] data_width;
 logic        unaligned_access_h;
 logic        unaligned_access_w;
 logic        unaligned_access;
 logic [31:0] data_out_d;
-assign data_sign = width[2]; // 0: signed, 1: unsigned
-assign data_width = width[1:0];
+assign data_sign = dtype[2]; // 0: signed, 1: unsigned
+assign data_width = {1'b0, dtype[1:0]};
 
 // Check unaligned access
 assign unaligned_access_h = en &&

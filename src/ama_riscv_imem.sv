@@ -10,7 +10,10 @@ module ama_riscv_imem #(
     rv_if.TX     rsp
 );
 
+/* verilator lint_off UNDRIVEN */
+// preloaded with readmemh
 logic [31:0] mem [0:MEM_SIZE_W-1];
+/* verilator lint_on UNDRIVEN */
 
 generate
     if (D == 1) begin: g_lat1
