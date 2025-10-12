@@ -42,8 +42,11 @@ decoder_t    decoded;
 fe_ctrl_t    fe_ctrl;
 
 // Signals - EXE stage
-logic        store_inst_exe;
-logic        load_inst_exe;
+logic store_inst_exe;
+logic load_inst_exe;
+logic branch_inst_exe;
+logic jump_inst_exe;
+logic branch_taken;
 // from datapath
 logic        bc_a_eq_b;
 logic        bc_a_lt_b;
@@ -87,20 +90,33 @@ assign imem_req.data = pc_mux_out[15:2];
 // DEC Stage
 
 // Bubble up?
-assign inst.dec = fe_ctrl.bubble ? `NOP : imem_rsp.data;
-assign pc.dec = fe_ctrl.bubble ? 'h0 : pc.fet;
+assign inst.dec = fe_ctrl.bubble_dec ? `NOP : imem_rsp.data;
+assign pc.dec = fe_ctrl.bubble_dec ? 'h0 : pc.fet;
 
 ama_riscv_decoder ama_riscv_decoder_i (
+    .clk (clk),
+    .rst (rst),
+    // inputs
+    .inst (inst.IN),
+    // outputs
+    .decoded (decoded)
+);
+
+ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     .clk (clk),
     .rst (rst),
     .imem_req (imem_req),
     .imem_rsp (imem_rsp),
     // inputs
-    .inst (inst.IN),
-    .bc_a_eq_b (bc_a_eq_b),
-    .bc_a_lt_b (bc_a_lt_b),
+    .pc_dec (pc.dec),
+    .pc_exe (pc.exe),
+    .branch_inst_dec (decoded.branch_inst),
+    .jump_inst_dec (decoded.jump_inst),
+    .branch_inst_exe (branch_inst_exe),
+    .jump_inst_exe (jump_inst_exe),
+    .branch_taken (branch_taken),
+    .decoded_fe_ctrl (decoded.fe_ctrl),
     // outputs
-    .decoded (decoded),
     .fe_ctrl (fe_ctrl)
 );
 
@@ -194,7 +210,7 @@ assign rs2_data_fwd_dec = rf_b_sel_fwd_dec ? writeback : rs2_data_dec;
 
 //`STAGE(flush.dec, pc.exe, pc.dec)
 // don't propagate PC on bubble, rest is fine
-`STAGE_EN(flush.dec, !fe_ctrl.bubble, pc.dec, pc.exe)
+`STAGE_EN(flush.dec, !fe_ctrl.bubble_dec, pc.dec, pc.exe)
 `STAGE_RV(flush.dec, RF_X0_ZERO, rd_addr.dec, rd_addr.exe)
 `STAGE(flush.dec, rs1_data_fwd_dec, rs1_data_exe)
 `STAGE(flush.dec, rs2_data_fwd_dec, rs2_data_exe)
@@ -202,6 +218,8 @@ assign rs2_data_fwd_dec = rf_b_sel_fwd_dec ? writeback : rs2_data_dec;
 `STAGE(flush.dec, inst.dec, inst.exe)
 `STAGE(flush.dec, decoded.load_inst, load_inst_exe)
 `STAGE(flush.dec, decoded.store_inst, store_inst_exe)
+`STAGE(flush.dec, decoded.branch_inst, branch_inst_exe)
+`STAGE(flush.dec, decoded.jump_inst, jump_inst_exe)
 `STAGE(flush.dec, bc_a_sel_fwd_dec, bc_a_sel_fwd_exe)
 `STAGE(flush.dec, bcs_b_sel_fwd_dec, bcs_b_sel_fwd_exe)
 `STAGE(flush.dec, decoded.bc_uns, bc_uns_exe)
@@ -219,15 +237,28 @@ assign rs2_data_fwd_dec = rf_b_sel_fwd_dec ? writeback : rs2_data_dec;
 //------------------------------------------------------------------------------
 // EXE stage
 
-// Branch Compare
+// branch compare & resolution
 logic [31:0] bc_a;
 logic [31:0] bcs_b;
-assign bc_a = bc_a_sel_fwd_exe  ? writeback : rs1_data_exe;
+assign bc_a = bc_a_sel_fwd_exe ? writeback : rs1_data_exe;
 assign bcs_b = bcs_b_sel_fwd_exe ? writeback : rs2_data_exe;
 assign bc_a_eq_b =
     (bc_uns_exe) ? (bc_a == bcs_b) : ($signed(bc_a) == $signed(bcs_b));
 assign bc_a_lt_b =
     (bc_uns_exe) ? (bc_a < bcs_b) : ($signed(bc_a) < $signed(bcs_b));
+
+branch_sel_t branch_sel_exe;
+assign branch_sel_exe = get_branch_sel(inst.exe);
+
+always_comb begin
+    case (branch_sel_exe)
+        BRANCH_SEL_BEQ: branch_taken = bc_a_eq_b;
+        BRANCH_SEL_BNE: branch_taken = !bc_a_eq_b;
+        BRANCH_SEL_BLT: branch_taken = bc_a_lt_b;
+        BRANCH_SEL_BGE: branch_taken = bc_a_eq_b || !bc_a_lt_b;
+        default: branch_taken = 1'b0;
+    endcase
+end
 
 // ALU
 logic [31:0] alu_in_a;
@@ -430,7 +461,7 @@ assign writeback = (wb_sel.mem == WB_SEL_DMEM) ? load_sm_data_out :
 `STAGE(flush.mem, pc.mem, pc.wbk)
 
 logic [2:0] bubble_track;
-`DFF_CI_RI_RVI({bubble_track[1:0], fe_ctrl.bubble}, bubble_track)
+`DFF_CI_RI_RVI({bubble_track[1:0], fe_ctrl.bubble_dec}, bubble_track)
 
 // For instruction counter, only care about NOPs inserted by HW
 assign inst_wb_nop_or_clear = (
@@ -446,30 +477,5 @@ assign flush.dec = reset_seq[0]; // TODO: eventually also BP
 assign flush.exe = reset_seq[1];
 assign flush.mem = reset_seq[2];
 assign flush.wbk = 1'b0;
-
-/* pipeline_if #(.W(1)) stall ();
-pipeline_if #(.W(1)) conv_s2b ();
-pipeline_if #(.W(1)) bubble ();
-
-logic stall_src_flow_change; // FIXME: proper output from decoder
-assign stall_src_flow_change =
-    DUT_ama_riscv_core_top_i
-    .ama_riscv_core_i
-    .ama_riscv_decoder_i
-    .stall_src_flow_change;
-
-assign stall.fet = stall_src_flow_change; // FIXME: only considers flow, not imem stall
-assign stall.dec = 1'b0;
-assign stall.exe = 1'b0;
-assign stall.mem = 1'b0; //dc_stall;
-assign stall.wbk = 1'b0;
-
-`DFF_CI_RI_RVI(stall, conv_s2b)
-
-assign bubble.fet = 1'b0; // can't bubble in fetch
-assign bubble.dec = conv_s2b.fet;
-assign bubble.exe = conv_s2b.dec; // which is never currently
-assign bubble.mem = conv_s2b.exe; // also never
-assign bubble.wbk = conv_s2b.mem; // dc stall currently */
 
 endmodule

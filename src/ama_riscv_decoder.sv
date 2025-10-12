@@ -3,13 +3,8 @@
 module ama_riscv_decoder (
     input  logic        clk,
     input  logic        rst,
-    rv_if.TX            imem_req,
-    rv_if.RX            imem_rsp,
     pipeline_if.IN      inst,
-    input  logic        bc_a_eq_b,
-    input  logic        bc_a_lt_b,
-    output decoder_t    decoded,
-    output fe_ctrl_t    fe_ctrl
+    output decoder_t    decoded
 );
 
 typedef enum logic [1:0] {
@@ -37,17 +32,13 @@ logic rs1_nz;
 assign rs1_nz = (rs1_addr_dec == RF_X0_ZERO);
 
 decoder_t decoded_d;
-fe_ctrl_t fe_ctrl_init; // initial decode, may be overridden by stall logic
-fe_ctrl_t fe_ctrl_d;
-
 always_comb begin
-    fe_ctrl_init = fe_ctrl_d;
     decoded = decoded_d;
 
     case (opc7_dec)
         OPC7_R_TYPE: begin
-            fe_ctrl_init.pc_sel = PC_SEL_INC4;
-            fe_ctrl_init.pc_we  = 1'b1;
+            decoded.fe_ctrl.pc_sel = PC_SEL_INC4;
+            decoded.fe_ctrl.pc_we  = 1'b1;
             decoded.load_inst   = 1'b0;
             decoded.store_inst  = 1'b0;
             decoded.branch_inst = 1'b0;
@@ -64,8 +55,8 @@ always_comb begin
         end
 
         OPC7_I_TYPE: begin
-            fe_ctrl_init.pc_sel = PC_SEL_INC4;
-            fe_ctrl_init.pc_we  = 1'b1;
+            decoded.fe_ctrl.pc_sel = PC_SEL_INC4;
+            decoded.fe_ctrl.pc_we  = 1'b1;
             decoded.load_inst   = 1'b0;
             decoded.store_inst  = 1'b0;
             decoded.branch_inst = 1'b0;
@@ -85,8 +76,8 @@ always_comb begin
         end
 
         OPC7_LOAD: begin
-            fe_ctrl_init.pc_sel = PC_SEL_INC4;
-            fe_ctrl_init.pc_we  = 1'b1;
+            decoded.fe_ctrl.pc_sel = PC_SEL_INC4;
+            decoded.fe_ctrl.pc_we  = 1'b1;
             decoded.load_inst   = 1'b1;
             decoded.store_inst  = 1'b0;
             decoded.branch_inst = 1'b0;
@@ -103,8 +94,8 @@ always_comb begin
         end
 
         OPC7_STORE: begin
-            fe_ctrl_init.pc_sel = PC_SEL_INC4;
-            fe_ctrl_init.pc_we  = 1'b1;
+            decoded.fe_ctrl.pc_sel = PC_SEL_INC4;
+            decoded.fe_ctrl.pc_we  = 1'b1;
             decoded.load_inst   = 1'b0;
             decoded.store_inst  = 1'b1;
             decoded.branch_inst = 1'b0;
@@ -121,8 +112,8 @@ always_comb begin
         end
 
         OPC7_BRANCH: begin
-            fe_ctrl_init.pc_sel = PC_SEL_INC4; // to change to bp
-            fe_ctrl_init.pc_we  = 1'b1;        // assumes bp ... (1)
+            decoded.fe_ctrl.pc_sel = PC_SEL_INC4; // to change to bp
+            decoded.fe_ctrl.pc_we  = 1'b1;        // assumes bp ... (1)
             decoded.load_inst   = 1'b0;
             decoded.store_inst  = 1'b0;
             decoded.branch_inst = 1'b1;
@@ -139,8 +130,8 @@ always_comb begin
         end
 
         OPC7_JALR: begin
-            fe_ctrl_init.pc_sel = PC_SEL_ALU;     // to change to bp
-            fe_ctrl_init.pc_we  = 1'b1;           // assumes bp ... (1)
+            decoded.fe_ctrl.pc_sel = PC_SEL_ALU;     // to change to bp
+            decoded.fe_ctrl.pc_we  = 1'b1;           // assumes bp ... (1)
             decoded.load_inst   = 1'b0;
             decoded.store_inst  = 1'b0;
             decoded.branch_inst = 1'b0;
@@ -157,8 +148,8 @@ always_comb begin
         end
 
         OPC7_JAL: begin
-            fe_ctrl_init.pc_sel = PC_SEL_ALU;     // to change to bp
-            fe_ctrl_init.pc_we  = 1'b1;           // assumes bp ... (1)
+            decoded.fe_ctrl.pc_sel = PC_SEL_ALU;     // to change to bp
+            decoded.fe_ctrl.pc_we  = 1'b1;           // assumes bp ... (1)
             decoded.load_inst   = 1'b0;
             decoded.store_inst  = 1'b0;
             decoded.branch_inst = 1'b0;
@@ -175,8 +166,8 @@ always_comb begin
         end
 
         OPC7_LUI: begin
-            fe_ctrl_init.pc_sel = PC_SEL_INC4;
-            fe_ctrl_init.pc_we  = 1'b1;
+            decoded.fe_ctrl.pc_sel = PC_SEL_INC4;
+            decoded.fe_ctrl.pc_we  = 1'b1;
             decoded.load_inst   = 1'b0;
             decoded.store_inst  = 1'b0;
             decoded.branch_inst = 1'b0;
@@ -193,8 +184,8 @@ always_comb begin
         end
 
         OPC7_AUIPC: begin
-            fe_ctrl_init.pc_sel = PC_SEL_INC4;
-            fe_ctrl_init.pc_we  = 1'b1;
+            decoded.fe_ctrl.pc_sel = PC_SEL_INC4;
+            decoded.fe_ctrl.pc_we  = 1'b1;
             decoded.load_inst   = 1'b0;
             decoded.store_inst  = 1'b0;
             decoded.branch_inst = 1'b0;
@@ -211,8 +202,8 @@ always_comb begin
         end
 
         OPC7_SYSTEM: begin
-            fe_ctrl_init.pc_sel = PC_SEL_INC4;
-            fe_ctrl_init.pc_we  = 1'b1;
+            decoded.fe_ctrl.pc_sel = PC_SEL_INC4;
+            decoded.fe_ctrl.pc_we  = 1'b1;
             decoded.load_inst   = 1'b0;
             decoded.store_inst  = 1'b0;
             decoded.branch_inst = 1'b0;
@@ -237,156 +228,6 @@ always_comb begin
     endcase
 end
 
-// Branch Resolution
-logic        branch_taken;
-logic        branch_inst_exe;
-branch_sel_t branch_sel_exe;
-assign branch_sel_exe = get_branch_sel(inst.exe);
-
-`DFF_CI_RI_RVI(decoded.branch_inst, branch_inst_exe)
-
-always_comb begin
-    case (branch_sel_exe)
-        BRANCH_SEL_BEQ: branch_taken = bc_a_eq_b;
-        BRANCH_SEL_BNE: branch_taken = !bc_a_eq_b;
-        BRANCH_SEL_BLT: branch_taken = bc_a_lt_b;
-        BRANCH_SEL_BGE: branch_taken = bc_a_eq_b || !bc_a_lt_b;
-        default: branch_taken = 1'b0;
-    endcase
-end
-
-// Jumps
-logic jump_inst_exe;
-`DFF_CI_RI_RVI(decoded.jump_inst, jump_inst_exe)
-
-// Flow changed
-logic flow_changed;
-assign flow_changed = (branch_taken && branch_inst_exe) || jump_inst_exe;
-
-// Stall
-logic stall_src_flow_change;
-assign stall_src_flow_change = decoded.branch_inst || decoded.jump_inst;
-
-logic stall_src_imem;
-//assign stall_src_imem = !imem_rsp.valid;
-assign stall_src_imem = !imem_req.ready;
-
-// stall FSM
-stall_state_t state, nx_state;
-
-// state transition
-`DFF_CI_RI_RV(RST, nx_state, state)
-
-// next state
-always_comb begin
-    nx_state = state;
-    case (state)
-        RST: begin
-            `ifdef IMEM_DELAY
-            nx_state = STALL_IMEM; // mem needs fixed number of cycles for rsp
-            `else
-            nx_state = STEADY;
-            `endif
-        end
-
-        STEADY: begin
-            if (stall_src_flow_change) nx_state = STALL_FLOW;
-            else if (stall_src_imem) nx_state = STALL_IMEM;
-        end
-
-        STALL_FLOW: begin
-            if (stall_src_imem) nx_state = STALL_IMEM;
-            else nx_state = STEADY; // resolved in EXE, 1 clk currently
-        end
-
-        STALL_IMEM: begin
-            if (imem_req.ready) begin
-                if (stall_src_flow_change) nx_state = STALL_FLOW;
-                else nx_state = STEADY;
-            end
-        end
-    endcase
-end
-
-// outputs
-always_comb begin
-    fe_ctrl.pc_sel = fe_ctrl_d.pc_sel;
-    fe_ctrl.pc_we = fe_ctrl_d.pc_we;
-    imem_req.valid = 1'b0;
-    imem_rsp.ready = 1'b0;
-    fe_ctrl.bubble = 1'b0;
-
-    case (state)
-        RST: begin
-            fe_ctrl.pc_sel = PC_SEL_PC;
-
-            `ifdef IMEM_DELAY
-            fe_ctrl.bubble = 1'b1;
-            fe_ctrl.pc_we = 1'b0;
-            `else
-            fe_ctrl.bubble = 1'b0;
-            fe_ctrl.pc_we = 1'b1;
-            `endif
-
-            // reset vector on boot
-            imem_req.valid = 1'b1;
-            imem_rsp.ready = 1'b1;
-        end
-
-        STEADY: begin
-            // pass decoder outputs by default
-            fe_ctrl.pc_sel = fe_ctrl_init.pc_sel;
-            fe_ctrl.pc_we = fe_ctrl_init.pc_we;
-            imem_req.valid = 1'b1;
-            imem_rsp.ready = 1'b1;
-
-            // override if in stall
-            if (stall_src_flow_change) begin
-                fe_ctrl.pc_we = 1'b0; // ... (1) overwritten for now
-                imem_req.valid = 1'b0;
-                imem_rsp.ready = 1'b0;
-            end else if (stall_src_imem) begin
-                fe_ctrl.pc_we = 1'b0;
-                imem_req.valid = 1'b0;
-                fe_ctrl.bubble = 1'b1;
-            end
-        end
-
-        STALL_FLOW: begin
-            fe_ctrl.pc_sel = flow_changed ? PC_SEL_ALU : fe_ctrl_init.pc_sel;
-            fe_ctrl.pc_we = 1'b1;
-            imem_req.valid = 1'b1;
-            imem_rsp.ready = 1'b1;
-            fe_ctrl.bubble = 1'b1;
-        end
-
-        STALL_IMEM: begin
-            fe_ctrl.pc_we = 1'b0;
-            fe_ctrl.pc_sel = fe_ctrl_d.pc_sel;
-            imem_req.valid = 1'b0;
-            imem_rsp.ready = 1'b1;
-            fe_ctrl.bubble = 1'b1;
-
-            if (imem_rsp.valid) begin // imem returned inst
-                // stall if inst is flow change, else proceed forward
-                if (stall_src_flow_change) begin
-                    fe_ctrl.pc_we = 1'b0; // ... (1) overwritten for now
-                    imem_req.valid = 1'b0;
-                    imem_rsp.ready = 1'b0;
-                    fe_ctrl.bubble = 1'b0;
-                end else begin
-                    fe_ctrl.pc_we = 1'b1;
-                    fe_ctrl.pc_sel = fe_ctrl_init.pc_sel;
-                    imem_req.valid = 1'b1;
-                    imem_rsp.ready = 1'b1;
-                    fe_ctrl.bubble = 1'b0;
-                end
-            end
-        end
-    endcase
-end
-
 `DFF_CI_RI_RV(`DECODER_RST_VAL, decoded, decoded_d)
-`DFF_CI_RI_RV(`FE_CTRL_RST_VAL, fe_ctrl_init, fe_ctrl_d)
 
 endmodule

@@ -157,7 +157,7 @@ parameter unsigned CORE_DATA_BUS = 32;
 /* verilator lint_on UNUSEDPARAM */
 
 `ifdef IMEM_DELAY
-`define IMEM_DELAY_CLK 2
+`define IMEM_DELAY_CLK 3
 `else
 `define IMEM_DELAY_CLK 1
 `endif
@@ -192,11 +192,7 @@ endinterface
 // not all stages will be used by every instatiation
 /* verilator lint_off UNUSEDSIGNAL */
 interface pipeline_if #(parameter unsigned W = 32);
-    logic [W-1:0] fet;
-    logic [W-1:0] dec;
-    logic [W-1:0] exe;
-    logic [W-1:0] mem;
-    logic [W-1:0] wbk;
+    logic [W-1:0] fet, dec, exe, mem, wbk;
     modport IN (input fet, dec, exe, mem, wbk);
     modport OUT (output fet, dec, exe, mem, wbk);
 endinterface
@@ -204,11 +200,7 @@ endinterface
 
 /* verilator lint_off UNUSEDSIGNAL */
 interface pipeline_if_typed #(parameter type T = logic [CORE_DATA_BUS-1:0]);
-    T fet;
-    T dec;
-    T exe;
-    T mem;
-    T wbk;
+    T fet, dec, exe, mem, wbk;
     modport IN  (input  fet, dec, exe, mem, wbk);
     modport OUT (output fet, dec, exe, mem, wbk);
 endinterface
@@ -223,12 +215,13 @@ typedef struct packed {
 } csr_ctrl_t;
 
 typedef struct packed {
-    logic bubble;
+    logic bubble_dec;
     pc_sel_t pc_sel;
     logic pc_we;
 } fe_ctrl_t;
 
 typedef struct packed {
+    fe_ctrl_t fe_ctrl;
     logic load_inst;
     logic store_inst;
     logic branch_inst;
@@ -247,13 +240,14 @@ typedef struct packed {
 
 `define FE_CTRL_RST_VAL \
     '{ \
-        bubble: 1'b1, \
+        bubble_dec: 1'b1, \
         pc_sel: PC_SEL_INC4, \
         pc_we: 1'b0 \
     }
 
 `define DECODER_RST_VAL \
     '{ \
+        fe_ctrl: `FE_CTRL_RST_VAL, \
         load_inst: 1'b0, \
         store_inst: 1'b0, \
         branch_inst: 1'b0, \

@@ -81,7 +81,7 @@ logic mmio_reset_cnt;
 
 //------------------------------------------------------------------------------
 // DUT instance
-ama_riscv_core_top DUT_ama_riscv_core_top_i (
+ama_riscv_core_top `DUT (
     .clk,
     .rst,
     .inst_wb_nop_or_clear,
@@ -334,7 +334,7 @@ task automatic single_step(longint unsigned clk_cnt);
         "Core [F] %5h: %8h %0s",
         `DUT_CORE.pc.dec,
         `DUT_CORE.imem_rsp.data,
-        `DUT_CORE.fe_ctrl.bubble ? ("(fe stalled)") : "")
+        `DUT_CORE.fe_ctrl.bubble_dec ? ("(fe stalled)") : "")
     );
 
     `ifdef ENABLE_COSIM
