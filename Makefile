@@ -16,7 +16,16 @@ ELAB_OPTS := -debug $(ELAB_DEBUG) --incr --relax --mt 8
 include Makefile.inc
 
 TCLBATCH := run_cfg.tcl
-TEST_PATH :=
+TEST_PATH ?=
+TEST_WDB := $(shell path='$(TEST_PATH)'; echo "$$(basename "$$(dirname "$$path")")_$$(basename "$$path")")
+
+# useful for standalone make runs
+UNIQUE_WDB ?=
+WDB_SWITCH :=
+ifeq ($(strip $(UNIQUE_WDB)),1)
+    WDB_SWITCH := -wdb $(REPO_ROOT)/$(TEST_WDB)
+endif
+
 TIMEOUT_CLOCKS ?= 500000
 LOG_LEVEL ?= WARN
 COSIM_CHECKER := -testplusarg enable_cosim_checkers
@@ -50,7 +59,7 @@ SIM_LOG := -log /dev/null 2>&1
 MAX_DELTA = -maxdeltaid 100
 
 sim: .elab.touchfile
-	xsim $(TOP) -tclbatch $(REPO_ROOT)/$(TCLBATCH) -stats -onerror quit -testplusarg test_path=$(REPO_ROOT)/$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) -testplusarg log_level=$(LOG_LEVEL) $(COSIM_CHECKER) $(SIM_LOG) $(MAX_DELTA)
+	xsim $(TOP) -tclbatch $(REPO_ROOT)/$(TCLBATCH) $(WDB_SWITCH) -stats -onerror quit -testplusarg test_path=$(REPO_ROOT)/$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) -testplusarg log_level=$(LOG_LEVEL) $(COSIM_CHECKER) $(SIM_LOG) $(MAX_DELTA)
 	@rm xsim.jou
 	@touch .sim.touchfile
 
