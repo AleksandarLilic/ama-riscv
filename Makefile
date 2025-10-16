@@ -8,13 +8,16 @@ TOP := ama_riscv_core_top_tb
 
 RTL_DEFINES ?=
 RTL_DEFINES += -d ENABLE_COSIM
+RTL_DEFINES_SLANG := $(subst -d,-D,$(RTL_DEFINES)) # upper case for slang
 COMP_OPTS := -sv --incr --relax
 ELAB_DEBUG ?= typical
 ELAB_OPTS := -debug $(ELAB_DEBUG) --incr --relax --mt 8
 
 include Makefile.inc
 
-TCLBATCH := run_cfg.tcl
+TCLBATCH ?= run_cfg.tcl
+TCLBATCH_SWITCH := -tclbatch $(REPO_ROOT)/$(TCLBATCH)
+
 TEST_PATH ?=
 TEST_WDB := $(shell path='$(TEST_PATH)'; echo "$$(basename "$$(dirname "$$path")")_$$(basename "$$path")")
 
@@ -58,20 +61,26 @@ SIM_LOG := -log /dev/null 2>&1
 MAX_DELTA = -maxdeltaid 100
 
 sim: .elab.touchfile
-	xsim $(TOP) -tclbatch $(REPO_ROOT)/$(TCLBATCH) $(WDB_SWITCH) -stats -onerror quit -testplusarg test_path=$(REPO_ROOT)/$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) -testplusarg log_level=$(LOG_LEVEL) $(COSIM_CHECKER) $(SIM_LOG) $(MAX_DELTA)
+	xsim $(TOP) $(TCLBATCH_SWITCH) $(WDB_SWITCH) -stats -onerror quit -testplusarg test_path=$(REPO_ROOT)/$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) -testplusarg log_level=$(LOG_LEVEL) $(COSIM_CHECKER) $(SIM_LOG) $(MAX_DELTA)
 	@rm xsim.jou
 	@touch .sim.touchfile
 
+# run target in terminal once; it will watch for any file save and re-run slang
+# alternative to setup with vscode extension(s)
 watch_slang:
-	@make slang
+	@make slang SLANG_OPTS=-q --no-print-directory
 	@while inotifywait -e close_write $(SRC_VERIF) $(SRC_DESIGN) 2>/dev/null; do \
-		make slang; \
-		echo ""; \
+		make slang SLANG_OPTS=-q --no-print-directory; \
 	done
 
 slang:
-	@slang $(SRC_VERIF) $(SRC_DESIGN) $(PLUS_INCDIR) -Wno-unconnected-port -Wno-duplicate-definition
+	@slang -j 8 --top $(TOP) $(RTL_DEFINES_SLANG) $(SRC_VERIF) $(SRC_DESIGN) $(PLUS_INCDIR) -Wno-unconnected-port -Wno-duplicate-definition --std 1800-2017 $(SLANG_OPTS)
 
+# run preprocessor only, useful for debugging
+slang_pp:
+	@make slang --no-print-directory SLANG_OPTS="-E --comments  > slang_e.sv 2>&1"
+
+# slang has poor linting capabilities, use verilator instead
 lint:
 	@verilator --lint-only $(SRC_DESIGN) $(PLUS_INCDIR) -Wall -Wpedantic > lint.log 2>&1
 
