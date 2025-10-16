@@ -11,12 +11,10 @@ module ama_riscv_mem (
     rv_if.TX     rsp_dmem
 );
 
-localparam unsigned DEPTH = 4096; // 64K with 128-bit bus
-logic [MEM_DATA_BUS-1:0] mem [DEPTH-1:0];
-
-`DFF_CI_RI_RVI(1'b1, req_imem.ready) // always ready for new request out of rst
+logic [MEM_DATA_BUS-1:0] mem [MEM_SIZE_Q-1:0];
 
 // imem read
+`DFF_CI_RI_RVI(1'b1, req_imem.ready) // always ready for new request out of rst
 always_ff @(posedge clk) begin
     if (req_imem.valid) begin
         rsp_imem.data <= mem[req_imem.data];
@@ -34,9 +32,9 @@ always_ff @(posedge clk) begin
         rsp_dmem.data <= mem[req_dmem_r.data];
         rsp_dmem.valid <= 1'b1;
     end else begin
-        // don't change rsp_dmem.data bus
         rsp_dmem.valid <= 1'b0;
-        rsp_dmem.data <= 'h0; // FIXME: remove
+        // don't change rsp_dmem.data bus at the end of transfer
+        //rsp_dmem.data <= 'h0;
     end
 end
 
@@ -44,12 +42,13 @@ end
 `DFF_CI_RI_RVI(1'b1, req_dmem_w.ready)
 always_ff @(posedge clk) begin
     if (req_dmem_w.valid) begin
-        `LOG_D($sformatf("DMEM write: addr=0x%08h, wdata=0x%32h", req_dmem_w.addr, req_dmem_w.wdata));
+        //`LOG_D($sformatf("DMEM write: addr=0x%08h, wdata=0x%32h", req_dmem_w.addr, req_dmem_w.wdata));
         mem[req_dmem_w.addr] <= req_dmem_w.wdata;
-
     end
 end
 
+/*
+// readback for debug
 logic [MEM_ADDR_BUS-1:0] hold_addr;
 initial begin
     forever @(posedge clk) begin
@@ -60,5 +59,5 @@ initial begin
         end
     end
 end
-
+ */
 endmodule

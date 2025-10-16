@@ -2,8 +2,8 @@
 `include "ama_riscv_tb_defines.svh"
 
 module ama_riscv_icache #(
-    parameter int unsigned SETS = 4,
-    parameter int unsigned WAYS = 2
+    parameter unsigned SETS = 4,
+    parameter unsigned WAYS = 2
 )(
     input  logic clk,
     input  logic rst,
@@ -30,20 +30,23 @@ if (WAYS > 32) begin: check_ways_size
     $error("icache WAYS > 32 - currently not supported");
 end
 
-parameter int unsigned INDEX_BITS = $clog2(SETS);
+parameter unsigned IDX_BITS = $clog2(SETS);
+parameter unsigned WAY_BITS = $clog2(WAYS);
+parameter unsigned TAG_W = CORE_BYTE_ADDR_BUS - CACHE_LINE_BYTE_ADDR - IDX_BITS;
+parameter unsigned IDX_RANGE_TOP = (SETS == 1) ? 1: IDX_BITS;
 
 // custom types
 typedef union packed {
     logic [CACHE_LINE_SIZE-1:0] f; // flat view
     logic [CACHE_LINE_SIZE/MEM_DATA_BUS-1:0] [MEM_DATA_BUS-1:0] q; // mem bus
-    logic [CACHE_LINE_SIZE/CORE_DATA_BUS-1:0] [CORE_DATA_BUS-1:0] w; // inst 32
+    logic [CACHE_LINE_SIZE/INST_WIDTH-1:0] [INST_WIDTH-1:0] w; // inst 32
     // logic [CACHE_LINE_SIZE/16-1:0] [15:0] h; // inst 16 (compressed isa)
     // logic [CACHE_LINE_SIZE/8-1:0] [7:0] b; // byte
 } cache_line_data_t;
 
 typedef struct {
     logic valid;
-    logic [$clog2(WAYS)-1:0] lru_cnt; // optimized away for direct-mapped cache
+    logic [WAY_BITS-1:0] lru_cnt; // optimized away for direct-mapped cache
     logic [TAG_W-1:0] tag;
     cache_line_data_t data;
 } cache_line_t;
@@ -54,38 +57,38 @@ typedef struct {
 
 typedef struct packed {
     logic active;
-    logic [$clog2(WAYS)-1:0] way_idx;
-    logic [CORE_ADDR_BUS_W-1:0] addr;
+    logic [WAY_BITS-1:0] way_idx;
+    logic [CORE_WORD_ADDR_BUS-1:0] addr;
     logic [MEM_ADDR_BUS-1:0] mem_start_addr;
 } core_request_pending_t;
 
 // helper functions
 function automatic [TAG_W-1:0]
-get_tag(input logic [CORE_ADDR_BUS_W-1:0] addr);
-    get_tag = (addr >> (4 + INDEX_BITS));
+get_tag(input logic [CORE_WORD_ADDR_BUS-1:0] addr);
+    get_tag = addr[CORE_WORD_ADDR_BUS-1 -: TAG_W]; // get top TAG_W bits
 endfunction
 
-function automatic [INDEX_BITS-1:0]
-get_idx(input logic [CORE_ADDR_BUS_W-1:0] addr);
+function automatic [IDX_RANGE_TOP-1:0]
+get_idx(input logic [CORE_WORD_ADDR_BUS-1:0] addr);
     get_idx = (addr >> 4) & (SETS - 1);
 endfunction
 
-function automatic [CORE_ADDR_BUS_W-1:0]
-get_cl_word(input logic [CORE_ADDR_BUS_W-1:0] addr);
+function automatic [CORE_WORD_ADDR_BUS-1:0]
+get_cl_word(input logic [CORE_WORD_ADDR_BUS-1:0] addr);
     get_cl_word = addr & 4'hf;
 endfunction
 
 // implementation
 cache_way_t way [WAYS-1:0];
 
-logic [CORE_ADDR_BUS_W-1:0] cr_addr, cr_d_addr;
+logic [CORE_WORD_ADDR_BUS-1:0] cr_addr, cr_d_addr;
 assign cr_addr = req_core.data; // just rename for clarity
 
 logic tag_match;
 logic [TAG_W-1:0] tag_cr;
-logic [$clog2(SETS)-1:0] set_idx_cr;
-logic [$clog2(WAYS)-1:0] way_idx_cr, way_idx_cr_d;
-logic [$clog2(WAYS)-1:0] way_victim_idx, way_victim_idx_d;
+logic [IDX_RANGE_TOP-1:0] set_idx_cr;
+logic [WAY_BITS-1:0] way_idx_cr, way_idx_cr_d;
+logic [WAY_BITS-1:0] way_victim_idx, way_victim_idx_d;
 
 if (WAYS == 1) begin: direct_mapped_search
     // wrap in always_comb to force functions to evaluate first
@@ -102,7 +105,7 @@ if (WAYS == 1) begin: direct_mapped_search
     end
 
 end else begin: set_associative_search
-    logic [$clog2(WAYS)-1:0] victim_lru;
+    logic [WAY_BITS-1:0] victim_lru;
     always_comb begin
         set_idx_cr = get_idx(cr_addr);
         tag_cr = get_tag(cr_addr);
@@ -163,8 +166,8 @@ logic mem_transfer_done;
 assign mem_transfer_done =
     (rsp_mem.valid && (mem_miss_cnt_d == (MEM_TRANSFERS_PER_CL - 1)));
 
-logic [$clog2(SETS)-1:0] set_idx_pend;
-logic [$clog2(SETS)-1:0] set_idx_cr_d;
+logic [IDX_RANGE_TOP-1:0] set_idx_pend;
+logic [IDX_RANGE_TOP-1:0] set_idx_cr_d;
 // no need to wrap with always_comb, outputs are used in always_ff only
 assign set_idx_pend = get_idx(cr_pend.addr);
 assign set_idx_cr_d = get_idx(cr_d_addr);
@@ -184,7 +187,7 @@ always_ff @(posedge clk) begin
         if (mem_transfer_done) begin
             way[cr_pend.way_idx].set[set_idx_pend].valid <= 1'b1;
             way[cr_pend.way_idx].set[set_idx_pend].tag <=
-                (cr_pend.mem_start_addr >> (2 + INDEX_BITS));
+                (cr_pend.mem_start_addr >> (2 + IDX_BITS));
         end
     end else if (new_core_req_d && hit_d) begin // update LRU on hit
         // optimized away for direct-mapped cache
@@ -209,12 +212,12 @@ logic dbg_serving_pending_req;
 assign dbg_serving_pending_req =
     (cr_pend.active && !new_core_req_d) && rsp_core.valid;
 
-logic [CORE_ADDR_BUS_B-1:0] dbg_req_core_bytes;
+logic [CORE_BYTE_ADDR_BUS-1:0] dbg_req_core_bytes;
 assign dbg_req_core_bytes = cr_addr<<2;
 
-logic [CORE_ADDR_BUS_B-1:0] dbg_req_core_bytes_valid;
+logic [CORE_BYTE_ADDR_BUS-1:0] dbg_req_core_bytes_valid;
 assign dbg_req_core_bytes_valid = (
-    (cr_addr<<2) & {CORE_ADDR_BUS_B{req_core.valid}});
+    (cr_addr<<2) & {CORE_BYTE_ADDR_BUS{req_core.valid}});
 
 // state transition
 `DFF_CI_RI_RV(IC_RESET, nx_state, state)
@@ -250,7 +253,7 @@ always_comb begin
 end
 
 // because reasons
-logic [$clog2(SETS)-1:0] set_idx;
+logic [IDX_RANGE_TOP-1:0] set_idx;
 logic [15:0] word_idx;
 
 // outputs

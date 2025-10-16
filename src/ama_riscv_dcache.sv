@@ -2,8 +2,8 @@
 `include "ama_riscv_tb_defines.svh"
 
 module ama_riscv_dcache #(
-    parameter int unsigned SETS = 4 // must be power of 2
-    //parameter int unsigned WAYS = 1
+    parameter unsigned SETS = 4 // must be power of 2
+    //parameter unsigned WAYS = 1
 )(
     input  logic clk,
     input  logic rst,
@@ -27,16 +27,18 @@ if (!is_pow2(SETS)) begin: check_sets_pow2
     $error("dcache SETS not power of 2");
 end
 
-parameter int unsigned WAYS = 1; // currently only direct-mapped supported
+parameter unsigned WAYS = 1; // currently only direct-mapped supported
 //if (WAYS > 2) $error("dcache WAYS > 2 currently not supported");
 
-parameter int unsigned INDEX_BITS = $clog2(SETS);
+parameter unsigned IDX_BITS = $clog2(SETS);
+parameter unsigned TAG_W = CORE_BYTE_ADDR_BUS - CACHE_LINE_BYTE_ADDR - IDX_BITS;
+parameter unsigned IDX_RANGE_TOP = (SETS == 1) ? 1: IDX_BITS;
 
 // custom types
 typedef union packed {
     logic [CACHE_LINE_SIZE-1:0] f; // flat view
     logic [CACHE_LINE_SIZE/MEM_DATA_BUS-1:0] [MEM_DATA_BUS-1:0] q; // mem bus
-    logic [CACHE_LINE_SIZE/CORE_DATA_BUS-1:0] [CORE_DATA_BUS-1:0] w; // core
+    logic [CACHE_LINE_SIZE/ARCH_WIDTH-1:0] [ARCH_WIDTH-1:0] w; // core
     // logic [CACHE_LINE_SIZE/16-1:0] [15:0] h; // half
     logic [CACHE_LINE_SIZE/8-1:0] [7:0] b; // byte
 } cache_line_data_t;
@@ -54,12 +56,12 @@ typedef struct {
 } cache_way_t;
 
 typedef union packed {
-    logic [CORE_DATA_BUS-1:0] wdata;
-    logic [CORE_DATA_BUS/8-1:0] [7:0] b;
+    logic [ARCH_WIDTH-1:0] wdata;
+    logic [ARCH_WIDTH/8-1:0] [7:0] b;
 } core_data_t;
 
 typedef struct packed {
-    logic [CORE_ADDR_BUS_B-1:0] addr;
+    logic [CORE_BYTE_ADDR_BUS-1:0] addr;
     core_data_t wdata;
     dmem_dtype_t dtype;
     dmem_rtype_t rtype;
@@ -73,28 +75,34 @@ typedef struct packed {
 
 // helper functions
 function automatic [TAG_W-1:0]
-get_tag(input logic [CORE_ADDR_BUS_B-1:0] addr);
-    get_tag = (addr >> (6 + INDEX_BITS));
+get_tag(input logic [CORE_BYTE_ADDR_BUS-1:0] addr);
+    get_tag = addr[CORE_BYTE_ADDR_BUS-1 -: TAG_W]; // get top TAG_W bits
 endfunction
 
-function automatic [INDEX_BITS-1:0]
-get_idx(input logic [CORE_ADDR_BUS_B-1:0] addr);
-    get_idx = (addr >> 6) & (SETS - 1);
+function automatic [IDX_RANGE_TOP-1:0]
+get_idx(input logic [CORE_BYTE_ADDR_BUS-1:0] addr);
+    logic  [CORE_BYTE_ADDR_BUS-1:0] masked;
+    masked = (addr >> 6) & (SETS - 1);
+    get_idx = masked[IDX_RANGE_TOP-1:0];
 endfunction
 
-function automatic [CORE_ADDR_BUS_W-1:0]
-get_cl_word(input logic [CORE_ADDR_BUS_B-1:0] addr);
-    get_cl_word = (addr >> 2) & 4'hf;
+function automatic [CORE_WORD_ADDR_BUS-1:0]
+get_cl_word(input logic [CORE_BYTE_ADDR_BUS-1:0] addr);
+    logic [CORE_BYTE_ADDR_BUS-1:0] masked;
+    masked = (addr >> 2) & 'hf;
+    get_cl_word = masked[CORE_WORD_ADDR_BUS-1:0];
 endfunction
 
-function automatic [CACHE_LINE_ADDR_B-1:0]
-get_cl_byte_idx(input logic [CORE_ADDR_BUS_B-1:0] addr);
-    get_cl_byte_idx = addr & CACHE_LINE_B_MASK;
+function automatic [CACHE_LINE_BYTE_ADDR-1:0]
+get_cl_byte_idx(input logic [CORE_BYTE_ADDR_BUS-1:0] addr);
+    logic [CORE_BYTE_ADDR_BUS-1:0] masked;
+    masked = addr & CACHE_LINE_B_MASK[CORE_BYTE_ADDR_BUS-1:0];
+    get_cl_byte_idx = masked[CACHE_LINE_BYTE_ADDR-1:0];
 endfunction
 
-function automatic [(CORE_DATA_BUS/8)-1:0]
+function automatic [(ARCH_WIDTH/8)-1:0]
 get_store_mask(input logic [1:0] dw);
-    case (dw)
+    case ({1'b0, dw})
         DMEM_DTYPE_BYTE: get_store_mask = 4'b0001;
         DMEM_DTYPE_HALF: get_store_mask = 4'b0011;
         DMEM_DTYPE_WORD: get_store_mask = 4'b1111;
@@ -105,7 +113,7 @@ endfunction
 // implementation
 cache_way_t way [WAYS-1:0];
 
-parameter int unsigned way_idx = 0; // TODO: implement set associativity
+parameter unsigned way_idx = 0; // TODO: implement set associativity
 
 core_request_t cr, cr_d;
 assign cr = '{ // just rename for clarity
@@ -117,7 +125,7 @@ assign cr = '{ // just rename for clarity
 
 logic tag_match;
 logic [TAG_W-1:0] tag_cr;
-logic [$clog2(SETS)-1:0] set_idx_cr;
+logic [IDX_RANGE_TOP-1:0] set_idx_cr;
 always_comb begin
     set_idx_cr = get_idx(cr.addr);
     tag_cr = get_tag(cr.addr);
@@ -170,14 +178,14 @@ assign mem_r_transfer_done =
     (rsp_mem.valid && (mem_miss_cnt_d == (MEM_TRANSFERS_PER_CL - 1)));
 `DFF_CI_RI_RVI(mem_r_transfer_done, mem_r_transfer_done_d)
 
-logic [$clog2(SETS)-1:0] set_idx_pend;
+logic [IDX_RANGE_TOP-1:0] set_idx_pend;
 assign set_idx_pend = get_idx(cr_pend.cr.addr);
-logic [CACHE_LINE_ADDR_B-1:0] byte_idx_pend;
+logic [CACHE_LINE_BYTE_ADDR-1:0] byte_idx_pend;
 assign byte_idx_pend = get_cl_byte_idx(cr_pend.cr.addr);
-logic [CACHE_LINE_ADDR_B-1:0] byte_idx_cr;
+logic [CACHE_LINE_BYTE_ADDR-1:0] byte_idx_cr;
 assign byte_idx_cr = get_cl_byte_idx(cr.addr);
 
-logic [(CORE_DATA_BUS/8)-1:0] store_mask;
+logic [(ARCH_WIDTH/8)-1:0] store_mask;
 always_ff @(posedge clk) begin
     if (rst) begin
         for (int i = 0; i < SETS; i++) begin
@@ -193,7 +201,7 @@ always_ff @(posedge clk) begin
             way[way_idx].set[set_idx_pend].valid <= 1'b1;
             way[way_idx].set[set_idx_pend].dirty <= 1'b0;
             way[way_idx].set[set_idx_pend].tag <=
-                (cr_pend.mem_r_start_addr >> (2 + INDEX_BITS));
+                (cr_pend.mem_r_start_addr >> (2 + IDX_BITS));
         end
     clear_pending_on_write <= 1'b0;
 
@@ -205,7 +213,7 @@ always_ff @(posedge clk) begin
         // store pending req once eviction & miss on write-allocate are done
         store_mask = get_store_mask(cr_pend.cr.dtype[1:0]);
         // `LOG_D($sformatf("dcache write pending request; in cache line at byte idx %0d; core at byte 0x%5h; with input %8h; store_mask %b", byte_idx_pend, cr_pend.cr.addr, cr_pend.cr.wdata, store_mask));
-        for (int i = 0; i < CORE_DATA_BUS/8; i++) begin
+        for (int i = 0; i < ARCH_WIDTH/8; i++) begin
             if (store_mask[i]) begin
                 way[way_idx].set[set_idx_pend].data.b[byte_idx_pend + i] <=
                     cr_pend.cr.wdata.b[i];
@@ -217,7 +225,7 @@ always_ff @(posedge clk) begin
     end else if (hit && (cr.rtype == DMEM_WRITE) && new_core_req) begin
         store_mask = get_store_mask(cr.dtype[1:0]);
         // `LOG_D($sformatf("dcache write hit; in cache line at byte idx %0d; core at byte 0x%5h; with input %8h; store_mask %b", byte_idx_cr, cr.addr, cr.wdata, store_mask));
-        for (int i = 0; i < CORE_DATA_BUS/8; i++) begin
+        for (int i = 0; i < ARCH_WIDTH/8; i++) begin
             if (store_mask[i]) begin
                 way[way_idx].set[set_idx_cr].data.b[byte_idx_cr + i] <=
                     cr.wdata.b[i];
@@ -236,9 +244,9 @@ logic dbg_serving_pending_req;
 assign dbg_serving_pending_req =
     (cr_pend.active && !new_core_req_d) && rsp_core.valid;
 
-logic [CORE_ADDR_BUS_B-1:0] dbg_req_core_bytes_valid;
+logic [CORE_BYTE_ADDR_BUS-1:0] dbg_req_core_bytes_valid;
 assign dbg_req_core_bytes_valid =
-    ((cr.addr) & {CORE_ADDR_BUS_B{req_core.valid}});
+    ((cr.addr) & {CORE_BYTE_ADDR_BUS{req_core.valid}});
 
 // state transition
 `DFF_CI_RI_RV(DC_RESET, nx_state, state)
@@ -293,9 +301,9 @@ always_comb begin
     endcase
 end
 
-logic [$clog2(SETS)-1:0] set_idx;
+logic [ARCH_WIDTH-1:0] data_out;
+logic [IDX_RANGE_TOP-1:0] set_idx;
 logic [15:0] word_idx;
-logic [CORE_DATA_BUS-1:0] data_out;
 logic [2:0] dtype;
 logic [1:0] rd_offset;
 logic [MEM_ADDR_BUS-1:0] victim_wb_start_addr;
@@ -374,7 +382,7 @@ always_comb begin
                                 {way[way_idx].set[set_idx].tag, set_idx, 2'b00};
                         end
                         // start eviction, initiate memory write
-                        victim_wb_data = way[way_idx].set[set_idx].data[0];
+                        victim_wb_data = way[way_idx].set[set_idx].data.q[0];
                         req_mem_w.valid = 1'b1;
                         req_mem_w.addr = victim_wb_start_addr;
                         req_mem_w.wdata = victim_wb_data;

@@ -5,7 +5,6 @@
 module ama_riscv_core_top_tb();
 
 `ifdef ENABLE_COSIM
-
 // imported functions/tasks
 import "DPI-C" task
 cosim_setup(input string test_bin);
@@ -44,8 +43,8 @@ void cosim_finish();
 //------------------------------------------------------------------------------
 // Testbench variables
 string test_path;
-int errors = 0;
-int warnings = 0;
+int unsigned errors = 0;
+int unsigned warnings = 0;
 bit errors_for_wave = 1'b0;
 bit cosim_chk_en = 1'b0;
 bit stop_on_cosim_error = 1'b0;
@@ -53,12 +52,9 @@ logic tohost_source;
 int unsigned timeout_clocks;
 int unsigned half_period;
 real frequency;
-int log_level;
+int unsigned log_level;
 
 // events
-event ev_load_stim;
-event ev_load_vector;
-event ev_load_vector_done;
 event go_in_reset;
 event reset_end;
 
@@ -67,26 +63,15 @@ int unsigned cosim_pc;
 int unsigned cosim_inst;
 string cosim_inst_asm_str;
 string cosim_stack_top_str;
-int unsigned cosim_rf[32];
-logic [31:0] rf_chk_act;
+int unsigned cosim_rf[RF_NUM];
+bit [RF_NUM-1:0] rf_chk_act;
 
 //------------------------------------------------------------------------------
-// DUT I/O
+// DUT
 logic clk = 0;
 logic rst;
-//logic mmio_instr_cnt;
-//logic mmio_cycle_cnt;
-logic inst_wb_nop_or_clear;
-logic mmio_reset_cnt;
-
-//------------------------------------------------------------------------------
-// DUT instance
-ama_riscv_core_top `DUT (
-    .clk,
-    .rst,
-    .inst_wb_nop_or_clear,
-    .mmio_reset_cnt
-);
+logic inst_retired;
+ama_riscv_core_top `DUT ( .* );
 
 //------------------------------------------------------------------------------
 // Testbench functions
@@ -103,6 +88,7 @@ function automatic int open_file(string name, string op);
     return fd;
 endfunction
 
+// TODO: rework for uart output?
 //string log_name = "run.log";
 //int log_fd = open_file(log_name, "w");
 
@@ -112,20 +98,8 @@ function automatic void load_memories;
     begin
         fd = open_file(test_hex_path, "r"); // check that it can be opened
         $fclose(fd); // and close for the readmemh to use it
-
-        // fiddling with icache atm
-        `ifdef USE_CACHES
-        `LOG_D("Loading icache");
-        $readmemh({test_hex_path, ".128"}, `DUT_MEM, 0, (MEM_SIZE_W>>2)-1);
-        `LOG_D("Finished loading icache");
-        `else
-        $readmemh(test_hex_path, `DUT_IMEM, 0, MEM_SIZE_W-1);
-        `endif
-
-        // dcache loaded in any case
-        `LOG_D("Loading dmem");
-        $readmemh(test_hex_path, `DUT_DMEM, 0, MEM_SIZE_W-1);
-        `LOG_D("Finished loading dmem");
+        $readmemh(test_hex_path, `DUT_MEM, 0, MEM_SIZE_Q-1);
+        `LOG_D("Finished loading main memory");
     end
 endfunction
 
@@ -182,16 +156,65 @@ function automatic void check_test_status();
 endfunction
 
 `ifdef ENABLE_COSIM
-`include "checkers.svh"
+// TODO: inst checker should be 'inst_width_t'
+function void checker_t;
+    // TODO: for back-annotated GLS, timing has to be taken into account,
+    // so might revert to task, or disable checkers for GLS
+    input string name;
+    input bit active;
+    input arch_width_t dut_val;
+    input arch_width_t model_val;
+    begin
+        if (active == 1'b1 && dut_val !== model_val) begin
+            `LOG_E($sformatf(
+                "Mismatch @ %0t. Checker: \"%0s\"; DUT: 0x%8h, Model: 0x%8h",
+                $time, name, dut_val, model_val)
+            );
+        end
+    end
+endfunction
+
+function void cosim_run_checkers;
+    input bit [RF_NUM-1:0] rf_chk_act;
+    int unsigned checker_errors_prev;
+    begin
+        checker_errors_prev = errors;
+        checker_t("pc", `CHECKER_ACTIVE, `DUT_CORE.pc.wbk, cosim_pc);
+        checker_t("inst", `CHECKER_ACTIVE, `DUT_CORE.inst.wbk, cosim_inst);
+        for (int i = 1; i < RF_NUM; i = i + 1) begin
+            checker_t(
+                $sformatf("x%0d", i),
+                `CHECKER_ACTIVE && rf_chk_act[i],
+                `DUT_RF.rf[i],
+                cosim_rf[i]
+            );
+        end
+        errors_for_wave = (errors != checker_errors_prev);
+    end
+endfunction
 `endif
 
+function string strip_extension(string test_path);
+    // strips extension, if it exists, brute-force on last dot
+    int dot_pos;
+    dot_pos = test_path.len();
+    for (int i = test_path.len()-1; i >= 0; i--) begin
+        if (test_path[i] == ".") begin
+            dot_pos = i;
+            break;
+        end
+    end
+    return test_path.substr(0, dot_pos - 1);
+endfunction
+
 function void get_plusargs();
-    automatic string tmp_str;
+    automatic string log_str;
     begin
         if (!$value$plusargs("test_path=%s", test_path)) begin
             `LOG_E("test_path not defined. Exiting.");
             $finish();
         end
+        test_path = strip_extension(test_path);
         `ifdef ENABLE_COSIM
         if ($test$plusargs("enable_cosim_checkers")) cosim_chk_en = 1'b1;
         if ($test$plusargs("stop_on_cosim_error")) stop_on_cosim_error = 1'b1;
@@ -202,22 +225,22 @@ function void get_plusargs();
         if (!$value$plusargs("half_period=%d", half_period)) begin
             half_period = `DEFAULT_HALF_PERIOD;
         end
-        if (!$value$plusargs("log_level=%s", tmp_str)) begin
+        if (!$value$plusargs("log_level=%s", log_str)) begin
             log_level = LOG_INFO;
         end else begin
-            if      (tmp_str == "NONE")     log_level = LOG_NONE;
-            else if (tmp_str == "ERROR")    log_level = LOG_ERROR;
-            else if (tmp_str == "WARN")     log_level = LOG_WARN;
-            else if (tmp_str == "INFO")     log_level = LOG_INFO;
-            else if (tmp_str == "VERBOSE")  log_level = LOG_VERBOSE;
-            else if (tmp_str == "DEBUG")    log_level = LOG_DEBUG;
+            if      (log_str == "NONE")     log_level = LOG_NONE;
+            else if (log_str == "ERROR")    log_level = LOG_ERROR;
+            else if (log_str == "WARN")     log_level = LOG_WARN;
+            else if (log_str == "INFO")     log_level = LOG_INFO;
+            else if (log_str == "VERBOSE")  log_level = LOG_VERBOSE;
+            else if (log_str == "DEBUG")    log_level = LOG_DEBUG;
             else begin
                 `LOGNT($sformatf(
-                    "Unknown log_level=%s, defaulting to INFO", tmp_str));
+                    "Unknown log_level=%s, defaulting to INFO", log_str));
                 log_level = LOG_INFO;
-                tmp_str = "INFO";
+                log_str = "INFO";
             end
-            `LOGNT($sformatf("Using log level '%s'", tmp_str));
+            `LOGNT($sformatf("Using log level '%s'", log_str));
         end
         `LOGNT($sformatf("CPU core path: %0s", `TO_STRING(`DUT_CORE)));
         `LOGNT($sformatf("Frequency: %.2f MHz", 1.0 / (half_period * 2 * 1e-3)));
@@ -256,8 +279,13 @@ function automatic [8*SLEN-1:0] pack_string(input string str);
     end
 endfunction
 
-`ifdef USE_CACHES
-integer miss_cnt = 'h0; // move to a struct?
+typedef struct {
+    integer unsigned ref_cnt = 'h0;
+    integer unsigned miss_cnt = 'h0;
+    integer unsigned hit_cnt = 'h0;
+} cache_stats_counters_t;
+
+cache_stats_counters_t ic_stats;
 function automatic byte get_icache_status();
     byte ic_hm;
     bit ic_miss;
@@ -272,22 +300,38 @@ function automatic byte get_icache_status();
         );
         ic_hit = (`DUT_IC.new_core_req_d && `DUT_IC.hit_d);
         if (ic_miss) ic_hm = hw_status_t_miss;
-        else if (ic_handle_pending_req || ic_hit) ic_hm = hw_status_t_hit;
-        miss_cnt += ic_miss;
+        else if (ic_hit) ic_hm = hw_status_t_hit;
+        ic_stats.ref_cnt += (`DUT_IC.new_core_req_d);
+        ic_stats.miss_cnt += ic_miss;
+        ic_stats.hit_cnt += ic_hit;
 
         return ic_hm;
     end
 endfunction
 
+cache_stats_counters_t dc_stats;
 function automatic byte get_dcache_status();
     byte dc_hm;
+    bit dc_miss;
+    bit dc_handle_pending_req;
+    bit dc_hit;
     begin
         dc_hm = hw_status_t_none;
-        // TODO: to be implemented, no dcache atm
+
+        dc_miss = (`DUT_DC.new_core_req_d && !`DUT_DC.hit_d);
+        dc_handle_pending_req = (
+            (`DUT_DC.cr_pend.active && !`DUT_DC.new_core_req_d)
+        );
+        dc_hit = (`DUT_DC.new_core_req_d && `DUT_DC.hit_d);
+        if (dc_miss) dc_hm = hw_status_t_miss;
+        else if (dc_hit) dc_hm = hw_status_t_hit;
+        dc_stats.ref_cnt += (`DUT_DC.new_core_req_d);
+        dc_stats.miss_cnt += dc_miss;
+        dc_stats.hit_cnt += dc_hit;
+
         return dc_hm;
     end
 endfunction
-`endif
 
 `ifdef USE_BP
 function automatic byte get_bp_status();
@@ -309,21 +353,16 @@ function automatic void add_trace_entry(longint unsigned clk_cnt);
 
         cosim_add_te(
             clk_cnt,
-            `DUT_CORE.inst.wbk & ~{32{`DUT_CORE.inst_wb_nop_or_clear}},
-            `DUT_CORE.pc.wbk & ~{32{`DUT_CORE.inst_wb_nop_or_clear}},
+            `DUT_CORE.inst.wbk & {ARCH_WIDTH{inst_retired}},
+            `DUT_CORE.pc.wbk & {ARCH_WIDTH{inst_retired}},
             `DUT_RF.rf[2],
 
             1'b0, // FIXME: temp tied to 0. dmem_addr
             1'b0, // FIXME: temp tied to 0. dmem size
             1'b0, // FIXME: temp tied to 0. `DUT_DEC.branch_taken_wbk,
 
-            `ifdef USE_CACHES
             get_icache_status(),
             get_dcache_status(),
-            `else
-            hw_status_t_none, // no icache
-            hw_status_t_none, // no dcache
-            `endif
 
             `ifdef USE_BP
             get_bp_status()
@@ -336,9 +375,8 @@ endfunction
 
 string core_ret;
 string isa_ret;
-
 task automatic single_step(longint unsigned clk_cnt);
-    stats.update(`DUT_CORE.inst.wbk, `DUT_CORE.bubble_track[2]);
+    stats.update(`DUT_CORE.inst.wbk, (inst_retired == 1'b0));
     `LOG_V($sformatf(
         "Core [F] %5h: %8h %0s",
         `DUT_CORE.pc.dec,
@@ -350,7 +388,7 @@ task automatic single_step(longint unsigned clk_cnt);
     add_trace_entry(clk_cnt);
     `endif
     // cosim advances only if rtl retires an instruction
-    if (`DUT_CORE.inst_wb_nop_or_clear == 1'b1) return;
+    if (inst_retired == 1'b0) return;
 
     `ifdef ENABLE_COSIM
     cosim_exec(clk_cnt, cosim_pc, cosim_inst,
@@ -419,7 +457,7 @@ end
 // checker setup
 logic [4:0] dut_rf_addr;
 initial begin
-    rf_chk_act = 32'h0;
+    rf_chk_act = {RF_NUM{1'b0}};
     @reset_end;
     // set bit to active when the corresponding register is first written to
     // checker remains active for the entire test
@@ -456,15 +494,6 @@ initial begin
     @reset_end;
     `LOG_I("Reset released");
 
-    /*
-    // prefill icache
-    `ifdef USE_CACHES
-    `DUT_IC.cl_data = 'h00000813_00000793_00000713_00000693_00000613_00000593_00000513_00000493_00000413_00000393_00000313_00000293_00000213_00000193_00000113_00000093;
-    `DUT_IC.cl_tag = 'h0;
-    `DUT_IC.cl_valid = 'b1;
-    `endif
-    */
-
     fork: run_f
     begin
         run_test();
@@ -492,6 +521,16 @@ initial begin
     `endif
     `LOGNT(stats.get());
     //stats.compare_dut(mmio_cycle_cnt, mmio_instr_cnt);
+
+    $display("icache Ref: %0d, H: %0d, M: %0d, HR: %0.2f%%",
+             ic_stats.ref_cnt, ic_stats.hit_cnt, ic_stats.miss_cnt,
+             (ic_stats.ref_cnt != 0) ?
+                (ic_stats.hit_cnt*100.0)/ic_stats.ref_cnt : 0.0);
+    $display("dcache Ref: %0d, H: %0d, M: %0d, HR: %0.2f%%",
+             dc_stats.ref_cnt, dc_stats.hit_cnt, dc_stats.miss_cnt,
+             (dc_stats.ref_cnt != 0) ?
+                (dc_stats.hit_cnt*100.0)/dc_stats.ref_cnt : 0.0);
+    $display("");
 
     $finish();
 end // test
