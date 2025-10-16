@@ -6,12 +6,12 @@ module ama_riscv_reg_file (
     input  rf_addr_t    addr_a,
     input  rf_addr_t    addr_b,
     input  rf_addr_t    addr_d,
-    input  logic [31:0] data_d,
-    output logic [31:0] data_a,
-    output logic [31:0] data_b
+    input  arch_width_t data_d,
+    output arch_width_t data_a,
+    output arch_width_t data_b
 );
 
-logic [31:0] rf [1:31];
+arch_width_t rf [1:RF_NUM-1];
 
 // synchronous register writeback
 `DFF_CI_EN((we && (addr_d != RF_X0_ZERO)), data_d, rf[addr_d])

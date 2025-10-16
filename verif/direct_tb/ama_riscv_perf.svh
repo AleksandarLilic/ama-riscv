@@ -30,7 +30,7 @@ class perf_stats;
         at_least_once = 0;
     endfunction
 
-    function void update(reg [31:0] inst_wb, reg stall_wb);
+    function void update(inst_width_t inst_wb, logic stall_wb);
         at_least_once = 1'b1;
         cnt.cycle++;
         if (inst_wb[6:0] == 7'd0) begin

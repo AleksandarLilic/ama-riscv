@@ -20,8 +20,9 @@
 `define DUT_RF `DUT_CORE.ama_riscv_reg_file_i
 
 // DUT memory defines
-`define DUT_IMEM `DUT.ama_riscv_imem_i.mem
-`define DUT_DMEM `DUT.ama_riscv_dmem_i.mem
+`define DUT_IC `DUT.ama_riscv_icache_i
+`define DUT_DC `DUT.ama_riscv_dcache_i
+`define DUT_MEM `DUT.ama_riscv_mem_i.mem
 
 `define TOHOST_PASS 32'd1
 

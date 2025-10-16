@@ -9,10 +9,9 @@ sv work \
 "$REPO_ROOT/src/ama_riscv_core.sv" \
 "$REPO_ROOT/src/ama_riscv_decoder.sv" \
 "$REPO_ROOT/src/ama_riscv_fe_ctrl.sv" \
-"$REPO_ROOT/src/ama_riscv_dmem.sv" \
-"$REPO_ROOT/src/ama_riscv_imem.sv" \
 "$REPO_ROOT/src/ama_riscv_imm_gen.sv" \
-"$REPO_ROOT/src/ama_riscv_load_shift_mask.sv" \
 "$REPO_ROOT/src/ama_riscv_operand_forwarding.sv" \
 "$REPO_ROOT/src/ama_riscv_reg_file.sv" \
-"$REPO_ROOT/src/ama_riscv_store_mask.sv" \
+"$REPO_ROOT/src/ama_riscv_icache.sv" \
+"$REPO_ROOT/src/ama_riscv_dcache.sv" \
+"$REPO_ROOT/src/ama_riscv_mem.sv" \

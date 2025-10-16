@@ -6,6 +6,12 @@
 `define DMEM_RANGE 2'b00
 `define MMIO_RANGE 2'b01
 
+parameter unsigned ARCH_WIDTH = 32;
+typedef logic [ARCH_WIDTH-1:0] arch_width_t;
+parameter unsigned INST_WIDTH = 32;
+typedef logic [INST_WIDTH-1:0] inst_width_t;
+parameter unsigned RF_NUM = 32;
+
 // Opcodes
 typedef enum logic [6:0] {
     OPC7_R_TYPE = 7'b011_0011,
@@ -140,21 +146,55 @@ typedef enum logic [4:0] {
     RF_X31_T6 = 5'd31 // temporary
 } rf_addr_t;
 
-// Memory parameters
-// *_B - byte
-// *_H - half
-// *_W - word
-// *_D - doubleword
-// *_Q - quadword
+// helper build-time functions
+function automatic bit is_pow2 (int x);
+    return (x > 0) && ((x & (x - 1)) == 0);
+endfunction
+
+// Memory parameters (what is being counted)
+// no suffix - number of bits, or if specified in the parameter name eg 'offset'
+// *_B - byte,       8-bit
+// *_H - half,       16-bit
+// *_W - word,       32-bit
+// *_D - doubleword, 64-bit
+// *_Q - quadword,   128-bit
 // *_L - line (module-specific)
-// no suffix - number of bits, or if otherwise specified in the parameter name (eg 'offset')
 
 /* verilator lint_off UNUSEDPARAM */
 parameter unsigned MEM_SIZE_W = 16384; // words, 64KB
-parameter unsigned CORE_ADDR_BUS_W = $clog2(MEM_SIZE_W); // 14
-parameter unsigned CORE_ADDR_BUS_B = CORE_ADDR_BUS_W + 2; // 16
-parameter unsigned CORE_DATA_BUS = 32;
+parameter unsigned MEM_SIZE_Q = MEM_SIZE_W >> 2;
+parameter unsigned CORE_WORD_ADDR_BUS = $clog2(MEM_SIZE_W); // 14
+parameter unsigned CORE_BYTE_ADDR_BUS = CORE_WORD_ADDR_BUS + 2; // 16
 /* verilator lint_on UNUSEDPARAM */
+
+parameter unsigned MEM_DATA_BUS = 128;
+parameter unsigned MEM_DATA_BUS_B = MEM_DATA_BUS >> 3; // 16
+parameter unsigned CACHE_LINE_SIZE_B = 64;
+parameter unsigned CACHE_LINE_B_MASK = CACHE_LINE_SIZE_B - 1; // 63 aka 0x3F
+parameter unsigned CACHE_LINE_SIZE = CACHE_LINE_SIZE_B << 3; // 512
+parameter unsigned MEM_TRANSFERS_PER_CL = CACHE_LINE_SIZE/MEM_DATA_BUS; // 4
+
+parameter unsigned CACHE_LINE_BYTE_ADDR = $clog2(CACHE_LINE_SIZE_B); // 6
+parameter unsigned CACHE_TO_MEM_OFFSET = $clog2(MEM_DATA_BUS_B); // 4 bits less -> 128 (mem) vs 32 bits ($)
+parameter unsigned MEM_ADDR_BUS = CORE_BYTE_ADDR_BUS - CACHE_TO_MEM_OFFSET; // 16 - 4 = 12
+
+typedef enum logic [1:0] {
+    IC_RESET,
+    IC_READY, // ready for next request, services load hit in the next cycle
+    IC_MISS // miss, go to main memory
+} icache_state_t;
+
+typedef enum logic [1:0] {
+    DC_RESET,
+    DC_READY, // ready for next request, services load hit in the next cycle
+    DC_MISS, // miss, go to main memory
+    DC_EVICT // write back dirty line to main memory, then go to miss
+} dcache_state_t;
+
+typedef enum logic {
+    DMEM_READ = 0,
+    DMEM_WRITE = 1
+} dmem_rtype_t;
 
 `ifdef IMEM_DELAY
 `define IMEM_DELAY_CLK 3
@@ -165,7 +205,7 @@ parameter unsigned CORE_DATA_BUS = 32;
 // interfaces
 /* verilator lint_off DECLFILENAME */
 // generic rv interface
-interface rv_if #(parameter DW = 32) (/* input logic clk */);
+interface rv_if #(parameter DW = ARCH_WIDTH) (/* input logic clk */);
     //localparam unsigned W = DW;
     logic valid;
     // some modules are always ready and don't use the signal
@@ -178,7 +218,7 @@ interface rv_if #(parameter DW = 32) (/* input logic clk */);
 endinterface
 
 // rv interface with data and address (da) bus
-interface rv_if_da #(parameter AW = 32, parameter DW = 32) ();
+interface rv_if_da #(parameter AW = ARCH_WIDTH, parameter DW = ARCH_WIDTH) ();
     logic valid;
     /* verilator lint_off UNUSEDSIGNAL */
     logic ready;
@@ -189,9 +229,35 @@ interface rv_if_da #(parameter AW = 32, parameter DW = 32) ();
     modport RX (input  valid, input  addr, input  wdata, output ready); // cons
 endinterface
 
+// rv interface for dcache
+interface rv_if_dc #(parameter AW = ARCH_WIDTH, parameter DW = ARCH_WIDTH) ();
+    logic valid;
+    logic ready;
+    dmem_rtype_t rtype;
+    dmem_dtype_t dtype;
+    logic [AW-1:0] addr;
+    logic [DW-1:0] wdata;
+    modport TX (
+        output valid,
+        output addr,
+        output wdata,
+        output dtype,
+        output rtype,
+        input  ready
+    );
+    modport RX (
+        input  valid,
+        input  addr,
+        input  wdata,
+        input  dtype,
+        input  rtype,
+        output ready
+    );
+endinterface
+
 // not all stages will be used by every instatiation
 /* verilator lint_off UNUSEDSIGNAL */
-interface pipeline_if #(parameter unsigned W = 32);
+interface pipeline_if #(parameter unsigned W = ARCH_WIDTH);
     logic [W-1:0] fet, dec, exe, mem, wbk;
     modport IN (input fet, dec, exe, mem, wbk);
     modport OUT (output fet, dec, exe, mem, wbk);
@@ -199,7 +265,7 @@ endinterface
 /* verilator lint_on UNUSEDSIGNAL */
 
 /* verilator lint_off UNUSEDSIGNAL */
-interface pipeline_if_typed #(parameter type T = logic [CORE_DATA_BUS-1:0]);
+interface pipeline_if_typed #(parameter type T = arch_width_t);
     T fet, dec, exe, mem, wbk;
     modport IN  (input  fet, dec, exe, mem, wbk);
     modport OUT (output fet, dec, exe, mem, wbk);
@@ -221,7 +287,6 @@ typedef struct packed {
 } fe_ctrl_t;
 
 typedef struct packed {
-    fe_ctrl_t fe_ctrl;
     logic load_inst;
     logic store_inst;
     logic branch_inst;
@@ -247,7 +312,6 @@ typedef struct packed {
 
 `define DECODER_RST_VAL \
     '{ \
-        fe_ctrl: `FE_CTRL_RST_VAL, \
         load_inst: 1'b0, \
         store_inst: 1'b0, \
         branch_inst: 1'b0, \
@@ -339,42 +403,42 @@ typedef struct packed {
 // helpers
 /* verilator lint_off UNUSEDSIGNAL */
 function automatic opc7_t
-get_opc7(input logic [31:0] inst);
+get_opc7(input inst_width_t inst);
     get_opc7 = opc7_t'(inst[6:0]);
 endfunction
 
 function automatic logic [2:0]
-get_fn3(input logic [31:0] inst);
+get_fn3(input inst_width_t inst);
     get_fn3 = inst[14:12];
 endfunction
 
 function automatic branch_sel_t
-get_branch_sel(input logic [31:0] inst);
+get_branch_sel(input inst_width_t inst);
     get_branch_sel = branch_sel_t'({inst[14], inst[12]});
 endfunction
 
 function automatic logic [6:0]
-get_fn7(input logic [31:0] inst);
+get_fn7(input inst_width_t inst);
     get_fn7 = inst[31:25];
 endfunction
 
 function automatic logic
-get_fn7_b5(input logic [31:0] inst);
+get_fn7_b5(input inst_width_t inst);
     get_fn7_b5 = inst[30];
 endfunction
 
 function automatic rf_addr_t
-get_rs1(input logic [31:0] inst);
+get_rs1(input inst_width_t inst);
     get_rs1 = rf_addr_t'(inst[19:15]);
 endfunction
 
 function automatic rf_addr_t
-get_rs2(input logic [31:0] inst);
+get_rs2(input inst_width_t inst);
     get_rs2 = rf_addr_t'(inst[24:20]);
 endfunction
 
 function automatic rf_addr_t
-get_rd(input logic [31:0] inst);
+get_rd(input inst_width_t inst);
     get_rd = rf_addr_t'(inst[11:7]);
 endfunction
 /* verilator lint_on UNUSEDPARAM */

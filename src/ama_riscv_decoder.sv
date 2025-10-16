@@ -4,7 +4,8 @@ module ama_riscv_decoder (
     input  logic        clk,
     input  logic        rst,
     pipeline_if.IN      inst,
-    output decoder_t    decoded
+    output decoder_t    decoded,
+    output fe_ctrl_t    fe_ctrl
 );
 
 typedef enum logic [1:0] {
@@ -32,13 +33,15 @@ logic rs1_nz;
 assign rs1_nz = (rs1_addr_dec == RF_X0_ZERO);
 
 decoder_t decoded_d;
+fe_ctrl_t fe_ctrl_d;
 always_comb begin
     decoded = decoded_d;
+    decoded.csr_ctrl = '{en: 1'b0, we: 1'b0, ui: 1'b0, op_sel: CSR_OP_SEL_NONE};
 
     case (opc7_dec)
         OPC7_R_TYPE: begin
-            decoded.fe_ctrl.pc_sel = PC_SEL_INC4;
-            decoded.fe_ctrl.pc_we  = 1'b1;
+            fe_ctrl.pc_sel      = PC_SEL_INC4;
+            fe_ctrl.pc_we       = 1'b1;
             decoded.load_inst   = 1'b0;
             decoded.store_inst  = 1'b0;
             decoded.branch_inst = 1'b0;
@@ -55,8 +58,8 @@ always_comb begin
         end
 
         OPC7_I_TYPE: begin
-            decoded.fe_ctrl.pc_sel = PC_SEL_INC4;
-            decoded.fe_ctrl.pc_we  = 1'b1;
+            fe_ctrl.pc_sel      = PC_SEL_INC4;
+            fe_ctrl.pc_we       = 1'b1;
             decoded.load_inst   = 1'b0;
             decoded.store_inst  = 1'b0;
             decoded.branch_inst = 1'b0;
@@ -76,8 +79,8 @@ always_comb begin
         end
 
         OPC7_LOAD: begin
-            decoded.fe_ctrl.pc_sel = PC_SEL_INC4;
-            decoded.fe_ctrl.pc_we  = 1'b1;
+            fe_ctrl.pc_sel      = PC_SEL_INC4;
+            fe_ctrl.pc_we       = 1'b1;
             decoded.load_inst   = 1'b1;
             decoded.store_inst  = 1'b0;
             decoded.branch_inst = 1'b0;
@@ -94,8 +97,8 @@ always_comb begin
         end
 
         OPC7_STORE: begin
-            decoded.fe_ctrl.pc_sel = PC_SEL_INC4;
-            decoded.fe_ctrl.pc_we  = 1'b1;
+            fe_ctrl.pc_sel      = PC_SEL_INC4;
+            fe_ctrl.pc_we       = 1'b1;
             decoded.load_inst   = 1'b0;
             decoded.store_inst  = 1'b1;
             decoded.branch_inst = 1'b0;
@@ -112,8 +115,8 @@ always_comb begin
         end
 
         OPC7_BRANCH: begin
-            decoded.fe_ctrl.pc_sel = PC_SEL_INC4; // to change to bp
-            decoded.fe_ctrl.pc_we  = 1'b1;        // assumes bp ... (1)
+            fe_ctrl.pc_sel      = PC_SEL_INC4; // to change to bp
+            fe_ctrl.pc_we       = 1'b1;        // assumes bp ... (1)
             decoded.load_inst   = 1'b0;
             decoded.store_inst  = 1'b0;
             decoded.branch_inst = 1'b1;
@@ -130,8 +133,8 @@ always_comb begin
         end
 
         OPC7_JALR: begin
-            decoded.fe_ctrl.pc_sel = PC_SEL_ALU;     // to change to bp
-            decoded.fe_ctrl.pc_we  = 1'b1;           // assumes bp ... (1)
+            fe_ctrl.pc_sel      = PC_SEL_ALU;     // to change to bp
+            fe_ctrl.pc_we       = 1'b1;           // assumes bp ... (1)
             decoded.load_inst   = 1'b0;
             decoded.store_inst  = 1'b0;
             decoded.branch_inst = 1'b0;
@@ -148,8 +151,8 @@ always_comb begin
         end
 
         OPC7_JAL: begin
-            decoded.fe_ctrl.pc_sel = PC_SEL_ALU;     // to change to bp
-            decoded.fe_ctrl.pc_we  = 1'b1;           // assumes bp ... (1)
+            fe_ctrl.pc_sel      = PC_SEL_ALU;     // to change to bp
+            fe_ctrl.pc_we       = 1'b1;           // assumes bp ... (1)
             decoded.load_inst   = 1'b0;
             decoded.store_inst  = 1'b0;
             decoded.branch_inst = 1'b0;
@@ -166,8 +169,8 @@ always_comb begin
         end
 
         OPC7_LUI: begin
-            decoded.fe_ctrl.pc_sel = PC_SEL_INC4;
-            decoded.fe_ctrl.pc_we  = 1'b1;
+            fe_ctrl.pc_sel      = PC_SEL_INC4;
+            fe_ctrl.pc_we       = 1'b1;
             decoded.load_inst   = 1'b0;
             decoded.store_inst  = 1'b0;
             decoded.branch_inst = 1'b0;
@@ -184,8 +187,8 @@ always_comb begin
         end
 
         OPC7_AUIPC: begin
-            decoded.fe_ctrl.pc_sel = PC_SEL_INC4;
-            decoded.fe_ctrl.pc_we  = 1'b1;
+            fe_ctrl.pc_sel      = PC_SEL_INC4;
+            fe_ctrl.pc_we       = 1'b1;
             decoded.load_inst   = 1'b0;
             decoded.store_inst  = 1'b0;
             decoded.branch_inst = 1'b0;
@@ -202,8 +205,8 @@ always_comb begin
         end
 
         OPC7_SYSTEM: begin
-            decoded.fe_ctrl.pc_sel = PC_SEL_INC4;
-            decoded.fe_ctrl.pc_we  = 1'b1;
+            fe_ctrl.pc_sel      = PC_SEL_INC4;
+            fe_ctrl.pc_we       = 1'b1;
             decoded.load_inst   = 1'b0;
             decoded.store_inst  = 1'b0;
             decoded.branch_inst = 1'b0;
@@ -229,5 +232,6 @@ always_comb begin
 end
 
 `DFF_CI_RI_RV(`DECODER_RST_VAL, decoded, decoded_d)
+`DFF_CI_RI_RV(`FE_CTRL_RST_VAL, fe_ctrl, fe_ctrl_d)
 
 endmodule
