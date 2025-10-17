@@ -35,6 +35,9 @@ parameter unsigned WAY_BITS = $clog2(WAYS);
 parameter unsigned TAG_W = CORE_BYTE_ADDR_BUS - CACHE_LINE_BYTE_ADDR - IDX_BITS;
 parameter unsigned IDX_RANGE_TOP = (SETS == 1) ? 1: IDX_BITS;
 
+`define CR_CLEAR '{ addr: 'h0, way_idx: 'h0 }
+`define CR_PEND_CLEAR '{ active: 1'b0, mem_start_addr: 'h0, cr: `CR_CLEAR }
+
 // custom types
 typedef union packed {
     logic [CACHE_LINE_SIZE-1:0] f; // flat view
@@ -56,10 +59,14 @@ typedef struct {
 } cache_way_t;
 
 typedef struct packed {
-    logic active;
-    logic [WAY_BITS-1:0] way_idx;
     logic [CORE_WORD_ADDR_BUS-1:0] addr;
+    logic [WAY_BITS-1:0] way_idx;
+} core_request_t;
+
+typedef struct packed {
+    logic active;
     logic [MEM_ADDR_BUS-1:0] mem_start_addr;
+    core_request_t cr;
 } core_request_pending_t;
 
 // helper functions
@@ -81,65 +88,62 @@ endfunction
 // implementation
 cache_way_t way [WAYS-1:0];
 
-logic [CORE_WORD_ADDR_BUS-1:0] cr_addr, cr_d_addr;
-assign cr_addr = req_core.data; // just rename for clarity
-
+core_request_t cr, cr_d;
 logic tag_match;
 logic [TAG_W-1:0] tag_cr;
 logic [IDX_RANGE_TOP-1:0] set_idx_cr;
-logic [WAY_BITS-1:0] way_idx_cr, way_idx_cr_d;
 logic [WAY_BITS-1:0] way_victim_idx, way_victim_idx_d;
+logic new_core_req, new_core_req_d;
+logic hit, hit_d;
 
 if (WAYS == 1) begin: direct_mapped_search
     // wrap in always_comb to force functions to evaluate first
     always_comb begin
-        set_idx_cr = get_idx(cr_addr);
-        tag_cr = get_tag(cr_addr);
+        cr.addr = req_core.data;
+        cr.way_idx = 'h0;
+        set_idx_cr = get_idx(cr.addr);
+        tag_cr = get_tag(cr.addr);
         // hardwired values for direct-mapped
-        way_idx_cr = '0;
         way_victim_idx = '0;
-        way_idx_cr_d = '0;
         way_victim_idx_d = '0;
         // tag search
-        tag_match = (way[way_idx_cr].set[set_idx_cr].tag == tag_cr);
+        tag_match = (way[cr.way_idx].set[set_idx_cr].tag == tag_cr);
+        hit = &{tag_match, new_core_req, way[cr.way_idx].set[set_idx_cr].valid};
     end
 
 end else begin: set_associative_search
     logic [WAY_BITS-1:0] victim_lru;
+    parameter unsigned LRU_MAX_CNT = WAYS - 1;
     always_comb begin
-        set_idx_cr = get_idx(cr_addr);
-        tag_cr = get_tag(cr_addr);
+        cr.addr = req_core.data;
+        cr.way_idx = '0;
+        set_idx_cr = get_idx(cr.addr);
+        tag_cr = get_tag(cr.addr);
         tag_match = 1'b0;
-        way_idx_cr = '0;
-        victim_lru = '0;
         way_victim_idx = '0;
         for (int w = 0; w < WAYS; w++) begin
-            if (way[w].set[set_idx_cr].tag == tag_cr) begin
+            if (way[w].set[set_idx_cr].valid &&
+                (way[w].set[set_idx_cr].tag == tag_cr)) begin
                 tag_match = 1'b1;
-                way_idx_cr = w;
-            end else if (way[w].set[set_idx_cr].lru_cnt >= victim_lru) begin
-                victim_lru = way[w].set[set_idx_cr].lru_cnt;
+                cr.way_idx = w;
+            end else if (way[w].set[set_idx_cr].lru_cnt == LRU_MAX_CNT) begin
                 way_victim_idx = w;
             end
         end
+        hit = &{tag_match, new_core_req, way[cr.way_idx].set[set_idx_cr].valid};
     end
 
-`DFF_CI_RI_RVI(way_idx_cr, way_idx_cr_d)
 `DFF_CI_RI_RVI(way_victim_idx, way_victim_idx_d)
 end
 
-logic new_core_req, new_core_req_d;
 assign new_core_req = (req_core.valid && req_core.ready);
 `DFF_CI_RI_RVI(new_core_req, new_core_req_d)
-
-logic hit, hit_d;
-assign hit = &{tag_match, new_core_req, way[way_idx_cr].set[set_idx_cr].valid};
+`DFF_CI_RI_RV_EN(`CR_CLEAR, new_core_req, cr, cr_d)
 `DFF_CI_RI_RVI_EN(new_core_req, hit, hit_d)
-`DFF_CI_RI_RVI_EN(new_core_req, cr_addr, cr_d_addr);
 
 // cache line (64B) to mem bus (16B) addressing, from core addr (4B)
 logic [MEM_ADDR_BUS-1:0] mem_start_addr_d; // address aligned to first mem block
-assign mem_start_addr_d = (cr_d_addr >> 2) & ~'b11;
+assign mem_start_addr_d = (cr_d.addr >> 2) & ~'b11;
 
 icache_state_t state, nx_state;
 core_request_pending_t cr_pend;
@@ -147,12 +151,16 @@ core_request_pending_t cr_pend;
 logic save_pending, clear_pending;
 always_ff @(posedge clk) begin
     if (rst) begin
-        cr_pend <= '{1'b0, 'h0, 'h0, 'h0};
+        cr_pend <= `CR_PEND_CLEAR;
     end else if (save_pending) begin
-        cr_pend <= '{1'b1, way_victim_idx_d, cr_d_addr, mem_start_addr_d};
-        // `LOG_D($sformatf("saving pending request; with core addr byte at 0x%5h", cr_addr<<2));
+        cr_pend <= '{
+            active: 1'b1,
+            mem_start_addr: mem_start_addr_d,
+            cr: '{addr: cr_d.addr, way_idx: way_victim_idx_d}
+        };
+        // `LOG_D($sformatf("saving pending request; with core addr byte at 0x%5h", cr.addr<<2));
     end else if (clear_pending) begin
-        cr_pend <= '{1'b0, 'h0, 'h0, 'h0};
+        cr_pend <= `CR_PEND_CLEAR;
     end
 end
 
@@ -169,24 +177,25 @@ assign mem_transfer_done =
 logic [IDX_RANGE_TOP-1:0] set_idx_pend;
 logic [IDX_RANGE_TOP-1:0] set_idx_cr_d;
 // no need to wrap with always_comb, outputs are used in always_ff only
-assign set_idx_pend = get_idx(cr_pend.addr);
-assign set_idx_cr_d = get_idx(cr_d_addr);
+assign set_idx_pend = get_idx(cr_pend.cr.addr);
+assign set_idx_cr_d = get_idx(cr_d.addr);
 
 always_ff @(posedge clk) begin
     if (rst) begin
         for (int w = 0; w < WAYS; w++) begin
             for (int s = 0; s < SETS; s++) begin
                 way[w].set[s].valid <= 1'b0;
+                way[w].set[s].tag <= 'h0;
                 if (WAYS > 1) way[w].set[s].lru_cnt <= w; // init LRU to way idx
             end
         end
     end else if (rsp_mem.valid) begin // loading cache line from mem
-        way[cr_pend.way_idx].set[set_idx_pend].data.q[mem_miss_cnt_d] <=
+        way[cr_pend.cr.way_idx].set[set_idx_pend].data.q[mem_miss_cnt_d] <=
             rsp_mem.data;
         // on the last transfer, update valid and tag
         if (mem_transfer_done) begin
-            way[cr_pend.way_idx].set[set_idx_pend].valid <= 1'b1;
-            way[cr_pend.way_idx].set[set_idx_pend].tag <=
+            way[cr_pend.cr.way_idx].set[set_idx_pend].valid <= 1'b1;
+            way[cr_pend.cr.way_idx].set[set_idx_pend].tag <=
                 (cr_pend.mem_start_addr >> (2 + IDX_BITS));
         end
     end else if (new_core_req_d && hit_d) begin // update LRU on hit
@@ -196,28 +205,48 @@ always_ff @(posedge clk) begin
                 // if LRU counter is less than the one that hit, increment it
                 // no need to make cnt saturating - can't increment last lru
                 if (way[w].set[set_idx_cr_d].lru_cnt <
-                    way[way_idx_cr_d].set[set_idx_cr_d].lru_cnt) begin
+                    way[cr_d.way_idx].set[set_idx_cr_d].lru_cnt) begin
                     way[w].set[set_idx_cr_d].lru_cnt <=
                         way[w].set[set_idx_cr_d].lru_cnt + 1;
                 end
             end
         // hit way becomes LRU 0
-        way[way_idx_cr_d].set[set_idx_cr_d].lru_cnt <= '0;
+        way[cr_d.way_idx].set[set_idx_cr_d].lru_cnt <= '0;
         end
     end
 end
 
-// debug signals
+`ifdef DBG_SIG
 logic dbg_serving_pending_req;
 assign dbg_serving_pending_req =
     (cr_pend.active && !new_core_req_d) && rsp_core.valid;
 
 logic [CORE_BYTE_ADDR_BUS-1:0] dbg_req_core_bytes;
-assign dbg_req_core_bytes = cr_addr<<2;
+assign dbg_req_core_bytes = (cr.addr << 2);
 
 logic [CORE_BYTE_ADDR_BUS-1:0] dbg_req_core_bytes_valid;
 assign dbg_req_core_bytes_valid = (
-    (cr_addr<<2) & {CORE_BYTE_ADDR_BUS{req_core.valid}});
+    (cr.addr << 2) & {CORE_BYTE_ADDR_BUS{req_core.valid}});
+
+if (SETS > 1) begin: dbg_s2p
+typedef struct packed {
+    logic [TAG_W-1:0] tag;
+    logic [IDX_BITS-1:0] set_idx;
+    logic [5:0] byte_addr;
+} dbg_core_addr_t;
+dbg_core_addr_t dbg_core_addr;
+assign dbg_core_addr = (cr.addr << 2);
+
+end else begin: dbg_s1
+typedef struct packed {
+    logic [TAG_W-1:0] tag;
+    logic [5:0] byte_addr;
+} dbg_core_addr_t;
+dbg_core_addr_t dbg_core_addr;
+assign dbg_core_addr = (cr.addr << 2);
+end
+// xsim is not happy with only one `assign dbg_core_addr` at the end, so 2 it is
+`endif
 
 // state transition
 `DFF_CI_RI_RV(IC_RESET, nx_state, state)
@@ -235,7 +264,7 @@ always_comb begin
             // `LOG_D($sformatf(">> I$ STATE IC_READY"));
             if ((new_core_req_d) && (!hit_d)) begin
                 nx_state = IC_MISS;
-                // `LOG_D($sformatf(">> I$ next state: IC_MISS; missed on core addr byte: 0x%0h", cr_addr<<2));
+                // `LOG_D($sformatf(">> I$ next state: IC_MISS; missed on core addr byte: 0x%0h", cr.addr<<2));
             end
         end
 
@@ -284,22 +313,22 @@ always_comb begin
             req_core.ready = 1'b1;
             if (cr_pend.active && !new_core_req_d) begin
                 // service the pending request after miss
-                set_idx = get_idx(cr_pend.addr);
-                word_idx = get_cl_word(cr_pend.addr);
+                set_idx = get_idx(cr_pend.cr.addr);
+                word_idx = get_cl_word(cr_pend.cr.addr);
                 rsp_core.valid = 1'b1;
                 rsp_core.data =
-                    way[cr_pend.way_idx].set[set_idx].data.w[word_idx];
+                    way[cr_pend.cr.way_idx].set[set_idx].data.w[word_idx];
                 clear_pending = 1'b1;
-                // `LOG_D($sformatf("icache OUT complete pending request; cache at word %0d; core at byte 0x%5h; with output %8h", get_cl_word(cr_pend.addr), cr_d_addr<<2, rsp_core.data));
+                // `LOG_D($sformatf("icache OUT complete pending request; cache at word %0d; core at byte 0x%5h; with output %8h", get_cl_word(cr_pend.cr.addr), cr_d.addr<<2, rsp_core.data));
 
             end else if (new_core_req_d) begin
                 if (hit_d) begin
-                    set_idx = get_idx(cr_d_addr);
-                    word_idx = get_cl_word(cr_d_addr);
+                    set_idx = get_idx(cr_d.addr);
+                    word_idx = get_cl_word(cr_d.addr);
                     rsp_core.valid = 1'b1;
                     rsp_core.data =
-                        way[way_idx_cr_d].set[set_idx].data.w[word_idx];
-                    // `LOG_D($sformatf("icache OUT hit; cache at word %0d; core at byte 0x%5h; with output %8h", get_idx(cr_d_addr), cr_d_addr<<2, rsp_core.data));
+                        way[cr_d.way_idx].set[set_idx].data.w[word_idx];
+                    // `LOG_D($sformatf("icache OUT hit; cache at word %0d; core at byte 0x%5h; with output %8h", get_idx(cr_d.addr), cr_d.addr<<2, rsp_core.data));
 
                 end else begin
                     // handle miss, initiate memory read
@@ -310,7 +339,7 @@ always_comb begin
                     req_mem.valid = 1'b1;
                     req_mem.data = mem_start_addr_d;
                     save_pending = 1'b1;
-                    // `LOG_D($sformatf("icache OUT H->M transition; core at byte 0x%5h; mem_start_addr_d: %0d 0x%5h", cr_d_addr<<2, mem_start_addr_d, mem_start_addr_d));
+                    // `LOG_D($sformatf("icache OUT H->M transition; core at byte 0x%5h; mem_start_addr_d: %0d 0x%5h", cr_d.addr<<2, mem_start_addr_d, mem_start_addr_d));
                 end
             end
         end
