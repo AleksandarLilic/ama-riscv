@@ -46,7 +46,8 @@ ama_riscv_icache #(
 );
 
 ama_riscv_dcache #(
-    .SETS (8)
+    .SETS (8),
+    .WAYS (2)
 ) ama_riscv_dcache_i (
     .clk (clk),
     .rst (rst),

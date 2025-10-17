@@ -2,8 +2,8 @@
 `include "ama_riscv_tb_defines.svh"
 
 module ama_riscv_dcache #(
-    parameter unsigned SETS = 4 // must be power of 2
-    //parameter unsigned WAYS = 1
+    parameter unsigned SETS = 8,
+    parameter unsigned WAYS = 2
 )(
     input  logic clk,
     input  logic rst,
@@ -27,12 +27,35 @@ if (!is_pow2(SETS)) begin: check_sets_pow2
     $error("dcache SETS not power of 2");
 end
 
-parameter unsigned WAYS = 1; // currently only direct-mapped supported
-//if (WAYS > 2) $error("dcache WAYS > 2 currently not supported");
+if (WAYS > 32) begin: check_ways_size
+    $error("dcache WAYS > 32 - currently not supported");
+end
 
 parameter unsigned IDX_BITS = $clog2(SETS);
+parameter unsigned WAY_BITS = $clog2(WAYS);
 parameter unsigned TAG_W = CORE_BYTE_ADDR_BUS - CACHE_LINE_BYTE_ADDR - IDX_BITS;
 parameter unsigned IDX_RANGE_TOP = (SETS == 1) ? 1: IDX_BITS;
+
+// just rename for clarity
+`define DC_CR_ASSIGN \
+    '{ \
+        addr: req_core.addr, \
+        wdata: req_core.wdata, \
+        dtype: req_core.dtype, \
+        rtype: req_core.rtype, \
+        way_idx: 'h0 \
+    }
+
+`define DC_CR_CLEAR \
+    '{ \
+        addr: 'h0, \
+        wdata: 'h0, \
+        dtype: DMEM_DTYPE_BYTE, \
+        rtype: DMEM_READ, \
+        way_idx: 'h0 \
+    }
+
+`define DC_CR_PEND_CLEAR '{active:1'b0, mem_r_start_addr:'h0, cr:`DC_CR_CLEAR}
 
 // custom types
 typedef union packed {
@@ -46,7 +69,7 @@ typedef union packed {
 typedef struct {
     logic valid;
     logic dirty;
-    // logic lru_cnt; // for 2-way set associative
+    //logic [WAY_BITS-1:0] lru_cnt; // optimized away for direct-mapped cache
     logic [TAG_W-1:0] tag;
     cache_line_data_t data;
 } cache_line_t;
@@ -65,6 +88,7 @@ typedef struct packed {
     core_data_t wdata;
     dmem_dtype_t dtype;
     dmem_rtype_t rtype;
+    logic [WAY_BITS-1:0] way_idx;
 } core_request_t;
 
 typedef struct packed {
@@ -72,6 +96,11 @@ typedef struct packed {
     logic [MEM_ADDR_BUS-1:0] mem_r_start_addr;
     core_request_t cr;
 } core_request_pending_t;
+
+typedef struct packed {
+    logic [WAY_BITS-1:0] way_idx;
+    logic [IDX_RANGE_TOP-1:0] set_idx;
+} lru_cnt_access_t;
 
 // helper functions
 function automatic [TAG_W-1:0]
@@ -113,40 +142,100 @@ endfunction
 // implementation
 cache_way_t way [WAYS-1:0];
 
-parameter unsigned way_idx = 0; // TODO: implement set associativity
-
 core_request_t cr, cr_d;
-assign cr = '{ // just rename for clarity
-    addr: req_core.addr,
-    wdata: req_core.wdata,
-    dtype: req_core.dtype,
-    rtype: req_core.rtype
-};
-
+core_request_pending_t cr_pend;
 logic tag_match;
 logic [TAG_W-1:0] tag_cr;
 logic [IDX_RANGE_TOP-1:0] set_idx_cr;
-always_comb begin
-    set_idx_cr = get_idx(cr.addr);
-    tag_cr = get_tag(cr.addr);
-    tag_match = (way[way_idx].set[set_idx_cr].tag == tag_cr);
+logic [WAY_BITS-1:0] way_victim_idx, way_victim_idx_d;
+logic new_core_req, new_core_req_d;
+logic hit, hit_d;
+logic cr_victim_dirty, cr_victim_dirty_d;
+logic load_hit_req, store_hit_req, store_req_pending;
+
+if (WAYS == 1) begin: gen_direct_mapped
+    // wrap in always_comb to force functions to evaluate first
+    always_comb begin
+        cr = `DC_CR_ASSIGN;
+        set_idx_cr = get_idx(cr.addr);
+        tag_cr = get_tag(cr.addr);
+        // hardwired values for direct-mapped
+        way_victim_idx = '0;
+        way_victim_idx_d = '0;
+        // tag search
+        tag_match = (way[cr.way_idx].set[set_idx_cr].tag == tag_cr);
+        hit = &{tag_match, new_core_req, way[cr.way_idx].set[set_idx_cr].valid};
+        cr_victim_dirty = way[cr.way_idx].set[set_idx_cr].dirty;
+    end
+
+end else begin: gen_set_assoc
+    logic [WAY_BITS-1:0] lru_cnt [WAYS-1:0][SETS-1:0];
+    parameter unsigned LRU_MAX_CNT = WAYS - 1;
+    always_comb begin
+        cr = `DC_CR_ASSIGN;
+        set_idx_cr = get_idx(cr.addr);
+        tag_cr = get_tag(cr.addr);
+        tag_match = 1'b0;
+        way_victim_idx = '0;
+        for (int w = 0; w < WAYS; w++) begin
+            if (way[w].set[set_idx_cr].valid &&
+                (way[w].set[set_idx_cr].tag == tag_cr)) begin
+                tag_match = 1'b1;
+                cr.way_idx = w;
+            end else if (lru_cnt[w][set_idx_cr] == LRU_MAX_CNT) begin
+                way_victim_idx = w;
+            end
+        end
+        hit = &{tag_match, new_core_req, way[cr.way_idx].set[set_idx_cr].valid};
+        cr_victim_dirty = way[way_victim_idx].set[set_idx_cr].dirty;
+    end
+    `DFF_CI_RI_RVI_EN(new_core_req, way_victim_idx, way_victim_idx_d)
+
+    // lru
+    lru_cnt_access_t lca;
+    always_comb begin
+        if (store_req_pending) begin
+            lca.way_idx = cr_pend.cr.way_idx;
+            lca.set_idx = get_idx(cr_pend.cr.addr);
+        end else if (store_hit_req) begin
+            lca.way_idx = cr.way_idx;
+            lca.set_idx = get_idx(cr.addr);
+        end else if (load_hit_req) begin
+            lca.way_idx = cr_d.way_idx;
+            lca.set_idx = get_idx(cr_d.addr);
+        end
+    end
+
+    logic update_lru;
+    assign update_lru = store_req_pending || store_hit_req || load_hit_req;
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            for (int w = 0; w < WAYS; w++) begin
+                for (int s = 0; s < SETS; s++) begin
+                    lru_cnt[w][s] <= w; // init LRU to way idx
+                end
+            end
+        end else if (update_lru) begin
+            for (int w = 0; w < WAYS; w++) begin
+                // if LRU counter is less than the one that hit, increment it
+                // no need to make cnt saturating - can't increment last lru
+                if (lru_cnt[w][lca.set_idx] < lru_cnt[lca.way_idx][lca.set_idx])
+                begin
+                    lru_cnt[w][lca.set_idx] <= lru_cnt[w][lca.set_idx] + 1;
+                end
+            end
+            // hit way becomes LRU 0
+            lru_cnt[lca.way_idx][lca.set_idx] <= '0;
+        end
+    end
 end
 
-logic new_core_req, new_core_req_d;
 assign new_core_req = (req_core.valid && req_core.ready);
 `DFF_CI_RI_RVI(new_core_req, new_core_req_d)
-
-logic hit, hit_d;
-assign hit = &{tag_match, new_core_req, way[way_idx].set[set_idx_cr].valid};
+`DFF_CI_RI_RV_EN(`DC_CR_CLEAR, new_core_req, cr, cr_d);
 `DFF_CI_RI_RVI_EN(new_core_req, hit, hit_d)
-
-`DFF_CI_RI_RV_EN('{'0, '0, DMEM_DTYPE_BYTE, DMEM_READ}, new_core_req, cr, cr_d);
-
-logic cr_line_dirty, cr_line_dirty_d;
-assign cr_line_dirty = way[way_idx].set[set_idx_cr].dirty;
-`DFF_CI_RI_RVI_EN(new_core_req, cr_line_dirty, cr_line_dirty_d)
-
-// TODO DPI 1: query from cpp model
+`DFF_CI_RI_RVI_EN(new_core_req, cr_victim_dirty, cr_victim_dirty_d)
 
 // cache line (64B) to mem bus (16B) addressing, from core addr (1B)
 logic [MEM_ADDR_BUS-1:0] mem_r_start_addr_d; // addr aligned to first mem block
@@ -154,20 +243,30 @@ assign mem_r_start_addr_d = (cr_d.addr >> 4) & ~'b11;
 
 logic save_pending, clear_pending_on_write, clear_pending_on_read;
 dcache_state_t state, nx_state;
-core_request_pending_t cr_pend;
 always_ff @(posedge clk) begin
     if (rst) begin
-        cr_pend <= '{1'b0, 'h0, '{'h0, 'h0, DMEM_DTYPE_BYTE, DMEM_READ}};
+        cr_pend <= `DC_CR_PEND_CLEAR;
     end else if (save_pending) begin
-        cr_pend = '{1'b1, mem_r_start_addr_d, cr_d};
+        cr_pend = '{
+            active: 1'b1,
+            mem_r_start_addr: mem_r_start_addr_d,
+            cr: '{
+                addr: cr_d.addr,
+                wdata: cr_d.wdata,
+                dtype: cr_d.dtype,
+                rtype: cr_d.rtype,
+                way_idx: way_victim_idx_d
+            }
+        };
         // `LOG_D($sformatf("saving pending request; with core addr byte at 0x%5h", cr.addr));
     end else if (clear_pending_on_read || clear_pending_on_write) begin
-        cr_pend <= '{1'b0, 'h0, '{'h0, 'h0, DMEM_DTYPE_BYTE, DMEM_READ}};
+        cr_pend <= `DC_CR_PEND_CLEAR;
     end
 end
 
 parameter unsigned CNT_WIDTH = $clog2(MEM_TRANSFERS_PER_CL);
-logic [CNT_WIDTH-1:0] mem_miss_cnt, mem_miss_cnt_d, mem_evict_cnt, mem_evict_cnt_d;
+logic [CNT_WIDTH-1:0] mem_miss_cnt, mem_miss_cnt_d;
+logic [CNT_WIDTH-1:0] mem_evict_cnt, mem_evict_cnt_d;
 `DFF_CI_RI_RVI_EN(req_mem_r.valid, (mem_miss_cnt + 'h1), mem_miss_cnt)
 `DFF_CI_RI_RVI(mem_miss_cnt, mem_miss_cnt_d)
 `DFF_CI_RI_RVI_EN(req_mem_w.valid, (mem_evict_cnt + 'h1), mem_evict_cnt)
@@ -185,53 +284,60 @@ assign byte_idx_pend = get_cl_byte_idx(cr_pend.cr.addr);
 logic [CACHE_LINE_BYTE_ADDR-1:0] byte_idx_cr;
 assign byte_idx_cr = get_cl_byte_idx(cr.addr);
 
+assign load_hit_req = (hit_d && (cr_d.rtype == DMEM_READ) && new_core_req_d);
+assign store_hit_req = (hit && (cr.rtype == DMEM_WRITE) && new_core_req);
+assign store_req_pending = (
+    mem_r_transfer_done_d && cr_pend.active && (cr_pend.cr.rtype == DMEM_WRITE)
+);
+
 logic [(ARCH_WIDTH/8)-1:0] store_mask;
 always_ff @(posedge clk) begin
     if (rst) begin
-        for (int i = 0; i < SETS; i++) begin
-            way[way_idx].set[i].valid <= 1'b0;
-            way[way_idx].set[i].dirty <= 1'b0;
+        for (int w = 0; w < WAYS; w++) begin
+            for (int s = 0; s < SETS; s++) begin
+                way[w].set[s].valid <= 1'b0;
+                way[w].set[s].dirty <= 1'b0;
+                way[w].set[s].tag <= 'h0;
+            end
         end
     clear_pending_on_write <= 1'b0;
 
     end else if (rsp_mem.valid) begin // loading cache line from mem
-        way[way_idx].set[set_idx_pend].data.q[mem_miss_cnt_d] <= rsp_mem.data;
+        way[cr_pend.cr.way_idx].set[set_idx_pend].data.q[mem_miss_cnt_d] <=
+            rsp_mem.data;
         // on the last transfer, update metadata
         if (mem_r_transfer_done) begin
-            way[way_idx].set[set_idx_pend].valid <= 1'b1;
-            way[way_idx].set[set_idx_pend].dirty <= 1'b0;
-            way[way_idx].set[set_idx_pend].tag <=
+            way[cr_pend.cr.way_idx].set[set_idx_pend].valid <= 1'b1;
+            way[cr_pend.cr.way_idx].set[set_idx_pend].dirty <= 1'b0;
+            way[cr_pend.cr.way_idx].set[set_idx_pend].tag <=
                 (cr_pend.mem_r_start_addr >> (2 + IDX_BITS));
         end
     clear_pending_on_write <= 1'b0;
 
-    end else if (
-        mem_r_transfer_done_d &&
-        cr_pend.active &&
-        (cr_pend.cr.rtype == DMEM_WRITE)
-    ) begin
+    end else if (store_req_pending) begin
         // store pending req once eviction & miss on write-allocate are done
         store_mask = get_store_mask(cr_pend.cr.dtype[1:0]);
         // `LOG_D($sformatf("dcache write pending request; in cache line at byte idx %0d; core at byte 0x%5h; with input %8h; store_mask %b", byte_idx_pend, cr_pend.cr.addr, cr_pend.cr.wdata, store_mask));
         for (int i = 0; i < ARCH_WIDTH/8; i++) begin
             if (store_mask[i]) begin
-                way[way_idx].set[set_idx_pend].data.b[byte_idx_pend + i] <=
-                    cr_pend.cr.wdata.b[i];
+                way[cr_pend.cr.way_idx]
+                    .set[set_idx_pend]
+                    .data.b[byte_idx_pend + i] <= cr_pend.cr.wdata.b[i];
             end
         end
-        way[way_idx].set[set_idx_pend].dirty <= 1'b1;
+        way[cr_pend.cr.way_idx].set[set_idx_pend].dirty <= 1'b1;
         clear_pending_on_write <= 1'b1;
 
-    end else if (hit && (cr.rtype == DMEM_WRITE) && new_core_req) begin
+    end else if (store_hit_req) begin
         store_mask = get_store_mask(cr.dtype[1:0]);
         // `LOG_D($sformatf("dcache write hit; in cache line at byte idx %0d; core at byte 0x%5h; with input %8h; store_mask %b", byte_idx_cr, cr.addr, cr.wdata, store_mask));
         for (int i = 0; i < ARCH_WIDTH/8; i++) begin
             if (store_mask[i]) begin
-                way[way_idx].set[set_idx_cr].data.b[byte_idx_cr + i] <=
+                way[cr.way_idx].set[set_idx_cr].data.b[byte_idx_cr + i] <=
                     cr.wdata.b[i];
             end
         end
-        way[way_idx].set[set_idx_cr].dirty <= 1'b1;
+        way[cr.way_idx].set[set_idx_cr].dirty <= 1'b1;
         clear_pending_on_write <= 1'b0;
 
     end else begin
@@ -239,7 +345,7 @@ always_ff @(posedge clk) begin
     end
 end
 
-// debug signals
+`ifdef DBG_SIG
 logic dbg_serving_pending_req;
 assign dbg_serving_pending_req =
     (cr_pend.active && !new_core_req_d) && rsp_core.valid;
@@ -247,6 +353,26 @@ assign dbg_serving_pending_req =
 logic [CORE_BYTE_ADDR_BUS-1:0] dbg_req_core_bytes_valid;
 assign dbg_req_core_bytes_valid =
     ((cr.addr) & {CORE_BYTE_ADDR_BUS{req_core.valid}});
+
+if (SETS > 1) begin: dbg_s2p
+typedef struct packed {
+    logic [TAG_W-1:0] tag;
+    logic [IDX_BITS-1:0] set_idx;
+    logic [5:0] byte_addr;
+} dbg_core_addr_t;
+dbg_core_addr_t dbg_core_addr;
+assign dbg_core_addr = cr.addr;
+
+end else begin: dbg_s1
+typedef struct packed {
+    logic [TAG_W-1:0] tag;
+    logic [5:0] byte_addr;
+} dbg_core_addr_t;
+dbg_core_addr_t dbg_core_addr;
+assign dbg_core_addr = cr.addr;
+end
+
+`endif
 
 // state transition
 `DFF_CI_RI_RV(DC_RESET, nx_state, state)
@@ -264,7 +390,7 @@ always_comb begin
             // `LOG_D($sformatf(">> D$ STATE DC_READY"));
             if ((new_core_req_d) && (!hit_d)) begin
                 // `LOG_D($sformatf(">> D$: %0s", (cr_d.rtype == DMEM_READ) ? "replace on miss" : "write-allocate on miss"));
-                if (cr_line_dirty_d) begin
+                if (cr_victim_dirty_d) begin
                     nx_state = DC_EVICT;
                     // `LOG_D($sformatf(">> D$ next state: DC_EVICT; dirty line, need to evict first; missed on core addr byte: 0x%0h", cr_d.addr));
                 end else begin
@@ -352,7 +478,8 @@ always_comb begin
                 word_idx = get_cl_word(cr_pend.cr.addr);
                 dtype = cr_pend.cr.dtype;
                 rd_offset = cr_pend.cr.addr[1:0];
-                data_out = way[way_idx].set[set_idx].data.w[word_idx];
+                data_out =
+                    way[cr_pend.cr.way_idx].set[set_idx].data.w[word_idx];
                 // `LOG_D($sformatf("dcache OUT complete pending request; cache at word idx %0d; core at byte 0x%5h; with output %8h", (get_cl_word(cr_pend.cr.addr)), cr_d.addr, data_out));
                 clear_pending_on_read = 1'b1;
 
@@ -363,7 +490,7 @@ always_comb begin
                     word_idx = get_cl_word(cr_d.addr);
                     dtype = cr_d.dtype;
                     rd_offset = cr_d.addr[1:0];
-                    data_out = way[way_idx].set[set_idx].data.w[word_idx];
+                    data_out = way[cr_d.way_idx].set[set_idx].data.w[word_idx];
                     // `LOG_D($sformatf("dcache OUT hit; cache at word idx %0d; core at byte 0x%5h; with output %8h", (get_cl_word(cr_d.addr)), cr_d.addr, data_out));
 
                 end else if (!hit_d) begin
@@ -373,16 +500,20 @@ always_comb begin
                     req_core.ready = 1'b0;
                     save_pending = 1'b1;
                     set_idx = get_idx(cr_d.addr);
-                    if (cr_line_dirty_d) begin
+                    if (cr_victim_dirty_d) begin
                         if (SETS == 1) begin
                             victim_wb_start_addr =
-                                {way[way_idx].set[set_idx].tag, 2'b00};
+                                {way[way_victim_idx_d].set[set_idx].tag, 2'b00};
                         end else begin
-                            victim_wb_start_addr =
-                                {way[way_idx].set[set_idx].tag, set_idx, 2'b00};
+                            victim_wb_start_addr = {
+                                way[way_victim_idx_d].set[set_idx].tag,
+                                set_idx,
+                                2'b00
+                            };
                         end
                         // start eviction, initiate memory write
-                        victim_wb_data = way[way_idx].set[set_idx].data.q[0];
+                        victim_wb_data =
+                            way[way_victim_idx_d].set[set_idx].data.q[0];
                         req_mem_w.valid = 1'b1;
                         req_mem_w.addr = victim_wb_start_addr;
                         req_mem_w.wdata = victim_wb_data;
@@ -414,12 +545,13 @@ always_comb begin
             set_idx = get_idx(cr_d.addr);
             if (SETS == 1) begin
                 victim_wb_start_addr =
-                    {way[way_idx].set[set_idx].tag, 2'b00};
+                    {way[way_victim_idx_d].set[set_idx].tag, 2'b00};
             end else begin
                 victim_wb_start_addr =
-                    {way[way_idx].set[set_idx].tag, set_idx, 2'b00};
+                    {way[way_victim_idx_d].set[set_idx].tag, set_idx, 2'b00};
             end
-            victim_wb_data = way[way_idx].set[set_idx].data.q[mem_evict_cnt];
+            victim_wb_data =
+                way[way_victim_idx_d].set[set_idx].data.q[mem_evict_cnt];
             req_mem_w.valid = 1'b1;
             req_mem_w.addr = victim_wb_start_addr + mem_evict_cnt;
             req_mem_w.wdata = victim_wb_data;
