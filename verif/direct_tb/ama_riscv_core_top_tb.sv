@@ -66,6 +66,19 @@ string cosim_stack_top_str;
 int unsigned cosim_rf[RF_NUM];
 bit [RF_NUM-1:0] rf_chk_act;
 
+// perf
+typedef struct {
+    integer unsigned ref_cnt = 'h0;
+    integer unsigned hit_cnt = 'h0;
+    integer unsigned miss_cnt = 'h0;
+    integer unsigned evict_cnt = 'h0;
+} cache_stats_counters_t;
+
+cache_stats_counters_t ic_stats;
+cache_stats_counters_t dc_stats;
+perf_stats stats;
+perf_counters_t core_stats;
+
 //------------------------------------------------------------------------------
 // DUT
 logic clk = 0;
@@ -106,8 +119,8 @@ endfunction
 `ifdef ENABLE_COSIM
 function void cosim_check_inst_cnt;
     `LOGNT($sformatf("Cosim instruction count: %0d", cosim_get_inst_cnt()));
-    `LOGNT($sformatf("DUT instruction count: %0d", stats.get_inst()));
-    if (cosim_get_inst_cnt() != stats.get_inst()) begin
+    `LOGNT($sformatf("DUT instruction count: %0d", stats.get_inst(core_stats)));
+    if (cosim_get_inst_cnt() != stats.get_inst(core_stats)) begin
         `LOGNT($sformatf("Instruction count mismatch"));
     end
 endfunction
@@ -279,57 +292,35 @@ function automatic [8*SLEN-1:0] pack_string(input string str);
     end
 endfunction
 
-typedef struct {
-    integer unsigned ref_cnt = 'h0;
-    integer unsigned miss_cnt = 'h0;
-    integer unsigned hit_cnt = 'h0;
-} cache_stats_counters_t;
-
-cache_stats_counters_t ic_stats;
-function automatic byte get_icache_status();
-    byte ic_hm;
-    bit ic_miss;
-    bit ic_handle_pending_req;
-    bit ic_hit;
+function automatic byte get_cache_status(
+    ref cache_stats_counters_t stats,
+    input logic new_core_req_d,
+    input logic hit_d,
+    input logic cr_victim_dirty_d,
+    input logic cr_pend_active
+);
+    byte hm;
+    bit hit;
+    bit miss;
+    bit evict;
+    bit handle_pending_req;
     begin
-        ic_hm = hw_status_t_none;
+        hm = hw_status_t_none;
 
-        ic_miss = (`DUT_IC.new_core_req_d && !`DUT_IC.hit_d);
-        ic_handle_pending_req = (
-            (`DUT_IC.cr_pend.active && !`DUT_IC.new_core_req_d)
-        );
-        ic_hit = (`DUT_IC.new_core_req_d && `DUT_IC.hit_d);
-        if (ic_miss) ic_hm = hw_status_t_miss;
-        else if (ic_hit) ic_hm = hw_status_t_hit;
-        ic_stats.ref_cnt += (`DUT_IC.new_core_req_d);
-        ic_stats.miss_cnt += ic_miss;
-        ic_stats.hit_cnt += ic_hit;
+        hit = (new_core_req_d && hit_d);
+        miss = (new_core_req_d && !hit_d);
+        evict = miss && cr_victim_dirty_d;
+        handle_pending_req = ((cr_pend_active && !new_core_req_d));
 
-        return ic_hm;
-    end
-endfunction
+        if (miss) hm = hw_status_t_miss;
+        else if (hit) hm = hw_status_t_hit;
 
-cache_stats_counters_t dc_stats;
-function automatic byte get_dcache_status();
-    byte dc_hm;
-    bit dc_miss;
-    bit dc_handle_pending_req;
-    bit dc_hit;
-    begin
-        dc_hm = hw_status_t_none;
+        stats.ref_cnt += (new_core_req_d);
+        stats.hit_cnt += hit;
+        stats.miss_cnt += miss;
+        stats.evict_cnt += evict;
 
-        dc_miss = (`DUT_DC.new_core_req_d && !`DUT_DC.hit_d);
-        dc_handle_pending_req = (
-            (`DUT_DC.cr_pend.active && !`DUT_DC.new_core_req_d)
-        );
-        dc_hit = (`DUT_DC.new_core_req_d && `DUT_DC.hit_d);
-        if (dc_miss) dc_hm = hw_status_t_miss;
-        else if (dc_hit) dc_hm = hw_status_t_hit;
-        dc_stats.ref_cnt += (`DUT_DC.new_core_req_d);
-        dc_stats.miss_cnt += dc_miss;
-        dc_stats.hit_cnt += dc_hit;
-
-        return dc_hm;
+        return hm;
     end
 endfunction
 
@@ -361,11 +352,23 @@ function automatic void add_trace_entry(longint unsigned clk_cnt);
             1'b0, // FIXME: temp tied to 0. dmem size
             1'b0, // FIXME: temp tied to 0. `DUT_DEC.branch_taken_wbk,
 
-            get_icache_status(),
-            get_dcache_status(),
+            get_cache_status(
+                ic_stats,
+                `DUT_IC.new_core_req_d,
+                `DUT_IC.hit_d,
+                1'b0,
+                `DUT_IC.cr_pend.active
+            ),
+            get_cache_status(
+                dc_stats,
+                `DUT_DC.new_core_req_d,
+                `DUT_DC.hit_d,
+                `DUT_DC.cr_victim_dirty_d,
+                `DUT_DC.cr_pend.active
+            ),
 
             `ifdef USE_BP
-            get_bp_status()
+            get_bp_status(),
             `else
             hw_status_t_none // no bp
             `endif
@@ -376,7 +379,7 @@ endfunction
 string core_ret;
 string isa_ret;
 task automatic single_step(longint unsigned clk_cnt);
-    stats.update(`DUT_CORE.inst.wbk, (inst_retired == 1'b0));
+    stats.update(core_stats, `DUT_CORE.inst.wbk, (inst_retired == 1'b0));
     `LOG_V($sformatf(
         "Core [F] %5h: %8h %0s",
         `DUT_CORE.pc.dec,
@@ -478,11 +481,10 @@ end
 
 // Test
 assign tohost_source = `DUT_CORE.csr_tohost[0];
-perf_stats stats;
 initial begin
     `LOGNT("");
     get_plusargs();
-    stats = new();
+    stats = new(core_stats);
 
     `LOG_I("Simulation started");
     load_memories({test_path, ".hex"});
@@ -519,15 +521,15 @@ initial begin
     if (cosim_chk_en == 1'b1) cosim_check_inst_cnt();
     cosim_finish();
     `endif
-    `LOGNT(stats.get());
-    //stats.compare_dut(mmio_cycle_cnt, mmio_instr_cnt);
+    `LOGNT(stats.get(core_stats));
 
     $display("icache Ref: %0d, H: %0d, M: %0d, HR: %0.2f%%",
              ic_stats.ref_cnt, ic_stats.hit_cnt, ic_stats.miss_cnt,
              (ic_stats.ref_cnt != 0) ?
                 (ic_stats.hit_cnt*100.0)/ic_stats.ref_cnt : 0.0);
-    $display("dcache Ref: %0d, H: %0d, M: %0d, HR: %0.2f%%",
-             dc_stats.ref_cnt, dc_stats.hit_cnt, dc_stats.miss_cnt,
+    $display("dcache Ref: %0d, H: %0d, M: %0d, E: %0d, HR: %0.2f%%",
+             dc_stats.ref_cnt, dc_stats.hit_cnt,
+             dc_stats.miss_cnt, dc_stats.evict_cnt,
              (dc_stats.ref_cnt != 0) ?
                 (dc_stats.hit_cnt*100.0)/dc_stats.ref_cnt : 0.0);
     $display("");

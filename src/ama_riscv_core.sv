@@ -367,9 +367,8 @@ assign writeback = (wb_sel_mem == WB_SEL_DMEM) ? dmem_rsp.data :
 
 //------------------------------------------------------------------------------
 // Pipeline FF MEM/WB
-// FIXME: dc_stalled is not really a flush
-`STAGE(flush.mem || dc_stalled, inst.mem, inst.wbk)
-`STAGE(flush.mem || dc_stalled, pc.mem, pc.wbk)
+`STAGE_BB(flush.mem, dc_stalled, `NOP, inst.mem, inst.wbk)
+`STAGE_BB(flush.mem, dc_stalled, 'h0, pc.mem, pc.wbk)
 assign inst_retired = (pc.wbk != 'h0);
 
 //------------------------------------------------------------------------------

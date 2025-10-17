@@ -10,15 +10,14 @@ typedef struct {
 } perf_counters_t;
 
 class perf_stats;
-    perf_counters_t cnt;
     real cpi, ipc;
     bit at_least_once;
 
-    function new();
-        reset();
+    function new(ref perf_counters_t cnt);
+        reset(cnt);
     endfunction
 
-    function void reset();
+    function void reset(ref perf_counters_t cnt);
         cnt.cycle = 0;
         cnt.inst = 0;
         cnt.empty_cycles = 0;
@@ -30,7 +29,10 @@ class perf_stats;
         at_least_once = 0;
     endfunction
 
-    function void update(inst_width_t inst_wb, logic stall_wb);
+    function void update(
+        ref perf_counters_t cnt,
+        input inst_width_t inst_wb,
+        input logic stall_wb);
         at_least_once = 1'b1;
         cnt.cycle++;
         if (inst_wb[6:0] == 7'd0) begin
@@ -44,7 +46,7 @@ class perf_stats;
         end
     endfunction
 
-    function string get();
+    function string get(ref perf_counters_t cnt);
         string sout = "";
         if (at_least_once == 1'b0) begin
             sout = $sformatf("No instuctions executed\n");
@@ -66,7 +68,7 @@ class perf_stats;
         return sout;
     endfunction
 
-    function integer unsigned get_inst();
+    function integer unsigned get_inst(ref perf_counters_t cnt);
         return cnt.inst;
     endfunction
 

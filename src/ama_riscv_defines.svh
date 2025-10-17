@@ -336,6 +336,14 @@ typedef struct packed {
         else _q <= _d; \
     end
 
+`define DFF_CI_RI_RVI_CLR_CLRVI_CLR2_CLR2V(_clr, _clr2, _clr2rv, _d, _q) \
+    always_ff @(posedge clk) begin \
+        if (rst) _q <= 'h0; \
+        else if (_clr) _q <= 'h0; \
+        else if (_clr2) _q <= _clr2rv; \
+        else _q <= _d; \
+    end
+
 `define DFF_CI_RI_RV_CLR_CLRVI(_rstv, _clr, _d, _q) \
     always_ff @(posedge clk) begin \
         if (rst) _q <= _rstv; \
@@ -370,6 +378,9 @@ typedef struct packed {
 
 `define STAGE_EN_RV(_clr, _en, _rstv, _d, _q) \
     `DFF_CI_RI_RV_CLR_CLRVI_EN(_rstv, _clr, _en, _d, _q)
+
+`define STAGE_BB(_clr, _clr2, _clr2rv, _d, _q) \
+    `DFF_CI_RI_RVI_CLR_CLRVI_CLR2_CLR2V(_clr, _clr2, _clr2rv, _d, _q)
 
 `define DFF_CI_RI_RV(_rstv, _d, _q) \
     always_ff @(posedge clk) begin \
