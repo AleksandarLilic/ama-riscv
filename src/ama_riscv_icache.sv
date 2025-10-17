@@ -35,8 +35,8 @@ parameter unsigned WAY_BITS = $clog2(WAYS);
 parameter unsigned TAG_W = CORE_BYTE_ADDR_BUS - CACHE_LINE_BYTE_ADDR - IDX_BITS;
 parameter unsigned IDX_RANGE_TOP = (SETS == 1) ? 1: IDX_BITS;
 
-`define CR_CLEAR '{ addr: 'h0, way_idx: 'h0 }
-`define CR_PEND_CLEAR '{ active: 1'b0, mem_start_addr: 'h0, cr: `CR_CLEAR }
+`define IC_CR_CLEAR '{addr: 'h0, way_idx: 'h0}
+`define IC_CR_PEND_CLEAR '{active: 1'b0, mem_start_addr: 'h0, cr: `IC_CR_CLEAR}
 
 // custom types
 typedef union packed {
@@ -112,7 +112,6 @@ if (WAYS == 1) begin: direct_mapped_search
     end
 
 end else begin: set_associative_search
-    logic [WAY_BITS-1:0] victim_lru;
     parameter unsigned LRU_MAX_CNT = WAYS - 1;
     always_comb begin
         cr.addr = req_core.data;
@@ -138,7 +137,7 @@ end
 
 assign new_core_req = (req_core.valid && req_core.ready);
 `DFF_CI_RI_RVI(new_core_req, new_core_req_d)
-`DFF_CI_RI_RV_EN(`CR_CLEAR, new_core_req, cr, cr_d)
+`DFF_CI_RI_RV_EN(`IC_CR_CLEAR, new_core_req, cr, cr_d)
 `DFF_CI_RI_RVI_EN(new_core_req, hit, hit_d)
 
 // cache line (64B) to mem bus (16B) addressing, from core addr (4B)
@@ -151,7 +150,7 @@ core_request_pending_t cr_pend;
 logic save_pending, clear_pending;
 always_ff @(posedge clk) begin
     if (rst) begin
-        cr_pend <= `CR_PEND_CLEAR;
+        cr_pend <= `IC_CR_PEND_CLEAR;
     end else if (save_pending) begin
         cr_pend <= '{
             active: 1'b1,
@@ -160,7 +159,7 @@ always_ff @(posedge clk) begin
         };
         // `LOG_D($sformatf("saving pending request; with core addr byte at 0x%5h", cr.addr<<2));
     end else if (clear_pending) begin
-        cr_pend <= `CR_PEND_CLEAR;
+        cr_pend <= `IC_CR_PEND_CLEAR;
     end
 end
 
