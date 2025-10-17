@@ -71,7 +71,7 @@ typedef struct {
     integer unsigned ref_cnt = 'h0;
     integer unsigned hit_cnt = 'h0;
     integer unsigned miss_cnt = 'h0;
-    integer unsigned evict_cnt = 'h0;
+    integer unsigned wb_cnt = 'h0;
 } cache_stats_counters_t;
 
 cache_stats_counters_t ic_stats;
@@ -302,14 +302,14 @@ function automatic byte get_cache_status(
     byte hm;
     bit hit;
     bit miss;
-    bit evict;
+    bit wb; // writeback
     bit handle_pending_req;
     begin
         hm = hw_status_t_none;
 
         hit = (new_core_req_d && hit_d);
         miss = (new_core_req_d && !hit_d);
-        evict = miss && cr_victim_dirty_d;
+        wb = miss && cr_victim_dirty_d;
         handle_pending_req = ((cr_pend_active && !new_core_req_d));
 
         if (miss) hm = hw_status_t_miss;
@@ -318,7 +318,7 @@ function automatic byte get_cache_status(
         stats.ref_cnt += (new_core_req_d);
         stats.hit_cnt += hit;
         stats.miss_cnt += miss;
-        stats.evict_cnt += evict;
+        stats.wb_cnt += wb;
 
         return hm;
     end
@@ -527,9 +527,9 @@ initial begin
              ic_stats.ref_cnt, ic_stats.hit_cnt, ic_stats.miss_cnt,
              (ic_stats.ref_cnt != 0) ?
                 (ic_stats.hit_cnt*100.0)/ic_stats.ref_cnt : 0.0);
-    $display("dcache Ref: %0d, H: %0d, M: %0d, E: %0d, HR: %0.2f%%",
+    $display("dcache Ref: %0d, H: %0d, M: %0d, WB: %0d, HR: %0.2f%%",
              dc_stats.ref_cnt, dc_stats.hit_cnt,
-             dc_stats.miss_cnt, dc_stats.evict_cnt,
+             dc_stats.miss_cnt, dc_stats.wb_cnt,
              (dc_stats.ref_cnt != 0) ?
                 (dc_stats.hit_cnt*100.0)/dc_stats.ref_cnt : 0.0);
     $display("");
