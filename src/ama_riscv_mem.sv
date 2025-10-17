@@ -38,6 +38,25 @@ always_ff @(posedge clk) begin
     end
 end
 
+`ifndef SYNTHESIS
+    task randomize_mem;
+    for (int i = 0; i < MEM_SIZE_Q; i++) begin
+        for (int j = 0; j < (MEM_DATA_BUS-1); j++) mem[i][j] = $random;
+    end
+    endtask
+
+    task pattern_mem;
+    for (int i = 0; i < MEM_SIZE_Q; i++) begin
+        mem[i] = 'hf0f0f0f0_f0f0f0f0_f0f0f0f0_f0f0f0f0;
+    end
+    endtask
+
+    initial begin
+        //randomize_mem;
+        pattern_mem;
+    end
+`endif
+
 // dmem write
 `DFF_CI_RI_RVI(1'b1, req_dmem_w.ready)
 always_ff @(posedge clk) begin

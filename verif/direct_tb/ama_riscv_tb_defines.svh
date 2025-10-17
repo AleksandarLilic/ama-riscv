@@ -22,7 +22,8 @@
 // DUT memory defines
 `define DUT_IC `DUT.ama_riscv_icache_i
 `define DUT_DC `DUT.ama_riscv_dcache_i
-`define DUT_MEM `DUT.ama_riscv_mem_i.mem
+`define DUT_MEM `DUT.ama_riscv_mem_i
+`define DUT_MEM_ARRAY `DUT_MEM.mem
 
 `define TOHOST_PASS 32'd1
 

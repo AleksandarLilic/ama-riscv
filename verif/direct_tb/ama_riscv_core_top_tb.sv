@@ -111,7 +111,7 @@ function automatic void load_memories;
     begin
         fd = open_file(test_hex_path, "r"); // check that it can be opened
         $fclose(fd); // and close for the readmemh to use it
-        $readmemh(test_hex_path, `DUT_MEM, 0, MEM_SIZE_Q-1);
+        $readmemh(test_hex_path, `DUT_MEM_ARRAY, 0, MEM_SIZE_Q-1);
         `LOG_D("Finished loading main memory");
     end
 endfunction
