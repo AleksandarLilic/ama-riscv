@@ -1,5 +1,5 @@
 # RTL build
-TOP := ama_riscv_core_top_tb
+TOP := ama_riscv_tb
 
 # terminology:
 # - ISA_SIM: ama-riscv-sim, C++
@@ -8,6 +8,8 @@ TOP := ama_riscv_core_top_tb
 
 RTL_DEFINES ?=
 RTL_DEFINES += -d ENABLE_COSIM
+RTL_DEFINES += -d DBG_SIG
+#RTL_DEFINES += -d SYNTHESIS
 RTL_DEFINES_SLANG := $(subst -d,-D,$(RTL_DEFINES)) # upper case for slang
 COMP_OPTS := -sv --incr --relax
 ELAB_DEBUG ?= typical

@@ -2,7 +2,7 @@
 `include "ama_riscv_tb_defines.svh"
 `include "ama_riscv_perf.svh"
 
-module ama_riscv_core_top_tb();
+module ama_riscv_tb();
 
 `ifdef ENABLE_COSIM
 // imported functions/tasks
@@ -84,7 +84,7 @@ perf_counters_t core_stats;
 logic clk = 0;
 logic rst;
 logic inst_retired;
-ama_riscv_core_top `DUT ( .* );
+ama_riscv_top `DUT ( .* );
 
 //------------------------------------------------------------------------------
 // Testbench functions
@@ -111,7 +111,7 @@ function automatic void load_memories;
     begin
         fd = open_file(test_hex_path, "r"); // check that it can be opened
         $fclose(fd); // and close for the readmemh to use it
-        $readmemh(test_hex_path, `DUT_MEM_ARRAY, 0, MEM_SIZE_Q-1);
+        $readmemh(test_hex_path, `MEM_ARRAY, 0, MEM_SIZE_Q-1);
         `LOG_D("Finished loading main memory");
     end
 endfunction
@@ -139,10 +139,10 @@ function automatic void check_test_status();
         if (`TOHOST_CHECK == 1'b1) begin
             `LOGNT("TOHOST checker enabled");
             checker_exists = 1'b1;
-            if (`DUT_CORE.csr_tohost !== `TOHOST_PASS) begin
+            if (`CORE.csr_tohost !== `TOHOST_PASS) begin
                 status_tohost = 1'b0;
                 `LOGNT($sformatf(
-                    "Failed tohost test # : %0d",`DUT_CORE.csr_tohost[31:1]));
+                    "Failed tohost test # : %0d",`CORE.csr_tohost[31:1]));
             end
         end
 
@@ -192,13 +192,13 @@ function void cosim_run_checkers;
     int unsigned checker_errors_prev;
     begin
         checker_errors_prev = errors;
-        checker_t("pc", `CHECKER_ACTIVE, `DUT_CORE.pc.wbk, cosim_pc);
-        checker_t("inst", `CHECKER_ACTIVE, `DUT_CORE.inst.wbk, cosim_inst);
+        checker_t("pc", `CHECKER_ACTIVE, `CORE.pc.wbk, cosim_pc);
+        checker_t("inst", `CHECKER_ACTIVE, `CORE.inst.wbk, cosim_inst);
         for (int i = 1; i < RF_NUM; i = i + 1) begin
             checker_t(
                 $sformatf("x%0d", i),
                 `CHECKER_ACTIVE && rf_chk_act[i],
-                `DUT_RF.rf[i],
+                `RF.rf[i],
                 cosim_rf[i]
             );
         end
@@ -255,7 +255,7 @@ function void get_plusargs();
             end
             `LOGNT($sformatf("Using log level '%s'", log_str));
         end
-        `LOGNT($sformatf("CPU core path: %0s", `TO_STRING(`DUT_CORE)));
+        `LOGNT($sformatf("CPU core path: %0s", `TO_STRING(`CORE)));
         `LOGNT($sformatf("Frequency: %.2f MHz", 1.0 / (half_period * 2 * 1e-3)));
     end
 endfunction
@@ -271,7 +271,7 @@ initial begin
         $fwrite(fd, "clk: ");
         $fwrite(fd, "%0d", lclk_cnt);
         $fwrite(fd, "; Inst WB: ");
-        $fdisplay(fd, "%8x", `DUT_CORE.inst.wbk );
+        $fdisplay(fd, "%8x", `CORE.inst.wbk );
     end
 end
 */
@@ -344,27 +344,27 @@ function automatic void add_trace_entry(longint unsigned clk_cnt);
 
         cosim_add_te(
             clk_cnt,
-            `DUT_CORE.inst.wbk & {ARCH_WIDTH{inst_retired}},
-            `DUT_CORE.pc.wbk & {ARCH_WIDTH{inst_retired}},
-            `DUT_RF.rf[2],
+            `CORE.inst.wbk & {ARCH_WIDTH{inst_retired}},
+            `CORE.pc.wbk & {ARCH_WIDTH{inst_retired}},
+            `RF.rf[2],
 
             1'b0, // FIXME: temp tied to 0. dmem_addr
             1'b0, // FIXME: temp tied to 0. dmem size
-            1'b0, // FIXME: temp tied to 0. `DUT_DEC.branch_taken_wbk,
+            1'b0, // FIXME: temp tied to 0. `DEC.branch_taken_wbk,
 
             get_cache_status(
                 ic_stats,
-                `DUT_IC.new_core_req_d,
-                `DUT_IC.hit_d,
+                `ICACHE.new_core_req_d,
+                `ICACHE.hit_d,
                 1'b0,
-                `DUT_IC.cr_pend.active
+                `ICACHE.cr_pend.active
             ),
             get_cache_status(
                 dc_stats,
-                `DUT_DC.new_core_req_d,
-                `DUT_DC.hit_d,
-                `DUT_DC.cr_victim_dirty_d,
-                `DUT_DC.cr_pend.active
+                `DCACHE.new_core_req_d,
+                `DCACHE.hit_d,
+                `DCACHE.cr_victim_dirty_d,
+                `DCACHE.cr_pend.active
             ),
 
             `ifdef USE_BP
@@ -379,12 +379,12 @@ endfunction
 string core_ret;
 string isa_ret;
 task automatic single_step(longint unsigned clk_cnt);
-    stats.update(core_stats, `DUT_CORE.inst.wbk, (inst_retired == 1'b0));
+    stats.update(core_stats, `CORE.inst.wbk, (inst_retired == 1'b0));
     `LOG_V($sformatf(
         "Core [F] %5h: %8h %0s",
-        `DUT_CORE.pc.dec,
-        `DUT_CORE.imem_rsp.data,
-        `DUT_CORE.fe_ctrl.bubble_dec ? ("(fe stalled)") : "")
+        `CORE.pc.dec,
+        `CORE.imem_rsp.data,
+        `CORE.fe_ctrl.bubble_dec ? ("(fe stalled)") : "")
     );
 
     `ifdef ENABLE_COSIM
@@ -398,7 +398,7 @@ task automatic single_step(longint unsigned clk_cnt);
                cosim_inst_asm_str, cosim_stack_top_str, cosim_rf);
 
     core_ret = $sformatf(
-        "Core [R] %5h: %8h", `DUT_CORE.pc.wbk, `DUT_CORE.inst.wbk);
+        "Core [R] %5h: %8h", `CORE.pc.wbk, `CORE.inst.wbk);
     isa_ret = $sformatf(
         "COSIM    %5h: %8h %0s", cosim_pc, cosim_inst, cosim_inst_asm_str);
     `LOG_V(core_ret);
@@ -468,8 +468,8 @@ initial begin
     rf_chk_act[0] = 1'b1; // x0 active right away, same as PC and inst
     while (!(&rf_chk_act)) begin
         @(posedge clk);
-        dut_rf_addr = `DUT_RF.addr_d;
-        if ((rf_chk_act[dut_rf_addr] == 1'b0) && (`DUT_RF.we)) begin
+        dut_rf_addr = `RF.addr_d;
+        if ((rf_chk_act[dut_rf_addr] == 1'b0) && (`RF.we)) begin
             #1;
             `LOG_V($sformatf(
                 "First write to x%0d. Checker activated", dut_rf_addr));
@@ -480,7 +480,7 @@ initial begin
 end
 
 // Test
-assign tohost_source = `DUT_CORE.csr_tohost[0];
+assign tohost_source = `CORE.csr_tohost[0];
 initial begin
     `LOGNT("");
     get_plusargs();
