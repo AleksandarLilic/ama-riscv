@@ -6,20 +6,34 @@
 
 `timescale 1ns/1ps
 
-`define CLK_PERIOD 8
-`define CLOCK_FREQ 125_000_000
+// redefine these two during build if needed
+`define CLK_PERIOD 8 // ns
 `define BAUD_RATE 115_200
-`define SIM_TIME `CLOCK_FREQ*0.0009 // 900us
+
+`define LOG_UART
+
+parameter unsigned CLOCK_FREQ = (1000 / `CLK_PERIOD) * 1_000_000; // Hz
+parameter unsigned BITS_PER_SYM = 1 + 8 + 1; // 8N1 = start + 8data + stop bit
+parameter unsigned CLKS_PER_BIT = CLOCK_FREQ / `BAUD_RATE;
+parameter unsigned CLKS_PER_SYM = CLKS_PER_BIT * BITS_PER_SYM;
+//parameter unsigned TIME_PER_BIT = CLKS_PER_BIT * `CLK_PERIOD; // ns
+//parameter unsigned TIME_PER_SYM = TIME_PER_BIT * BITS_PER_SYM / 1000; // us
+parameter unsigned SYMBOLS_TO_SEND = 12;
+parameter unsigned TIMEOUT_CLKS = CLKS_PER_SYM * SYMBOLS_TO_SEND + 1000;
+//parameter unsigned TIMEOUT_CLKS = CLKS_PER_SYM * SYMBOLS_TO_SEND * 1.1;//crash
 
 `define FAILED \
     $display(msg_fail); \
     $finish();
 
-module uart_tb();
+`define TB uart_tb
+
+module `TB();
 
 logic done = 0;
 logic [7:0] payload;
 integer i;
+string uart_out;
 
 // I/O
 logic clk = 0;
@@ -35,7 +49,7 @@ rv_if #(.DW(8)) dummy_recv_rsp_ch ();
 
 // DUT instances
 uart # (
-    .CLOCK_FREQ (`CLOCK_FREQ),
+    .CLOCK_FREQ (CLOCK_FREQ),
     .BAUD_RATE (`BAUD_RATE)
 ) DUT_uart_i (
     .clk (clk),
@@ -47,7 +61,7 @@ uart # (
 );
 
 uart # (
-    .CLOCK_FREQ (`CLOCK_FREQ),
+    .CLOCK_FREQ (CLOCK_FREQ),
     .BAUD_RATE (`BAUD_RATE)
 ) DUT_uart_j (
     .clk (clk),
@@ -74,16 +88,24 @@ initial begin
     send_req_ch.data = 8'd0;
     send_req_ch.valid = 1'b0;
     recv_rsp_ch.ready = 1'b0;
-    repeat (2) @(posedge clk); #1;
+
+    repeat (4) @(posedge clk);
+    #1;
 
     // Reset the UARTs
     rst = 1'b1;
-    @(posedge clk); #1;
+    @(posedge clk);
+    #1;
     rst = 1'b0;
 
+    // idle for a bit
+    repeat (50) @(posedge clk);
+    #1;
+
+    // run test and watch for timeout
     fork
     begin
-        for (i = 0; i < 10; i = i + 1) begin
+        for (i = 0; i < SYMBOLS_TO_SEND; i = i + 1) begin
             // Wait until the DUT_uart_i transmitter is ready
             while (send_req_ch.ready == 1'b0) begin
                 @(posedge clk); #1;
@@ -104,16 +126,12 @@ initial begin
             end
 
             $display(
-                "Status val-%0d @ time t=%12t: DUT_uart_j got data: %h, expected: %h",
-                i, $time, recv_rsp_ch.data, payload
+                "Symbol %2d @ time t=%12t: DUT_uart_j data received/expected: %h/%h (%s)",
+                i, $time, recv_rsp_ch.data, payload, payload
             );
 
             // Check that the data is correct
             if (recv_rsp_ch.data !== payload) begin
-                $display(
-                    "Failure 1-%0d @ time t=%12t: DUT_uart_j got data: %h, but expected: %h",
-                    i, $time, recv_rsp_ch.data, payload
-                );
                 `FAILED;
             end
 
@@ -134,7 +152,7 @@ initial begin
             // Check if no longer valid
             if (recv_rsp_ch.valid == 1'b1) begin
                 $display(
-                    "Failure r/v-%0d @ time t=%12t: DUT_uart_j didn't clear recv_rsp_ch.valid when recv_rsp_ch.ready was asserted",
+                    "Failure r/v %0d @ time t=%12t: DUT_uart_j didn't clear recv_rsp_ch.valid when recv_rsp_ch.ready was asserted",
                     i, $time
                 );
                 `FAILED;
@@ -182,13 +200,17 @@ initial begin
 
     // Catch time-out:
     begin
-        repeat (`SIM_TIME) @(posedge clk);
+        repeat (TIMEOUT_CLKS) @(posedge clk);
         if (!done) begin
             $display("Test timed out");
             `FAILED;
         end
     end
     join
+
+    $display("\n=== UART START ===");
+    $display(uart_out);
+    $display("=== UART END ===\n");
 
     repeat (20) @(posedge clk);
     $display(msg_pass);
