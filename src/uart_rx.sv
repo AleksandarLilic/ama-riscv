@@ -5,14 +5,10 @@ module  uart_rx #(
     parameter CLOCK_FREQ = 125_000_000,
     parameter BAUD_RATE = 115_200
 )(
-    input   logic        clk,
-    input   logic        rst,
-    // ready/valid
-    input   logic        data_out_ready,
-    output  logic        data_out_valid,
-    // data path
-    input   logic        serial_in,
-    output  logic  [7:0] data_out
+    input  logic clk,
+    input  logic rst,
+    rv_if.TX     recv_rsp,
+    input  logic serial_in
 );
 
 // about FPGA_OFFSET
@@ -39,7 +35,7 @@ logic  [CLOCK_COUNTER_WIDTH-1:0] clock_counter;
 assign start = !serial_in && !rx_running;
 
 // Counts down from 10 bits for every character
-always @ (posedge clk) begin
+always_ff @(posedge clk) begin
     if (rst) bit_counter <= 0;
     else if (start) bit_counter <= 10;
     else if (symbol_edge && rx_running) bit_counter <= bit_counter - 1;
@@ -49,7 +45,7 @@ end
 assign rx_running = bit_counter != 4'd0;
 
 // Counts cycles until a single symbol is done
-always @ (posedge clk) begin
+always_ff @(posedge clk) begin
     if (rst) clock_counter <= 1'b0;
     else if (start || symbol_edge) clock_counter <= 1'b0;
     else clock_counter <= clock_counter + 1;
@@ -62,20 +58,20 @@ assign symbol_edge = (clock_counter == (SYMBOL_EDGE_TIME - 1));
 assign sample = (clock_counter == SAMPLE_TIME);
 
 // Shift register
-always @ (posedge clk) begin
+always_ff @(posedge clk) begin
     if (rst) rx_shift <= 9'h0;
     else if (sample && rx_running) rx_shift <= {serial_in, rx_shift[9:1]};
 end
 
 // ready/valid
-always @ (posedge clk) begin
+always_ff @(posedge clk) begin
     if (rst) has_byte <= 1'b0;
     else if (bit_counter == 1 && symbol_edge) has_byte <= 1'b1;
-    else if (data_out_ready) has_byte <= 1'b0;
+    else if (recv_rsp.ready) has_byte <= 1'b0;
 end
 
 // Outputs
-assign data_out = rx_shift[8:1];
-assign data_out_valid = has_byte && !rx_running;
+assign recv_rsp.data = rx_shift[8:1];
+assign recv_rsp.valid = has_byte && !rx_running;
 
 endmodule
