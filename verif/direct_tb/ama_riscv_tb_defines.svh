@@ -1,7 +1,11 @@
 `ifndef AMA_RISCV_TB_DEFINES
 `define AMA_RISCV_TB_DEFINES
 
-`define DEFAULT_HALF_PERIOD 5 // ns
+`define LOG_UART
+
+`define CLK_HALF_PERIOD 5 // ns
+parameter unsigned CLK_PERIOD = (`CLK_HALF_PERIOD * 2);
+parameter unsigned CLOCK_FREQ = (1_000 / CLK_PERIOD) * 1_000_000; // Hz
 
 // TB
 `define TOHOST_CHECK 1'b1
@@ -47,24 +51,24 @@ typedef enum int {
 
 `define LOG_E(x) \
     errors += 1; \
-    if (ama_riscv_tb.log_level >= LOG_ERROR) \
+    if (`TB.log_level >= LOG_ERROR) \
     `LOG($sformatf("ERROR: %0s", x))
 
 `define LOG_W(x) \
     warnings += 1; \
-    if (ama_riscv_tb.log_level >= LOG_WARN) \
+    if (`TB.log_level >= LOG_WARN) \
     `LOG($sformatf("WARNING: %0s", x))
 
 `define LOG_I(x) \
-    if (ama_riscv_tb.log_level >= LOG_INFO) \
+    if (`TB.log_level >= LOG_INFO) \
     `LOG($sformatf("INFO: %0s", x))
 
 `define LOG_V(x) \
-    if (ama_riscv_tb.log_level >= LOG_VERBOSE) \
+    if (`TB.log_level >= LOG_VERBOSE) \
     `LOG($sformatf("VERBOSE: %0s", x))
 
 `define LOG_D(x) \
-    if (ama_riscv_tb.log_level >= LOG_DEBUG) \
+    if (`TB.log_level >= LOG_DEBUG) \
     `LOG($sformatf("DEBUG: %0s", x))
 
 // profiling from isa sim

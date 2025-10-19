@@ -5,6 +5,9 @@
     ["sim/sw/baremetal/gcd_lcm/", "n_large.hex"],
     ["sim/sw/baremetal/prime_numbers/", "n_3000.hex"],
 
+    ["sim/sw/baremetal/uart_direct_send", "hello_world.elf"],
+    ["sim/sw/baremetal/uart_printf_mini", "hello_world.elf"],
+
     ["sim/sw/baremetal/vector_ew_al_uint8/", "basic.hex"],
     ["sim/sw/baremetal/vector_ew_mac_uint8/", "basic.hex"],
     ["sim/sw/baremetal/vector_ew_basic/", "*.hex"],

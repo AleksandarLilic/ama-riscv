@@ -3,8 +3,10 @@
 
 // Memory map
 `define RESET_VECTOR 32'h4_0000
-`define DMEM_RANGE 2'b00
-`define MMIO_RANGE 2'b01
+`define DMEM_RANGE 4'b0100
+`define MMIO_RANGE 4'b0101
+
+`define UART_SIZE 12 // 3 32-bit registers per UART {ctrl, rx_data, tx_data}
 
 parameter unsigned ARCH_WIDTH = 32;
 typedef logic [ARCH_WIDTH-1:0] arch_width_t;
@@ -281,6 +283,17 @@ typedef struct packed {
 } csr_ctrl_t;
 
 typedef struct packed {
+    logic rx_valid; // d[1]
+    logic tx_ready; // d[0]
+} uart_ctrl_t;
+
+typedef enum logic [1:0] {
+    UART_CTRL = 2'd0,
+    UART_RX = 2'd1,
+    UART_TX = 2'd2
+} uart_addr_t;
+
+typedef struct packed {
     logic bubble_dec;
     pc_sel_t pc_sel;
     logic pc_we;
@@ -453,5 +466,18 @@ get_rd(input inst_width_t inst);
     get_rd = rf_addr_t'(inst[11:7]);
 endfunction
 /* verilator lint_on UNUSEDPARAM */
+
+// peripherals
+typedef enum integer unsigned {
+    BR_9600 = 9600,
+    BR_19200 = 19200,
+    BR_38400 = 38400,
+    BR_57600 = 57600,
+    BR_115200 = 115200,
+    BR_230400 = 230400,
+    BR_460800 = 460800,
+    BR_576000 = 576000,
+    BR_921600 = 921600
+} uart_baud_rate_t;
 
 `endif // AMA_RISCV_DEFINES

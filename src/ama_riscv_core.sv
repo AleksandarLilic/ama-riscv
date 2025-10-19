@@ -1,17 +1,16 @@
 `include "ama_riscv_defines.svh"
 
 module ama_riscv_core (
-    input  logic        clk,
-    input  logic        rst,
-    rv_if.TX            imem_req,
-    rv_if.RX            imem_rsp,
-    rv_if_dc.TX         dmem_req,
-    rv_if.RX            dmem_rsp,
-    output logic        inst_retired
+    input  logic clk,
+    input  logic rst,
+    rv_if.TX     imem_req,
+    rv_if.RX     imem_rsp,
+    rv_if_dc.TX  dmem_req,
+    rv_if.RX     dmem_rsp,
+    rv_if.TX     uart_send_req,
+    rv_if.RX     uart_recv_rsp,
+    output logic inst_retired
 );
-
-//------------------------------------------------------------------------------
-// Signals
 
 pipeline_if #(.W(INST_WIDTH)) inst ();
 pipeline_if #(.W(ARCH_WIDTH)) pc ();
@@ -330,13 +329,82 @@ end
 
 //------------------------------------------------------------------------------
 // DMEM
+dmem_dtype_t dmem_dtype, dmem_dtype_mem;
+assign dmem_dtype = dmem_dtype_t'(get_fn3(inst.exe));
+
 assign dmem_req.valid =
-    (alu_out[31:30] == `DMEM_RANGE) && decoded_exe.dmem_en && (!dc_stalled);
+    (alu_out[19:16] == `DMEM_RANGE) && decoded_exe.dmem_en && (!dc_stalled);
 assign dmem_req.wdata = bcs_b;
 assign dmem_req.addr = alu_out[15:0];
-assign dmem_req.dtype = dmem_dtype_t'(get_fn3(inst.exe));
+assign dmem_req.dtype = dmem_dtype;
 assign dmem_req.rtype = decoded_exe.store_inst ? DMEM_WRITE : DMEM_READ;
 assign dc_stalled = !dmem_req.ready;
+
+// UART
+uart_addr_t uart_addr;
+assign uart_addr = uart_addr_t'(alu_out[4:2]);
+logic uart_en;
+logic uart_we;
+assign uart_en = (alu_out[19:16] == `MMIO_RANGE) && decoded_exe.dmem_en;
+assign uart_we = uart_en && decoded_exe.store_inst;
+
+// uart sync write
+always_ff @(posedge clk) begin
+    if (rst) begin
+        uart_send_req.data <= 'h0;
+        uart_send_req.valid <= 'b0;
+    end else begin
+        if (uart_we) begin
+            case (uart_addr)
+                UART_TX: begin
+                    uart_send_req.data <= bcs_b[7:0];
+                    uart_send_req.valid <= 1'b1;
+                end
+                default: ;
+            endcase
+        end else begin
+            uart_send_req.data <= 'h0;
+            uart_send_req.valid <= 'b0;
+        end
+    end
+end
+
+// uart sync read
+uart_ctrl_t uart_ctrl_in, uart_ctrl;
+assign uart_ctrl_in =
+    '{rx_valid: uart_recv_rsp.valid, tx_ready: uart_send_req.ready};
+`DFF_CI_RI_RV('{0, 0}, uart_ctrl_in, uart_ctrl)
+
+arch_width_t uart_read;
+always_ff @(posedge clk) begin
+    if (rst) begin
+        uart_read <= 'h0;
+        uart_recv_rsp.ready <= 1'b0;
+    end else if (uart_en) begin
+        case (uart_addr)
+            UART_CTRL: begin
+                uart_read <= {30'd0, uart_ctrl};
+                uart_recv_rsp.ready <= 1'b1;
+            end
+            UART_RX: begin
+                if (dmem_dtype == DMEM_DTYPE_BYTE) begin
+                    uart_read <=
+                        {{24{uart_recv_rsp.data[7]}}, uart_recv_rsp.data};
+                end else begin // DMEM_DTYPE_UBYTE
+                    uart_read <= {24'd0, uart_recv_rsp.data};
+                end
+                uart_recv_rsp.ready <= 1'b1;
+            end
+            default: begin
+                uart_read <= 32'd0;
+                uart_recv_rsp.ready <= 1'b0;
+            end
+        endcase
+    end else begin
+        uart_read <= 'h0;
+        uart_recv_rsp.ready <= 1'b0;
+    end
+end
 
 //------------------------------------------------------------------------------
 // Pipeline FF EXE/MEM
@@ -360,7 +428,11 @@ wb_sel_t wb_sel_mem;
 
 //------------------------------------------------------------------------------
 // MEM/Writeback
-assign writeback = (wb_sel_mem == WB_SEL_DMEM) ? dmem_rsp.data :
+arch_width_t dmem_data;
+assign dmem_data =
+    (alu_out_mem[19:16] == `MMIO_RANGE) ? uart_read : dmem_rsp.data;
+
+assign writeback = (wb_sel_mem == WB_SEL_DMEM) ? dmem_data :
                    (wb_sel_mem == WB_SEL_ALU ) ? alu_out_mem :
                    (wb_sel_mem == WB_SEL_INC4) ? pc_mem_inc4 :
                 /* (wb_sel_mem == WB_SEL_CSR) ? */ csr_data_mem;

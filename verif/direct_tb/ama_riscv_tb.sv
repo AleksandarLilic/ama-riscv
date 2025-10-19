@@ -2,7 +2,9 @@
 `include "ama_riscv_tb_defines.svh"
 `include "ama_riscv_perf.svh"
 
-module ama_riscv_tb();
+`define TB ama_riscv_tb
+
+module `TB();
 
 `ifdef ENABLE_COSIM
 // imported functions/tasks
@@ -50,9 +52,11 @@ bit cosim_chk_en = 1'b0;
 bit stop_on_cosim_error = 1'b0;
 logic tohost_source;
 int unsigned timeout_clocks;
-int unsigned half_period;
-real frequency;
 int unsigned log_level;
+
+// uart
+string uart_out;
+int uart_char; // wider than char so it can fit and print specials like newline
 
 // events
 event go_in_reset;
@@ -84,7 +88,24 @@ perf_counters_t core_stats;
 logic clk = 0;
 logic rst;
 logic inst_retired;
-ama_riscv_top `DUT ( .* );
+logic uart_serial_in;
+logic uart_serial_out;
+ama_riscv_top #(.CLOCK_FREQ (CLOCK_FREQ), .UART_BR (BR_921600)) `DUT ( .* );
+
+rv_if #(.DW(8)) recv_rsp_ch ();
+rv_if #(.DW(8)) dummy_send_req_ch ();
+uart # (
+    .CLOCK_FREQ (CLOCK_FREQ),
+    .BAUD_RATE (BR_921600)
+) uart_host (
+    .clk (clk),
+    .rst (rst),
+    .send_req (dummy_send_req_ch.RX),
+    .recv_rsp (recv_rsp_ch.TX),
+    // NOTE: lines are cross connected from first UART
+    .serial_in (uart_serial_out),
+    .serial_out (uart_serial_in)
+);
 
 //------------------------------------------------------------------------------
 // Testbench functions
@@ -235,9 +256,6 @@ function void get_plusargs();
         if (!$value$plusargs("timeout_clocks=%d", timeout_clocks)) begin
             timeout_clocks = `DEFAULT_TIMEOUT_CLOCKS;
         end
-        if (!$value$plusargs("half_period=%d", half_period)) begin
-            half_period = `DEFAULT_HALF_PERIOD;
-        end
         if (!$value$plusargs("log_level=%s", log_str)) begin
             log_level = LOG_INFO;
         end else begin
@@ -256,7 +274,8 @@ function void get_plusargs();
             `LOGNT($sformatf("Using log level '%s'", log_str));
         end
         `LOGNT($sformatf("CPU core path: %0s", `TO_STRING(`CORE)));
-        `LOGNT($sformatf("Frequency: %.2f MHz", 1.0 / (half_period * 2 * 1e-3)));
+        `LOGNT($sformatf(
+            "Frequency: %.2f MHz", 1.0 / (`CLK_HALF_PERIOD * 2 * 1e-3)));
     end
 endfunction
 
@@ -335,6 +354,7 @@ function automatic byte get_bp_status();
 endfunction
 `endif
 
+`ifdef ENABLE_COSIM
 function automatic void add_trace_entry(longint unsigned clk_cnt);
     byte unsigned dc_hm;
     byte unsigned bp_hm;
@@ -375,6 +395,7 @@ function automatic void add_trace_entry(longint unsigned clk_cnt);
         );
     end
 endfunction
+`endif
 
 string core_ret;
 string isa_ret;
@@ -434,7 +455,7 @@ task run_test();
 endtask
 
 // clk gen
-always #(half_period) clk = ~clk;
+always #(`CLK_HALF_PERIOD) clk = ~clk;
 
 initial begin
     // set %t:
@@ -496,11 +517,35 @@ initial begin
     @reset_end;
     `LOG_I("Reset released");
 
+    //uart_serial_in = 1'b1; // line idle atm
+    recv_rsp_ch.ready = 1'b0;
     fork: run_f
-    begin
+    begin: run_test_f
         run_test();
     end
-    begin
+    begin: uart_listen_f
+        while (1) begin
+            while (recv_rsp_ch.valid == 1'b0) begin
+                @(posedge clk);
+                #1;
+            end
+            uart_char = recv_rsp_ch.data;
+            if (uart_char == 'h0A) uart_char = "\\n"; // escape newline
+            `LOG_D($sformatf(
+                "Host UART received: %h (%0s)",
+                recv_rsp_ch.data, uart_char
+            ));
+            @(posedge clk);
+            // Consume data
+            recv_rsp_ch.ready = 1'b1;
+            @(posedge clk);
+            #1;
+            recv_rsp_ch.ready = 1'b0;
+            @(posedge clk);
+            #1;
+        end
+    end
+    begin: catch_timeout_f
         repeat (timeout_clocks) @(posedge clk);
         `LOG_E("Test timed out");
         `LOGNT(msg_fail);
@@ -515,6 +560,10 @@ initial begin
             {"Test finished but not all checkers were activated. ",
              "Something likely went wrong"});
     end
+
+    `LOGNT("\n=== UART START ===");
+    `LOGNT(uart_out);
+    `LOGNT("=== UART END ===");
 
     check_test_status();
     `ifdef ENABLE_COSIM
