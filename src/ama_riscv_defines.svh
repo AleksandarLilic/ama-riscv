@@ -10,6 +10,8 @@
 
 parameter unsigned ARCH_WIDTH = 32;
 typedef logic [ARCH_WIDTH-1:0] arch_width_t;
+parameter unsigned ARCH_DOUBLE_WIDTH = ARCH_WIDTH*2;
+typedef logic [ARCH_DOUBLE_WIDTH-1:0] arch_double_width_t;
 parameter unsigned INST_WIDTH = 32;
 typedef logic [INST_WIDTH-1:0] inst_width_t;
 parameter unsigned RF_NUM = 32;
@@ -32,8 +34,31 @@ typedef enum logic [6:0] {
 `define NOP 32'h13 // addi x0 x0 0
 
 // CSR addresses
-`define CSR_TOHOST 12'h51E
-`define CSR_MSCRATCH 12'h340
+typedef enum logic [11:0] {
+    CSR_TOHOST = 12'h51E,
+    CSR_MCYCLE = 12'hB00,
+    CSR_MINSTRET = 12'hB02,
+    CSR_MCYCLEH = 12'hB80,
+    CSR_MINSTRETH = 12'hB82,
+    CSR_MSCRATCH = 12'h340
+} csr_addr_t;
+
+typedef union packed {
+    arch_double_width_t rdw; // reg double width
+    arch_width_t [1:0] r; // reg
+} csr_dw_t;
+
+typedef enum logic {
+    CSR_LOW = 1'b0,
+    CSR_HIGH = 1'b1
+} csr_lh_t;
+
+typedef struct {
+    arch_width_t tohost;
+    csr_dw_t mcycle;
+    csr_dw_t minstret;
+    arch_width_t mscratch;
+} csr_t;
 
 // control signal enums
 typedef enum logic [1:0] {

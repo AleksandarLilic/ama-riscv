@@ -46,6 +46,7 @@ logic load_hazard_stall;
 
 // MEM stage
 logic rd_we_mem;
+logic inst_to_be_retired;
 
 //------------------------------------------------------------------------------
 // FET Stage
@@ -278,10 +279,9 @@ ama_riscv_alu ama_riscv_alu_i (
 );
 
 // CSR
-arch_width_t csr_tohost;
-arch_width_t csr_mscratch;
+csr_t csr; // regs
 arch_width_t csr_data_exe;
-logic [11:0] csr_addr;
+csr_addr_t csr_addr;
 logic [ 4:0] csr_imm5;
 arch_width_t csr_din_imm;
 arch_width_t csr_wr_data_source;
@@ -289,15 +289,19 @@ arch_width_t csr_wr_data;
 assign csr_imm5 = rs1_addr_exe;
 assign csr_din_imm = {27'h0, csr_imm5}; // Immediate Zero-Extend
 assign csr_wr_data_source = decoded_exe.csr_ctrl.ui ? csr_din_imm : alu_in_a;
-assign csr_addr = inst.exe[31:20];
+assign csr_addr = csr_addr_t'(inst.exe[31:20] & {12{decoded_exe.csr_ctrl.en}});
 
 // csr read
 always_comb begin
     csr_data_exe = 'h0;
     if (decoded_exe.csr_ctrl.en) begin
         case (csr_addr)
-            `CSR_TOHOST: csr_data_exe = csr_tohost;
-            `CSR_MSCRATCH: csr_data_exe = csr_mscratch;
+            CSR_TOHOST: csr_data_exe = csr.tohost;
+            CSR_MCYCLE: csr_data_exe = csr.mcycle.r[CSR_LOW];
+            CSR_MCYCLEH: csr_data_exe = csr.mcycle.r[CSR_HIGH];
+            CSR_MINSTRET: csr_data_exe = csr.minstret.r[CSR_LOW];
+            CSR_MINSTRETH: csr_data_exe = csr.minstret.r[CSR_HIGH];
+            CSR_MSCRATCH: csr_data_exe = csr.mscratch;
             default: ;
         endcase
     end
@@ -316,14 +320,46 @@ end
 
 always_ff @(posedge clk) begin
     if (rst) begin
-        csr_tohost <= 'h0;
-        csr_mscratch <= 'h0;
+        csr.tohost <= 'h0;
+        csr.mscratch <= 'h0;
     end else if (decoded_exe.csr_ctrl.we) begin
         case (csr_addr)
-            `CSR_TOHOST: csr_tohost <= csr_wr_data;
-            `CSR_MSCRATCH: csr_mscratch <= csr_wr_data;
+            CSR_TOHOST: csr.tohost <= csr_wr_data;
+            CSR_MSCRATCH: csr.mscratch <= csr_wr_data;
             default: ;
         endcase
+    end
+end
+
+logic csr_addr_match_mcycle, csr_addr_match_mcycle_l;
+assign csr_addr_match_mcycle_l = (csr_addr == CSR_MCYCLE);
+assign csr_addr_match_mcycle =
+    csr_addr_match_mcycle_l || (csr_addr == CSR_MCYCLEH);
+
+always_ff @(posedge clk) begin
+    if (rst) begin
+        csr.mcycle <= 'h0;
+    end else if (decoded_exe.csr_ctrl.we && csr_addr_match_mcycle) begin
+        if (csr_addr_match_mcycle_l) csr.mcycle.r[CSR_LOW] <= csr_wr_data;
+        else csr.mcycle.r[CSR_HIGH] <= csr_wr_data;
+    end else begin
+        csr.mcycle <= csr.mcycle + 'h1;
+    end
+end
+
+logic csr_addr_match_minstret, csr_addr_match_minstret_l;
+assign csr_addr_match_minstret_l = (csr_addr == CSR_MINSTRET);
+assign csr_addr_match_minstret =
+    csr_addr_match_minstret_l || (csr_addr == CSR_MINSTRETH);
+
+always_ff @(posedge clk) begin
+    if (rst) begin
+        csr.minstret <= 'h0;
+    end else if (decoded_exe.csr_ctrl.we && csr_addr_match_minstret) begin
+        if (csr_addr_match_minstret_l) csr.minstret.r[CSR_LOW] <= csr_wr_data;
+        else csr.minstret.r[CSR_HIGH] <= csr_wr_data;
+    end else begin
+        csr.minstret <= csr.minstret + inst_to_be_retired;
     end
 end
 
@@ -442,6 +478,7 @@ assign writeback = (wb_sel_mem == WB_SEL_DMEM) ? dmem_data :
 `STAGE_BB(flush.mem, dc_stalled, `NOP, inst.mem, inst.wbk)
 `STAGE_BB(flush.mem, dc_stalled, 'h0, pc.mem, pc.wbk)
 assign inst_retired = (pc.wbk != 'h0);
+assign inst_to_be_retired = (pc.mem != 'h0) && !(flush.mem || dc_stalled);
 
 //------------------------------------------------------------------------------
 // pipeline control

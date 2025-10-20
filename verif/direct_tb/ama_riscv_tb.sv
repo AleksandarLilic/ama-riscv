@@ -160,10 +160,10 @@ function automatic void check_test_status();
         if (`TOHOST_CHECK == 1'b1) begin
             `LOGNT("TOHOST checker enabled");
             checker_exists = 1'b1;
-            if (`CORE.csr_tohost !== `TOHOST_PASS) begin
+            if (`CORE.csr.tohost !== `TOHOST_PASS) begin
                 status_tohost = 1'b0;
                 `LOGNT($sformatf(
-                    "Failed tohost test # : %0d",`CORE.csr_tohost[31:1]));
+                    "Failed tohost test # : %0d",`CORE.csr.tohost[31:1]));
             end
         end
 
@@ -501,7 +501,7 @@ initial begin
 end
 
 // Test
-assign tohost_source = `CORE.csr_tohost[0];
+assign tohost_source = `CORE.csr.tohost[0];
 initial begin
     `LOGNT("");
     get_plusargs();
@@ -582,6 +582,9 @@ initial begin
              (dc_stats.ref_cnt != 0) ?
                 (dc_stats.hit_cnt*100.0)/dc_stats.ref_cnt : 0.0);
     $display("");
+
+    `LOGNT($sformatf("cycles: %0d", `CORE.csr.mcycle));
+    `LOGNT($sformatf("instret: %0d", `CORE.csr.minstret));
 
     $finish();
 end // test
