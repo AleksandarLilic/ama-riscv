@@ -24,6 +24,7 @@ int cosim_setup(const char *test_elf) {
     cfg.prof_pc.start = BASE_ADDR; // FIXME: should be passed as plusarg
     cfg.prof_trace = true; // FIXME: also plusarg
     cfg.dpi_prof_on_boot = true; // FIXME: also plusarg
+    cfg.sink_uart = true;
 
     std::string l_test_elf(test_elf);
     cfg.out_dir = gen_out_dir(l_test_elf, "cosim");

@@ -19,6 +19,20 @@ logic serial_out_tx;
 `DFF_CI_RI_RV(1'b1, serial_in, serial_in_d);
 `DFF_CI_RI_RV(1'b1, serial_out_tx, serial_out);
 
+// use of shortcut allowed only if not synthesizing
+`ifndef SYNTHESIS
+`ifdef UART_SHORTCUT
+`define USE_UART_SHORTCUT
+`endif
+`endif
+
+`ifdef USE_UART_SHORTCUT
+assign send_req.ready = 1'b1;
+initial begin
+    @(posedge clk);
+    `LOG_W("UART_SHORTCUT is used, execution clock cycles will be innacurate");
+end
+`else
 uart_tx #(
     .CLOCK_FREQ (CLOCK_FREQ),
     .BAUD_RATE (BAUD_RATE)
@@ -28,6 +42,7 @@ uart_tx #(
     .send_req (send_req),
     .serial_out (serial_out_tx)
 );
+`endif
 
 `ifndef SYNTHESIS
 `ifdef LOG_UART
