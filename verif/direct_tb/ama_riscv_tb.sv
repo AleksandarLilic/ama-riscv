@@ -14,6 +14,7 @@ cosim_setup(input string test_bin);
 import "DPI-C" function
 void cosim_exec(
     input longint unsigned clk_cnt,
+    input longint unsigned mtime,
     output int unsigned pc,
     output int unsigned inst,
     output string inst_asm_str,
@@ -397,6 +398,10 @@ function automatic void add_trace_entry(longint unsigned clk_cnt);
 endfunction
 `endif
 
+// needs 1 clk delay between CSR write and inst ret
+logic [ARCH_DOUBLE_WIDTH-1:0] mtime_tb;
+`DFF_CI_RI_RVI(`CORE.csr.mtime, mtime_tb)
+
 string core_ret;
 string isa_ret;
 task automatic single_step(longint unsigned clk_cnt);
@@ -415,7 +420,7 @@ task automatic single_step(longint unsigned clk_cnt);
     if (inst_retired == 1'b0) return;
 
     `ifdef ENABLE_COSIM
-    cosim_exec(clk_cnt, cosim_pc, cosim_inst,
+    cosim_exec(clk_cnt, mtime_tb, cosim_pc, cosim_inst,
                cosim_inst_asm_str, cosim_stack_top_str, cosim_rf);
 
     core_ret = $sformatf(

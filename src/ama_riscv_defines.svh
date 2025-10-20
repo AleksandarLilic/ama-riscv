@@ -40,7 +40,9 @@ typedef enum logic [11:0] {
     CSR_MINSTRET = 12'hB02,
     CSR_MCYCLEH = 12'hB80,
     CSR_MINSTRETH = 12'hB82,
-    CSR_MSCRATCH = 12'h340
+    CSR_MSCRATCH = 12'h340,
+    CSR_TIME = 12'hC01, // URO
+    CSR_TIMEH = 12'hC81 // URO
 } csr_addr_t;
 
 typedef union packed {
@@ -57,6 +59,7 @@ typedef struct {
     arch_width_t tohost;
     csr_dw_t mcycle;
     csr_dw_t minstret;
+    csr_dw_t mtime;
     arch_width_t mscratch;
 } csr_t;
 

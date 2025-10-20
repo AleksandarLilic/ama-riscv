@@ -66,6 +66,7 @@ void cosim_add_te(
 DPI_LINKER_DECL DPI_DLLESPEC
 void cosim_exec(
     uint64_t clk_cnt,
+    uint64_t mtime,
     unsigned int* pc,
     unsigned int* inst,
     const char** inst_asm_str,
@@ -76,7 +77,7 @@ void cosim_exec(
     stack_top = rv32->get_callstack_top_str().c_str();
     *stack_top_str = stack_top.c_str();
 
-    rv32->update_clk(clk_cnt); // issue for profiling for multiple windows
+    rv32->update_clk(clk_cnt, mtime); // issue for profiling multiple windows
     *pc = rv32->get_pc();
     rv32->exec_inst();
     *inst = rv32->get_inst();

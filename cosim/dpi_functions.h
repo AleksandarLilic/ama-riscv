@@ -34,6 +34,7 @@ DPI_LINKER_DECL DPI_DLLESPEC int cosim_setup(
 DPI_LINKER_DECL DPI_DLLESPEC 
  void cosim_exec(
 	uint64_t clk_cnt ,
+	uint64_t mtime ,
 	unsigned int* pc ,
 	unsigned int* inst ,
 	const char** inst_asm_str ,

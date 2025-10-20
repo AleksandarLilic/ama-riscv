@@ -1,6 +1,8 @@
 `include "ama_riscv_defines.svh"
 
-module ama_riscv_core (
+module ama_riscv_core #(
+    parameter unsigned CLOCK_FREQ = 100_000_000 // Hz
+)(
     input  logic clk,
     input  logic rst,
     rv_if.TX     imem_req,
@@ -11,6 +13,9 @@ module ama_riscv_core (
     rv_if.RX     uart_recv_rsp,
     output logic inst_retired
 );
+
+localparam unsigned CLOCKS_PER_US = CLOCK_FREQ / 1_000_000;
+localparam unsigned CNT_WIDTH = $clog2(CLOCKS_PER_US);
 
 pipeline_if #(.W(INST_WIDTH)) inst ();
 pipeline_if #(.W(ARCH_WIDTH)) pc ();
@@ -302,6 +307,8 @@ always_comb begin
             CSR_MINSTRET: csr_data_exe = csr.minstret.r[CSR_LOW];
             CSR_MINSTRETH: csr_data_exe = csr.minstret.r[CSR_HIGH];
             CSR_MSCRATCH: csr_data_exe = csr.mscratch;
+            CSR_TIME: csr_data_exe = csr.mtime.r[CSR_LOW];
+            CSR_TIMEH: csr_data_exe = csr.mtime.r[CSR_HIGH];
             default: ;
         endcase
     end
@@ -318,6 +325,7 @@ always_comb begin
     endcase
 end
 
+// tohost/mscratch
 always_ff @(posedge clk) begin
     if (rst) begin
         csr.tohost <= 'h0;
@@ -331,6 +339,7 @@ always_ff @(posedge clk) begin
     end
 end
 
+// mcycle
 logic csr_addr_match_mcycle, csr_addr_match_mcycle_l;
 assign csr_addr_match_mcycle_l = (csr_addr == CSR_MCYCLE);
 assign csr_addr_match_mcycle =
@@ -347,6 +356,7 @@ always_ff @(posedge clk) begin
     end
 end
 
+// minstret
 logic csr_addr_match_minstret, csr_addr_match_minstret_l;
 assign csr_addr_match_minstret_l = (csr_addr == CSR_MINSTRET);
 assign csr_addr_match_minstret =
@@ -362,6 +372,24 @@ always_ff @(posedge clk) begin
         csr.minstret <= csr.minstret + inst_to_be_retired;
     end
 end
+
+// mtime
+logic [CNT_WIDTH-1:0] cnt_us; // 1 microsecond cnt
+logic tick_us;
+always_ff @(posedge clk) begin
+    if (rst) begin
+        cnt_us <= 'h0;
+        tick_us <= 1'b0;
+    end else if (cnt_us == (CLOCKS_PER_US - 1)) begin
+        cnt_us <= 'h0;
+        tick_us <= 1'b1;
+    end else begin
+        cnt_us <= cnt_us + 'h1;
+        tick_us <= 1'b0;
+    end
+end
+
+`DFF_CI_RI_RVI((csr.mtime + tick_us), csr.mtime)
 
 //------------------------------------------------------------------------------
 // DMEM
