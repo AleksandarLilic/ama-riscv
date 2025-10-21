@@ -1,5 +1,7 @@
 `include "ama_riscv_defines.svh"
+`ifndef SYNTHESIS
 `include "ama_riscv_tb_defines.svh"
+`endif
 
 module ama_riscv_dcache #(
     parameter unsigned SETS = 8,
@@ -31,10 +33,10 @@ if (WAYS > 32) begin: check_ways_size
     $error("dcache WAYS > 32 - currently not supported");
 end
 
-parameter unsigned IDX_BITS = $clog2(SETS);
-parameter unsigned WAY_BITS = $clog2(WAYS);
-parameter unsigned TAG_W = CORE_BYTE_ADDR_BUS - CACHE_LINE_BYTE_ADDR - IDX_BITS;
-parameter unsigned IDX_RANGE_TOP = (SETS == 1) ? 1: IDX_BITS;
+localparam unsigned IDX_BITS = $clog2(SETS);
+localparam unsigned WAY_BITS = $clog2(WAYS);
+localparam unsigned TAG_W = CORE_BYTE_ADDR_BUS - CACHE_LINE_BYTE_ADDR -IDX_BITS;
+localparam unsigned IDX_RANGE_TOP = (SETS == 1) ? 1: IDX_BITS;
 
 // just rename for clarity
 `define DC_CR_ASSIGN \
@@ -69,7 +71,6 @@ typedef union packed {
 typedef struct {
     logic valid;
     logic dirty;
-    //logic [WAY_BITS-1:0] lru_cnt; // optimized away for direct-mapped cache
     logic [TAG_W-1:0] tag;
     cache_line_data_t data;
 } cache_line_t;
@@ -203,6 +204,8 @@ end else begin: gen_set_assoc
         end else if (load_hit_req) begin
             lca.way_idx = cr_d.way_idx;
             lca.set_idx = get_idx(cr_d.addr);
+        end else begin
+            lca = '{'h0, 'h0};
         end
     end
 
@@ -264,13 +267,12 @@ always_ff @(posedge clk) begin
     end
 end
 
-parameter unsigned CNT_WIDTH = $clog2(MEM_TRANSFERS_PER_CL);
+localparam unsigned CNT_WIDTH = $clog2(MEM_TRANSFERS_PER_CL);
 logic [CNT_WIDTH-1:0] mem_miss_cnt, mem_miss_cnt_d;
-logic [CNT_WIDTH-1:0] mem_evict_cnt, mem_evict_cnt_d;
+logic [CNT_WIDTH-1:0] mem_evict_cnt;
 `DFF_CI_RI_RVI_EN(req_mem_r.valid, (mem_miss_cnt + 'h1), mem_miss_cnt)
 `DFF_CI_RI_RVI(mem_miss_cnt, mem_miss_cnt_d)
 `DFF_CI_RI_RVI_EN(req_mem_w.valid, (mem_evict_cnt + 'h1), mem_evict_cnt)
-`DFF_CI_RI_RVI(mem_evict_cnt, mem_evict_cnt_d)
 
 logic mem_r_transfer_done, mem_r_transfer_done_d;
 assign mem_r_transfer_done =
@@ -427,10 +429,17 @@ always_comb begin
     endcase
 end
 
+logic serve_pending_load;
+assign serve_pending_load =
+    (cr_pend.active && !new_core_req_d && (cr_pend.cr.rtype == DMEM_READ));
+logic hit_d_load;
+assign hit_d_load = (hit_d && new_core_req_d && (cr_d.rtype == DMEM_READ));
+
 logic [ARCH_WIDTH-1:0] data_out;
 logic [IDX_RANGE_TOP-1:0] set_idx;
-logic [15:0] word_idx;
-logic [2:0] dtype;
+logic [WAY_BITS-1:0] way_idx;
+logic [CORE_WORD_ADDR_BUS-1:0] word_idx;
+dmem_dtype_t dtype;
 logic [1:0] rd_offset;
 logic [MEM_ADDR_BUS-1:0] victim_wb_start_addr;
 logic [MEM_DATA_BUS-1:0] victim_wb_data;
@@ -449,7 +458,7 @@ always_comb begin
     req_mem_w.wdata = 'h0;
     // others
     data_out = 'h0;
-    dtype = 'h0;
+    dtype = DMEM_DTYPE_BYTE;
     rd_offset = 'h0;
     victim_wb_start_addr = 'h0;
     victim_wb_data = 'h0;
@@ -457,6 +466,7 @@ always_comb begin
     save_pending = 1'b0;
     set_idx = 'h0;
     word_idx = 'h0;
+    way_idx = 'h0;
 
     case (state)
         DC_RESET: begin
@@ -468,30 +478,26 @@ always_comb begin
 
         DC_READY: begin
             req_core.ready = 1'b1;
-            if (cr_pend.active &&
-                !new_core_req_d &&
-                (cr_pend.cr.rtype == DMEM_READ)
-            ) begin
+            if (serve_pending_load) begin
                 // service the pending request after miss
                 rsp_core.valid = 1'b1;
                 set_idx = get_idx(cr_pend.cr.addr);
                 word_idx = get_cl_word(cr_pend.cr.addr);
+                way_idx = cr_pend.cr.way_idx;
                 dtype = cr_pend.cr.dtype;
                 rd_offset = cr_pend.cr.addr[1:0];
-                data_out =
-                    way[cr_pend.cr.way_idx].set[set_idx].data.w[word_idx];
-                // `LOG_D($sformatf("dcache OUT complete pending request; cache at word idx %0d; core at byte 0x%5h; with output %8h", (get_cl_word(cr_pend.cr.addr)), cr_d.addr, data_out));
+                // `LOG_D($sformatf("dcache OUT complete pending request; cache at word idx %0d; core at byte 0x%5h", (get_cl_word(cr_pend.cr.addr)), cr_d.addr));
                 clear_pending_on_read = 1'b1;
 
             end else if (new_core_req_d) begin
-                if (hit_d && (cr_d.rtype == DMEM_READ)) begin
+                if (hit_d_load) begin
                     rsp_core.valid = 1'b1;
                     set_idx = get_idx(cr_d.addr);
                     word_idx = get_cl_word(cr_d.addr);
+                    way_idx = cr_d.way_idx;
                     dtype = cr_d.dtype;
                     rd_offset = cr_d.addr[1:0];
-                    data_out = way[cr_d.way_idx].set[set_idx].data.w[word_idx];
-                    // `LOG_D($sformatf("dcache OUT hit; cache at word idx %0d; core at byte 0x%5h; with output %8h", (get_cl_word(cr_d.addr)), cr_d.addr, data_out));
+                    // `LOG_D($sformatf("dcache OUT hit; cache at word idx %0d; core at byte 0x%5h", (get_cl_word(cr_d.addr)), cr_d.addr));
 
                 end else if (!hit_d) begin
                     // whether read or write request, on miss go to mem
@@ -526,8 +532,11 @@ always_comb begin
                         req_mem_r.data = mem_r_start_addr_d;
                         // `LOG_D($sformatf("dcache OUT R->M transition; core at byte 0x%5h; mem_r_start_addr_d: %0d 0x%5h", cr_d.addr, mem_r_start_addr_d, mem_r_start_addr_d));
                     end
-
                 end
+            end
+            if (serve_pending_load || hit_d_load) begin
+                data_out = way[way_idx].set[set_idx].data.w[word_idx];
+                // `LOG_D($sformatf("dcache data out: %8h", data_out));
             end
         end
 
@@ -605,6 +614,10 @@ always_comb begin
 
             DMEM_DTYPE_WORD: begin
                 rsp_core.data = data_out;
+            end
+
+            default: begin
+                rsp_core.data = 'h0;
             end
 
         endcase

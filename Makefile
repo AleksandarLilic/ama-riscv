@@ -1,5 +1,6 @@
 # RTL build
 TOP := ama_riscv_tb
+DESIGN_TOP := ama_riscv_top
 
 # terminology:
 # - ISA_SIM: ama-riscv-sim, C++
@@ -89,7 +90,7 @@ slang_pp:
 
 # slang has poor linting capabilities, use verilator instead
 lint:
-	@verilator --lint-only $(SRC_DESIGN) $(PLUS_INCDIR) -Wall -Wpedantic > lint.log 2>&1
+	@verilator --top $(DESIGN_TOP) -DSYNTHESIS --lint-only $(SRC_DESIGN) $(PLUS_INCDIR) -Wall -Wpedantic > lint.log 2>&1
 
 # run standalone bench with provided sources and top name, oneshot
 

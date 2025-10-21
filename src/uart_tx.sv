@@ -16,12 +16,15 @@ localparam unsigned START_BIT = 1'b0;
 localparam unsigned STOP_BIT = 1'b1;
 localparam unsigned IDLE_BIT = 1'b1;
 
+typedef logic [CLOCK_COUNTER_WIDTH-1:0] cnt_t;
+localparam cnt_t SYMBOL_EDGE_TIME_M = cnt_t'(SYMBOL_EDGE_TIME - 1);
+
 logic        symbol_edge;
 logic        start;
 logic        tx_running;
 logic  [8:0] buffer;
 logic  [3:0] bit_counter;
-logic  [CLOCK_COUNTER_WIDTH-1:0] clock_counter;
+cnt_t clock_counter;
 
 // Goes high (pulse) when it is time to start receiving a new character
 assign start = send_req.valid && !tx_running;
@@ -39,13 +42,13 @@ assign tx_running = bit_counter != 4'd0;
 
 // Counts cycles until a single symbol is done
 always_ff @(posedge clk) begin
-    if (rst) clock_counter <= 1'b0;
-    else if (start || symbol_edge) clock_counter <= 1'b0;
+    if (rst) clock_counter <= 'h0;
+    else if (start || symbol_edge) clock_counter <= 'h0;
     else clock_counter <= clock_counter + 1;
 end
 
 // Goes high at every symbol edge
-assign symbol_edge = (clock_counter == (SYMBOL_EDGE_TIME - 1));
+assign symbol_edge = (clock_counter == SYMBOL_EDGE_TIME_M);
 
 // Buffer
 always_ff @(posedge clk) begin

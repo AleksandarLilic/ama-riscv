@@ -1,5 +1,7 @@
 `include "ama_riscv_defines.svh"
+`ifndef SYNTHESIS
 `include "ama_riscv_tb_defines.svh"
+`endif
 
 module ama_riscv_icache #(
     parameter unsigned SETS = 4,
@@ -30,10 +32,10 @@ if (WAYS > 32) begin: check_ways_size
     $error("icache WAYS > 32 - currently not supported");
 end
 
-parameter unsigned IDX_BITS = $clog2(SETS);
-parameter unsigned WAY_BITS = $clog2(WAYS);
-parameter unsigned TAG_W = CORE_BYTE_ADDR_BUS - CACHE_LINE_BYTE_ADDR - IDX_BITS;
-parameter unsigned IDX_RANGE_TOP = (SETS == 1) ? 1: IDX_BITS;
+localparam unsigned IDX_BITS = $clog2(SETS);
+localparam unsigned WAY_BITS = $clog2(WAYS);
+localparam unsigned TAG_W = CORE_BYTE_ADDR_BUS - CACHE_LINE_BYTE_ADDR -IDX_BITS;
+localparam unsigned IDX_RANGE_TOP = (SETS == 1) ? 1: IDX_BITS;
 
 `define IC_CR_CLEAR '{addr: 'h0, way_idx: 'h0}
 `define IC_CR_PEND_CLEAR '{active: 1'b0, mem_start_addr: 'h0, cr: `IC_CR_CLEAR}
@@ -112,7 +114,7 @@ if (WAYS == 1) begin: direct_mapped_search
     end
 
 end else begin: set_associative_search
-    parameter unsigned LRU_MAX_CNT = WAYS - 1;
+    localparam unsigned LRU_MAX_CNT = WAYS - 1;
     always_comb begin
         cr.addr = req_core.data;
         cr.way_idx = '0;
@@ -163,7 +165,7 @@ always_ff @(posedge clk) begin
     end
 end
 
-parameter unsigned CNT_WIDTH = $clog2(MEM_TRANSFERS_PER_CL);
+localparam unsigned CNT_WIDTH = $clog2(MEM_TRANSFERS_PER_CL);
 logic [CNT_WIDTH-1:0] mem_miss_cnt;
 `DFF_CI_RI_RVI_EN(req_mem.valid, (mem_miss_cnt + 'h1), mem_miss_cnt)
 logic [CNT_WIDTH-1:0] mem_miss_cnt_d;

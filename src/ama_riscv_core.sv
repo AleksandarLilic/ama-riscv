@@ -36,10 +36,6 @@ logic move_past_dec_stall;
 logic branch_taken;
 
 // from DEC stage
-alu_a_sel_t alu_a_sel_fwd_dec;
-alu_b_sel_t alu_b_sel_fwd_dec;
-logic bc_a_sel_fwd_dec;
-logic bcs_b_sel_fwd_dec;
 logic rf_a_sel_fwd;
 logic rf_b_sel_fwd;
 

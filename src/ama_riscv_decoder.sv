@@ -36,6 +36,7 @@ decoder_t decoded_d;
 fe_ctrl_t fe_ctrl_d;
 always_comb begin
     decoded = decoded_d;
+    fe_ctrl = fe_ctrl_d;
     decoded.csr_ctrl = '{en: 1'b0, we: 1'b0, ui: 1'b0, op_sel: CSR_OP_SEL_NONE};
 
     case (opc7_dec)

@@ -1,5 +1,7 @@
 `include "ama_riscv_defines.svh"
+`ifndef SYNTHESIS
 `include "ama_riscv_tb_defines.svh"
+`endif
 
 module ama_riscv_mem (
     input  logic clk,

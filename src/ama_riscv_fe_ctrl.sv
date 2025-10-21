@@ -132,6 +132,9 @@ always_comb begin
                 end
             end
         end
+
+        default: ;
+
     endcase
 end
 
@@ -249,6 +252,8 @@ always_comb begin
                 end
             end
         end
+
+        default: ;
 
     endcase
 end
