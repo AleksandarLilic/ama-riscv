@@ -292,9 +292,13 @@ interface pipeline_if #(parameter unsigned W = ARCH_WIDTH);
     modport IN (input fet, dec, exe, mem, wbk);
     modport OUT (output fet, dec, exe, mem, wbk);
 endinterface
-/* verilator lint_on UNUSEDSIGNAL */
 
-/* verilator lint_off UNUSEDSIGNAL */
+interface pipeline_if_s; // scalar version, easier on the wave, no diff to W=1
+    logic fet, dec, exe, mem, wbk;
+    modport IN (input fet, dec, exe, mem, wbk);
+    modport OUT (output fet, dec, exe, mem, wbk);
+endinterface
+
 interface pipeline_if_typed #(parameter type T = arch_width_t);
     T fet, dec, exe, mem, wbk;
     modport IN  (input  fet, dec, exe, mem, wbk);

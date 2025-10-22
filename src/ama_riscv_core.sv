@@ -19,7 +19,7 @@ localparam unsigned CNT_WIDTH = $clog2(CLOCKS_PER_US);
 
 pipeline_if #(.W(INST_WIDTH)) inst ();
 pipeline_if #(.W(ARCH_WIDTH)) pc ();
-pipeline_if #(.W(1)) flush ();
+pipeline_if_s flush ();
 pipeline_if_typed #(.T(rf_addr_t)) rd_addr ();
 
 // Reset sequence
