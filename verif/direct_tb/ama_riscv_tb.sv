@@ -93,6 +93,8 @@ logic uart_serial_in;
 logic uart_serial_out;
 ama_riscv_top #(.CLOCK_FREQ (CLOCK_FREQ), .UART_BR (BR_921600)) `DUT ( .* );
 
+bind `CORE ama_riscv_core_view ama_riscv_core_view_i (.clk(clk));
+
 rv_if #(.DW(8)) recv_rsp_ch ();
 rv_if #(.DW(8)) dummy_send_req_ch ();
 uart # (
@@ -296,8 +298,17 @@ initial begin
 end
 */
 
-localparam int SLEN = 32;
+localparam int SLEN = 32; // number of characters in the string
 logic [8*SLEN-1:0] cosim_stack_top_str_wave;
+logic [8*SLEN-1:0] cosim_inst_asm_str_wave;
+
+function string trim_after_double_space(string s);
+    // keep everything *before* the first of the two spaces
+    for (int i = 0; i < s.len()-1; i++) begin
+        if (s[i] == " " && s[i+1] == " ") return s.substr(0, i-1);
+    end
+    return s;
+endfunction
 
 function automatic [8*SLEN-1:0] pack_string(input string str);
     logic [8*SLEN-1:0] packed_str;
@@ -431,6 +442,8 @@ task automatic single_step(longint unsigned clk_cnt);
     `LOG_V(isa_ret);
 
     cosim_stack_top_str_wave = pack_string(cosim_stack_top_str);
+    cosim_inst_asm_str_wave =
+        pack_string(trim_after_double_space(cosim_inst_asm_str));
     if (cosim_chk_en == 1'b1) cosim_run_checkers(rf_chk_act);
     if (stop_on_cosim_error == 1'b1 && errors > 0) begin
         `LOG_E(core_ret);

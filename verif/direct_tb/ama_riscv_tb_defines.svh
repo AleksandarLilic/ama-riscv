@@ -1,6 +1,8 @@
 `ifndef AMA_RISCV_TB_DEFINES
 `define AMA_RISCV_TB_DEFINES
 
+`include "ama_riscv_defines.svh"
+
 `define LOG_UART
 `define UART_SHORTCUT
 
@@ -66,6 +68,73 @@ typedef enum int {
 
 `define LOG_D(x) \
     if (`TB.log_level >= LOG_DEBUG) `LOG($sformatf("DEBUG: %0s", x))
+
+// tb-only types
+typedef struct packed {
+    logic [6:0] fn7;
+    rf_addr_t rs2;
+    rf_addr_t rs1;
+    logic [2:0] fn3;
+    rf_addr_t rd;
+    opc7_t opc;
+} inst_r_t;
+
+typedef struct packed {
+    logic [11:0] imm;
+    rf_addr_t rs1;
+    logic [2:0] fn3;
+    rf_addr_t rd;
+    opc7_t opc;
+} inst_i_t;
+
+typedef struct packed {
+    logic [11:5] imm_h;
+    rf_addr_t rs2;
+    rf_addr_t rs1;
+    logic [2:0] fn3;
+    logic [4:0] imm_l;
+    opc7_t opc;
+} inst_s_t;
+
+typedef struct packed {
+    logic [11:5] imm_h_unord; // unordered value, bits don't correspond to 11:5
+    rf_addr_t rs2;
+    rf_addr_t rs1;
+    logic [2:0] fn3;
+    logic [4:0] imm_l_unord;
+    opc7_t opc;
+} inst_b_t;
+
+typedef struct packed {
+    logic [31:12] imm_unord;
+    rf_addr_t rd;
+    opc7_t opc;
+} inst_j_t;
+
+typedef struct packed {
+    logic [31:12] imm;
+    rf_addr_t rd;
+    opc7_t opc;
+} inst_u_t;
+
+typedef union packed {
+    inst_width_t i;
+    inst_r_t r_type;
+    inst_i_t i_type;
+    inst_s_t s_type;
+    inst_b_t b_type;
+    inst_j_t j_type;
+    inst_u_t u_type;
+} inst_shadow_t;
+
+typedef struct packed {
+    inst_r_t r_type;
+    inst_i_t i_type;
+    inst_s_t s_type;
+    inst_b_t b_type;
+    inst_j_t j_type;
+    inst_u_t u_type;
+} inst_t;
 
 // profiling from isa sim
 // enum class hw_status_t { miss, hit, none };
