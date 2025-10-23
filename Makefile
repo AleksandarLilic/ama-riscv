@@ -30,7 +30,7 @@ TEST_WDB := $(shell path='$(TEST_PATH)'; echo "$$(basename "$$(dirname "$$path")
 UNIQUE_WDB ?=
 WDB_SWITCH :=
 ifeq ($(strip $(UNIQUE_WDB)),1)
-    WDB_SWITCH := -wdb $(REPO_ROOT)/$(TEST_WDB)
+    WDB_SWITCH := -wdb $(CURDIR)/$(TEST_WDB)
 endif
 
 TIMEOUT_CLOCKS ?= 500000
@@ -85,8 +85,9 @@ slang:
 	@slang -j 8 --top $(TOP) $(RTL_DEFINES_SLANG) $(SRC_VERIF) $(SRC_DESIGN) $(PLUS_INCDIR) $(SLANG_OPTS) $(SLANG_EXTRA)
 
 # run preprocessor only, useful for debugging
+SLANG_PP_OUT := slang_e.sv
 slang_pp:
-	@make slang --no-print-directory SLANG_EXTRA="-E --comments > slang_e.sv 2>&1"
+	@make slang --no-print-directory SLANG_EXTRA="-E --comments > $(SLANG_PP_OUT) 2>&1"
 
 # slang has poor linting capabilities, use verilator instead
 lint:
@@ -121,14 +122,23 @@ standalone:
 	xsim $(SA_WORKLIB).$(SAT) $(TCLBATCH_SWITCH) -log /dev/null 2>&1
 	@rm xsim.jou
 
+WORKDIR ?= workdir_test
+workdir:
+	@mkdir $(REPO_ROOT)/$(WORKDIR)
+	@cd $(REPO_ROOT)/$(WORKDIR) && \
+	ln -s $(REPO_ROOT)/Makefile && \
+	ln -s $(REPO_ROOT)/Makefile.inc && \
+	ln -s $(REPO_ROOT)/cosim
+	@echo "Workdir created at: $(REPO_ROOT)/$(WORKDIR)"
+
 cleanlogs:
 	rm -rf *.log *.jou *.pb vivado_pid*.str out_* *.wdb *.vcd
 
 cleanrtl: cleanlogs
-	rm -rf .compile.touchfile .elab.touchfile .sim.touchfile xsim.dir
+	rm -rf .compile.touchfile .elab.touchfile .sim.touchfile xsim.dir $(SLANG_PP_OUT)
 
 clean: cleanrtl
 
 cleanall: cleanrtl cleancosim cleanisa
 
-PHONY: lint slang watch_slang cleanrtl cleancosim cleanisa cleanall
+.PHONY: lint slang watch_slang workdir cleanrtl cleancosim cleanisa cleanall
