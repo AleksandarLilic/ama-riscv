@@ -49,7 +49,7 @@ end
 
     task pattern_mem;
     for (int i = 0; i < MEM_SIZE_Q; i++) begin
-        mem[i] = 'hf0f0f0f0_f0f0f0f0_f0f0f0f0_f0f0f0f0;
+        mem[i] = 'ha5a5a5a5_a5a5a5a5_a5a5a5a5_a5a5a5a5; // match isa sim
     end
     endtask
 
