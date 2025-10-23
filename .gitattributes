@@ -2,5 +2,6 @@
 constraints_fpga/Zybo-Z7-Master.xdc linguist-vendored
 
 # overrides
-Makefile*.inc linguist-language=Makefile
+Makefile.inc linguist-language=Makefile
+cosim/Makefile.cosim.inc linguist-language=Makefile
 *.f linguist-detectable=false

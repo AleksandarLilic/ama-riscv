@@ -25,6 +25,7 @@ xcrg_*_cov_report
 
 # RTL tools
 slpp_all/
+slang_e.sv
 
 # PD
 *.v.gates
@@ -58,8 +59,9 @@ cosim/build*
 
 # run artefacts
 run_cfg*.tcl
-rv_test_*
-testrun_*
+rv_test*
+testrun*
+workdir*
 
 # isa sim outputs
 out_*/
