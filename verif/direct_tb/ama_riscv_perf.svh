@@ -1,11 +1,11 @@
 `include "ama_riscv_defines.svh"
 
 typedef struct {
-    integer unsigned cycle;
-    integer unsigned inst;
-    integer unsigned nop;
-    integer unsigned hw_stall;
-    integer unsigned flush;
+    int unsigned cycle;
+    int unsigned inst;
+    int unsigned nop;
+    int unsigned hw_stall;
+    int unsigned flush;
     bit at_least_once;
 } perf_counters_t;
 
@@ -65,7 +65,7 @@ class perf_stats;
         return sout;
     endfunction
 
-    function integer unsigned get_inst(ref perf_counters_t cnt);
+    function int unsigned get_inst(ref perf_counters_t cnt);
         return cnt.inst;
     endfunction
 

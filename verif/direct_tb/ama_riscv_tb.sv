@@ -50,6 +50,7 @@ int unsigned errors = 0;
 int unsigned warnings = 0;
 bit errors_for_wave = 1'b0;
 bit cosim_chk_en = 1'b0;
+bit tohost_chk_en = 1'b0;
 bit stop_on_cosim_error = 1'b0;
 logic tohost_source;
 int unsigned timeout_clocks;
@@ -73,10 +74,10 @@ bit [RF_NUM-1:0] rf_chk_act;
 
 // perf
 typedef struct {
-    integer unsigned ref_cnt = 'h0;
-    integer unsigned hit_cnt = 'h0;
-    integer unsigned miss_cnt = 'h0;
-    integer unsigned wb_cnt = 'h0;
+    int unsigned ref_cnt = 'h0;
+    int unsigned hit_cnt = 'h0;
+    int unsigned miss_cnt = 'h0;
+    int unsigned wb_cnt = 'h0;
 } cache_stats_counters_t;
 
 cache_stats_counters_t ic_stats;
@@ -153,14 +154,16 @@ endfunction
 string msg_pass = "==== PASS ====";
 string msg_fail = "==== FAIL ====";
 
-function automatic void check_test_status();
+function automatic void check_test_status(input bit completed);
     automatic bit status_cosim = 1'b1;
     automatic bit status_tohost = 1'b1;
     automatic bit checker_exists = 1'b0;
 
     begin
-        `LOGNT("\nTest ran to completion");
-        if (`TOHOST_CHECK == 1'b1) begin
+        if (completed) `LOGNT("\nTest ran to completion");
+        else `LOGNT("\nTest failed to complete");
+
+        if (tohost_chk_en) begin
             `LOGNT("TOHOST checker enabled");
             checker_exists = 1'b1;
             if (`CORE.csr.tohost !== `TOHOST_PASS) begin
@@ -171,7 +174,7 @@ function automatic void check_test_status();
         end
 
         `ifdef ENABLE_COSIM
-        if (cosim_chk_en == 1'b1) begin
+        if (cosim_chk_en) begin
             `LOGNT("Cosim checker enabled");
             `LOGNT($sformatf("Warnings: %2d", warnings));
             `LOGNT($sformatf("Errors:   %2d", errors));
@@ -183,7 +186,7 @@ function automatic void check_test_status();
         end
         `endif
 
-        if (checker_exists == 1'b1) begin
+        if (checker_exists) begin
             if (status_cosim && status_tohost) `LOGNT(msg_pass);
             else `LOGNT(msg_fail);
         end else begin
@@ -202,23 +205,24 @@ function void checker_t;
     input arch_width_t dut_val;
     input arch_width_t model_val;
     begin
-        if (active == 1'b1 && dut_val !== model_val) begin
+        if (active && (dut_val !== model_val)) begin
             `LOG_E($sformatf(
                 "Mismatch @ %0t. Checker: \"%0s\"; DUT: 0x%8h, Model: 0x%8h",
-                $time, name, dut_val, model_val)
+                $time, name, dut_val, model_val),
+                1
             );
         end
     end
 endfunction
 
-function void cosim_run_checkers;
+function bit cosim_run_checkers;
     input bit [RF_NUM-1:0] rf_chk_act;
     int unsigned checker_errors_prev;
     begin
         checker_errors_prev = errors;
         checker_t("pc", `CHECKER_ACTIVE, `CORE.pc.wbk, cosim_pc);
         checker_t("inst", `CHECKER_ACTIVE, `CORE.inst.wbk, cosim_inst);
-        for (int i = 1; i < RF_NUM; i = i + 1) begin
+        for (int unsigned i = 1; i < RF_NUM; i = i + 1) begin
             checker_t(
                 $sformatf("x%0d", i),
                 `CHECKER_ACTIVE && rf_chk_act[i],
@@ -228,6 +232,7 @@ function void cosim_run_checkers;
         end
         errors_for_wave = (errors != checker_errors_prev);
     end
+    return errors_for_wave;
 endfunction
 `endif
 
@@ -248,7 +253,7 @@ function void get_plusargs();
     automatic string log_str;
     begin
         if (!$value$plusargs("test_path=%s", test_path)) begin
-            `LOG_E("test_path not defined. Exiting.");
+            `LOG_E("test_path not defined. Exiting.", 1);
             $finish();
         end
         test_path = strip_extension(test_path);
@@ -304,7 +309,7 @@ logic [8*SLEN-1:0] cosim_inst_asm_str_wave;
 
 function string trim_after_double_space(string s);
     // keep everything *before* the first of the two spaces
-    for (int i = 0; i < s.len()-1; i++) begin
+    for (int unsigned i = 0; i < s.len()-1; i++) begin
         if (s[i] == " " && s[i+1] == " ") return s.substr(0, i-1);
     end
     return s;
@@ -312,11 +317,10 @@ endfunction
 
 function automatic [8*SLEN-1:0] pack_string(input string str);
     logic [8*SLEN-1:0] packed_str;
-    integer j;
     begin
         packed_str = '0;
         // place the characters starting from the highest byte
-        for (j = 0; j < SLEN && j < str.len(); j = j + 1) begin
+        for (int unsigned j = 0; j < SLEN && j < str.len(); j = j + 1) begin
             packed_str[(SLEN-1-j)*8 +: 8] = str.getc(j);
         end
         return packed_str;
@@ -416,7 +420,8 @@ logic [ARCH_DOUBLE_WIDTH-1:0] mtime_tb;
 string core_ret;
 string isa_ret;
 task automatic single_step(longint unsigned clk_cnt);
-    stats.update(core_stats, `CORE.inst.wbk, (inst_retired == 1'b0));
+    bit new_errors;
+    stats.update(core_stats, `CORE.inst.wbk, !inst_retired);
     `LOG_V($sformatf(
         "Core [F] %5h: %8h %0s",
         `CORE.pc.dec,
@@ -428,7 +433,7 @@ task automatic single_step(longint unsigned clk_cnt);
     add_trace_entry(clk_cnt);
     `endif
     // cosim advances only if rtl retires an instruction
-    if (inst_retired == 1'b0) return;
+    if (!inst_retired) return;
 
     `ifdef ENABLE_COSIM
     cosim_exec(clk_cnt, mtime_tb, cosim_pc, cosim_inst,
@@ -444,13 +449,15 @@ task automatic single_step(longint unsigned clk_cnt);
     cosim_stack_top_str_wave = pack_string(cosim_stack_top_str);
     cosim_inst_asm_str_wave =
         pack_string(trim_after_double_space(cosim_inst_asm_str));
-    if (cosim_chk_en == 1'b1) cosim_run_checkers(rf_chk_act);
-    if (stop_on_cosim_error == 1'b1 && errors > 0) begin
-        `LOG_E(core_ret);
-        `LOG_E(isa_ret);
-        `LOG_I("Exiting on first error");
-        `LOGNT(msg_fail);
-        $finish();
+    if (cosim_chk_en) new_errors = cosim_run_checkers(rf_chk_act);
+    if (new_errors) begin
+        `LOG_E(core_ret, 0);
+        `LOG_E(isa_ret, 0);
+        if (stop_on_cosim_error) begin
+            `LOG_I("Exiting on first error");
+            check_test_status(1'b0);
+            $finish();
+        end
     end
     `endif
 endtask
@@ -508,7 +515,7 @@ initial begin
     while (!(&rf_chk_act)) begin
         @(posedge clk);
         dut_rf_addr = `RF.addr_d;
-        if ((rf_chk_act[dut_rf_addr] == 1'b0) && (`RF.we)) begin
+        if (!rf_chk_act[dut_rf_addr] && `RF.we) begin
             #1;
             `LOG_V($sformatf(
                 "First write to x%0d. Checker activated", dut_rf_addr));
@@ -543,7 +550,7 @@ initial begin
     end
     begin: uart_listen_f
         while (1) begin
-            while (recv_rsp_ch.valid == 1'b0) begin
+            while (!recv_rsp_ch.valid) begin
                 @(posedge clk);
                 #1;
             end
@@ -565,7 +572,7 @@ initial begin
     end
     begin: catch_timeout_f
         repeat (timeout_clocks) @(posedge clk);
-        `LOG_E("Test timed out");
+        `LOG_E("Test timed out", 1);
         `LOGNT(msg_fail);
         $finish();
     end
@@ -576,16 +583,16 @@ initial begin
     if (!(&rf_chk_act)) begin
         `LOG_W(
             {"Test finished but not all checkers were activated. ",
-             "Something likely went wrong"});
+             "Something likely went wrong"}, 1);
     end
 
     `LOGNT("\n=== UART START ===");
     `LOGNT(uart_out);
     `LOGNT("=== UART END ===");
 
-    check_test_status();
+    check_test_status(1'b1);
     `ifdef ENABLE_COSIM
-    if (cosim_chk_en == 1'b1) cosim_check_inst_cnt();
+    if (cosim_chk_en) cosim_check_inst_cnt();
     cosim_finish();
     `endif
     `LOGNT(stats.get(core_stats));

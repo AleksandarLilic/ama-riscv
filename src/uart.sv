@@ -30,7 +30,8 @@ logic serial_out_tx;
 assign send_req.ready = 1'b1;
 initial begin
     @(posedge clk);
-    `LOG_W("UART_SHORTCUT is used, execution clock cycles will be innacurate");
+    `LOG_W(
+        "UART_SHORTCUT is used, execution clock cycles will be innacurate", 1);
 end
 `else
 uart_tx #(

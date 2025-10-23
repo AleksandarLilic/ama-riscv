@@ -11,7 +11,6 @@ parameter unsigned CLK_PERIOD = (`CLK_HALF_PERIOD * 2);
 parameter unsigned CLOCK_FREQ = (1_000 / CLK_PERIOD) * 1_000_000; // Hz
 
 // TB
-`define TOHOST_CHECK 1'b1
 `define TOHOST_PASS 32'd1
 `define DEFAULT_TIMEOUT_CLOCKS 5_000_000
 `define RST_PULSES 2
@@ -52,12 +51,12 @@ typedef enum int {
 `define LOG(x) $display("%12t: %0s", $time, x)
 `define LOGNT(x) $display("%0s", x)
 
-`define LOG_E(x) \
-    `TB.errors += 1; \
+`define LOG_E(x, e) \
+    `TB.errors += e; \
     if (`TB.log_level >= LOG_ERROR) `LOG($sformatf("ERROR: %0s", x))
 
-`define LOG_W(x) \
-    `TB.warnings += 1; \
+`define LOG_W(x, w) \
+    `TB.warnings += w; \
     if (`TB.log_level >= LOG_WARN) `LOG($sformatf("WARNING: %0s", x))
 
 `define LOG_I(x) \
