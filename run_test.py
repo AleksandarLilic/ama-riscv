@@ -21,6 +21,7 @@ CC_RED = "91m"
 CC_GREEN = "32m"
 INDENT = " " * 4
 TEST_LOG = "test.log"
+REPO_ROOT = os.getenv("REPO_ROOT")
 
 @dataclass
 class make_args:
@@ -73,7 +74,7 @@ def find_all_tests(test_list):
     valid_tests = []
     some_mismatched = False
     for path, test_name_pattern in test_list:
-        full_pattern = os.path.join(path, test_name_pattern)
+        full_pattern = os.path.join(REPO_ROOT, path, test_name_pattern)
         matched_files = glob.glob(full_pattern)
         if matched_files:
             for file in matched_files:

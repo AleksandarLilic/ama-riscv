@@ -7,7 +7,7 @@ if [ -z "$VIVADO_ROOT" ]; then
     return
 fi
 
-# vivado
+# vivado (xvlog, xelab, xsim, ...)
 source "$VIVADO_ROOT/.settings64-Vivado.sh"
 
 # repo
@@ -17,14 +17,17 @@ export REPO_ROOT
 # utils
 alias run='${REPO_ROOT}/run_test.py'
 
-# generic run_cfg.tcl, collects waves from the entire design as .wdb and .vcd
+# generic run_cfg.tcl
 tcl_cfg="run_cfg.tcl"
 echo "# AUTOMATICALLY GENERATED FILE. DO NOT EDIT." > $tcl_cfg
+echo "set start [clock seconds]" >> $tcl_cfg
 echo "log_wave -recursive *" >> $tcl_cfg
 #echo "open_vcd test_wave.vcd" >> $tcl_cfg
 #echo "log_vcd *" >> $tcl_cfg
 echo "run all" >> $tcl_cfg
 #echo "close_vcd" >> $tcl_cfg
+echo "set end [clock seconds]" >> $tcl_cfg
+echo "puts \"Simulation runtime: [expr {\$end - \$start}]s\"" >> $tcl_cfg
 echo "exit" >> $tcl_cfg
 
 # notes

@@ -67,7 +67,7 @@ MAX_DELTA = -maxdeltaid 100
 
 # example usage: 'make sim -j TEST_PATH=sim/sw/baremetal/asm_rv32i/basic UNIQUE_WDB=1 TIMEOUT_CLOCKS=1000 LOG_LEVEL=$LL | tee make_run_asm_rv32i.log | tail -n 30 | tee >(rg "====")'
 sim: .elab.touchfile
-	xsim $(TOP) $(TCLBATCH_SWITCH) $(WDB_SWITCH) -stats -onerror quit -testplusarg test_path=$(REPO_ROOT)/$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) -testplusarg log_level=$(LOG_LEVEL) $(COSIM_CHECKER) $(SIM_LOG) $(MAX_DELTA)
+	xsim $(TOP) $(TCLBATCH_SWITCH) $(WDB_SWITCH) -stats -onerror quit -testplusarg test_path=$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) -testplusarg log_level=$(LOG_LEVEL) $(COSIM_CHECKER) $(SIM_LOG) $(MAX_DELTA)
 	@rm xsim.jou
 	@touch .sim.touchfile
 

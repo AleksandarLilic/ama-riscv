@@ -87,7 +87,7 @@ perf_counters_t core_stats;
 
 //------------------------------------------------------------------------------
 // DUT
-logic clk = 0;
+logic clk = 1;
 logic rst;
 logic inst_retired;
 logic uart_serial_in;
@@ -98,6 +98,7 @@ bind `CORE ama_riscv_core_view ama_riscv_core_view_i (.clk(clk));
 
 rv_if #(.DW(8)) recv_rsp_ch ();
 rv_if #(.DW(8)) dummy_send_req_ch ();
+`ifndef UART_SHORTCUT
 uart # (
     .CLOCK_FREQ (CLOCK_FREQ),
     .BAUD_RATE (BR_921600)
@@ -110,6 +111,7 @@ uart # (
     .serial_in (uart_serial_out),
     .serial_out (uart_serial_in)
 );
+`endif
 
 //------------------------------------------------------------------------------
 // Testbench functions
