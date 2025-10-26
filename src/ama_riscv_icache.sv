@@ -198,22 +198,26 @@ always_ff @(posedge clk) begin
             way[cr_pend.cr.way_idx].set[set_idx_pend].valid <= 1'b1;
             way[cr_pend.cr.way_idx].set[set_idx_pend].tag <=
                 (cr_pend.mem_start_addr >> (2 + IDX_BITS));
+            // NOTE: new line not promoted, still has the largest LRU atm
         end
-    end else if (new_core_req_d && hit_d) begin // update LRU on hit
+    end else if (new_core_req && hit) begin // update LRU on hit
         // optimized away for direct-mapped cache
         if (WAYS > 1) begin
             for (int w = 0; w < WAYS; w++) begin
                 // if LRU counter is less than the one that hit, increment it
                 // no need to make cnt saturating - can't increment last lru
-                if (way[w].set[set_idx_cr_d].lru_cnt <
-                    way[cr_d.way_idx].set[set_idx_cr_d].lru_cnt) begin
-                    way[w].set[set_idx_cr_d].lru_cnt <=
-                        way[w].set[set_idx_cr_d].lru_cnt + 1;
+                if (way[w].set[set_idx_cr].lru_cnt <
+                    way[cr.way_idx].set[set_idx_cr].lru_cnt) begin
+                    way[w].set[set_idx_cr].lru_cnt <=
+                        way[w].set[set_idx_cr].lru_cnt + 1;
                 end
             end
         // hit way becomes LRU 0
-        way[cr_d.way_idx].set[set_idx_cr_d].lru_cnt <= '0;
+        way[cr.way_idx].set[set_idx_cr].lru_cnt <= '0;
         end
+    end else if (new_core_req && !hit) begin // invalidate line right away
+        way[way_victim_idx].set[set_idx_cr].valid = 1'b0;
+        //`LOG_D($sformatf("i$ invalidating way %0d, set %0d", way_victim_idx, set_idx_cr));
     end
 end
 
