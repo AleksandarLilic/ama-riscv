@@ -28,7 +28,7 @@ void cosim_add_te(
     input int unsigned inst_wbk,
     input int unsigned pc_wbk,
     input int unsigned x2_sp,
-    input byte dmem_addr,
+    input int unsigned dmem_addr,
     input byte dmem_size,
     input byte branch_taken,
     input byte ic_hm,
@@ -94,7 +94,16 @@ logic uart_serial_in;
 logic uart_serial_out;
 ama_riscv_top #(.CLOCK_FREQ (CLOCK_FREQ), .UART_BR (BR_921600)) `DUT ( .* );
 
-bind `CORE ama_riscv_core_view ama_riscv_core_view_i (.clk(clk));
+// bind to a specific instance
+bind `CORE ama_riscv_core_view ama_riscv_core_view_i (
+    .clk (clk),
+    .rst (rst),
+    .dmem_req (dmem_req),
+    .inst_retired (inst_retired),
+    .decoded_exe (decoded_exe),
+    .branch_taken (branch_taken),
+    .dc_stalled (dc_stalled)
+);
 
 rv_if #(.DW(8)) recv_rsp_ch ();
 rv_if #(.DW(8)) dummy_send_req_ch ();
@@ -361,57 +370,43 @@ function automatic byte get_cache_status(
     end
 endfunction
 
-`ifdef USE_BP
 function automatic byte get_bp_status();
     byte bp_hm;
     begin
         bp_hm = hw_status_t_none;
-        // TODO: to be implemented, no bp atm
+        // no BP, miss on every branch
+        if (`CORE_VIEW.branch_inst_wbk) bp_hm = hw_status_t_miss;
         return bp_hm;
     end
 endfunction
-`endif
 
 `ifdef ENABLE_COSIM
 function automatic void add_trace_entry(longint unsigned clk_cnt);
-    byte unsigned dc_hm;
-    byte unsigned bp_hm;
-    begin
-        dc_hm = hw_status_t_none;
-        bp_hm = hw_status_t_none;
-
-        cosim_add_te(
-            clk_cnt,
-            `CORE.inst.wbk & {ARCH_WIDTH{inst_retired}},
-            `CORE.pc.wbk & {ARCH_WIDTH{inst_retired}},
-            `RF.rf[2],
-
-            1'b0, // FIXME: temp tied to 0. dmem_addr
-            1'b0, // FIXME: temp tied to 0. dmem size
-            1'b0, // FIXME: temp tied to 0. `DEC.branch_taken_wbk,
-
-            get_cache_status(
-                ic_stats,
-                `ICACHE.new_core_req_d,
-                `ICACHE.hit_d,
-                1'b0,
-                `ICACHE.cr_pend.active
-            ),
-            get_cache_status(
-                dc_stats,
-                `DCACHE.new_core_req_d,
-                `DCACHE.hit_d,
-                `DCACHE.cr_victim_dirty_d,
-                `DCACHE.cr_pend.active
-            ),
-
-            `ifdef USE_BP
-            get_bp_status(),
-            `else
-            hw_status_t_none // no bp
-            `endif
-        );
-    end
+    // NOTE: cache & bp stats collected when they happen, inst when retired
+    cosim_add_te(
+        clk_cnt,
+        `CORE_VIEW.inst_wbk,
+        `CORE_VIEW.pc_wbk,
+        `RF.rf[RF_X2_SP],
+        `CORE_VIEW.dmem_addr_wbk,
+        `CORE_VIEW.dmem_size_wbk,
+        `CORE_VIEW.branch_taken_wbk,
+        get_cache_status(
+            ic_stats,
+            `ICACHE.new_core_req_d,
+            `ICACHE.hit_d,
+            1'b0,
+            `ICACHE.cr_pend.active
+        ),
+        get_cache_status(
+            dc_stats,
+            `DCACHE.new_core_req_d,
+            `DCACHE.hit_d,
+            `DCACHE.cr_victim_dirty_d,
+            `DCACHE.cr_pend.active
+        ),
+        get_bp_status()
+    );
 endfunction
 `endif
 
@@ -609,9 +604,6 @@ initial begin
              (dc_stats.ref_cnt != 0) ?
                 (dc_stats.hit_cnt*100.0)/dc_stats.ref_cnt : 0.0);
     $display("");
-
-    `LOGNT($sformatf("cycles: %0d", `CORE.csr.mcycle));
-    `LOGNT($sformatf("instret: %0d", `CORE.csr.minstret));
 
     $finish();
 end // test

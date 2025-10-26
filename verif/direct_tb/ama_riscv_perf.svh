@@ -59,7 +59,7 @@ class perf_stats;
              " CPI: %0.3f (IPC: %0.3f)\n"},
             cnt.cycle, cnt.inst, empty_cycles, cpi, ipc)};
         sout = {sout, $sformatf(
-            "    SW NOP: %0d, HW Stall: %0d, Flush: %0d\n",
+            "    SW NOP: %0d, Pipeline Stall: %0d, Flush: %0d\n",
             (cnt.nop - cnt.hw_stall), cnt.hw_stall, cnt.flush)};
 
         return sout;

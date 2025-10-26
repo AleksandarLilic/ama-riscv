@@ -381,11 +381,19 @@ typedef struct packed {
         else _q <= _d; \
     end
 
-`define DFF_CI_RI_RVI_CLR_CLRVI_CLR2_CLR2V(_clr, _clr2, _clr2rv, _d, _q) \
+`define DFF_CI_RI_RVI_CLR_CLRVI_CLR2_CLR2V(_clr, _clr2, _clr2v, _d, _q) \
     always_ff @(posedge clk) begin \
         if (rst) _q <= 'h0; \
         else if (_clr) _q <= 'h0; \
-        else if (_clr2) _q <= _clr2rv; \
+        else if (_clr2) _q <= _clr2v; \
+        else _q <= _d; \
+    end
+
+`define DFF_CI_RI_RV_CLR_CLRVI_CLR2_CLR2V(_rstv, _clr, _clr2, _clr2v, _d, _q) \
+    always_ff @(posedge clk) begin \
+        if (rst) _q <= _rstv; \
+        else if (_clr) _q <= _rstv; \
+        else if (_clr2) _q <= _clr2v; \
         else _q <= _d; \
     end
 
@@ -416,7 +424,7 @@ typedef struct packed {
 `define STAGE_EN(_clr, _en, _d, _q) \
     `DFF_CI_RI_RVI_CLR_CLRVI_EN(_clr, _en, _d, _q)
 
-// explicit reset value for enum types
+// explicit reset value for enum types or non-zero resets
 // _rstv moved to middle to align visually with STAGE_EN macro
 `define STAGE_RV(_clr, _rstv, _d, _q) \
     `DFF_CI_RI_RV_CLR_CLRVI(_rstv, _clr, _d, _q)
@@ -424,8 +432,11 @@ typedef struct packed {
 `define STAGE_EN_RV(_clr, _en, _rstv, _d, _q) \
     `DFF_CI_RI_RV_CLR_CLRVI_EN(_rstv, _clr, _en, _d, _q)
 
-`define STAGE_BB(_clr, _clr2, _clr2rv, _d, _q) \
-    `DFF_CI_RI_RVI_CLR_CLRVI_CLR2_CLR2V(_clr, _clr2, _clr2rv, _d, _q)
+`define STAGE_BB(_clr, _bbl, _bblv, _d, _q) \
+    `DFF_CI_RI_RVI_CLR_CLRVI_CLR2_CLR2V(_clr, _bbl, _bblv, _d, _q)
+
+`define STAGE_RV_BB(_clr, _rstv, _bbl, _bblv, _d, _q) \
+    `DFF_CI_RI_RV_CLR_CLRVI_CLR2_CLR2V(_rstv, _clr, _bbl, _bblv, _d, _q)
 
 `define DFF_CI_RI_RV(_rstv, _d, _q) \
     always_ff @(posedge clk) begin \
@@ -500,7 +511,7 @@ endfunction
 /* verilator lint_on UNUSEDPARAM */
 
 // peripherals
-typedef enum integer unsigned {
+typedef enum int unsigned {
     BR_9600 = 9600,
     BR_19200 = 19200,
     BR_38400 = 38400,

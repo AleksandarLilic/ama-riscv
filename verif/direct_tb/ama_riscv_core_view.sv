@@ -2,7 +2,17 @@
 `include "ama_riscv_defines.svh"
 `include "ama_riscv_tb_defines.svh"
 
-module ama_riscv_core_view (input logic clk);
+module ama_riscv_core_view (
+    // top level signals
+    input logic clk,
+    input logic rst,
+    rv_if_dc.TX dmem_req,
+    input logic inst_retired,
+    // internal signals
+    input decoder_t decoded_exe,
+    input logic branch_taken,
+    input logic dc_stalled
+);
 
 pipeline_if_typed #(.T(inst_t)) inst_shadow ();
 pipeline_if_s nop ();
@@ -42,5 +52,46 @@ assign flush.dec = (inst.dec == 'h0);
 assign flush.exe = (inst.exe == 'h0);
 assign flush.mem = (inst.mem == 'h0);
 assign flush.wbk = (inst.wbk == 'h0);
+
+// signals for tracing
+
+// inst, pc
+inst_width_t inst_wbk;
+arch_width_t pc_wbk;
+assign inst_wbk = inst.wbk & {INST_WIDTH{inst_retired}};
+assign pc_wbk = pc.wbk & {ARCH_WIDTH{inst_retired}};
+
+// branches
+logic branch_inst_mem, branch_inst_wbk;
+`STAGE_EN(flush.exe, !dc_stalled, decoded_exe.branch_inst, branch_inst_mem)
+`STAGE_BB(flush.mem, dc_stalled, 'h0, branch_inst_mem, branch_inst_wbk)
+
+logic branch_taken_exe, branch_taken_mem, branch_taken_wbk;
+assign branch_taken_exe = (branch_taken && decoded_exe.branch_inst);
+`STAGE_EN(flush.exe, !dc_stalled, branch_taken_exe, branch_taken_mem)
+`STAGE_BB(flush.mem, dc_stalled, 'h0, branch_taken_mem, branch_taken_wbk)
+
+// dmem
+arch_width_t dmem_addr_exe, dmem_addr_mem, dmem_addr_wbk;
+assign dmem_addr_exe = dmem_req.addr & {ARCH_WIDTH{dmem_req.valid}};
+
+// enum class dmem_size_t {
+//     lb, lh, lw, ld,
+//     sb, sh, sw, sd,
+//     no_access
+// };
+localparam int unsigned DMEM_SIZE_NA = 8;
+logic [2:0] dmem_size;
+logic [3:0] dmem_size_exe, dmem_size_mem, dmem_size_wbk;
+assign dmem_size = dmem_req.dtype | {dmem_req.rtype, 2'b00};
+assign dmem_size_exe = dmem_req.valid ? {1'b0, dmem_size} : DMEM_SIZE_NA;
+
+`STAGE_EN(flush.exe, !dc_stalled, dmem_addr_exe, dmem_addr_mem)
+`STAGE_BB(flush.mem, dc_stalled, 'h0, dmem_addr_mem, dmem_addr_wbk)
+
+`STAGE_EN(flush.exe, !dc_stalled, dmem_size_exe, dmem_size_mem)
+`STAGE_RV_BB(flush.mem, DMEM_SIZE_NA,
+             dc_stalled, DMEM_SIZE_NA,
+             dmem_size_mem, dmem_size_wbk)
 
 endmodule

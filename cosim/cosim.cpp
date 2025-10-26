@@ -20,10 +20,11 @@ trace_entry te;
 
 DPI_LINKER_DECL DPI_DLLESPEC
 int cosim_setup(const char *test_elf) {
-    cfg.perf_event = perf_event_t::cycle;
-    cfg.prof_pc.start = BASE_ADDR; // FIXME: should be passed as plusarg
-    cfg.prof_trace = true; // FIXME: also plusarg
-    cfg.dpi_prof_on_boot = true; // FIXME: also plusarg
+    cfg.perf_event = perf_event_t::cycle; // TODO: plusarg
+    // TODO: profiling disabled for `run_test` runs
+    cfg.prof_pc.start = BASE_ADDR; // TODO: plusarg, with prof_pc.stop
+    cfg.prof_trace = true; // TODO: plusarg
+    cfg.dpi_prof_on_boot = (cfg.prof_pc.start == BASE_ADDR);
     cfg.sink_uart = true;
 
     std::string l_test_elf(test_elf);
@@ -41,7 +42,7 @@ void cosim_add_te(
     unsigned int inst_wbk,
     unsigned int pc_wbk,
     unsigned int x2_sp,
-    char dmem_addr,
+    unsigned int dmem_addr,
     char dmem_size,
     char branch_taken,
     char ic_hm,

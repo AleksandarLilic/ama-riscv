@@ -25,6 +25,7 @@ parameter unsigned CLOCK_FREQ = (1_000 / CLK_PERIOD) * 1_000_000; // Hz
 
 `define CORE_TOP `TOP.ama_riscv_core_top_i
 `define CORE `CORE_TOP.ama_riscv_core_i
+`define CORE_VIEW `CORE.ama_riscv_core_view_i
 `define DEC `CORE.ama_riscv_decoder_i
 `define RF `CORE.ama_riscv_reg_file_i
 

@@ -49,7 +49,7 @@ DPI_LINKER_DECL DPI_DLLESPEC
 	unsigned int inst_wbk ,
 	unsigned int pc_wbk ,
 	unsigned int x2_sp ,
-	char dmem_addr ,
+	unsigned int dmem_addr ,
 	char dmem_size ,
 	char branch_taken ,
 	char ic_hm ,
