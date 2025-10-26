@@ -19,13 +19,13 @@ module ama_riscv_fe_ctrl (
     output logic        move_past_dec_stall
 );
 
+// types
 typedef enum logic [2:0] {
     RST,
     STEADY,
     STALL_FLOW,
     STALL_IMEM,
     STALL_DC
-    // SPECULATIVE_EXEC, once BP is implemented, pc_sel is resolved differently
 } stall_state_t;
 
 typedef enum logic [1:0] {
@@ -45,10 +45,12 @@ typedef struct packed {
     logic dcache;
 } stall_sources_t;
 
+// STALL control
 logic flow_changed;
 assign flow_changed = (branch_taken && branch_inst_exe) || jump_inst_exe;
 
-stalled_entry_t stalled_entry, stalled_entry_d;
+logic save_stall_entry, clear_stall_entry;
+stalled_entry_t stalled_entry;
 stall_sources_t stall_act, stall_res;
 assign stall_act.flow = branch_inst_dec || jump_inst_dec;
 assign stall_act.icache = !imem_req.ready;
@@ -57,7 +59,6 @@ assign stall_res.flow =
     ((stalled_entry.pc == pc_exe) && (pc_exe != 'h0) && (!load_hazard_stall));
 assign stall_res.icache = imem_req.ready;
 assign stall_res.dcache = !dc_stalled;
-`DFF_CI_RI_RV('{stype: STALL_NONE, pc: 'h0}, stalled_entry, stalled_entry_d)
 
 logic stall_res_flow_d;
 `DFF_CI_RI_RVI(stall_res.flow, stall_res_flow_d)
@@ -74,7 +75,8 @@ stall_state_t state, nx_state;
 // next state
 always_comb begin
     nx_state = state;
-    stalled_entry = stalled_entry_d;
+    save_stall_entry = 1'b0;
+    clear_stall_entry = 1'b0;
 
     case (state)
         RST: begin
@@ -85,9 +87,9 @@ always_comb begin
         end
 
         STEADY: begin
-            stalled_entry = '{stype: STALL_NONE, pc: 'h0};
+            clear_stall_entry = 1'b1; // save takes priority if both are active
             if (stall_act.flow) begin
-                stalled_entry = '{stype: stype_dec, pc: pc_dec};
+                save_stall_entry = 1'b1;
                 nx_state = STALL_FLOW;
             end else if (stall_act.dcache) begin
                 nx_state = STALL_DC;
@@ -109,7 +111,7 @@ always_comb begin
             if (stall_res.icache) begin // imem returned inst
                 // stall again, now if inst is flow change, else proceed forward
                 if (stall_act.flow) begin
-                    stalled_entry = '{stype: stype_dec, pc: pc_dec};
+                    save_stall_entry = 1'b1;
                     nx_state = STALL_FLOW;
                 end else if (stall_act.dcache) begin
                     nx_state = STALL_DC;
@@ -123,7 +125,7 @@ always_comb begin
             if (stall_res.dcache) begin
                 // once backend resolves its stall, continue as per usual
                 if (stall_act.flow) begin
-                    stalled_entry = '{stype: stype_dec, pc: pc_dec};
+                    save_stall_entry = 1'b1;
                     nx_state = STALL_FLOW;
                 end else if (stall_act.icache) begin
                     nx_state = STALL_IMEM;
@@ -136,6 +138,12 @@ always_comb begin
         default: ;
 
     endcase
+end
+
+always_ff @(posedge clk) begin
+    if (rst) stalled_entry = '{stype: STALL_NONE, pc: 'h0};
+    else if (save_stall_entry) stalled_entry = '{stype: stype_dec, pc: pc_dec};
+    else if (clear_stall_entry) stalled_entry = '{stype: STALL_NONE, pc: 'h0};
 end
 
 // outputs
