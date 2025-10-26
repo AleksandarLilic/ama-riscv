@@ -16,12 +16,12 @@ from collections import deque
 from dataclasses import dataclass
 from multiprocessing import Manager, Pool
 
-RUN_CFG = "run_cfg_suite.tcl"
 CC_RED = "91m"
 CC_GREEN = "32m"
 INDENT = " " * 4
 TEST_LOG = "test.log"
 REPO_ROOT = os.getenv("REPO_ROOT")
+RUN_CFG = os.path.join(REPO_ROOT, "run_cfg_suite.tcl")
 
 @dataclass
 class make_args:
@@ -168,7 +168,7 @@ def run_test(test_path, run_dir, build_dir, make_args, cnt):
         "ISA_SIM_BDIR=build_obj_runtest",
         "COSIM_BDIR=build_runtest",
         f"TEST_PATH={test_path_make}",
-        f"TCLBATCH={RUN_CFG}",
+        f"RUN_CFG={RUN_CFG}",
         f"TIMEOUT_CLOCKS={make_args.timeout_clocks}",
         f"LOG_LEVEL={make_args.log_level}",
     ]

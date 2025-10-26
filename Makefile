@@ -20,8 +20,8 @@ WORKLIB := work
 
 include Makefile.inc
 
-TCLBATCH ?= run_cfg.tcl
-TCLBATCH_SWITCH := -tclbatch $(REPO_ROOT)/$(TCLBATCH)
+RUN_CFG ?= $(REPO_ROOT)/run_cfg.tcl
+TCLBATCH_SWITCH := -tclbatch $(RUN_CFG)
 
 TEST_PATH ?=
 TEST_WDB := $(shell path='$(TEST_PATH)'; echo "$$(basename "$$(dirname "$$path")")_$$(basename "$$path")")

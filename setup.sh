@@ -20,14 +20,13 @@ alias run='${REPO_ROOT}/run_test.py'
 # generic run_cfg.tcl
 tcl_cfg="run_cfg.tcl"
 echo "# AUTOMATICALLY GENERATED FILE. DO NOT EDIT." > $tcl_cfg
-echo "set start [clock seconds]" >> $tcl_cfg
+echo "set start [expr {[clock seconds] - 1}]" >> $tcl_cfg
 echo "log_wave -recursive *" >> $tcl_cfg
 #echo "open_vcd test_wave.vcd" >> $tcl_cfg
 #echo "log_vcd *" >> $tcl_cfg
 echo "run all" >> $tcl_cfg
 #echo "close_vcd" >> $tcl_cfg
-echo "set end [clock seconds]" >> $tcl_cfg
-echo "puts \"Simulation runtime: [expr {\$end - \$start}]s\"" >> $tcl_cfg
+echo "puts \"Simulation runtime: [expr {[clock seconds] - \$start}]s\"" >> $tcl_cfg
 echo "exit" >> $tcl_cfg
 
 # notes
