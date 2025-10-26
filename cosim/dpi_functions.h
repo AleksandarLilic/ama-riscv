@@ -27,7 +27,10 @@
 
 /* Imported (by SV) task */
 DPI_LINKER_DECL DPI_DLLESPEC int cosim_setup(
-	const char* test_bin);
+	const char* test_bin ,
+	unsigned int prof_pc_start ,
+	unsigned int prof_pc_stop ,
+	char prof_trace);
 
 
 /* Imported (by SV) function */

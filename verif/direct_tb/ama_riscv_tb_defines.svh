@@ -54,20 +54,20 @@ typedef enum int {
 
 `define LOG_E(x, e) \
     `TB.errors += e; \
-    if (`TB.log_level >= LOG_ERROR) `LOG($sformatf("ERROR: %0s", x))
+    if (`TB.args.log_level >= LOG_ERROR) `LOG($sformatf("ERROR: %0s", x))
 
 `define LOG_W(x, w) \
     `TB.warnings += w; \
-    if (`TB.log_level >= LOG_WARN) `LOG($sformatf("WARNING: %0s", x))
+    if (`TB.args.log_level >= LOG_WARN) `LOG($sformatf("WARNING: %0s", x))
 
 `define LOG_I(x) \
-    if (`TB.log_level >= LOG_INFO) `LOG($sformatf("INFO: %0s", x))
+    if (`TB.args.log_level >= LOG_INFO) `LOG($sformatf("INFO: %0s", x))
 
 `define LOG_V(x) \
-    if (`TB.log_level >= LOG_VERBOSE) `LOG($sformatf("VERBOSE: %0s", x))
+    if (`TB.args.log_level >= LOG_VERBOSE) `LOG($sformatf("VERBOSE: %0s", x))
 
 `define LOG_D(x) \
-    if (`TB.log_level >= LOG_DEBUG) `LOG($sformatf("DEBUG: %0s", x))
+    if (`TB.args.log_level >= LOG_DEBUG) `LOG($sformatf("DEBUG: %0s", x))
 
 // tb-only types
 typedef struct packed {

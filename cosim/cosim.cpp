@@ -19,11 +19,16 @@ std::string inst_asm;
 trace_entry te;
 
 DPI_LINKER_DECL DPI_DLLESPEC
-int cosim_setup(const char *test_elf) {
+int cosim_setup(
+    const char *test_elf,
+    unsigned int prof_pc_start,
+    unsigned int prof_pc_stop,
+    char prof_trace
+) {
     cfg.perf_event = perf_event_t::cycle; // TODO: plusarg
-    // TODO: profiling disabled for `run_test` runs
-    cfg.prof_pc.start = BASE_ADDR; // TODO: plusarg, with prof_pc.stop
-    cfg.prof_trace = true; // TODO: plusarg
+    cfg.prof_pc.start = prof_pc_start;
+    cfg.prof_pc.stop = prof_pc_stop;
+    cfg.prof_trace = (prof_trace == 1);
     cfg.dpi_prof_on_boot = (cfg.prof_pc.start == BASE_ADDR);
     cfg.sink_uart = true;
 

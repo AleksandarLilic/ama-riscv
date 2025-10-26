@@ -9,7 +9,12 @@ module `TB();
 `ifdef ENABLE_COSIM
 // imported functions/tasks
 import "DPI-C" task
-cosim_setup(input string test_bin);
+cosim_setup(
+    input string test_bin,
+    input int unsigned prof_pc_start,
+    input int unsigned prof_pc_stop,
+    input byte unsigned prof_trace
+);
 
 import "DPI-C" function
 void cosim_exec(
@@ -45,16 +50,24 @@ void cosim_finish();
 
 //------------------------------------------------------------------------------
 // Testbench variables
-string test_path;
 int unsigned errors = 0;
 int unsigned warnings = 0;
 bit errors_for_wave = 1'b0;
-bit cosim_chk_en = 1'b0;
-bit tohost_chk_en = 1'b0;
-bit stop_on_cosim_error = 1'b0;
 logic tohost_source;
-int unsigned timeout_clocks;
-int unsigned log_level;
+
+typedef struct {
+    string test_path;
+    bit tohost_chk_en;
+    bit cosim_chk_en;
+    bit stop_on_cosim_error;
+    int unsigned timeout_clocks;
+    int unsigned log_level;
+    int unsigned prof_pc_start;
+    int unsigned prof_pc_stop;
+    bit prof_trace;
+} plusargs_t;
+
+plusargs_t args;
 
 // uart
 string uart_out;
@@ -120,6 +133,8 @@ uart # (
     .serial_in (uart_serial_out),
     .serial_out (uart_serial_in)
 );
+`else
+assign recv_rsp_ch.valid = 1'b0;
 `endif
 
 //------------------------------------------------------------------------------
@@ -174,7 +189,7 @@ function automatic void check_test_status(input bit completed);
         if (completed) `LOGNT("\nTest ran to completion");
         else `LOGNT("\nTest failed to complete");
 
-        if (tohost_chk_en) begin
+        if (args.tohost_chk_en) begin
             `LOGNT("TOHOST checker enabled");
             checker_exists = 1'b1;
             if (`CORE.csr.tohost !== `TOHOST_PASS) begin
@@ -185,7 +200,7 @@ function automatic void check_test_status(input bit completed);
         end
 
         `ifdef ENABLE_COSIM
-        if (cosim_chk_en) begin
+        if (args.cosim_chk_en) begin
             `LOGNT("Cosim checker enabled");
             `LOGNT($sformatf("Warnings: %2d", warnings));
             `LOGNT($sformatf("Errors:   %2d", errors));
@@ -247,51 +262,64 @@ function bit cosim_run_checkers;
 endfunction
 `endif
 
-function string strip_extension(string test_path);
+function string strip_extension(string path);
     // strips extension, if it exists, brute-force on last dot
     int dot_pos;
-    dot_pos = test_path.len();
-    for (int i = test_path.len()-1; i >= 0; i--) begin
-        if (test_path[i] == ".") begin
+    dot_pos = path.len();
+    for (int i = path.len()-1; i >= 0; i--) begin
+        if (path[i] == ".") begin
             dot_pos = i;
             break;
         end
     end
-    return test_path.substr(0, dot_pos - 1);
+    return path.substr(0, dot_pos - 1);
 endfunction
 
 function void get_plusargs();
     automatic string log_str;
     begin
-        if (!$value$plusargs("test_path=%s", test_path)) begin
+        if (!$value$plusargs("test_path=%s", args.test_path)) begin
             `LOG_E("test_path not defined. Exiting.", 1);
             $finish();
         end
-        test_path = strip_extension(test_path);
+        args.test_path = strip_extension(args.test_path);
+        args.tohost_chk_en = $test$plusargs("enable_tohost_checker");
+
         `ifdef ENABLE_COSIM
-        if ($test$plusargs("enable_cosim_checkers")) cosim_chk_en = 1'b1;
-        if ($test$plusargs("stop_on_cosim_error")) stop_on_cosim_error = 1'b1;
-        `endif
-        if (!$value$plusargs("timeout_clocks=%d", timeout_clocks)) begin
-            timeout_clocks = `DEFAULT_TIMEOUT_CLOCKS;
+        args.cosim_chk_en = $test$plusargs("enable_cosim_checkers");
+        args.stop_on_cosim_error = $test$plusargs("stop_on_cosim_error");
+
+        if (!$value$plusargs("prof_pc_start=%d", args.prof_pc_start)) begin
+            args.prof_pc_start = 0;
         end
+        if (!$value$plusargs("prof_pc_stop=%d", args.prof_pc_stop)) begin
+            args.prof_pc_stop = 0;
+        end
+        args.prof_trace = $test$plusargs("prof_trace");
+        `endif
+
+        if (!$value$plusargs("timeout_clocks=%d", args.timeout_clocks)) begin
+            args.timeout_clocks = `DEFAULT_TIMEOUT_CLOCKS;
+        end
+
         if (!$value$plusargs("log_level=%s", log_str)) begin
-            log_level = LOG_INFO;
+            args.log_level = LOG_INFO;
         end else begin
-            if      (log_str == "NONE")     log_level = LOG_NONE;
-            else if (log_str == "ERROR")    log_level = LOG_ERROR;
-            else if (log_str == "WARN")     log_level = LOG_WARN;
-            else if (log_str == "INFO")     log_level = LOG_INFO;
-            else if (log_str == "VERBOSE")  log_level = LOG_VERBOSE;
-            else if (log_str == "DEBUG")    log_level = LOG_DEBUG;
+            if      (log_str == "NONE")     args.log_level = LOG_NONE;
+            else if (log_str == "ERROR")    args.log_level = LOG_ERROR;
+            else if (log_str == "WARN")     args.log_level = LOG_WARN;
+            else if (log_str == "INFO")     args.log_level = LOG_INFO;
+            else if (log_str == "VERBOSE")  args.log_level = LOG_VERBOSE;
+            else if (log_str == "DEBUG")    args.log_level = LOG_DEBUG;
             else begin
                 `LOGNT($sformatf(
                     "Unknown log_level=%s, defaulting to INFO", log_str));
-                log_level = LOG_INFO;
+                args.log_level = LOG_INFO;
                 log_str = "INFO";
             end
             `LOGNT($sformatf("Using log level '%s'", log_str));
         end
+
         `LOGNT($sformatf("CPU core path: %0s", `TO_STRING(`CORE)));
         `LOGNT($sformatf(
             "Frequency: %.2f MHz", 1.0 / (`CLK_HALF_PERIOD * 2 * 1e-3)));
@@ -446,11 +474,11 @@ task automatic single_step(longint unsigned clk_cnt);
     cosim_stack_top_str_wave = pack_string(cosim_stack_top_str);
     cosim_inst_asm_str_wave =
         pack_string(trim_after_double_space(cosim_inst_asm_str));
-    if (cosim_chk_en) new_errors = cosim_run_checkers(rf_chk_act);
+    if (args.cosim_chk_en) new_errors = cosim_run_checkers(rf_chk_act);
     if (new_errors) begin
         `LOG_E(core_ret, 0);
         `LOG_E(isa_ret, 0);
-        if (stop_on_cosim_error) begin
+        if (args.stop_on_cosim_error) begin
             `LOG_I("Exiting on first error");
             check_test_status(1'b0);
             $finish();
@@ -530,9 +558,14 @@ initial begin
     stats = new(core_stats);
 
     `LOG_I("Simulation started");
-    load_memories({test_path, ".hex"});
+    load_memories({args.test_path, ".hex"});
     `ifdef ENABLE_COSIM
-    cosim_setup({test_path, ".elf"});
+    cosim_setup(
+        {args.test_path, ".elf"},
+        args.prof_pc_start,
+        args.prof_pc_stop,
+        args.prof_trace
+    );
     `endif
 
     ->go_in_reset;
@@ -568,7 +601,7 @@ initial begin
         end
     end
     begin: catch_timeout_f
-        repeat (timeout_clocks) @(posedge clk);
+        repeat (args.timeout_clocks) @(posedge clk);
         `LOG_E("Test timed out", 1);
         `LOGNT(msg_fail);
         $finish();
@@ -589,7 +622,7 @@ initial begin
 
     check_test_status(1'b1);
     `ifdef ENABLE_COSIM
-    if (cosim_chk_en) cosim_check_inst_cnt();
+    if (args.cosim_chk_en) cosim_check_inst_cnt();
     cosim_finish();
     `endif
     `LOGNT(stats.get(core_stats));
