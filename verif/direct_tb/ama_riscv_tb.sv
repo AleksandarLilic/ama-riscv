@@ -289,10 +289,10 @@ function void get_plusargs();
         args.cosim_chk_en = $test$plusargs("enable_cosim_checkers");
         args.stop_on_cosim_error = $test$plusargs("stop_on_cosim_error");
 
-        if (!$value$plusargs("prof_pc_start=%d", args.prof_pc_start)) begin
+        if (!$value$plusargs("prof_pc_start=%h", args.prof_pc_start)) begin
             args.prof_pc_start = 0;
         end
-        if (!$value$plusargs("prof_pc_stop=%d", args.prof_pc_stop)) begin
+        if (!$value$plusargs("prof_pc_stop=%h", args.prof_pc_stop)) begin
             args.prof_pc_stop = 0;
         end
         args.prof_trace = $test$plusargs("prof_trace");

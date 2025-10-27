@@ -29,7 +29,6 @@ int cosim_setup(
     cfg.prof_pc.start = prof_pc_start;
     cfg.prof_pc.stop = prof_pc_stop;
     cfg.prof_trace = (prof_trace == 1);
-    cfg.dpi_prof_on_boot = (cfg.prof_pc.start == BASE_ADDR);
     cfg.sink_uart = true;
 
     std::string l_test_elf(test_elf);
