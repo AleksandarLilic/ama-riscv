@@ -267,6 +267,7 @@ function string strip_extension(string path);
     int dot_pos;
     dot_pos = path.len();
     for (int i = path.len()-1; i >= 0; i--) begin
+        if (path[i] == "/") break; // don't go past filename
         if (path[i] == ".") begin
             dot_pos = i;
             break;
