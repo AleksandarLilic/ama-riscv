@@ -35,11 +35,12 @@ endif
 
 TIMEOUT_CLOCKS ?= 500000
 LOG_LEVEL ?= WARN
-COSIM_CHECKER := -testplusarg enable_tohost_checker
+COSIM_CHECKER :=
+COSIM_CHECKER += -testplusarg enable_tohost_checker
 COSIM_CHECKER += -testplusarg enable_cosim_checkers
+COSIM_CHECKER += -testplusarg stop_on_cosim_error
 COSIM_CHECKER += -testplusarg prof_trace
 COSIM_CHECKER += -testplusarg prof_pc_start=40000
-COSIM_CHECKER += -testplusarg stop_on_cosim_error
 
 all: sim
 

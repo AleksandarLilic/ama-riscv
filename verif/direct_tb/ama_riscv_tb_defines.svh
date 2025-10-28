@@ -52,6 +52,10 @@ typedef enum int {
 `define LOG(x) $display("%12t: %0s", $time, x)
 `define LOGNT(x) $display("%0s", x)
 
+`define LOGNT_W(x, w) \
+    `TB.warnings += w; \
+    if (`TB.args.log_level >= LOG_WARN) `LOGNT($sformatf("WARNING: %0s", x))
+
 `define LOG_E(x, e) \
     `TB.errors += e; \
     if (`TB.args.log_level >= LOG_ERROR) `LOG($sformatf("ERROR: %0s", x))

@@ -23,6 +23,9 @@ TEST_LOG = "test.log"
 REPO_ROOT = os.getenv("REPO_ROOT")
 RUN_CFG = os.path.join(REPO_ROOT, "run_cfg_suite.tcl")
 
+MSG_PASS = "==== PASS ===="
+MSG_FAIL = "==== FAIL ===="
+
 @dataclass
 class make_args:
     timeout_clocks: int
@@ -101,9 +104,9 @@ def check_test_status(test_log_path, test_name):
         for line in last_lines:
             if "ERROR" in line:
                 errors.append(f"\n{INDENT}{line.strip()}")
-            if "==== PASS ====" in line:
+            if MSG_PASS in line:
                 return f"Test <{test_name}> PASSED."
-            elif "==== FAIL ====" in line:
+            elif MSG_FAIL in line:
                 return f"Test <{test_name}> FAILED with: " + "".join(errors)
             elif "cosim_exec()" in line:
                 return f"Test <{test_name}> FAILED. " + \

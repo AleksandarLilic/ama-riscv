@@ -54,6 +54,8 @@ int unsigned errors = 0;
 int unsigned warnings = 0;
 bit errors_for_wave = 1'b0;
 logic tohost_source;
+bit chk_pass_tohost = 1'b1;
+bit chk_pass_cosim = 1'b1;
 
 typedef struct {
     string test_path;
@@ -181,43 +183,52 @@ string msg_pass = "==== PASS ====";
 string msg_fail = "==== FAIL ====";
 
 function automatic void check_test_status(input bit completed);
-    automatic bit status_cosim = 1'b1;
-    automatic bit status_tohost = 1'b1;
-    automatic bit checker_exists = 1'b0;
+    string msg;
 
     begin
         if (completed) `LOGNT("\nTest ran to completion");
         else `LOGNT("\nTest failed to complete");
 
+        msg = {"Checker 1/2 - 'tohost': "};
         if (args.tohost_chk_en) begin
-            `LOGNT("TOHOST checker enabled");
-            checker_exists = 1'b1;
-            if (`CORE.csr.tohost !== `TOHOST_PASS) begin
-                status_tohost = 1'b0;
-                `LOGNT($sformatf(
-                    "Failed tohost test # : %0d",`CORE.csr.tohost[31:1]));
+            msg = {msg, "ENABLED: "};
+            if (completed) begin // tohost meaningless unless test completes
+                chk_pass_tohost = (`CORE.csr.tohost === `TOHOST_PASS);
+                msg = {msg, chk_pass_tohost ? "PASS" : "FAIL"};
+                if (!chk_pass_tohost) begin
+                    `LOGNT($sformatf("'tohost' failed # %0d",
+                                     `CORE.csr.tohost[31:1]));
+                end
+            end else begin
+                msg = {msg, "invalid result, test didn't complete"};
             end
+        end else begin
+            msg = {msg, "DISABLED"};
         end
+        `LOGNT(msg);
 
         `ifdef ENABLE_COSIM
+        msg = {"Checker 2/2 - 'cosim' : "};
         if (args.cosim_chk_en) begin
-            `LOGNT("Cosim checker enabled");
-            `LOGNT($sformatf("Warnings: %2d", warnings));
-            `LOGNT($sformatf("Errors:   %2d", errors));
-            checker_exists = 1'b1;
-            if (errors > 0) begin
-                status_cosim = 1'b0;
-                `LOGNT($sformatf("Test failed: cosim errors = %0d", errors));
-            end
+            msg = {msg, "ENABLED: "};
+            msg = {msg, chk_pass_cosim ? "PASS" : "FAIL"};
+        end else begin
+            msg = {msg, "DISABLED"};
         end
+        `LOGNT(msg);
         `endif
 
-        if (checker_exists) begin
-            if (status_cosim && status_tohost) `LOGNT(msg_pass);
+        if (!completed) begin
+            `LOGNT(msg_fail);
+        end else if (args.tohost_chk_en || args.cosim_chk_en) begin
+            if (chk_pass_cosim && chk_pass_tohost) `LOGNT(msg_pass);
             else `LOGNT(msg_fail);
         end else begin
-            `LOGNT("Neither 'TOHOST' nor 'cosim' checker are enabled");
+            `LOGNT_W("Neither 'tohost' nor 'cosim' checker is enabled", 1);
         end
+
+        `LOGNT($sformatf("Warnings: %2d", warnings));
+        `LOGNT($sformatf("Errors:   %2d\n", errors));
     end
 endfunction
 
@@ -232,6 +243,7 @@ function void checker_t;
     input arch_width_t model_val;
     begin
         if (active && (dut_val !== model_val)) begin
+            chk_pass_cosim = 1'b0;
             `LOG_E($sformatf(
                 "Mismatch @ %0t. Checker: \"%0s\"; DUT: 0x%8h, Model: 0x%8h",
                 $time, name, dut_val, model_val),
@@ -604,7 +616,7 @@ initial begin
     begin: catch_timeout_f
         repeat (args.timeout_clocks) @(posedge clk);
         `LOG_E("Test timed out", 1);
-        `LOGNT(msg_fail);
+        check_test_status(1'b0);
         $finish();
     end
     join_any;
