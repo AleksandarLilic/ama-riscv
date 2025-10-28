@@ -24,8 +24,8 @@ typedef enum logic [2:0] {
     RST,
     STEADY,
     STALL_FLOW,
-    STALL_IMEM,
-    STALL_DC
+    STALL_FE_IC,
+    STALL_BE_DC
 } stall_state_t;
 
 typedef enum logic [1:0] {
@@ -84,53 +84,53 @@ always_comb begin
         RST: begin
             if (stall_res.icache) begin
                 // wait for icache to become ready to make first request
-                nx_state = STALL_IMEM; // cold caches at boot
+                nx_state = STALL_FE_IC; // cold caches at boot
             end
         end
 
         STEADY: begin
             clear_stall_entry = 1'b1; // save takes priority if both are active
-            if (stall_act.flow) begin
+            if (stall_act.dcache) begin
+                nx_state = STALL_BE_DC;
+            end else if (stall_act.flow) begin
                 save_stall_entry = 1'b1;
                 nx_state = STALL_FLOW;
-            end else if (stall_act.dcache) begin
-                nx_state = STALL_DC;
             end else if (stall_act.icache) begin
-                nx_state = STALL_IMEM;
+                nx_state = STALL_FE_IC;
             end
         end
 
         STALL_FLOW: begin
             if (stall_res.flow) begin
                 // flow change resolved
-                if (stall_act.icache) nx_state = STALL_IMEM;
-                else if (stall_act.dcache) nx_state = STALL_DC;
+                if (stall_act.icache) nx_state = STALL_FE_IC;
+                else if (stall_act.dcache) nx_state = STALL_BE_DC;
                 else nx_state = STEADY;
             end
         end
 
-        STALL_IMEM: begin
+        STALL_FE_IC: begin
             if (stall_res.icache) begin // imem returned inst
                 // stall again, now if inst is flow change, else proceed forward
-                if (stall_act.flow) begin
+                if (stall_act.dcache) begin
+                    nx_state = STALL_BE_DC;
+                end else if (stall_act.flow) begin
                     save_stall_entry = 1'b1;
                     nx_state = STALL_FLOW;
-                end else if (stall_act.dcache) begin
-                    nx_state = STALL_DC;
                 end else begin
                     nx_state = STEADY;
                 end
             end
         end
 
-        STALL_DC: begin
+        STALL_BE_DC: begin
             if (stall_res.dcache) begin
                 // once backend resolves its stall, continue as per usual
                 if (stall_act.flow) begin
                     save_stall_entry = 1'b1;
                     nx_state = STALL_FLOW;
                 end else if (stall_act.icache) begin
-                    nx_state = STALL_IMEM;
+                    nx_state = STALL_FE_IC;
                 end else begin
                     nx_state = STEADY;
                 end
@@ -176,14 +176,14 @@ always_comb begin
             imem_rsp.ready = 1'b1;
 
             // override if in stall
-            if (stall_act.flow) begin
-                // current inst is stalling, bubble in next cycle
-                fe_ctrl.pc_we = 1'b0; // ... (1) overwritten for now
-                imem_req.valid = 1'b0;
-                imem_rsp.ready = 1'b0;
-            end else if (stall_act.dcache) begin
+            if (stall_act.dcache) begin
                 // backend stalls, don't make any more requests
                 fe_ctrl.pc_we = 1'b0;
+                imem_req.valid = 1'b0;
+                imem_rsp.ready = 1'b0;
+            end else if (stall_act.flow) begin
+                // current inst is stalling, bubble in next cycle
+                fe_ctrl.pc_we = 1'b0; // ... (1) overwritten for now
                 imem_req.valid = 1'b0;
                 imem_rsp.ready = 1'b0;
             end else if (stall_act.icache) begin
@@ -209,7 +209,7 @@ always_comb begin
 
         end
 
-        STALL_IMEM: begin
+        STALL_FE_IC: begin
             fe_ctrl.pc_sel = PC_SEL_PC;
             fe_ctrl.pc_we = 1'b0;
             fe_ctrl.bubble_dec = 1'b1; // bubble as long as in stall
@@ -217,7 +217,12 @@ always_comb begin
             imem_rsp.ready = 1'b1;
 
             if (imem_rsp.valid) begin
-                if (stall_act.flow) begin
+                if (stall_act.dcache) begin
+                    // backend stalls, don't make any more requests
+                    fe_ctrl.pc_we = 1'b0;
+                    imem_req.valid = 1'b0;
+                    imem_rsp.ready = 1'b0;
+                end else if (stall_act.flow) begin
                     // current inst is stalling, bubble in next cycle
                     fe_ctrl.pc_we = 1'b0; // ... (1) overwritten for now
                     fe_ctrl.bubble_dec = 1'b0;
@@ -235,7 +240,7 @@ always_comb begin
             end
         end
 
-        STALL_DC: begin
+        STALL_BE_DC: begin
             // when dc stalls, fe keeps current state, no new requests
             fe_ctrl.pc_sel = decoded_fe_ctrl.pc_sel;
             fe_ctrl.pc_we = 1'b0;

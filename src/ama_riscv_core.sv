@@ -71,8 +71,6 @@ assign imem_req.data = pc_mux_out[15:2];
 
 //------------------------------------------------------------------------------
 // DEC Stage
-
-// Bubble up?
 inst_width_t inst_dec_d;
 arch_width_t pc_dec_d;
 always_comb begin
@@ -86,9 +84,6 @@ always_comb begin
             inst.dec = inst_dec_d;
             pc.dec = pc_dec_d;
         end
-    end else if (fe_ctrl.bubble_dec) begin
-        inst.dec = `NOP;
-        pc.dec = 'h0;
     end else begin
         inst.dec = imem_rsp.data;
         pc.dec = pc.fet;
@@ -221,7 +216,7 @@ logic dec_en;
 assign dec_en = !dc_stalled || move_past_dec_stall;
 
 stage_ctrl_t ctrl_dec;
-assign ctrl_dec = '{flush: flush.dec, en: dec_en, bubble: 1'b0};
+assign ctrl_dec = '{flush: flush.dec, en: dec_en, bubble: fe_ctrl.bubble_dec};
 
 `STAGE(ctrl_dec, pc.dec, pc.exe, 'h0)
 `STAGE(ctrl_dec, inst.dec, inst.exe, 'h0)
