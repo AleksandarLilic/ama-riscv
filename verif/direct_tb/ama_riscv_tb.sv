@@ -115,6 +115,9 @@ bind `CORE ama_riscv_core_view ama_riscv_core_view_i (
     .rst (rst),
     .dmem_req (dmem_req),
     .inst_retired (inst_retired),
+    .ctrl_dec (ctrl_dec),
+    .ctrl_exe (ctrl_exe),
+    .ctrl_mem (ctrl_mem),
     .decoded_exe (decoded_exe),
     .branch_taken (branch_taken),
     .dc_stalled (dc_stalled)

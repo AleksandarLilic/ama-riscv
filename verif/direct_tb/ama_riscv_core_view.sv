@@ -9,6 +9,9 @@ module ama_riscv_core_view (
     rv_if_dc.TX dmem_req,
     input logic inst_retired,
     // internal signals
+    input stage_ctrl_t ctrl_dec,
+    input stage_ctrl_t ctrl_exe,
+    input stage_ctrl_t ctrl_mem,
     input decoder_t decoded_exe,
     input logic branch_taken,
     input logic dc_stalled
@@ -63,13 +66,13 @@ assign pc_wbk = pc.wbk & {ARCH_WIDTH{inst_retired}};
 
 // branches
 logic branch_inst_mem, branch_inst_wbk;
-`STAGE_EN(flush.exe, !dc_stalled, decoded_exe.branch_inst, branch_inst_mem)
-`STAGE_BB(flush.mem, dc_stalled, 'h0, branch_inst_mem, branch_inst_wbk)
+`STAGE(ctrl_exe, decoded_exe.branch_inst, branch_inst_mem, 'h0)
+`STAGE(ctrl_mem, branch_inst_mem, branch_inst_wbk, 'h0)
 
 logic branch_taken_exe, branch_taken_mem, branch_taken_wbk;
 assign branch_taken_exe = (branch_taken && decoded_exe.branch_inst);
-`STAGE_EN(flush.exe, !dc_stalled, branch_taken_exe, branch_taken_mem)
-`STAGE_BB(flush.mem, dc_stalled, 'h0, branch_taken_mem, branch_taken_wbk)
+`STAGE(ctrl_exe, branch_taken_exe, branch_taken_mem, 'h0)
+`STAGE(ctrl_mem, branch_taken_mem, branch_taken_wbk, 'h0)
 
 // dmem
 arch_width_t dmem_addr_exe, dmem_addr_mem, dmem_addr_wbk;
@@ -86,12 +89,10 @@ logic [3:0] dmem_size_exe, dmem_size_mem, dmem_size_wbk;
 assign dmem_size = dmem_req.dtype | {dmem_req.rtype, 2'b00};
 assign dmem_size_exe = dmem_req.valid ? {1'b0, dmem_size} : DMEM_SIZE_NA;
 
-`STAGE_EN(flush.exe, !dc_stalled, dmem_addr_exe, dmem_addr_mem)
-`STAGE_BB(flush.mem, dc_stalled, 'h0, dmem_addr_mem, dmem_addr_wbk)
+`STAGE(ctrl_exe, dmem_addr_exe, dmem_addr_mem, 'h0)
+`STAGE(ctrl_mem, dmem_addr_mem, dmem_addr_wbk, 'h0)
 
-`STAGE_EN(flush.exe, !dc_stalled, dmem_size_exe, dmem_size_mem)
-`STAGE_RV_BB(flush.mem, DMEM_SIZE_NA,
-             dc_stalled, DMEM_SIZE_NA,
-             dmem_size_mem, dmem_size_wbk)
+`STAGE(ctrl_exe, dmem_size_exe, dmem_size_mem, 'h0)
+`STAGE(ctrl_mem, dmem_size_mem, dmem_size_wbk, DMEM_SIZE_NA)
 
 endmodule

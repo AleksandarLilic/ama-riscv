@@ -220,15 +220,18 @@ assign rs2_data_fwd = rf_b_sel_fwd ? writeback : rs2_data_dec;
 logic dec_en;
 assign dec_en = !dc_stalled || move_past_dec_stall;
 
-`STAGE_EN(flush.dec, dec_en, pc.dec, pc.exe)
-`STAGE_EN(flush.dec, dec_en, inst.dec, inst.exe)
-`STAGE_EN_RV(flush.dec, dec_en, RF_X0_ZERO, rd_addr.dec, rd_addr.exe)
-`STAGE_EN_RV(flush.dec, dec_en, RF_X0_ZERO, rs1_addr_dec, rs1_addr_exe)
-`STAGE_EN_RV(flush.dec, dec_en, RF_X0_ZERO, rs2_addr_dec, rs2_addr_exe)
-`STAGE_EN(flush.dec, dec_en, rs1_data_fwd, rs1_data_exe)
-`STAGE_EN(flush.dec, dec_en, rs2_data_fwd, rs2_data_exe)
-`STAGE_EN(flush.dec, dec_en, imm_gen_out_dec, imm_gen_out_exe)
-`STAGE_EN_RV(flush.dec, dec_en, `DECODER_RST_VAL, decoded, decoded_exe)
+stage_ctrl_t ctrl_dec;
+assign ctrl_dec = '{flush: flush.dec, en: dec_en, bubble: 1'b0};
+
+`STAGE(ctrl_dec, pc.dec, pc.exe, 'h0)
+`STAGE(ctrl_dec, inst.dec, inst.exe, 'h0)
+`STAGE(ctrl_dec, rd_addr.dec, rd_addr.exe, RF_X0_ZERO)
+`STAGE(ctrl_dec, rs1_addr_dec, rs1_addr_exe, RF_X0_ZERO)
+`STAGE(ctrl_dec, rs2_addr_dec, rs2_addr_exe, RF_X0_ZERO)
+`STAGE(ctrl_dec, rs1_data_fwd, rs1_data_exe, 'h0)
+`STAGE(ctrl_dec, rs2_data_fwd, rs2_data_exe, 'h0)
+`STAGE(ctrl_dec, imm_gen_out_dec, imm_gen_out_exe, 'h0)
+`STAGE(ctrl_dec, decoded, decoded_exe, `DECODER_RST_VAL)
 
 //------------------------------------------------------------------------------
 // EXE stage
@@ -473,16 +476,19 @@ arch_width_t alu_out_mem;
 arch_width_t csr_data_mem;
 wb_sel_t wb_sel_mem;
 
-`STAGE_EN(flush.exe, !dc_stalled, pc.exe, pc.mem)
-`STAGE_EN(flush.exe, !dc_stalled, pc.exe + 'd4, pc_mem_inc4)
-`STAGE_EN(flush.exe, !dc_stalled, inst.exe, inst.mem)
-`STAGE_EN(flush.exe, !dc_stalled, alu_out, alu_out_mem)
-`STAGE_EN_RV(flush.exe, !dc_stalled, RF_X0_ZERO, rd_addr.exe, rd_addr.mem)
-`STAGE_EN_RV(flush.exe, !dc_stalled, WB_SEL_ALU, decoded_exe.wb_sel, wb_sel_mem)
-`STAGE_EN(flush.exe, !dc_stalled, decoded_exe.rd_we, rd_we_mem)
-`STAGE_EN(flush.exe, !dc_stalled, csr_data_exe, csr_data_mem)
-`STAGE_EN(flush.exe, !dc_stalled, decoded_exe.load_inst, load_inst_mem)
-`STAGE_EN(flush.exe, !dc_stalled, decoded_exe.store_inst, store_inst_mem)
+stage_ctrl_t ctrl_exe;
+assign ctrl_exe = '{flush: flush.exe, en: !dc_stalled, bubble: 1'b0};
+
+`STAGE(ctrl_exe, pc.exe, pc.mem, 'h0)
+`STAGE(ctrl_exe, pc.exe + 'd4, pc_mem_inc4, 'h0)
+`STAGE(ctrl_exe, inst.exe, inst.mem, 'h0)
+`STAGE(ctrl_exe, alu_out, alu_out_mem, 'h0)
+`STAGE(ctrl_exe, rd_addr.exe, rd_addr.mem, RF_X0_ZERO)
+`STAGE(ctrl_exe, decoded_exe.wb_sel, wb_sel_mem, WB_SEL_ALU)
+`STAGE(ctrl_exe, decoded_exe.rd_we, rd_we_mem, 'h0)
+`STAGE(ctrl_exe, csr_data_exe, csr_data_mem, 'h0)
+`STAGE(ctrl_exe, decoded_exe.load_inst, load_inst_mem, 'h0)
+`STAGE(ctrl_exe, decoded_exe.store_inst, store_inst_mem, 'h0)
 
 `DFF_CI_RI_RVI(dc_stalled, dc_stalled_d)
 
@@ -499,8 +505,12 @@ assign writeback = (wb_sel_mem == WB_SEL_DMEM) ? dmem_data :
 
 //------------------------------------------------------------------------------
 // Pipeline FF MEM/WB
-`STAGE_BB(flush.mem, dc_stalled, `NOP, inst.mem, inst.wbk)
-`STAGE_BB(flush.mem, dc_stalled, 'h0, pc.mem, pc.wbk)
+stage_ctrl_t ctrl_mem;
+assign ctrl_mem = '{flush: flush.exe, en: 1'b1, bubble: dc_stalled};
+
+`STAGE(ctrl_mem, inst.mem, inst.wbk, 'h0)
+`STAGE(ctrl_mem, pc.mem, pc.wbk, 'h0)
+
 assign inst_retired = (pc.wbk != 'h0);
 assign inst_to_be_retired = (pc.mem != 'h0) && !(flush.mem || dc_stalled);
 

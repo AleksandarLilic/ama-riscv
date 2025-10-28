@@ -378,71 +378,26 @@ typedef struct packed {
         rd_we: 1'b0 \
     }
 
+// pipeline stage
+typedef struct packed {
+    logic flush;
+    logic en;
+    logic bubble;
+} stage_ctrl_t;
+
+`define DFF_CI_RI_RV_CLR_CLRVI_EN_CLR2_CLR2VI(_rstv, _clr, _en, _clr2, _d, _q) \
+    always_ff @(posedge clk) begin \
+        if (rst) _q <= _rstv; \
+        else if (_clr) _q <= _rstv; \
+        else if (_en && _clr2) _q <= _rstv; \
+        else if (_en) _q <= _d; \
+    end
+
+`define STAGE(_ctrl, _d, _q, _rstv) \
+    `DFF_CI_RI_RV_CLR_CLRVI_EN_CLR2_CLR2VI( \
+        _rstv, _ctrl.flush, _ctrl.en, _ctrl.bubble, _d, _q)
+
 // DFF macros
-`define DFF_CI_RI_RVI_CLR_CLRVI(_clr, _d, _q) \
-    always_ff @(posedge clk) begin \
-        if (rst) _q <= 'h0; \
-        else if (_clr) _q <= 'h0; \
-        else _q <= _d; \
-    end
-
-`define DFF_CI_RI_RVI_CLR_CLRVI_CLR2_CLR2V(_clr, _clr2, _clr2v, _d, _q) \
-    always_ff @(posedge clk) begin \
-        if (rst) _q <= 'h0; \
-        else if (_clr) _q <= 'h0; \
-        else if (_clr2) _q <= _clr2v; \
-        else _q <= _d; \
-    end
-
-`define DFF_CI_RI_RV_CLR_CLRVI_CLR2_CLR2V(_rstv, _clr, _clr2, _clr2v, _d, _q) \
-    always_ff @(posedge clk) begin \
-        if (rst) _q <= _rstv; \
-        else if (_clr) _q <= _rstv; \
-        else if (_clr2) _q <= _clr2v; \
-        else _q <= _d; \
-    end
-
-`define DFF_CI_RI_RV_CLR_CLRVI(_rstv, _clr, _d, _q) \
-    always_ff @(posedge clk) begin \
-        if (rst) _q <= _rstv; \
-        else if (_clr) _q <= _rstv; \
-        else _q <= _d; \
-    end
-
-`define DFF_CI_RI_RVI_CLR_CLRVI_EN(_clr, _en, _d, _q) \
-    always_ff @(posedge clk) begin \
-        if (rst) _q <= 'h0; \
-        else if (_clr) _q <= 'h0; \
-        else if (_en) _q <= _d; \
-    end
-
-`define DFF_CI_RI_RV_CLR_CLRVI_EN(_rstv, _clr, _en, _d, _q) \
-    always_ff @(posedge clk) begin \
-        if (rst) _q <= _rstv; \
-        else if (_clr) _q <= _rstv; \
-        else if (_en) _q <= _d; \
-    end
-
-`define STAGE(_clr, _d, _q) \
-    `DFF_CI_RI_RVI_CLR_CLRVI(_clr, _d, _q)
-
-`define STAGE_EN(_clr, _en, _d, _q) \
-    `DFF_CI_RI_RVI_CLR_CLRVI_EN(_clr, _en, _d, _q)
-
-// explicit reset value for enum types or non-zero resets
-// _rstv moved to middle to align visually with STAGE_EN macro
-`define STAGE_RV(_clr, _rstv, _d, _q) \
-    `DFF_CI_RI_RV_CLR_CLRVI(_rstv, _clr, _d, _q)
-
-`define STAGE_EN_RV(_clr, _en, _rstv, _d, _q) \
-    `DFF_CI_RI_RV_CLR_CLRVI_EN(_rstv, _clr, _en, _d, _q)
-
-`define STAGE_BB(_clr, _bbl, _bblv, _d, _q) \
-    `DFF_CI_RI_RVI_CLR_CLRVI_CLR2_CLR2V(_clr, _bbl, _bblv, _d, _q)
-
-`define STAGE_RV_BB(_clr, _rstv, _bbl, _bblv, _d, _q) \
-    `DFF_CI_RI_RV_CLR_CLRVI_CLR2_CLR2V(_rstv, _clr, _bbl, _bblv, _d, _q)
-
 `define DFF_CI_RI_RV(_rstv, _d, _q) \
     always_ff @(posedge clk) begin \
         if (rst) _q <= _rstv; \
@@ -455,21 +410,21 @@ typedef struct packed {
         else _q <= _d; \
     end
 
-`define DFF_CI_RI_RVI_EN(en, _d, _q) \
-    always_ff @(posedge clk) begin \
-        if (rst) _q <= 'h0; \
-        else if (en) _q <= _d; \
-    end
-
-`define DFF_CI_EN(en, _d, _q) \
-    always_ff @(posedge clk) begin \
-        if (en) _q <= _d; \
-    end
-
-`define DFF_CI_RI_RV_EN(_rstv, en, _d, _q) \
+`define DFF_CI_RI_RV_EN(_rstv, _en, _d, _q) \
     always_ff @(posedge clk) begin \
         if (rst) _q <= _rstv; \
-        else if (en) _q <= _d; \
+        else if (_en) _q <= _d; \
+    end
+
+`define DFF_CI_RI_RVI_EN(_en, _d, _q) \
+    always_ff @(posedge clk) begin \
+        if (rst) _q <= 'h0; \
+        else if (_en) _q <= _d; \
+    end
+
+`define DFF_CI_EN(_en, _d, _q) \
+    always_ff @(posedge clk) begin \
+        if (_en) _q <= _d; \
     end
 
 // helpers
