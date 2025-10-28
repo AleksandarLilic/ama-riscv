@@ -71,11 +71,16 @@ typedef enum logic [1:0] {
     CSR_OP_SEL_CLR_BITS = 2'b11
 } csr_op_sel_t;
 
-typedef enum logic[1:0] {
-    PC_SEL_INC4 = 2'd0, // PC = PC + 4
-    PC_SEL_ALU = 2'd1, // ALU output, used for jump/branch
-    PC_SEL_BP = 2'd2, // PC = Branch prediction output
-    PC_SEL_PC = 2'd3 // PC = Hardwired start address
+typedef enum logic {
+    B_NT = 1'b0,
+    B_T = 1'b1
+} branch_t;
+
+typedef enum logic [1:0] {
+    PC_SEL_PC = 2'd0, // PC
+    PC_SEL_INC4 = 2'd1, // PC = PC + 4
+    PC_SEL_ALU = 2'd2, // ALU output, used for jump/branch
+    PC_SEL_BP = 2'd3 // PC = Branch prediction output
 } pc_sel_t;
 
 typedef enum logic [1:0] {

@@ -11,7 +11,7 @@ module ama_riscv_fe_ctrl (
     input  logic        jump_inst_dec,
     input  logic        branch_inst_exe,
     input  logic        jump_inst_exe,
-    input  logic        branch_taken,
+    input  branch_t     branch_resolution,
     input  logic        dc_stalled,
     input  logic        load_hazard_stall,
     input  fe_ctrl_t    decoded_fe_ctrl,
@@ -47,11 +47,13 @@ typedef struct packed {
 
 // STALL control
 logic flow_changed;
-assign flow_changed = (branch_taken && branch_inst_exe) || jump_inst_exe;
-
+logic branch_taken;
 logic save_stall_entry, clear_stall_entry;
 stalled_entry_t stalled_entry;
 stall_sources_t stall_act, stall_res;
+
+assign branch_taken = branch_inst_exe && (branch_resolution == B_T);
+assign flow_changed = branch_taken || jump_inst_exe;
 assign stall_act.flow = branch_inst_dec || jump_inst_dec;
 assign stall_act.icache = !imem_req.ready;
 assign stall_act.dcache = dc_stalled;
@@ -215,16 +217,17 @@ always_comb begin
             imem_rsp.ready = 1'b1;
 
             if (imem_rsp.valid) begin
-                fe_ctrl.bubble_dec = 1'b0;
                 if (stall_act.flow) begin
                     // current inst is stalling, bubble in next cycle
                     fe_ctrl.pc_we = 1'b0; // ... (1) overwritten for now
+                    fe_ctrl.bubble_dec = 1'b0;
                     imem_req.valid = 1'b0;
                     imem_rsp.ready = 1'b0;
                 end else begin
                     // no stall, proceed
                     fe_ctrl.pc_sel = decoded_fe_ctrl.pc_sel;
                     fe_ctrl.pc_we = 1'b1;
+                    fe_ctrl.bubble_dec = 1'b0;
                     imem_req.valid = 1'b1;
                     imem_rsp.ready = 1'b1;
                     if (stall_act.dcache) move_past_dec_stall = 1'b1;

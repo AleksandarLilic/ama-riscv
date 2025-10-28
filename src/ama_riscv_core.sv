@@ -33,7 +33,7 @@ fe_ctrl_t fe_ctrl;
 logic move_past_dec_stall;
 
 // from EXE stage
-logic branch_taken;
+branch_t branch_resolution;
 
 // from DEC stage
 logic rf_a_sel_fwd;
@@ -57,10 +57,10 @@ arch_width_t alu_out;
 
 always_comb begin
     case (fe_ctrl.pc_sel)
+        PC_SEL_PC: pc_mux_out = pc.fet;
         PC_SEL_INC4: pc_mux_out = pc_inc4;
         PC_SEL_ALU: pc_mux_out = alu_out;
-        //PC_SEL_BP: pc_mux_out =  bp_out;
-        PC_SEL_PC: pc_mux_out = pc.fet;
+        // PC_SEL_BP: pc_mux_out = bp_pc;
         default: pc_mux_out = pc_inc4;
     endcase
 end
@@ -77,7 +77,7 @@ inst_width_t inst_dec_d;
 arch_width_t pc_dec_d;
 always_comb begin
     if (dc_stalled_d) begin
-        if (imem_rsp.valid) begin // V2.1
+        if (imem_rsp.valid) begin
             // new inst arrived on miss before BE stalled
             // but d$ is still stalling
             inst.dec = imem_rsp.data;
@@ -121,7 +121,7 @@ ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     .jump_inst_dec (decoded.jump_inst),
     .branch_inst_exe (decoded_exe.branch_inst),
     .jump_inst_exe (decoded_exe.jump_inst),
-    .branch_taken (branch_taken),
+    .branch_resolution (branch_resolution),
     .decoded_fe_ctrl (decoded_fe_ctrl),
     .load_hazard_stall (load_hazard_stall),
     .dc_stalled (dc_stalled),
@@ -250,11 +250,11 @@ assign branch_sel_exe = get_branch_sel(inst.exe);
 
 always_comb begin
     case (branch_sel_exe)
-        BRANCH_SEL_BEQ: branch_taken = bc_a_eq_b;
-        BRANCH_SEL_BNE: branch_taken = !bc_a_eq_b;
-        BRANCH_SEL_BLT: branch_taken = bc_a_lt_b;
-        BRANCH_SEL_BGE: branch_taken = bc_a_eq_b || !bc_a_lt_b;
-        default: branch_taken = 1'b0;
+        BRANCH_SEL_BEQ: branch_resolution = branch_t'(bc_a_eq_b);
+        BRANCH_SEL_BNE: branch_resolution = branch_t'(!bc_a_eq_b);
+        BRANCH_SEL_BLT: branch_resolution = branch_t'(bc_a_lt_b);
+        BRANCH_SEL_BGE: branch_resolution = branch_t'(bc_a_eq_b || !bc_a_lt_b);
+        default: branch_resolution = B_NT;
     endcase
 end
 
