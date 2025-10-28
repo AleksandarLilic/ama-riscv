@@ -228,7 +228,11 @@ always_comb begin
             decoded.wb_sel      = WB_SEL_CSR;
             decoded.rd_we       = rd_nz;
         end
-        default ;
+
+        default: begin
+            decoded = `DECODER_RST_VAL;
+        end
+
     endcase
 end
 
