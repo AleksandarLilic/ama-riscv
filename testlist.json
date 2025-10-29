@@ -60,5 +60,7 @@
     ["sim/sw/riscv-isa-tests", "sub.hex"],
     ["sim/sw/riscv-isa-tests", "sw.hex"],
     ["sim/sw/riscv-isa-tests", "xor.hex"],
-    ["sim/sw/riscv-isa-tests", "xori.hex"]
+    ["sim/sw/riscv-isa-tests", "xori.hex"],
+
+    ["sim/sw/riscv-isa-tests", "csr.hex"]
 ]
