@@ -93,10 +93,11 @@ typedef struct {
     int unsigned hit_cnt = 'h0;
     int unsigned miss_cnt = 'h0;
     int unsigned wb_cnt = 'h0;
-} cache_stats_counters_t;
+} stats_counters_t;
 
-cache_stats_counters_t ic_stats;
-cache_stats_counters_t dc_stats;
+stats_counters_t ic_stats;
+stats_counters_t dc_stats;
+stats_counters_t bp_stats;
 perf_stats stats;
 perf_counters_t core_stats;
 
@@ -120,6 +121,9 @@ bind `CORE ama_riscv_core_view ama_riscv_core_view_i (
     .ctrl_mem (ctrl_mem),
     .decoded_exe (decoded_exe),
     .branch_taken (branch_taken),
+    `ifdef USE_BP
+    .bp_hit (bp_hit),
+    `endif
     .dc_stalled (dc_stalled)
 );
 
@@ -174,11 +178,12 @@ endfunction
 
 `ifdef ENABLE_COSIM
 function void cosim_check_inst_cnt;
-    `LOGNT($sformatf("Cosim instruction count: %0d", cosim_get_inst_cnt()));
-    `LOGNT($sformatf("DUT instruction count: %0d", stats.get_inst(core_stats)));
-    if (cosim_get_inst_cnt() != stats.get_inst(core_stats)) begin
-        `LOGNT($sformatf("Instruction count mismatch"));
-    end
+    int unsigned cosim, core;
+    cosim = cosim_get_inst_cnt();
+    core = stats.get_inst_cnt(core_stats);
+    `LOGNT($sformatf("Cosim instruction count: %0d", cosim));
+    `LOGNT($sformatf("DUT instruction count: %0d", core));
+    if (cosim != core) `LOGNT($sformatf("Instruction count mismatch"));
 endfunction
 `endif
 
@@ -383,7 +388,7 @@ function automatic [8*SLEN-1:0] pack_string(input string str);
 endfunction
 
 function automatic byte get_cache_status(
-    ref cache_stats_counters_t stats,
+    ref stats_counters_t stats,
     input logic new_core_req_d,
     input logic hit_d,
     input logic cr_victim_dirty_d,
@@ -414,12 +419,21 @@ function automatic byte get_cache_status(
     end
 endfunction
 
-function automatic byte get_bp_status();
+function automatic byte get_bp_status(ref stats_counters_t stats);
     byte bp_hm;
     begin
         bp_hm = hw_status_t_none;
         // no BP, miss on every branch
-        if (`CORE_VIEW.branch_inst_wbk) bp_hm = hw_status_t_miss;
+        if (`CORE_VIEW.branch_inst_wbk) begin
+            stats.ref_cnt++;
+            if (`CORE_VIEW.bp_hit_wbk) begin
+                bp_hm = hw_status_t_hit;
+                stats.hit_cnt++;
+            end else begin
+                bp_hm = hw_status_t_miss;
+                stats.miss_cnt++;
+            end
+        end
         return bp_hm;
     end
 endfunction
@@ -449,7 +463,7 @@ function automatic void add_trace_entry(longint unsigned clk_cnt);
             `DCACHE.cr_victim_dirty_d,
             `DCACHE.cr_pend.active
         ),
-        get_bp_status()
+        get_bp_status(bp_stats)
     );
 endfunction
 `endif
@@ -643,15 +657,34 @@ initial begin
     `endif
     `LOGNT(stats.get(core_stats));
 
-    $display("icache Ref: %0d, H: %0d, M: %0d, HR: %0.2f%%",
-             ic_stats.ref_cnt, ic_stats.hit_cnt, ic_stats.miss_cnt,
-             (ic_stats.ref_cnt != 0) ?
-                (ic_stats.hit_cnt*100.0)/ic_stats.ref_cnt : 0.0);
-    $display("dcache Ref: %0d, H: %0d, M: %0d, WB: %0d, HR: %0.2f%%",
-             dc_stats.ref_cnt, dc_stats.hit_cnt,
-             dc_stats.miss_cnt, dc_stats.wb_cnt,
-             (dc_stats.ref_cnt != 0) ?
-                (dc_stats.hit_cnt*100.0)/dc_stats.ref_cnt : 0.0);
+    // TODO: these stats really need to be consolidated like core stats
+    $display(
+        "bpred: P: %0d, M: %0d, ACC: %0.2f%%, MPKI: %0.2f",
+            bp_stats.hit_cnt,
+            bp_stats.miss_cnt,
+            (bp_stats.hit_cnt != 0) ?
+                (bp_stats.hit_cnt * 100.0) / bp_stats.ref_cnt : 0.0,
+            (bp_stats.miss_cnt != 0) ?
+                bp_stats.miss_cnt / (stats.get_inst_cnt(core_stats) / 1000.0) :
+                0.0
+        );
+    $display(
+        "icache: Ref: %0d, H: %0d, M: %0d, HR: %0.2f%%",
+            ic_stats.ref_cnt,
+            ic_stats.hit_cnt,
+            ic_stats.miss_cnt,
+            (ic_stats.ref_cnt != 0) ?
+                (ic_stats.hit_cnt * 100.0) / ic_stats.ref_cnt : 0.0
+        );
+    $display(
+        "dcache: Ref: %0d, H: %0d, M: %0d, WB: %0d, HR: %0.2f%%",
+            dc_stats.ref_cnt,
+            dc_stats.hit_cnt,
+            dc_stats.miss_cnt,
+            dc_stats.wb_cnt,
+            (dc_stats.ref_cnt != 0) ?
+                (dc_stats.hit_cnt * 100.0) / dc_stats.ref_cnt : 0.0
+        );
     $display("");
 
     $finish();

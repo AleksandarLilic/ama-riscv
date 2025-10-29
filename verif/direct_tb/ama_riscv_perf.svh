@@ -65,7 +65,7 @@ class perf_stats;
         return sout;
     endfunction
 
-    function int unsigned get_inst(ref perf_counters_t cnt);
+    function int unsigned get_inst_cnt(ref perf_counters_t cnt);
         return cnt.inst;
     endfunction
 

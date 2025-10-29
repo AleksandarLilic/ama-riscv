@@ -14,6 +14,9 @@ module ama_riscv_core_view (
     input stage_ctrl_t ctrl_mem,
     input decoder_t decoded_exe,
     input logic branch_taken,
+    `ifdef USE_BP
+    input logic bp_hit,
+    `endif
     input logic dc_stalled
 );
 
@@ -73,6 +76,16 @@ logic branch_taken_exe, branch_taken_mem, branch_taken_wbk;
 assign branch_taken_exe = (branch_taken && decoded_exe.branch_inst);
 `STAGE(ctrl_exe, branch_taken_exe, branch_taken_mem, 'h0)
 `STAGE(ctrl_mem, branch_taken_mem, branch_taken_wbk, 'h0)
+
+`ifdef USE_BP
+logic bp_hit_exe, bp_hit_mem, bp_hit_wbk;
+assign bp_hit_exe = (decoded_exe.branch_inst && bp_hit);
+`STAGE(ctrl_exe, bp_hit_exe, bp_hit_mem, 'h0)
+`STAGE(ctrl_mem, bp_hit_mem, bp_hit_wbk, 'h0)
+`else
+logic bp_hit_wbk;
+assign bp_hit_wbk = 1'b0; // just to make trace function happy
+`endif
 
 // dmem
 arch_width_t dmem_addr_exe, dmem_addr_mem, dmem_addr_wbk;
