@@ -108,4 +108,10 @@ assign dmem_size_exe = dmem_req.valid ? {1'b0, dmem_size} : DMEM_SIZE_NA;
 `STAGE(ctrl_exe, dmem_size_exe, dmem_size_mem, 'h0)
 `STAGE(ctrl_mem, dmem_size_mem, dmem_size_wbk, DMEM_SIZE_NA)
 
+// track down bubble
+pipeline_if_s bubble ();
+`DFF_CI_RI_RVI_EN(ctrl_dec.en, ctrl_dec.bubble, bubble.exe);
+`DFF_CI_RI_RVI_EN(ctrl_exe.en, (ctrl_exe.bubble || bubble.exe), bubble.mem);
+`DFF_CI_RI_RVI_EN(ctrl_mem.en, (ctrl_mem.bubble || bubble.mem), bubble.wbk);
+
 endmodule

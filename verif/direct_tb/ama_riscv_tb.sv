@@ -476,7 +476,7 @@ string core_ret;
 string isa_ret;
 task automatic single_step(longint unsigned clk_cnt);
     bit new_errors;
-    stats.update(core_stats, `CORE.inst.wbk, !inst_retired);
+    stats.update(core_stats, inst_retired);
     `LOG_V($sformatf(
         "Core [F] %5h: %8h %0s",
         `CORE.pc.dec,
