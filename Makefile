@@ -10,6 +10,7 @@ DESIGN_TOP := ama_riscv_top
 RTL_DEFINES ?=
 RTL_DEFINES += -d ENABLE_COSIM
 RTL_DEFINES += -d DBG_SIG
+RTL_DEFINES += -d USE_BP
 #RTL_DEFINES += -d SYNTHESIS
 RTL_DEFINES_SLANG := $(subst -d,-D,$(RTL_DEFINES)) # upper case for slang
 COMP_OPTS := -sv --incr --relax

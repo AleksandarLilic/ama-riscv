@@ -9,6 +9,7 @@ module ama_riscv_icache #(
 )(
     input  logic clk,
     input  logic rst,
+    input  spec_exec_t spec,
     rv_if.RX     req_core,
     rv_if.TX     rsp_core,
     rv_if.TX     req_mem,
@@ -137,7 +138,7 @@ end else begin: set_associative_search
 `DFF_CI_RI_RVI(way_victim_idx, way_victim_idx_d)
 end
 
-assign new_core_req = (req_core.valid && req_core.ready);
+assign new_core_req = (req_core.valid && (req_core.ready || spec.wrong));
 `DFF_CI_RI_RVI(new_core_req, new_core_req_d)
 `DFF_CI_RI_RV_EN(`IC_CR_CLEAR, new_core_req, cr, cr_d)
 `DFF_CI_RI_RVI_EN(new_core_req, hit, hit_d)
@@ -167,7 +168,8 @@ end
 
 localparam unsigned CNT_WIDTH = $clog2(MEM_TRANSFERS_PER_CL);
 logic [CNT_WIDTH-1:0] mem_miss_cnt;
-`DFF_CI_RI_RVI_EN(req_mem.valid, (mem_miss_cnt + 'h1), mem_miss_cnt)
+`DFF_CI_RI_RVI_CLR_CLRVI_EN(
+    spec.wrong, req_mem.valid, (mem_miss_cnt + 'h1), mem_miss_cnt)
 logic [CNT_WIDTH-1:0] mem_miss_cnt_d;
 `DFF_CI_RI_RVI(mem_miss_cnt, mem_miss_cnt_d)
 
@@ -267,7 +269,7 @@ always_comb begin
 
         IC_READY: begin
             // `LOG_D($sformatf(">> I$ STATE IC_READY"));
-            if ((new_core_req_d) && (!hit_d)) begin
+            if (new_core_req_d && (!hit_d) && (!spec.wrong)) begin
                 nx_state = IC_MISS;
                 // `LOG_D($sformatf(">> I$ next state: IC_MISS; missed on core addr byte: 0x%0h", cr.addr<<2));
             end
@@ -276,7 +278,7 @@ always_comb begin
         IC_MISS: begin
             // `LOG_D($sformatf(">> I$ STATE IC_MISS"));
             // `LOG_D($sformatf(">> I$ miss state; cnt %0d", mem_miss_cnt));
-            if (mem_miss_cnt_d == (MEM_TRANSFERS_PER_CL - 1)) begin
+            if (mem_transfer_done || spec.wrong) begin
                 nx_state = IC_READY;
             end
         end
@@ -335,7 +337,7 @@ always_comb begin
                         way[cr_d.way_idx].set[set_idx].data.w[word_idx];
                     // `LOG_D($sformatf("icache OUT hit; cache at word %0d; core at byte 0x%5h; with output %8h", get_idx(cr_d.addr), cr_d.addr<<2, rsp_core.data));
 
-                end else begin
+                end else if (!spec.wrong) begin
                     // handle miss, initiate memory read
                     // NOTE: doesn't check for main mem ready
                     // main mem is currently always ready to take in new request
@@ -357,6 +359,9 @@ always_comb begin
                 req_mem.data = (cr_pend.mem_start_addr + mem_miss_cnt);
                 // `LOG_D($sformatf("icache miss OUT; bus packet: %0d", (cr_pend.mem_start_addr + mem_miss_cnt)));
             end
+            // if at any point during a speculative miss this turns out to be
+            // wrong path, clear wrong pending request and go to ready
+            clear_pending = spec.wrong;
         end
 
         default: ;

@@ -9,6 +9,7 @@ module ama_riscv_fe_ctrl (
     input  arch_width_t pc_exe,
     input  logic        branch_inst_dec,
     input  logic        jump_inst_dec,
+    input  branch_t     bp_pred,
     input  logic        branch_inst_exe,
     input  logic        jump_inst_exe,
     input  branch_t     branch_resolution,
@@ -16,6 +17,9 @@ module ama_riscv_fe_ctrl (
     input  logic        load_hazard_stall,
     input  fe_ctrl_t    decoded_fe_ctrl,
     output fe_ctrl_t    fe_ctrl,
+    output logic        bp_hit,
+    output arch_width_t pc_cp,
+    output spec_exec_t  spec,
     output logic        move_past_dec_stall
 );
 
@@ -45,6 +49,16 @@ typedef struct packed {
     logic dcache;
 } stall_sources_t;
 
+typedef enum logic {
+    NS_E, // non-speculative execution
+    SPEC_E
+} exec_state_t;
+
+typedef struct packed {
+    arch_width_t pc;
+    branch_t b_tnt;
+} spec_entry_t;
+
 // STALL control
 logic flow_changed;
 logic branch_taken;
@@ -53,8 +67,15 @@ stalled_entry_t stalled_entry;
 stall_sources_t stall_act, stall_res;
 
 assign branch_taken = branch_inst_exe && (branch_resolution == B_T);
+`ifdef USE_BP
+assign flow_changed = jump_inst_exe;
+assign stall_act.flow = jump_inst_dec;
+`else
 assign flow_changed = branch_taken || jump_inst_exe;
 assign stall_act.flow = branch_inst_dec || jump_inst_dec;
+assign spec = '{1'b0, 1'b0, 1'b0};
+`endif
+
 assign stall_act.icache = !imem_req.ready;
 assign stall_act.dcache = dc_stalled;
 assign stall_res.flow =
@@ -98,9 +119,17 @@ always_comb begin
             end else if (stall_act.icache) begin
                 nx_state = STALL_FE_IC;
             end
+            `ifdef USE_BP
+            if (spec.wrong) nx_state = STEADY;
+            `endif
         end
 
         STALL_FLOW: begin
+            `ifdef USE_BP
+            if (spec.wrong) begin
+                nx_state = STEADY;
+            end else
+            `endif
             if (stall_res.flow) begin
                 // flow change resolved
                 if (stall_act.icache) nx_state = STALL_FE_IC;
@@ -121,6 +150,10 @@ always_comb begin
                     nx_state = STEADY;
                 end
             end
+            `ifdef USE_BP
+            // whatever you are doing, drop it, it's wrong
+            if (spec.wrong) nx_state = STEADY;
+            `endif
         end
 
         STALL_BE_DC: begin
@@ -154,6 +187,7 @@ always_comb begin
     fe_ctrl.pc_sel = decoded_fe_ctrl_d.pc_sel;
     fe_ctrl.pc_we = decoded_fe_ctrl_d.pc_we;
     fe_ctrl.bubble_dec = 1'b0;
+    fe_ctrl.use_cp = 1'b0;
     imem_req.valid = 1'b0;
     imem_rsp.ready = 1'b0;
     move_past_dec_stall = 1'b0;
@@ -192,12 +226,44 @@ always_comb begin
                 fe_ctrl.pc_we = 1'b0;
                 fe_ctrl.bubble_dec = 1'b1;
                 imem_req.valid = 1'b0;
+
+            `ifdef USE_BP
+            end else if (spec.enter) begin
+                // enter speculative only if not blocked by others
+                fe_ctrl.pc_sel = (bp_pred == B_T) ? PC_SEL_BP : PC_SEL_INC4;
+                fe_ctrl.pc_we = 1'b1;
+                fe_ctrl.bubble_dec = 1'b0;
+                imem_req.valid = 1'b1;
+                imem_rsp.ready = 1'b1;
+            `endif
+
             end
+
+            `ifdef USE_BP
+            if (spec.wrong) begin
+                fe_ctrl.pc_sel = branch_taken ? PC_SEL_ALU : PC_SEL_INC4;
+                fe_ctrl.pc_we = 1'b1;
+                fe_ctrl.bubble_dec = 1'b1;
+                fe_ctrl.use_cp = 1'b1;
+                imem_req.valid = 1'b1;
+                imem_rsp.ready = 1'b1;
+            end
+            `endif
         end
 
         STALL_FLOW: begin
             fe_ctrl.bubble_dec = 1'b1; // bubble as long as in stall
             fe_ctrl.pc_we = 1'b0;
+            `ifdef USE_BP
+            if (spec.wrong) begin
+                fe_ctrl.pc_sel = branch_taken ? PC_SEL_ALU : PC_SEL_INC4;
+                fe_ctrl.pc_we = 1'b1;
+                fe_ctrl.bubble_dec = 1'b1;
+                fe_ctrl.use_cp = 1'b1;
+                imem_req.valid = 1'b1;
+                imem_rsp.ready = 1'b1;
+            end else
+            `endif
             if (stall_res.flow) begin
                 // flow change resolved
                 fe_ctrl.pc_sel = flow_changed ? PC_SEL_ALU : PC_SEL_INC4;
@@ -228,8 +294,19 @@ always_comb begin
                     fe_ctrl.bubble_dec = 1'b0;
                     imem_req.valid = 1'b0;
                     imem_rsp.ready = 1'b0;
+
+                `ifdef USE_BP
+                end else if (spec.enter) begin
+                    // current inst inst is branch, fingers crossed
+                    fe_ctrl.pc_sel = (bp_pred == B_T) ? PC_SEL_BP : PC_SEL_INC4;
+                    fe_ctrl.pc_we = 1'b1;
+                    fe_ctrl.bubble_dec = 1'b0;
+                    imem_req.valid = 1'b1;
+                    imem_rsp.ready = 1'b1;
+                `endif
+
                 end else begin
-                    // no stall, proceed
+                    // no stall, no spec exec, proceed
                     fe_ctrl.pc_sel = decoded_fe_ctrl.pc_sel;
                     fe_ctrl.pc_we = 1'b1;
                     fe_ctrl.bubble_dec = 1'b0;
@@ -238,6 +315,18 @@ always_comb begin
                     if (stall_act.dcache) move_past_dec_stall = 1'b1;
                 end
             end
+
+            `ifdef USE_BP
+            // whatever you are doing, drop it, it's wrong
+            if (spec.wrong) begin
+                fe_ctrl.pc_sel = branch_taken ? PC_SEL_ALU : PC_SEL_INC4;
+                fe_ctrl.pc_we = 1'b1;
+                fe_ctrl.bubble_dec = 1'b1;
+                fe_ctrl.use_cp = 1'b1;
+                imem_req.valid = 1'b1;
+                imem_rsp.ready = 1'b1;
+            end
+            `endif
         end
 
         STALL_BE_DC: begin
@@ -261,6 +350,24 @@ always_comb begin
                 end else if (stall_res.flow && !stall_res_flow_d) begin
                     // flow change resolved just now
                     fe_ctrl.pc_sel = flow_changed ? PC_SEL_ALU : PC_SEL_INC4;
+
+                `ifdef USE_BP
+                end else if (spec.wrong) begin
+                    fe_ctrl.pc_sel = branch_taken ? PC_SEL_ALU : PC_SEL_INC4;
+                    fe_ctrl.pc_we = 1'b1;
+                    fe_ctrl.bubble_dec = 1'b1;
+                    fe_ctrl.use_cp = 1'b1;
+                    imem_req.valid = 1'b1;
+                    imem_rsp.ready = 1'b1;
+                end else if (spec.enter) begin
+                    // current inst inst is branch, fingers crossed
+                    fe_ctrl.pc_sel = (bp_pred == B_T) ? PC_SEL_BP : PC_SEL_INC4;
+                    fe_ctrl.pc_we = 1'b1;
+                    fe_ctrl.bubble_dec = 1'b0;
+                    imem_req.valid = 1'b1;
+                    imem_rsp.ready = 1'b1;
+                `endif
+
                 end else begin
                     fe_ctrl.pc_we = 1'b1;
                     imem_req.valid = 1'b1;
@@ -275,5 +382,62 @@ always_comb begin
 end
 
 `DFF_CI_RI_RV(`FE_CTRL_RST_VAL, decoded_fe_ctrl, decoded_fe_ctrl_d)
+
+`ifdef USE_BP
+// SPECULATIVE EXEC control
+spec_entry_t spec_entry, spec_entry_d;
+
+logic save_spec_entry, clear_spec_entry;
+assign spec.enter = (branch_inst_dec && (!dc_stalled) && (!load_hazard_stall));
+assign spec.resolve =
+    ((spec_entry.pc == pc_exe) && (pc_exe != 'h0) && (!load_hazard_stall));
+assign bp_hit = spec.resolve && (spec_entry.b_tnt == branch_resolution);
+
+// speculative execution FSM
+exec_state_t state_e, nx_state_e;
+
+// state transition
+`DFF_CI_RI_RV(NS_E, nx_state_e, state_e)
+
+// next state
+always_comb begin
+    nx_state_e = state_e;
+    save_spec_entry = 1'b0;
+    clear_spec_entry = 1'b0;
+    spec.wrong = 1'b0;
+
+    case (state_e)
+        NS_E: begin
+            if (spec.enter) begin
+                nx_state_e = SPEC_E;
+                save_spec_entry = 1'b1;
+            end
+        end
+        SPEC_E: begin
+            if (spec.resolve) begin
+                clear_spec_entry = 1'b1;
+                if (!bp_hit) begin // missed, whantever you have is wrong
+                    nx_state_e = NS_E;
+                    spec.wrong = !bp_hit;
+                end else begin // on correct path
+                    if (spec.enter) begin // branch in dec again
+                        nx_state_e = SPEC_E;
+                        save_spec_entry = 1'b1;
+                    end else begin // next inst is not branch
+                        nx_state_e = NS_E;
+                    end
+                end
+            end
+        end
+    endcase
+end
+
+always_ff @(posedge clk) begin
+    if (rst) spec_entry = '{pc: 'h0, b_tnt: B_NT};
+    else if (save_spec_entry) spec_entry = '{pc: pc_dec, b_tnt: bp_pred};
+    else if (clear_spec_entry) spec_entry = '{pc: 'h0, b_tnt: B_NT};
+end
+assign pc_cp = spec_entry.pc;
+`endif
 
 endmodule

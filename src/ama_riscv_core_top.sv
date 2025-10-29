@@ -13,6 +13,8 @@ module ama_riscv_core_top (
     output logic inst_retired
 );
 
+spec_exec_t spec;
+
 // core <-> icache
 rv_if #(.DW(CORE_WORD_ADDR_BUS)) imem_req_ch ();
 rv_if #(.DW(INST_WIDTH)) imem_rsp_ch ();
@@ -30,6 +32,7 @@ ama_riscv_core ama_riscv_core_i(
     .dmem_rsp (dmem_rsp_ch),
     .uart_send_req (uart_send_req),
     .uart_recv_rsp (uart_recv_rsp),
+    .spec (spec),
     .inst_retired (inst_retired)
 );
 
@@ -39,6 +42,7 @@ ama_riscv_icache #(
 ) ama_riscv_icache_i (
     .clk (clk),
     .rst (rst),
+    .spec (spec),
     .req_core (imem_req_ch.RX),
     .rsp_core (imem_rsp_ch.TX),
     .req_mem (req_imem),

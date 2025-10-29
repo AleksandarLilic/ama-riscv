@@ -11,6 +11,7 @@ module ama_riscv_core #(
     rv_if.RX     dmem_rsp,
     rv_if.TX     uart_send_req,
     rv_if.RX     uart_recv_rsp,
+    output spec_exec_t  spec,
     output logic inst_retired
 );
 
@@ -31,6 +32,8 @@ decoder_t decoded;
 decoder_t decoded_exe;
 fe_ctrl_t fe_ctrl;
 logic move_past_dec_stall;
+branch_t bp_static_pred;
+arch_width_t bp_pc;
 
 // from EXE stage
 branch_t branch_resolution;
@@ -54,19 +57,21 @@ logic inst_to_be_retired;
 arch_width_t pc_mux_out;
 arch_width_t pc_inc4;
 arch_width_t alu_out;
+arch_width_t pc_fet_cp; // checkpoint fetch PC before going to speculative
+logic bp_hit;
 
 always_comb begin
     case (fe_ctrl.pc_sel)
         PC_SEL_PC: pc_mux_out = pc.fet;
         PC_SEL_INC4: pc_mux_out = pc_inc4;
         PC_SEL_ALU: pc_mux_out = alu_out;
-        // PC_SEL_BP: pc_mux_out = bp_pc;
+        PC_SEL_BP: pc_mux_out = bp_pc;
         default: pc_mux_out = pc_inc4;
     endcase
 end
 
 `DFF_CI_RI_RV_EN(`RESET_VECTOR, fe_ctrl.pc_we, pc_mux_out, pc.fet)
-assign pc_inc4 = pc.fet + 'd4;
+assign pc_inc4 = fe_ctrl.use_cp ? pc_fet_cp + 'd4 : pc.fet + 'd4;
 assign imem_req.data = pc_mux_out[15:2];
 
 //------------------------------------------------------------------------------
@@ -81,6 +86,7 @@ always_comb begin
             inst.dec = imem_rsp.data;
             pc.dec = pc.fet;
         end else begin
+            // keep current inst, new requests are not issued to the same addr
             inst.dec = inst_dec_d;
             pc.dec = pc_dec_d;
         end
@@ -90,7 +96,7 @@ always_comb begin
     end
 end
 
-`DFF_CI_RI_RVI(inst.dec, inst_dec_d) // keep old value, i$ won't respond again
+`DFF_CI_RI_RVI(inst.dec, inst_dec_d)
 `DFF_CI_RI_RVI(pc.dec, pc_dec_d)
 
 fe_ctrl_t decoded_fe_ctrl;
@@ -114,6 +120,7 @@ ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     .pc_exe (pc.exe),
     .branch_inst_dec (decoded.branch_inst),
     .jump_inst_dec (decoded.jump_inst),
+    .bp_pred (bp_static_pred),
     .branch_inst_exe (decoded_exe.branch_inst),
     .jump_inst_exe (decoded_exe.jump_inst),
     .branch_resolution (branch_resolution),
@@ -122,6 +129,9 @@ ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     .dc_stalled (dc_stalled),
     // outputs
     .fe_ctrl (fe_ctrl),
+    .bp_hit (bp_hit),
+    .pc_cp (pc_fet_cp),
+    .spec (spec),
     .move_past_dec_stall (move_past_dec_stall)
 );
 
@@ -166,6 +176,9 @@ ama_riscv_imm_gen ama_riscv_imm_gen_i(
     // outputs
     .d_out (imm_gen_out_dec)
 );
+
+assign bp_pc = decoded.branch_inst ? (pc.dec + imm_gen_out_dec) : 'h0;
+assign bp_static_pred = branch_t'(decoded.branch_inst && (bp_pc < pc.dec));
 
 logic bc_a_sel_fwd_exe;
 logic bcs_b_sel_fwd_exe;
@@ -514,7 +527,7 @@ assign inst_to_be_retired = (pc.mem != 'h0) && !(flush.mem || dc_stalled);
 
 // Pipeline FFs flush
 assign flush.fet = 1'b0;
-assign flush.dec = reset_seq[0]; // TODO: eventually also BP
+assign flush.dec = reset_seq[0];
 assign flush.exe = reset_seq[1];
 assign flush.mem = reset_seq[2];
 assign flush.wbk = 1'b0;

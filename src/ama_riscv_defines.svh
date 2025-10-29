@@ -331,9 +331,10 @@ typedef enum logic [1:0] {
 } uart_addr_t;
 
 typedef struct packed {
-    logic bubble_dec;
     pc_sel_t pc_sel;
     logic pc_we;
+    logic bubble_dec;
+    logic use_cp;
 } fe_ctrl_t;
 
 typedef struct packed {
@@ -355,9 +356,10 @@ typedef struct packed {
 
 `define FE_CTRL_RST_VAL \
     '{ \
-        bubble_dec: 1'b1, \
         pc_sel: PC_SEL_INC4, \
-        pc_we: 1'b0 \
+        pc_we: 1'b0, \
+        bubble_dec: 1'b1, \
+        use_cp: 1'b0 \
     }
 
 `define DECODER_RST_VAL \
@@ -377,6 +379,12 @@ typedef struct packed {
         wb_sel: WB_SEL_ALU, \
         rd_we: 1'b0 \
     }
+
+typedef struct packed {
+    logic enter;
+    logic resolve;
+    logic wrong;
+} spec_exec_t; // speculative execution
 
 // pipeline stage
 typedef struct packed {
@@ -425,6 +433,13 @@ typedef struct packed {
 `define DFF_CI_EN(_en, _d, _q) \
     always_ff @(posedge clk) begin \
         if (_en) _q <= _d; \
+    end
+
+`define DFF_CI_RI_RVI_CLR_CLRVI_EN(_clr, _en, _d, _q) \
+    always_ff @(posedge clk) begin \
+        if (rst) _q <= 'h0; \
+        else if (_clr) _q <= 'h0; \
+        else if (_en) _q <= _d; \
     end
 
 // helpers
