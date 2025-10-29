@@ -32,8 +32,6 @@ decoder_t decoded;
 decoder_t decoded_exe;
 fe_ctrl_t fe_ctrl;
 logic move_past_dec_stall;
-branch_t bp_static_pred;
-arch_width_t bp_pc;
 
 // from EXE stage
 branch_t branch_resolution;
@@ -57,22 +55,32 @@ logic inst_to_be_retired;
 arch_width_t pc_mux_out;
 arch_width_t pc_inc4;
 arch_width_t alu_out;
+`ifdef USE_BP
 arch_width_t pc_fet_cp; // checkpoint fetch PC before going to speculative
+arch_width_t bp_pc;
+branch_t bp_pred;
 logic bp_hit;
+`endif
 
 always_comb begin
     case (fe_ctrl.pc_sel)
         PC_SEL_PC: pc_mux_out = pc.fet;
         PC_SEL_INC4: pc_mux_out = pc_inc4;
         PC_SEL_ALU: pc_mux_out = alu_out;
+        `ifdef USE_BP
         PC_SEL_BP: pc_mux_out = bp_pc;
-        default: pc_mux_out = pc_inc4;
+        `endif
+        default: pc_mux_out = pc.fet;
     endcase
 end
+assign imem_req.data = pc_mux_out[15:2];
 
 `DFF_CI_RI_RV_EN(`RESET_VECTOR, fe_ctrl.pc_we, pc_mux_out, pc.fet)
+`ifdef USE_BP
 assign pc_inc4 = fe_ctrl.use_cp ? pc_fet_cp + 'd4 : pc.fet + 'd4;
-assign imem_req.data = pc_mux_out[15:2];
+`else
+assign pc_inc4 = pc.fet + 'd4;
+`endif
 
 //------------------------------------------------------------------------------
 // DEC Stage
@@ -120,7 +128,9 @@ ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     .pc_exe (pc.exe),
     .branch_inst_dec (decoded.branch_inst),
     .jump_inst_dec (decoded.jump_inst),
-    .bp_pred (bp_static_pred),
+    `ifdef USE_BP
+    .bp_pred (bp_pred),
+    `endif
     .branch_inst_exe (decoded_exe.branch_inst),
     .jump_inst_exe (decoded_exe.jump_inst),
     .branch_resolution (branch_resolution),
@@ -129,9 +139,11 @@ ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     .dc_stalled (dc_stalled),
     // outputs
     .fe_ctrl (fe_ctrl),
+    `ifdef USE_BP
     .bp_hit (bp_hit),
     .pc_cp (pc_fet_cp),
-    .spec (spec),
+    `endif
+    .spec (spec), // tied to 0 when BP is not used
     .move_past_dec_stall (move_past_dec_stall)
 );
 
@@ -177,8 +189,10 @@ ama_riscv_imm_gen ama_riscv_imm_gen_i(
     .d_out (imm_gen_out_dec)
 );
 
+`ifdef USE_BP
 assign bp_pc = decoded.branch_inst ? (pc.dec + imm_gen_out_dec) : 'h0;
-assign bp_static_pred = branch_t'(decoded.branch_inst && (bp_pc < pc.dec));
+assign bp_pred = branch_t'(decoded.branch_inst && (bp_pc < pc.dec));
+`endif
 
 logic bc_a_sel_fwd_exe;
 logic bcs_b_sel_fwd_exe;
