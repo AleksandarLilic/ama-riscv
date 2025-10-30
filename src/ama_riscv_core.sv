@@ -190,9 +190,28 @@ ama_riscv_imm_gen ama_riscv_imm_gen_i(
 );
 
 `ifdef USE_BP
+// all predictors use imm_gen right away, no BTB
 assign bp_pc = decoded.branch_inst ? (pc.dec + imm_gen_out_dec) : 'h0;
+
+`ifdef BP_STATIC
+`ifdef BP_STATIC_AT
+assign bp_pred = B_T;
+`elsif BP_STATIC_ANT
+assign bp_pred = B_NT;
+`else // BTFN
 assign bp_pred = branch_t'(decoded.branch_inst && (bp_pc < pc.dec));
+`endif // BP_STATIC
+
+`else // dynamic predictors
+bp_t to_bp;
+assign to_bp =
+    '{pc_dec: pc.dec, pc_exe: pc.exe, spec: spec, br_res: branch_resolution};
+
+ama_riscv_bp #(.PC_BITS (BP_BIMODAL_PC_BITS), .CNT_BITS (BP_BIMODAL_CNT_BITS))
+ama_riscv_bp_i (.clk (clk), .rst (rst), .pipe_in (to_bp), .pred (bp_pred));
+
 `endif
+`endif // USE_BP
 
 logic bc_a_sel_fwd_exe;
 logic bcs_b_sel_fwd_exe;

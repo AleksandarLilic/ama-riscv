@@ -40,6 +40,9 @@ parameter unsigned ICACHE_WAYS = 2;
 parameter unsigned DCACHE_SETS = 8;
 parameter unsigned DCACHE_WAYS = 2;
 
+parameter unsigned BP_BIMODAL_PC_BITS = 5;
+parameter unsigned BP_BIMODAL_CNT_BITS = 3;
+
 // Core enums
 typedef enum logic [6:0] {
     OPC7_R_TYPE = 7'b011_0011,
@@ -207,6 +210,13 @@ typedef struct packed {
     logic resolve;
     logic wrong;
 } spec_exec_t; // speculative execution
+
+typedef struct packed {
+    arch_width_t pc_dec;
+    arch_width_t pc_exe;
+    spec_exec_t spec;
+    branch_t br_res;
+} bp_t; // pipeline signals to branch predictor
 
 typedef struct packed {
     logic flush;
