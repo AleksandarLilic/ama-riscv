@@ -60,6 +60,13 @@ localparam unsigned IDX_RANGE_TOP = (SETS == 1) ? 1: IDX_BITS;
 `define DC_CR_PEND_CLEAR '{active:1'b0, mem_r_start_addr:'h0, cr:`DC_CR_CLEAR}
 
 // custom types
+typedef enum logic [1:0] {
+    DC_RESET,
+    DC_READY, // ready for next request, services load hit in the next cycle
+    DC_MISS, // miss, go to main memory
+    DC_EVICT // write back dirty line to main memory, then go to miss
+} dcache_state_t;
+
 typedef union packed {
     logic [CACHE_LINE_SIZE-1:0] f; // flat view
     logic [CACHE_LINE_SIZE/MEM_DATA_BUS-1:0] [MEM_DATA_BUS-1:0] q; // mem bus
@@ -171,7 +178,7 @@ if (WAYS == 1) begin: gen_direct_mapped
 
 end else begin: gen_set_assoc
     logic [WAY_BITS-1:0] lru_cnt [WAYS-1:0][SETS-1:0];
-    parameter unsigned LRU_MAX_CNT = WAYS - 1;
+    localparam unsigned LRU_MAX_CNT = WAYS - 1;
     always_comb begin
         cr = `DC_CR_ASSIGN;
         set_idx_cr = get_idx(cr.addr);

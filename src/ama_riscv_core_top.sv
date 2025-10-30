@@ -37,8 +37,8 @@ ama_riscv_core ama_riscv_core_i(
 );
 
 ama_riscv_icache #(
-    .SETS (4),
-    .WAYS (2)
+    .SETS (ICACHE_SETS),
+    .WAYS (ICACHE_WAYS)
 ) ama_riscv_icache_i (
     .clk (clk),
     .rst (rst),
@@ -50,8 +50,8 @@ ama_riscv_icache #(
 );
 
 ama_riscv_dcache #(
-    .SETS (8),
-    .WAYS (2)
+    .SETS (DCACHE_SETS),
+    .WAYS (DCACHE_WAYS)
 ) ama_riscv_dcache_i (
     .clk (clk),
     .rst (rst),

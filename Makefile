@@ -12,7 +12,8 @@ RTL_DEFINES += -d ENABLE_COSIM
 RTL_DEFINES += -d DBG_SIG
 RTL_DEFINES += -d USE_BP
 #RTL_DEFINES += -d SYNTHESIS
-RTL_DEFINES_SLANG := $(subst -d,-D,$(RTL_DEFINES)) # upper case for slang
+RTL_DEFINES_CS := $(subst -d ,-D,$(RTL_DEFINES)) # C-style defines for slang & verilator
+
 COMP_OPTS := -sv --incr --relax
 ELAB_DEBUG ?= typical
 ELAB_OPTS := -debug $(ELAB_DEBUG) --incr --relax --mt 8
@@ -87,7 +88,7 @@ slang_watch:
 SLANG_OPTS := -Wno-unconnected-port -Wno-duplicate-definition
 SLANG_OPTS += --std 1800-2017 --strict-driver-checking
 slang:
-	@slang -j 8 --top $(TOP) $(RTL_DEFINES_SLANG) $(SRC_VERIF) $(SRC_DESIGN) $(PLUS_INCDIR) $(SLANG_OPTS) $(SLANG_EXTRA)
+	@slang -j 8 --top $(TOP) $(RTL_DEFINES_CS) $(SRC_VERIF) $(SRC_DESIGN) $(PLUS_INCDIR) $(SLANG_OPTS) $(SLANG_EXTRA)
 
 # run preprocessor only, useful for debugging
 SLANG_PP_OUT := slang_e.sv
@@ -96,7 +97,7 @@ slang_pp:
 
 # slang has poor linting capabilities, use verilator instead
 lint:
-	@verilator --top $(DESIGN_TOP) -DSYNTHESIS --lint-only $(SRC_DESIGN) $(PLUS_INCDIR) -Wall -Wpedantic > lint.log 2>&1
+	@verilator --top $(DESIGN_TOP) -DSYNTHESIS $(RTL_DEFINES_CS) --lint-only $(SRC_DESIGN) $(PLUS_INCDIR) -Wall -Wpedantic > lint.log 2>&1
 
 # run standalone bench with provided sources and top name, oneshot
 

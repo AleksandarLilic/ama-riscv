@@ -42,6 +42,12 @@ localparam unsigned IDX_RANGE_TOP = (SETS == 1) ? 1: IDX_BITS;
 `define IC_CR_PEND_CLEAR '{active: 1'b0, mem_start_addr: 'h0, cr: `IC_CR_CLEAR}
 
 // custom types
+typedef enum logic [1:0] {
+    IC_RESET,
+    IC_READY, // ready for next request, services load hit in the next cycle
+    IC_MISS // miss, go to main memory
+} icache_state_t;
+
 typedef union packed {
     logic [CACHE_LINE_SIZE-1:0] f; // flat view
     logic [CACHE_LINE_SIZE/MEM_DATA_BUS-1:0] [MEM_DATA_BUS-1:0] q; // mem bus
