@@ -193,24 +193,67 @@ ama_riscv_imm_gen ama_riscv_imm_gen_i(
 // all predictors use imm_gen right away, no BTB
 assign bp_pc = decoded.branch_inst ? (pc.dec + imm_gen_out_dec) : 'h0;
 
-`ifdef BP_STATIC
-`ifdef BP_STATIC_AT
-assign bp_pred = B_T;
-`elsif BP_STATIC_ANT
-assign bp_pred = B_NT;
-`else // BTFN
-assign bp_pred = branch_t'(decoded.branch_inst && (bp_pc < pc.dec));
-`endif // BP_STATIC
+if (BP_TYPE == BP_STATIC) begin: gen_bp_sttc
 
-`else // dynamic predictors
-bp_t to_bp;
-assign to_bp =
+if (BP_STATIC_TYPE == BP_STATIC_AT) begin : gen_bp_sttc_at
+assign bp_pred = B_T;
+end else if (BP_STATIC_TYPE == BP_STATIC_ANT) begin: gen_bp_sttc_ant
+assign bp_pred = B_NT;
+end else if (BP_STATIC_TYPE == BP_STATIC_BTFN) begin: gen_bp_sttc_btfn
+assign bp_pred = branch_t'(decoded.branch_inst && (bp_pc < pc.dec));
+end
+
+end else begin: gen_bp_dyn
+branch_t bp_pred_1;
+bp_pipe_t pipe_to_bp;
+assign pipe_to_bp =
     '{pc_dec: pc.dec, pc_exe: pc.exe, spec: spec, br_res: branch_resolution};
 
-ama_riscv_bp #(.PC_BITS (BP_BIMODAL_PC_BITS), .CNT_BITS (BP_BIMODAL_CNT_BITS))
-ama_riscv_bp_i (.clk (clk), .rst (rst), .pipe_in (to_bp), .pred (bp_pred));
+ama_riscv_bp #(
+    .PC_BITS (BP_1_PC_BITS),
+    .CNT_BITS (BP_1_CNT_BITS),
+    .BP_TYPE_SEL (BP_1_TYPE)
+) ama_riscv_bp_c1_i (
+    .clk (clk),
+    .rst (rst),
+    .pipe_in (pipe_to_bp),
+    .bp_comp_pred ('{B_NT, B_NT}), // dc
+    .pred (bp_pred_1)
+);
 
-`endif
+if (BP_TYPE != BP_COMBINED) begin: gen_bp_dyn_1
+assign bp_pred = bp_pred_1;
+
+end else begin: gen_bp_dyn_comb
+branch_t bp_pred_2, bp_pred_meta;
+
+ama_riscv_bp #(
+    .GR_BITS (BP_2_GR_BITS),
+    .CNT_BITS (BP_2_CNT_BITS),
+    .BP_TYPE_SEL (BP_2_TYPE)
+) ama_riscv_bp_c2_i (
+    .clk (clk),
+    .rst (rst),
+    .pipe_in (pipe_to_bp),
+    .bp_comp_pred ('{B_NT, B_NT}), // dc
+    .pred (bp_pred_2)
+);
+
+ama_riscv_bp #(
+    .PC_BITS (BP_C_PC_BITS),
+    .CNT_BITS (BP_C_CNT_BITS),
+    .BP_TYPE_SEL (BP_COMBINED)
+) ama_riscv_bp_i (
+    .clk (clk),
+    .rst (rst),
+    .pipe_in (pipe_to_bp),
+    .bp_comp_pred ('{bp_pred_1, bp_pred_2}),
+    .pred (bp_pred_meta)
+);
+assign bp_pred = bp_pred_meta;
+
+end
+end
 `endif // USE_BP
 
 logic bc_a_sel_fwd_exe;

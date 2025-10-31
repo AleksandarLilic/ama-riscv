@@ -40,9 +40,6 @@ parameter unsigned ICACHE_WAYS = 2;
 parameter unsigned DCACHE_SETS = 8;
 parameter unsigned DCACHE_WAYS = 2;
 
-parameter unsigned BP_BIMODAL_PC_BITS = 5;
-parameter unsigned BP_BIMODAL_CNT_BITS = 3;
-
 // Core enums
 typedef enum logic [6:0] {
     OPC7_R_TYPE = 7'b011_0011,
@@ -212,17 +209,53 @@ typedef struct packed {
 } spec_exec_t; // speculative execution
 
 typedef struct packed {
-    arch_width_t pc_dec;
-    arch_width_t pc_exe;
-    spec_exec_t spec;
-    branch_t br_res;
-} bp_t; // pipeline signals to branch predictor
-
-typedef struct packed {
     logic flush;
     logic en;
     logic bubble;
 } stage_ctrl_t; // pipeline stage control
+
+// branch predictor
+typedef enum logic [2:0] {
+    BP_STATIC,
+    BP_BIMODAL,
+    //BP_LOCAL,
+    BP_GLOBAL,
+    BP_GSELECT,
+    BP_GSHARE,
+    BP_COMBINED
+} bp_t;
+
+typedef enum logic [2:0] {
+    BP_STATIC_AT,
+    BP_STATIC_ANT,
+    BP_STATIC_BTFN
+} bp_static_t;
+
+typedef struct packed {
+    branch_t bp_1_p;
+    branch_t bp_2_p;
+} bp_comp_t;
+
+typedef struct packed {
+    arch_width_t pc_dec;
+    arch_width_t pc_exe;
+    spec_exec_t spec;
+    branch_t br_res;
+} bp_pipe_t; // pipeline signals to branch predictor
+
+parameter bp_static_t BP_STATIC_TYPE = BP_STATIC_BTFN;
+parameter bp_t BP_1_TYPE = BP_BIMODAL;
+parameter unsigned BP_1_PC_BITS = 5;
+parameter unsigned BP_1_CNT_BITS = 3;
+parameter bp_t BP_2_TYPE = BP_GLOBAL;
+parameter unsigned BP_2_GR_BITS = 9;
+parameter unsigned BP_2_CNT_BITS = 1;
+parameter unsigned BP_C_PC_BITS = 4;
+parameter unsigned BP_C_CNT_BITS = 4;
+
+//parameter bp_t BP_TYPE = BP_STATIC; // static
+parameter bp_t BP_TYPE = BP_COMBINED; // or combined
+//parameter bp_t BP_TYPE = BP_1_TYPE; // reuse bp_1 param otherwise
 
 // CSRs
 typedef enum logic [11:0] {
@@ -361,6 +394,9 @@ endinterface
 function automatic bit is_pow2 (int x);
     return (x > 0) && ((x & (x - 1)) == 0);
 endfunction
+
+// let max(a,b) = (a > b) ? a : b; // not supported by xsim... sv-2012 was 13 yrs ago
+`define MAX(a,b) (a > b) ? a : b
 
 // helpers synthesizable
 function automatic opc7_t get_opc7(input inst_width_t inst);
