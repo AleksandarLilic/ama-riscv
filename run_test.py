@@ -174,6 +174,7 @@ def run_test(test_path, run_dir, build_dir, make_args, cnt):
         f"RUN_CFG={RUN_CFG}",
         f"TIMEOUT_CLOCKS={make_args.timeout_clocks}",
         f"LOG_LEVEL={make_args.log_level}",
+        f"UNIQUE_WDB=0", # single wdb per test run dir, always the same wdb name
     ]
 
     run_sh = os.path.join(test_dir, "run.sh") # save cmd for rerun if needed

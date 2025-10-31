@@ -30,8 +30,8 @@ TCLBATCH_SWITCH := -tclbatch $(RUN_CFG)
 TEST_PATH ?=
 TEST_WDB := $(shell path='$(TEST_PATH)'; echo "$$(basename "$$(dirname "$$path")")_$$(basename "$$path")")
 
-# useful for standalone make runs
-UNIQUE_WDB ?=
+# useful for standalone make runs, but not for test suite
+UNIQUE_WDB ?= 1
 WDB_SWITCH :=
 ifeq ($(strip $(UNIQUE_WDB)),1)
     WDB_SWITCH := -wdb $(CURDIR)/$(TEST_WDB)
