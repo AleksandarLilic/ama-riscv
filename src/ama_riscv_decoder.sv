@@ -32,11 +32,7 @@ assign rd_nz = (rd_addr_dec != RF_X0_ZERO);
 logic rs1_nz;
 assign rs1_nz = (rs1_addr_dec == RF_X0_ZERO);
 
-decoder_t decoded_d;
-fe_ctrl_t fe_ctrl_d;
 always_comb begin
-    decoded = decoded_d;
-    fe_ctrl = fe_ctrl_d;
     decoded.csr_ctrl = '{en: 1'b0, we: 1'b0, ui: 1'b0, op_sel: CSR_OP_SEL_NONE};
 
     case (opc7_dec)
@@ -231,12 +227,10 @@ always_comb begin
 
         default: begin
             decoded = `DECODER_RST_VAL;
+            fe_ctrl = `FE_CTRL_RST_VAL;
         end
 
     endcase
 end
-
-`DFF_CI_RI_RV(`DECODER_RST_VAL, decoded, decoded_d)
-`DFF_CI_RI_RV(`FE_CTRL_RST_VAL, fe_ctrl, fe_ctrl_d)
 
 endmodule

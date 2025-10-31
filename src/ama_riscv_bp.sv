@@ -75,14 +75,17 @@ if (BP_TYPE_SEL != BP_COMBINED) begin: gen_cnt_up_1
 always_ff @(posedge clk) begin
     if (rst) begin
         // initialize to weakly taken
+        /* verilator lint_off WIDTHTRUNC */
         for (int unsigned c = 0; c < CNT_ENTRIES; c++) cnt[c] <= CNT_THR;
+        /* verilator lint_on WIDTHTRUNC */
     end else if (pipe_in.spec.resolve) begin
         if (taken) cnt[cnt_idx_up] <= cnt[cnt_idx_up] + inc;
         else cnt[cnt_idx_up] <= cnt[cnt_idx_up] - dec;
     end
 end
-
+/* verilator lint_off WIDTHEXPAND */
 assign pred = branch_t'(cnt[cnt_idx] >= CNT_THR);
+/* verilator lint_on WIDTHEXPAND */
 
 end else begin: gen_cnt_up_comb
 
@@ -101,7 +104,9 @@ assign bp_1_hit = (pred_made.bp_1_p == pipe_in.br_res);
 always_ff @(posedge clk) begin
     if (rst) begin
         // initialize to slight bp1 prediction bias
+        /* verilator lint_off WIDTHTRUNC */
         for (int unsigned c = 0; c < CNT_ENTRIES; c++) cnt[c] <= CNT_THR;
+        /* verilator lint_on WIDTHTRUNC */
     end else if (pipe_in.spec.resolve) begin
         if (bp_comp_diff) begin
             if (bp_1_hit) cnt[cnt_idx_up] <= cnt[cnt_idx_up] + inc;
@@ -111,7 +116,9 @@ always_ff @(posedge clk) begin
 end
 
 logic meta;
+/* verilator lint_off WIDTHEXPAND */
 assign meta = (cnt[cnt_idx] >= CNT_THR);
+/* verilator lint_on WIDTHEXPAND */
 assign pred = meta ? bp_comp_pred.bp_1_p : bp_comp_pred.bp_2_p;
 
 end
