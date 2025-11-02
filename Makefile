@@ -43,6 +43,7 @@ COSIM_CHECKER += -testplusarg enable_cosim_checkers
 COSIM_CHECKER += -testplusarg stop_on_cosim_error
 COSIM_CHECKER += -testplusarg prof_trace
 COSIM_CHECKER += -testplusarg prof_pc_start=40000
+#COSIM_CHECKER += -testplusarg prof_pc_single_match=2
 
 all: sim
 

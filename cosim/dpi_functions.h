@@ -30,6 +30,7 @@ DPI_LINKER_DECL DPI_DLLESPEC int cosim_setup(
 	const char* test_bin ,
 	unsigned int prof_pc_start ,
 	unsigned int prof_pc_stop ,
+	unsigned int prof_pc_single_match ,
 	char prof_trace);
 
 

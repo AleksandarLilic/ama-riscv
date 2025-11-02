@@ -13,6 +13,7 @@ cosim_setup(
     input string test_bin,
     input int unsigned prof_pc_start,
     input int unsigned prof_pc_stop,
+    input int unsigned prof_pc_single_match,
     input byte unsigned prof_trace
 );
 
@@ -66,6 +67,7 @@ typedef struct {
     int unsigned log_level;
     int unsigned prof_pc_start;
     int unsigned prof_pc_stop;
+    int unsigned prof_pc_single_match;
     bit prof_trace;
 } plusargs_t;
 
@@ -315,6 +317,10 @@ function void get_plusargs();
         end
         if (!$value$plusargs("prof_pc_stop=%h", args.prof_pc_stop)) begin
             args.prof_pc_stop = 0;
+        end
+        if (!$value$plusargs(
+            "prof_pc_single_match=%h", args.prof_pc_single_match)) begin
+            args.prof_pc_single_match = 0;
         end
         args.prof_trace = $test$plusargs("prof_trace");
         `endif
@@ -594,6 +600,7 @@ initial begin
         {args.test_path, ".elf"},
         args.prof_pc_start,
         args.prof_pc_stop,
+        args.prof_pc_single_match,
         args.prof_trace
     );
     `endif
