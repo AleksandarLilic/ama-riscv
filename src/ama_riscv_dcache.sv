@@ -75,17 +75,6 @@ typedef union packed {
     logic [CACHE_LINE_SIZE/8-1:0] [7:0] b; // byte
 } cache_line_data_t;
 
-typedef struct {
-    logic valid;
-    logic dirty;
-    logic [TAG_W-1:0] tag;
-    cache_line_data_t data;
-} cache_line_t;
-
-typedef struct {
-    cache_line_t set [SETS-1:0];
-} cache_way_t;
-
 typedef union packed {
     logic [ARCH_WIDTH-1:0] wdata;
     logic [ARCH_WIDTH/8-1:0] [7:0] b;
@@ -148,7 +137,10 @@ get_store_mask(input logic [1:0] dw);
 endfunction
 
 // implementation
-cache_way_t way [WAYS-1:0];
+logic a_valid [WAYS-1:0][SETS-1:0];
+logic a_dirty [WAYS-1:0][SETS-1:0];
+logic [TAG_W-1:0] a_tag [WAYS-1:0][SETS-1:0];
+cache_line_data_t a_data [WAYS-1:0][SETS-1:0];
 
 core_request_t cr, cr_d;
 core_request_pending_t cr_pend;
@@ -177,7 +169,7 @@ always_comb begin
 end
 
 end else begin: gen_set_assoc
-logic [WAY_BITS-1:0] lru_cnt [WAYS-1:0][SETS-1:0];
+logic [WAY_BITS-1:0] a_lru [WAYS-1:0][SETS-1:0];
 localparam unsigned LRU_MAX_CNT = WAYS - 1;
 always_comb begin
     cr = `DC_CR_ASSIGN;
@@ -186,16 +178,16 @@ always_comb begin
     tag_match = 1'b0;
     way_victim_idx = '0;
     for (int w = 0; w < WAYS; w++) begin
-        if (way[w].set[set_idx_cr].valid &&
-            (way[w].set[set_idx_cr].tag == tag_cr)) begin
+        if ((a_valid[w][set_idx_cr]) &&
+            (a_tag[w][set_idx_cr] == tag_cr)) begin
             tag_match = 1'b1;
             cr.way_idx = w;
-        end else if (lru_cnt[w][set_idx_cr] == LRU_MAX_CNT) begin
+        end else if (a_lru[w][set_idx_cr] == LRU_MAX_CNT) begin
             way_victim_idx = w;
         end
     end
-    hit = &{tag_match, new_core_req, way[cr.way_idx].set[set_idx_cr].valid};
-    cr_victim_dirty = way[way_victim_idx].set[set_idx_cr].dirty;
+    hit = &{tag_match, new_core_req, a_valid[cr.way_idx][set_idx_cr]};
+    cr_victim_dirty = a_dirty[way_victim_idx][set_idx_cr];
 end
 `DFF_CI_RI_RVI_EN(new_core_req, way_victim_idx, way_victim_idx_d)
 
@@ -222,20 +214,20 @@ always_ff @(posedge clk) begin
     if (rst) begin
         for (int w = 0; w < WAYS; w++) begin
             for (int s = 0; s < SETS; s++) begin
-                lru_cnt[w][s] <= w; // init LRU to way idx
+                a_lru[w][s] <= w; // init LRU to way idx
             end
         end
     end else if (update_lru) begin
         for (int w = 0; w < WAYS; w++) begin
             // if LRU counter is less than the one that hit, increment it
             // no need to make cnt saturating - can't increment last lru
-            if (lru_cnt[w][lca.set_idx] < lru_cnt[lca.way_idx][lca.set_idx])
+            if (a_lru[w][lca.set_idx] < a_lru[lca.way_idx][lca.set_idx])
             begin
-                lru_cnt[w][lca.set_idx] <= lru_cnt[w][lca.set_idx] + 1;
+                a_lru[w][lca.set_idx] <= a_lru[w][lca.set_idx] + 1;
             end
         end
         // hit way becomes LRU 0
-        lru_cnt[lca.way_idx][lca.set_idx] <= '0;
+        a_lru[lca.way_idx][lca.set_idx] <= '0;
     end
 end
 end
@@ -306,21 +298,21 @@ always_ff @(posedge clk) begin
     if (rst) begin
         for (int w = 0; w < WAYS; w++) begin
             for (int s = 0; s < SETS; s++) begin
-                way[w].set[s].valid <= 1'b0;
-                way[w].set[s].dirty <= 1'b0;
-                way[w].set[s].tag <= 'h0;
+                a_valid[w][s] <= 1'b0;
+                a_dirty[w][s] <= 1'b0;
+                a_tag[w][s] <= 'h0;
             end
         end
     clear_pending_on_write <= 1'b0;
 
     end else if (rsp_mem.valid) begin // loading cache line from mem
-        way[cr_pend.cr.way_idx].set[set_idx_pend].data.q[mem_miss_cnt_d] <=
+        a_data[cr_pend.cr.way_idx][set_idx_pend].q[mem_miss_cnt_d] <=
             rsp_mem.data;
         // on the last transfer, update metadata
         if (mem_r_transfer_done) begin
-            way[cr_pend.cr.way_idx].set[set_idx_pend].valid <= 1'b1;
-            way[cr_pend.cr.way_idx].set[set_idx_pend].dirty <= 1'b0;
-            way[cr_pend.cr.way_idx].set[set_idx_pend].tag <=
+            a_valid[cr_pend.cr.way_idx][set_idx_pend] <= 1'b1;
+            a_dirty[cr_pend.cr.way_idx][set_idx_pend] <= 1'b0;
+            a_tag[cr_pend.cr.way_idx][set_idx_pend] <=
                 (cr_pend.mem_r_start_addr >> (2 + IDX_BITS));
         end
     clear_pending_on_write <= 1'b0;
@@ -331,12 +323,11 @@ always_ff @(posedge clk) begin
         // `LOG_D($sformatf("dcache write pending request; in cache line at byte idx %0d; core at byte 0x%5h; with input %8h; store_mask %b", byte_idx_pend, cr_pend.cr.addr, cr_pend.cr.wdata, store_mask));
         for (int i = 0; i < ARCH_WIDTH/8; i++) begin
             if (store_mask[i]) begin
-                way[cr_pend.cr.way_idx]
-                    .set[set_idx_pend]
-                    .data.b[byte_idx_pend + i] <= cr_pend.cr.wdata.b[i];
+                a_data[cr_pend.cr.way_idx][set_idx_pend].b[byte_idx_pend + i] <=
+                    cr_pend.cr.wdata.b[i];
             end
         end
-        way[cr_pend.cr.way_idx].set[set_idx_pend].dirty <= 1'b1;
+        a_dirty[cr_pend.cr.way_idx][set_idx_pend] <= 1'b1;
         clear_pending_on_write <= 1'b1;
 
     end else if (store_hit_req) begin
@@ -344,11 +335,11 @@ always_ff @(posedge clk) begin
         // `LOG_D($sformatf("dcache write hit; in cache line at byte idx %0d; core at byte 0x%5h; with input %8h; store_mask %b", byte_idx_cr, cr.addr, cr.wdata, store_mask));
         for (int i = 0; i < ARCH_WIDTH/8; i++) begin
             if (store_mask[i]) begin
-                way[cr.way_idx].set[set_idx_cr].data.b[byte_idx_cr + i] <=
+                a_data[cr.way_idx][set_idx_cr].b[byte_idx_cr + i] <=
                     cr.wdata.b[i];
             end
         end
-        way[cr.way_idx].set[set_idx_cr].dirty <= 1'b1;
+        a_dirty[cr.way_idx][set_idx_cr] <= 1'b1;
         clear_pending_on_write <= 1'b0;
 
     end else begin
@@ -518,17 +509,16 @@ always_comb begin
                     if (cr_victim_dirty_d) begin
                         if (SETS == 1) begin
                             victim_wb_start_addr =
-                                {way[way_victim_idx_d].set[set_idx].tag, 2'b00};
+                                {a_tag[way_victim_idx_d][set_idx], 2'b00};
                         end else begin
                             victim_wb_start_addr = {
-                                way[way_victim_idx_d].set[set_idx].tag,
+                                a_tag[way_victim_idx_d][set_idx],
                                 set_idx,
                                 2'b00
                             };
                         end
                         // start eviction, initiate memory write
-                        victim_wb_data =
-                            way[way_victim_idx_d].set[set_idx].data.q[0];
+                        victim_wb_data = a_data[way_victim_idx_d][set_idx].q[0];
                         req_mem_w.valid = 1'b1;
                         req_mem_w.addr = victim_wb_start_addr;
                         req_mem_w.wdata = victim_wb_data;
@@ -544,7 +534,7 @@ always_comb begin
                 end
             end
             if (serve_pending_load || hit_d_load) begin
-                data_out = way[way_idx].set[set_idx].data.w[word_idx];
+                data_out = a_data[way_idx][set_idx].w[word_idx];
                 // `LOG_D($sformatf("dcache data out: %8h", data_out));
             end
         end
@@ -563,13 +553,12 @@ always_comb begin
             set_idx = get_idx(cr_d.addr);
             if (SETS == 1) begin
                 victim_wb_start_addr =
-                    {way[way_victim_idx_d].set[set_idx].tag, 2'b00};
+                    {a_tag[way_victim_idx_d][set_idx], 2'b00};
             end else begin
                 victim_wb_start_addr =
-                    {way[way_victim_idx_d].set[set_idx].tag, set_idx, 2'b00};
+                    {a_tag[way_victim_idx_d][set_idx], set_idx, 2'b00};
             end
-            victim_wb_data =
-                way[way_victim_idx_d].set[set_idx].data.q[mem_evict_cnt];
+            victim_wb_data = a_data[way_victim_idx_d][set_idx].q[mem_evict_cnt];
             req_mem_w.valid = 1'b1;
             req_mem_w.addr = victim_wb_start_addr + mem_evict_cnt;
             req_mem_w.wdata = victim_wb_data;
