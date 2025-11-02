@@ -33,7 +33,8 @@ logic rs1_nz;
 assign rs1_nz = (rs1_addr_dec == RF_X0_ZERO);
 
 always_comb begin
-    decoded.csr_ctrl = '{en: 1'b0, we: 1'b0, ui: 1'b0, op_sel: CSR_OP_SEL_NONE};
+    decoded = `DECODER_RST_VAL;
+    fe_ctrl = `FE_CTRL_RST_VAL;
 
     case (opc7_dec)
         OPC7_R_TYPE: begin
