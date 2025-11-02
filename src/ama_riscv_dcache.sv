@@ -159,86 +159,85 @@ logic [WAY_BITS-1:0] way_victim_idx, way_victim_idx_d;
 logic new_core_req, new_core_req_d;
 logic hit, hit_d;
 logic cr_victim_dirty, cr_victim_dirty_d;
-logic load_hit_req, store_hit_req, store_req_pending;
+logic load_hit_req, store_hit_req, load_req_pending, store_req_pending;
 
 if (WAYS == 1) begin: gen_direct_mapped
-    // wrap in always_comb to force functions to evaluate first
-    always_comb begin
-        cr = `DC_CR_ASSIGN;
-        set_idx_cr = get_idx(cr.addr);
-        tag_cr = get_tag(cr.addr);
-        // hardwired values for direct-mapped
-        way_victim_idx = '0;
-        way_victim_idx_d = '0;
-        // tag search
-        tag_match = (way[cr.way_idx].set[set_idx_cr].tag == tag_cr);
-        hit = &{tag_match, new_core_req, way[cr.way_idx].set[set_idx_cr].valid};
-        cr_victim_dirty = way[cr.way_idx].set[set_idx_cr].dirty;
-    end
+// wrap in always_comb to force functions to evaluate first
+always_comb begin
+    cr = `DC_CR_ASSIGN;
+    set_idx_cr = get_idx(cr.addr);
+    tag_cr = get_tag(cr.addr);
+    // hardwired values for direct-mapped
+    way_victim_idx = '0;
+    way_victim_idx_d = '0;
+    // tag search
+    tag_match = (way[cr.way_idx].set[set_idx_cr].tag == tag_cr);
+    hit = &{tag_match, new_core_req, way[cr.way_idx].set[set_idx_cr].valid};
+    cr_victim_dirty = way[cr.way_idx].set[set_idx_cr].dirty;
+end
 
 end else begin: gen_set_assoc
-    logic [WAY_BITS-1:0] lru_cnt [WAYS-1:0][SETS-1:0];
-    localparam unsigned LRU_MAX_CNT = WAYS - 1;
-    always_comb begin
-        cr = `DC_CR_ASSIGN;
-        set_idx_cr = get_idx(cr.addr);
-        tag_cr = get_tag(cr.addr);
-        tag_match = 1'b0;
-        way_victim_idx = '0;
+logic [WAY_BITS-1:0] lru_cnt [WAYS-1:0][SETS-1:0];
+localparam unsigned LRU_MAX_CNT = WAYS - 1;
+always_comb begin
+    cr = `DC_CR_ASSIGN;
+    set_idx_cr = get_idx(cr.addr);
+    tag_cr = get_tag(cr.addr);
+    tag_match = 1'b0;
+    way_victim_idx = '0;
+    for (int w = 0; w < WAYS; w++) begin
+        if (way[w].set[set_idx_cr].valid &&
+            (way[w].set[set_idx_cr].tag == tag_cr)) begin
+            tag_match = 1'b1;
+            cr.way_idx = w;
+        end else if (lru_cnt[w][set_idx_cr] == LRU_MAX_CNT) begin
+            way_victim_idx = w;
+        end
+    end
+    hit = &{tag_match, new_core_req, way[cr.way_idx].set[set_idx_cr].valid};
+    cr_victim_dirty = way[way_victim_idx].set[set_idx_cr].dirty;
+end
+`DFF_CI_RI_RVI_EN(new_core_req, way_victim_idx, way_victim_idx_d)
+
+// FIXME: it's still not matching ISA sim dcache model
+// lru
+lru_cnt_access_t lca;
+always_comb begin
+    if (load_req_pending || store_req_pending) begin
+        lca.way_idx = cr_pend.cr.way_idx;
+        lca.set_idx = get_idx(cr_pend.cr.addr);
+    end else if (load_hit_req || store_hit_req) begin
+        lca.way_idx = cr.way_idx;
+        lca.set_idx = get_idx(cr.addr);
+    end else begin
+        lca = '{'h0, 'h0};
+    end
+end
+
+logic update_lru;
+assign update_lru =
+    load_hit_req || store_hit_req || load_req_pending || store_req_pending;
+
+always_ff @(posedge clk) begin
+    if (rst) begin
         for (int w = 0; w < WAYS; w++) begin
-            if (way[w].set[set_idx_cr].valid &&
-                (way[w].set[set_idx_cr].tag == tag_cr)) begin
-                tag_match = 1'b1;
-                cr.way_idx = w;
-            end else if (lru_cnt[w][set_idx_cr] == LRU_MAX_CNT) begin
-                way_victim_idx = w;
+            for (int s = 0; s < SETS; s++) begin
+                lru_cnt[w][s] <= w; // init LRU to way idx
             end
         end
-        hit = &{tag_match, new_core_req, way[cr.way_idx].set[set_idx_cr].valid};
-        cr_victim_dirty = way[way_victim_idx].set[set_idx_cr].dirty;
-    end
-    `DFF_CI_RI_RVI_EN(new_core_req, way_victim_idx, way_victim_idx_d)
-
-    // lru
-    lru_cnt_access_t lca;
-    always_comb begin
-        if (store_req_pending) begin
-            lca.way_idx = cr_pend.cr.way_idx;
-            lca.set_idx = get_idx(cr_pend.cr.addr);
-        end else if (store_hit_req) begin
-            lca.way_idx = cr.way_idx;
-            lca.set_idx = get_idx(cr.addr);
-        end else if (load_hit_req) begin
-            lca.way_idx = cr_d.way_idx;
-            lca.set_idx = get_idx(cr_d.addr);
-        end else begin
-            lca = '{'h0, 'h0};
-        end
-    end
-
-    logic update_lru;
-    assign update_lru = store_req_pending || store_hit_req || load_hit_req;
-
-    always_ff @(posedge clk) begin
-        if (rst) begin
-            for (int w = 0; w < WAYS; w++) begin
-                for (int s = 0; s < SETS; s++) begin
-                    lru_cnt[w][s] <= w; // init LRU to way idx
-                end
+    end else if (update_lru) begin
+        for (int w = 0; w < WAYS; w++) begin
+            // if LRU counter is less than the one that hit, increment it
+            // no need to make cnt saturating - can't increment last lru
+            if (lru_cnt[w][lca.set_idx] < lru_cnt[lca.way_idx][lca.set_idx])
+            begin
+                lru_cnt[w][lca.set_idx] <= lru_cnt[w][lca.set_idx] + 1;
             end
-        end else if (update_lru) begin
-            for (int w = 0; w < WAYS; w++) begin
-                // if LRU counter is less than the one that hit, increment it
-                // no need to make cnt saturating - can't increment last lru
-                if (lru_cnt[w][lca.set_idx] < lru_cnt[lca.way_idx][lca.set_idx])
-                begin
-                    lru_cnt[w][lca.set_idx] <= lru_cnt[w][lca.set_idx] + 1;
-                end
-            end
-            // hit way becomes LRU 0
-            lru_cnt[lca.way_idx][lca.set_idx] <= '0;
         end
+        // hit way becomes LRU 0
+        lru_cnt[lca.way_idx][lca.set_idx] <= '0;
     end
+end
 end
 
 assign new_core_req = (req_core.valid && req_core.ready);
@@ -293,8 +292,11 @@ assign byte_idx_pend = get_cl_byte_idx(cr_pend.cr.addr);
 logic [CACHE_LINE_BYTE_ADDR-1:0] byte_idx_cr;
 assign byte_idx_cr = get_cl_byte_idx(cr.addr);
 
-assign load_hit_req = (hit_d && (cr_d.rtype == DMEM_READ) && new_core_req_d);
+assign load_hit_req = (hit && (cr.rtype == DMEM_READ) && new_core_req);
 assign store_hit_req = (hit && (cr.rtype == DMEM_WRITE) && new_core_req);
+assign load_req_pending = (
+    mem_r_transfer_done_d && cr_pend.active && (cr_pend.cr.rtype == DMEM_READ)
+);
 assign store_req_pending = (
     mem_r_transfer_done_d && cr_pend.active && (cr_pend.cr.rtype == DMEM_WRITE)
 );
@@ -363,7 +365,7 @@ logic [CORE_BYTE_ADDR_BUS-1:0] dbg_req_core_bytes_valid;
 assign dbg_req_core_bytes_valid =
     ((cr.addr) & {CORE_BYTE_ADDR_BUS{req_core.valid}});
 
-if (SETS > 1) begin: dbg_s2p
+if (SETS > 1) begin: dbg_s2p // 2 plus sets
 typedef struct packed {
     logic [TAG_W-1:0] tag;
     logic [IDX_BITS-1:0] set_idx;
@@ -372,7 +374,7 @@ typedef struct packed {
 dbg_core_addr_t dbg_core_addr;
 assign dbg_core_addr = cr.addr;
 
-end else begin: dbg_s1
+end else begin: dbg_s1 // 1 set
 typedef struct packed {
     logic [TAG_W-1:0] tag;
     logic [5:0] byte_addr;
