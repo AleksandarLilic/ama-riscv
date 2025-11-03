@@ -52,20 +52,7 @@ typedef union packed {
     logic [CACHE_LINE_SIZE-1:0] f; // flat view
     logic [CACHE_LINE_SIZE/MEM_DATA_BUS-1:0] [MEM_DATA_BUS-1:0] q; // mem bus
     logic [CACHE_LINE_SIZE/INST_WIDTH-1:0] [INST_WIDTH-1:0] w; // inst 32
-    // logic [CACHE_LINE_SIZE/16-1:0] [15:0] h; // inst 16 (compressed isa)
-    // logic [CACHE_LINE_SIZE/8-1:0] [7:0] b; // byte
 } cache_line_data_t;
-
-typedef struct {
-    logic valid;
-    logic [WAY_BITS-1:0] lru_cnt; // optimized away for direct-mapped cache
-    logic [TAG_W-1:0] tag;
-    cache_line_data_t data;
-} cache_line_t;
-
-typedef struct {
-    cache_line_t set [SETS-1:0];
-} cache_way_t;
 
 typedef struct packed {
     logic [CORE_WORD_ADDR_BUS-1:0] addr;
@@ -77,6 +64,11 @@ typedef struct packed {
     logic [MEM_ADDR_BUS-1:0] mem_start_addr;
     core_request_t cr;
 } core_request_pending_t;
+
+typedef struct packed {
+    logic [WAY_BITS-1:0] way_idx;
+    logic [IDX_RANGE_TOP-1:0] set_idx;
+} lru_cnt_access_t;
 
 // helper functions
 function automatic [TAG_W-1:0]
@@ -95,53 +87,93 @@ get_cl_word(input logic [CORE_WORD_ADDR_BUS-1:0] addr);
 endfunction
 
 // implementation
-cache_way_t way [WAYS-1:0];
+logic a_valid [WAYS-1:0][SETS-1:0];
+logic [TAG_W-1:0] a_tag [WAYS-1:0][SETS-1:0];
+cache_line_data_t a_data [WAYS-1:0][SETS-1:0];
 
 core_request_t cr, cr_d;
+core_request_pending_t cr_pend;
 logic tag_match;
 logic [TAG_W-1:0] tag_cr;
 logic [IDX_RANGE_TOP-1:0] set_idx_cr;
 logic [WAY_BITS-1:0] way_victim_idx, way_victim_idx_d;
 logic new_core_req, new_core_req_d;
 logic hit, hit_d;
+logic load_req_hit, load_req_pending;
 
-if (WAYS == 1) begin: direct_mapped_search
-    // wrap in always_comb to force functions to evaluate first
-    always_comb begin
-        cr.addr = req_core.data;
-        cr.way_idx = 'h0;
-        set_idx_cr = get_idx(cr.addr);
-        tag_cr = get_tag(cr.addr);
-        // hardwired values for direct-mapped
-        way_victim_idx = '0;
-        way_victim_idx_d = '0;
-        // tag search
-        tag_match = (way[cr.way_idx].set[set_idx_cr].tag == tag_cr);
-        hit = &{tag_match, new_core_req, way[cr.way_idx].set[set_idx_cr].valid};
+if (WAYS == 1) begin: gen_direct_mapped
+// wrap in always_comb to force functions to evaluate first
+always_comb begin
+    cr.addr = req_core.data;
+    cr.way_idx = 'h0;
+    set_idx_cr = get_idx(cr.addr);
+    tag_cr = get_tag(cr.addr);
+    // hardwired values for direct-mapped
+    way_victim_idx = '0;
+    way_victim_idx_d = '0;
+    // tag search
+    tag_match = (a_tag[cr.way_idx][set_idx_cr] == tag_cr);
+    hit = &{tag_match, new_core_req, a_valid[cr.way_idx][set_idx_cr]};
+end
+
+end else begin: gen_set_assoc
+logic [WAY_BITS-1:0] a_lru [WAYS-1:0][SETS-1:0];
+localparam unsigned LRU_MAX_CNT = WAYS - 1;
+always_comb begin
+    cr.addr = req_core.data;
+    cr.way_idx = '0;
+    set_idx_cr = get_idx(cr.addr);
+    tag_cr = get_tag(cr.addr);
+    tag_match = 1'b0;
+    way_victim_idx = '0;
+    for (int w = 0; w < WAYS; w++) begin
+        if (a_valid[w][set_idx_cr] && (a_tag[w][set_idx_cr] == tag_cr)) begin
+            tag_match = 1'b1;
+            cr.way_idx = w;
+        end else if (a_lru[w][set_idx_cr] == LRU_MAX_CNT) begin
+            way_victim_idx = w;
+        end
     end
+    hit = &{tag_match, new_core_req, a_valid[cr.way_idx][set_idx_cr]};
+end
+`DFF_CI_RI_RVI(way_victim_idx, way_victim_idx_d)
 
-end else begin: set_associative_search
-    localparam unsigned LRU_MAX_CNT = WAYS - 1;
-    always_comb begin
-        cr.addr = req_core.data;
-        cr.way_idx = '0;
-        set_idx_cr = get_idx(cr.addr);
-        tag_cr = get_tag(cr.addr);
-        tag_match = 1'b0;
-        way_victim_idx = '0;
+// lru
+lru_cnt_access_t lca;
+always_comb begin
+    if (load_req_pending) begin
+        lca.way_idx = cr_pend.cr.way_idx;
+        lca.set_idx = get_idx(cr_pend.cr.addr);
+    end else if (load_req_hit) begin
+        lca.way_idx = cr.way_idx;
+        lca.set_idx = get_idx(cr.addr);
+    end else begin
+        lca = '{'h0, 'h0};
+    end
+end
+
+logic update_lru;
+assign update_lru = load_req_hit || load_req_pending;
+
+always_ff @(posedge clk) begin
+    if (rst) begin
         for (int w = 0; w < WAYS; w++) begin
-            if (way[w].set[set_idx_cr].valid &&
-                (way[w].set[set_idx_cr].tag == tag_cr)) begin
-                tag_match = 1'b1;
-                cr.way_idx = w;
-            end else if (way[w].set[set_idx_cr].lru_cnt == LRU_MAX_CNT) begin
-                way_victim_idx = w;
+            for (int s = 0; s < SETS; s++) begin
+                a_lru[w][s] <= w; // init LRU to way idx
             end
         end
-        hit = &{tag_match, new_core_req, way[cr.way_idx].set[set_idx_cr].valid};
+    end else if (update_lru) begin
+        for (int w = 0; w < WAYS; w++) begin
+            // if LRU counter is less than the one that hit, increment it
+            // no need to make cnt saturating - can't increment last lru
+            if (a_lru[w][lca.set_idx] < a_lru[lca.way_idx][lca.set_idx]) begin
+                a_lru[w][lca.set_idx] <= a_lru[w][lca.set_idx] + 1;
+            end
+        end
+        // hit way becomes LRU 0
+        a_lru[lca.way_idx][lca.set_idx] <= '0;
     end
-
-`DFF_CI_RI_RVI(way_victim_idx, way_victim_idx_d)
+end
 end
 
 assign new_core_req = (req_core.valid && (req_core.ready || spec.wrong));
@@ -153,10 +185,8 @@ assign new_core_req = (req_core.valid && (req_core.ready || spec.wrong));
 logic [MEM_ADDR_BUS-1:0] mem_start_addr_d; // address aligned to first mem block
 assign mem_start_addr_d = (cr_d.addr >> 2) & ~'b11;
 
-icache_state_t state, nx_state;
-core_request_pending_t cr_pend;
-
 logic save_pending, clear_pending;
+icache_state_t state, nx_state;
 always_ff @(posedge clk) begin
     if (rst) begin
         cr_pend <= `IC_CR_PEND_CLEAR;
@@ -179,9 +209,13 @@ logic [CNT_WIDTH-1:0] mem_miss_cnt;
 logic [CNT_WIDTH-1:0] mem_miss_cnt_d;
 `DFF_CI_RI_RVI(mem_miss_cnt, mem_miss_cnt_d)
 
-logic mem_transfer_done;
+logic mem_r_transfer_done, mem_r_transfer_done_d;
 assign mem_transfer_done =
     (rsp_mem.valid && (mem_miss_cnt_d == (MEM_TRANSFERS_PER_CL - 1)));
+`DFF_CI_RI_RVI(mem_r_transfer_done, mem_r_transfer_done_d)
+
+assign load_req_hit = (hit && new_core_req);
+assign load_req_pending = (mem_r_transfer_done_d && cr_pend.active);
 
 logic [IDX_RANGE_TOP-1:0] set_idx_pend;
 logic [IDX_RANGE_TOP-1:0] set_idx_cr_d;
@@ -189,42 +223,27 @@ logic [IDX_RANGE_TOP-1:0] set_idx_cr_d;
 assign set_idx_pend = get_idx(cr_pend.cr.addr);
 assign set_idx_cr_d = get_idx(cr_d.addr);
 
+logic [TAG_W-1:0] tag_pend;
+assign tag_pend = (cr_pend.mem_start_addr >> (2 + IDX_BITS));
+
 always_ff @(posedge clk) begin
     if (rst) begin
         for (int w = 0; w < WAYS; w++) begin
             for (int s = 0; s < SETS; s++) begin
-                way[w].set[s].valid <= 1'b0;
-                way[w].set[s].tag <= 'h0;
-                if (WAYS > 1) way[w].set[s].lru_cnt <= w; // init LRU to way idx
+                a_valid[w][s] <= 1'b0;
+                a_tag[w][s] <= 'h0;
             end
         end
     end else if (rsp_mem.valid) begin // loading cache line from mem
-        way[cr_pend.cr.way_idx].set[set_idx_pend].data.q[mem_miss_cnt_d] <=
+        a_data[cr_pend.cr.way_idx][set_idx_pend].q[mem_miss_cnt_d] <=
             rsp_mem.data;
         // on the last transfer, update valid and tag
         if (mem_transfer_done) begin
-            way[cr_pend.cr.way_idx].set[set_idx_pend].valid <= 1'b1;
-            way[cr_pend.cr.way_idx].set[set_idx_pend].tag <=
-                (cr_pend.mem_start_addr >> (2 + IDX_BITS));
-            // NOTE: new line not promoted, still has the largest LRU atm
-        end
-    end else if (new_core_req && hit) begin // update LRU on hit
-        // optimized away for direct-mapped cache
-        if (WAYS > 1) begin
-            for (int w = 0; w < WAYS; w++) begin
-                // if LRU counter is less than the one that hit, increment it
-                // no need to make cnt saturating - can't increment last lru
-                if (way[w].set[set_idx_cr].lru_cnt <
-                    way[cr.way_idx].set[set_idx_cr].lru_cnt) begin
-                    way[w].set[set_idx_cr].lru_cnt <=
-                        way[w].set[set_idx_cr].lru_cnt + 1;
-                end
-            end
-        // hit way becomes LRU 0
-        way[cr.way_idx].set[set_idx_cr].lru_cnt <= '0;
+            a_valid[cr_pend.cr.way_idx][set_idx_pend] <= 1'b1;
+            a_tag[cr_pend.cr.way_idx][set_idx_pend] <= tag_pend;
         end
     end else if (new_core_req && !hit) begin // invalidate line right away
-        way[way_victim_idx].set[set_idx_cr].valid = 1'b0;
+        a_valid[way_victim_idx][set_idx_cr] = 1'b0;
         //`LOG_D($sformatf("i$ invalidating way %0d, set %0d", way_victim_idx, set_idx_cr));
     end
 end
@@ -294,10 +313,13 @@ always_comb begin
     endcase
 end
 
-// because reasons
-logic [IDX_RANGE_TOP-1:0] set_idx;
-logic [15:0] word_idx;
+logic serve_pending_load, hit_d_load;
+assign serve_pending_load = (cr_pend.active && !new_core_req_d);
+assign hit_d_load = (hit_d && new_core_req_d);
 
+logic [IDX_RANGE_TOP-1:0] set_idx;
+logic [WAY_BITS-1:0] way_idx;
+logic [15:0] word_idx;
 // outputs
 always_comb begin
     // to/from core
@@ -313,6 +335,7 @@ always_comb begin
     clear_pending = 1'b0;
     set_idx = 'h0;
     word_idx = 'h0;
+    way_idx = 'h0;
 
     case (state)
         IC_RESET: begin
@@ -324,23 +347,21 @@ always_comb begin
 
         IC_READY: begin
             req_core.ready = 1'b1;
-            if (cr_pend.active && !new_core_req_d) begin
+            if (serve_pending_load) begin
                 // service the pending request after miss
+                rsp_core.valid = 1'b1;
                 set_idx = get_idx(cr_pend.cr.addr);
                 word_idx = get_cl_word(cr_pend.cr.addr);
-                rsp_core.valid = 1'b1;
-                rsp_core.data =
-                    way[cr_pend.cr.way_idx].set[set_idx].data.w[word_idx];
+                way_idx = cr_pend.cr.way_idx;
                 clear_pending = 1'b1;
                 // `LOG_D($sformatf("icache OUT complete pending request; cache at word %0d; core at byte 0x%5h; with output %8h", get_cl_word(cr_pend.cr.addr), cr_d.addr<<2, rsp_core.data));
 
             end else if (new_core_req_d) begin
                 if (hit_d) begin
+                    rsp_core.valid = 1'b1;
                     set_idx = get_idx(cr_d.addr);
                     word_idx = get_cl_word(cr_d.addr);
-                    rsp_core.valid = 1'b1;
-                    rsp_core.data =
-                        way[cr_d.way_idx].set[set_idx].data.w[word_idx];
+                    way_idx = cr_d.way_idx;
                     // `LOG_D($sformatf("icache OUT hit; cache at word %0d; core at byte 0x%5h; with output %8h", get_idx(cr_d.addr), cr_d.addr<<2, rsp_core.data));
 
                 end else if (!spec.wrong) begin
@@ -354,6 +375,11 @@ always_comb begin
                     save_pending = 1'b1;
                     // `LOG_D($sformatf("icache OUT H->M transition; core at byte 0x%5h; mem_start_addr_d: %0d 0x%5h", cr_d.addr<<2, mem_start_addr_d, mem_start_addr_d));
                 end
+            end
+
+            if (serve_pending_load || hit_d_load) begin
+                rsp_core.data = a_data[way_idx][set_idx].w[word_idx];
+                // `LOG_D($sformatf("dcache data out: %8h", rsp_core.data));
             end
         end
 
