@@ -71,18 +71,11 @@ typedef union packed {
     logic [CACHE_LINE_SIZE-1:0] f; // flat view
     logic [CACHE_LINE_SIZE/MEM_DATA_BUS-1:0] [MEM_DATA_BUS-1:0] q; // mem bus
     logic [CACHE_LINE_SIZE/ARCH_WIDTH-1:0] [ARCH_WIDTH-1:0] w; // core
-    // logic [CACHE_LINE_SIZE/16-1:0] [15:0] h; // half
-    logic [CACHE_LINE_SIZE/8-1:0] [7:0] b; // byte
 } cache_line_data_t;
-
-typedef union packed {
-    logic [ARCH_WIDTH-1:0] wdata;
-    logic [ARCH_WIDTH/8-1:0] [7:0] b;
-} core_data_t;
 
 typedef struct packed {
     logic [CORE_BYTE_ADDR_BUS-1:0] addr;
-    core_data_t wdata;
+    logic [ARCH_WIDTH-1:0] wdata;
     dmem_dtype_t dtype;
     dmem_rtype_t rtype;
     logic [WAY_BITS-1:0] way_idx;
@@ -99,7 +92,7 @@ typedef struct packed {
     logic [WAY_BITS-1:0] way_idx;
     logic [IDX_RANGE_TOP-1:0] set_idx;
     logic [CACHE_LINE_BYTE_ADDR-1:0] byte_idx;
-    core_data_t wdata;
+    logic [ARCH_WIDTH-1:0] wdata;
 } store_to_cache_t;
 
 typedef struct packed {
@@ -186,8 +179,7 @@ always_comb begin
     tag_match = 1'b0;
     way_victim_idx = '0;
     for (int w = 0; w < WAYS; w++) begin
-        if ((a_valid[w][set_idx_cr]) &&
-            (a_tag[w][set_idx_cr] == tag_cr)) begin
+        if (a_valid[w][set_idx_cr] && (a_tag[w][set_idx_cr] == tag_cr)) begin
             tag_match = 1'b1;
             cr.way_idx = w;
         end else if (a_lru[w][set_idx_cr] == LRU_MAX_CNT) begin
@@ -229,8 +221,7 @@ always_ff @(posedge clk) begin
         for (int w = 0; w < WAYS; w++) begin
             // if LRU counter is less than the one that hit, increment it
             // no need to make cnt saturating - can't increment last lru
-            if (a_lru[w][lca.set_idx] < a_lru[lca.way_idx][lca.set_idx])
-            begin
+            if (a_lru[w][lca.set_idx] < a_lru[lca.way_idx][lca.set_idx]) begin
                 a_lru[w][lca.set_idx] <= a_lru[w][lca.set_idx] + 1;
             end
         end
