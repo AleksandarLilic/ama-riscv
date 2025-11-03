@@ -95,6 +95,14 @@ typedef struct packed {
 } core_request_pending_t;
 
 typedef struct packed {
+    dmem_dtype_t dtype;
+    logic [WAY_BITS-1:0] way_idx;
+    logic [IDX_RANGE_TOP-1:0] set_idx;
+    logic [CACHE_LINE_BYTE_ADDR-1:0] byte_idx;
+    core_data_t wdata;
+} store_to_cache_t;
+
+typedef struct packed {
     logic [WAY_BITS-1:0] way_idx;
     logic [IDX_RANGE_TOP-1:0] set_idx;
 } lru_cnt_access_t;
@@ -151,7 +159,7 @@ logic [WAY_BITS-1:0] way_victim_idx, way_victim_idx_d;
 logic new_core_req, new_core_req_d;
 logic hit, hit_d;
 logic cr_victim_dirty, cr_victim_dirty_d;
-logic load_hit_req, store_hit_req, load_req_pending, store_req_pending;
+logic load_req_hit, store_req_hit, load_req_pending, store_req_pending;
 
 if (WAYS == 1) begin: gen_direct_mapped
 // wrap in always_comb to force functions to evaluate first
@@ -163,9 +171,9 @@ always_comb begin
     way_victim_idx = '0;
     way_victim_idx_d = '0;
     // tag search
-    tag_match = (way[cr.way_idx].set[set_idx_cr].tag == tag_cr);
-    hit = &{tag_match, new_core_req, way[cr.way_idx].set[set_idx_cr].valid};
-    cr_victim_dirty = way[cr.way_idx].set[set_idx_cr].dirty;
+    tag_match = (a_tag[cr.way_idx][set_idx_cr] == tag_cr);
+    hit = &{tag_match, new_core_req, a_valid[cr.way_idx][set_idx_cr]};
+    cr_victim_dirty = a_dirty[cr.way_idx][set_idx_cr];
 end
 
 end else begin: gen_set_assoc
@@ -198,7 +206,7 @@ always_comb begin
     if (load_req_pending || store_req_pending) begin
         lca.way_idx = cr_pend.cr.way_idx;
         lca.set_idx = get_idx(cr_pend.cr.addr);
-    end else if (load_hit_req || store_hit_req) begin
+    end else if (load_req_hit || store_req_hit) begin
         lca.way_idx = cr.way_idx;
         lca.set_idx = get_idx(cr.addr);
     end else begin
@@ -208,7 +216,7 @@ end
 
 logic update_lru;
 assign update_lru =
-    load_hit_req || store_hit_req || load_req_pending || store_req_pending;
+    load_req_hit || store_req_hit || load_req_pending || store_req_pending;
 
 always_ff @(posedge clk) begin
     if (rst) begin
@@ -277,15 +285,8 @@ assign mem_r_transfer_done =
     (rsp_mem.valid && (mem_miss_cnt_d == (MEM_TRANSFERS_PER_CL - 1)));
 `DFF_CI_RI_RVI(mem_r_transfer_done, mem_r_transfer_done_d)
 
-logic [IDX_RANGE_TOP-1:0] set_idx_pend;
-assign set_idx_pend = get_idx(cr_pend.cr.addr);
-logic [CACHE_LINE_BYTE_ADDR-1:0] byte_idx_pend;
-assign byte_idx_pend = get_cl_byte_idx(cr_pend.cr.addr);
-logic [CACHE_LINE_BYTE_ADDR-1:0] byte_idx_cr;
-assign byte_idx_cr = get_cl_byte_idx(cr.addr);
-
-assign load_hit_req = (hit && (cr.rtype == DMEM_READ) && new_core_req);
-assign store_hit_req = (hit && (cr.rtype == DMEM_WRITE) && new_core_req);
+assign load_req_hit = (hit && (cr.rtype == DMEM_READ) && new_core_req);
+assign store_req_hit = (hit && (cr.rtype == DMEM_WRITE) && new_core_req);
 assign load_req_pending = (
     mem_r_transfer_done_d && cr_pend.active && (cr_pend.cr.rtype == DMEM_READ)
 );
@@ -293,7 +294,49 @@ assign store_req_pending = (
     mem_r_transfer_done_d && cr_pend.active && (cr_pend.cr.rtype == DMEM_WRITE)
 );
 
-logic [(ARCH_WIDTH/8)-1:0] store_mask;
+logic [IDX_RANGE_TOP-1:0] set_idx_pend;
+logic [CACHE_LINE_BYTE_ADDR-1:0] byte_idx_pend;
+logic [CACHE_LINE_BYTE_ADDR-1:0] byte_idx_cr;
+assign set_idx_pend = get_idx(cr_pend.cr.addr);
+assign byte_idx_pend = get_cl_byte_idx(cr_pend.cr.addr);
+assign byte_idx_cr = get_cl_byte_idx(cr.addr);
+
+store_to_cache_t stc;
+always_comb begin
+    if (store_req_pending || rsp_mem.valid) begin
+        stc.dtype = cr_pend.cr.dtype;
+        stc.way_idx = cr_pend.cr.way_idx;
+        stc.set_idx = set_idx_pend;
+        stc.byte_idx = byte_idx_pend;
+        stc.wdata = cr_pend.cr.wdata;
+    end else begin // store_req_hit
+        stc.dtype = cr.dtype;
+        stc.way_idx = cr.way_idx;
+        stc.set_idx = set_idx_cr;
+        stc.byte_idx = byte_idx_cr;
+        stc.wdata = cr.wdata;
+    end
+end
+
+logic [(ARCH_WIDTH/8)-1:0] store_mask_b;
+assign store_mask_b = get_store_mask(stc.dtype[1:0]);
+
+logic [MEM_DATA_BUS_B-1:0] store_mask_q, store_mask_core;
+assign store_mask_core = {12'h0, store_mask_b} << stc.byte_idx[3:0];
+assign store_mask_q = rsp_mem.valid ? 16'hffff : store_mask_core;
+
+logic [MEM_DATA_BUS-1:0] store_data_q, store_data_core;
+logic [7:0] store_shift_core;
+assign store_shift_core = (stc.byte_idx[3:0] << 3);
+assign store_data_core = {96'h0, stc.wdata} << store_shift_core;
+assign store_data_q = rsp_mem.valid ? rsp_mem.data : store_data_core;
+
+logic [1:0] stc_byte_idx_top;
+assign stc_byte_idx_top = rsp_mem.valid ? mem_miss_cnt_d : stc.byte_idx[5:4];
+
+logic [TAG_W-1:0] tag_pend;
+assign tag_pend = (cr_pend.mem_r_start_addr >> (2 + IDX_BITS));
+
 always_ff @(posedge clk) begin
     if (rst) begin
         for (int w = 0; w < WAYS; w++) begin
@@ -303,51 +346,34 @@ always_ff @(posedge clk) begin
                 a_tag[w][s] <= 'h0;
             end
         end
-    clear_pending_on_write <= 1'b0;
 
-    end else if (rsp_mem.valid) begin // loading cache line from mem
-        a_data[cr_pend.cr.way_idx][set_idx_pend].q[mem_miss_cnt_d] <=
-            rsp_mem.data;
-        // on the last transfer, update metadata
+    end else if (rsp_mem.valid || store_req_pending || store_req_hit) begin
+        for (int i = 0; i < MEM_DATA_BUS_B; i++) begin
+            if (store_mask_q[i]) begin
+                a_data[stc.way_idx][stc.set_idx]
+                    .q[stc_byte_idx_top][i<<3 +: 8] <= store_data_q[i<<3 +: 8];
+            end
+        end
         if (mem_r_transfer_done) begin
-            a_valid[cr_pend.cr.way_idx][set_idx_pend] <= 1'b1;
-            a_dirty[cr_pend.cr.way_idx][set_idx_pend] <= 1'b0;
-            a_tag[cr_pend.cr.way_idx][set_idx_pend] <=
-                (cr_pend.mem_r_start_addr >> (2 + IDX_BITS));
+            a_valid[stc.way_idx][stc.set_idx] <= 1'b1;
+            a_dirty[stc.way_idx][stc.set_idx] <= 1'b0;
+            a_tag[stc.way_idx][stc.set_idx] <= tag_pend;
         end
-    clear_pending_on_write <= 1'b0;
-
-    end else if (store_req_pending) begin
-        // store pending req once eviction & miss on write-allocate are done
-        store_mask = get_store_mask(cr_pend.cr.dtype[1:0]);
-        // `LOG_D($sformatf("dcache write pending request; in cache line at byte idx %0d; core at byte 0x%5h; with input %8h; store_mask %b", byte_idx_pend, cr_pend.cr.addr, cr_pend.cr.wdata, store_mask));
-        for (int i = 0; i < ARCH_WIDTH/8; i++) begin
-            if (store_mask[i]) begin
-                a_data[cr_pend.cr.way_idx][set_idx_pend].b[byte_idx_pend + i] <=
-                    cr_pend.cr.wdata.b[i];
-            end
+        if (store_req_pending || store_req_hit) begin
+            a_dirty[stc.way_idx][stc.set_idx] <= 1'b1;
         end
-        a_dirty[cr_pend.cr.way_idx][set_idx_pend] <= 1'b1;
-        clear_pending_on_write <= 1'b1;
-
-    end else if (store_hit_req) begin
-        store_mask = get_store_mask(cr.dtype[1:0]);
-        // `LOG_D($sformatf("dcache write hit; in cache line at byte idx %0d; core at byte 0x%5h; with input %8h; store_mask %b", byte_idx_cr, cr.addr, cr.wdata, store_mask));
-        for (int i = 0; i < ARCH_WIDTH/8; i++) begin
-            if (store_mask[i]) begin
-                a_data[cr.way_idx][set_idx_cr].b[byte_idx_cr + i] <=
-                    cr.wdata.b[i];
-            end
-        end
-        a_dirty[cr.way_idx][set_idx_cr] <= 1'b1;
-        clear_pending_on_write <= 1'b0;
-
-    end else begin
-        clear_pending_on_write <= 1'b0;
     end
 end
 
+always_ff @(posedge clk) begin
+    if (rst) clear_pending_on_write <= 1'b0;
+    else if (store_req_pending) clear_pending_on_write <= 1'b1;
+    else clear_pending_on_write <= 1'b0;
+end
+
+`ifndef SYNTHESIS
 `ifdef DBG_SIG
+// FIXME: move to cache view
 logic dbg_serving_pending_req;
 assign dbg_serving_pending_req =
     (cr_pend.active && !new_core_req_d) && rsp_core.valid;
@@ -374,6 +400,7 @@ dbg_core_addr_t dbg_core_addr;
 assign dbg_core_addr = cr.addr;
 end
 
+`endif
 `endif
 
 // state transition
