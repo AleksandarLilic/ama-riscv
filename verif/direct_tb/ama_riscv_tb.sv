@@ -171,6 +171,13 @@ function automatic void load_memories;
     input string test_hex_path;
     int fd;
     begin
+        `ifdef SYNTHESIS
+        `ifdef FPGA
+        `LOG_W({"Build targeting FPGA, memory preloaded in RTL, ",
+                "-testplusarg 'test_path' ignored"}, 1);
+        return;
+        `endif
+        `endif
         fd = open_file(test_hex_path, "r"); // check that it can be opened
         $fclose(fd); // and close for the readmemh to use it
         $readmemh(test_hex_path, `MEM_ARRAY, 0, MEM_SIZE_Q-1);

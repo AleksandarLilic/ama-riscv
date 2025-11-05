@@ -7,13 +7,6 @@ DESIGN_TOP := ama_riscv_top
 # - COSIM: wrapper around ISA_SIM, C++
 # - DPI: interface between SV and C++; term is also used as a build switch for ama-riscv-sim
 
-RTL_DEFINES ?=
-RTL_DEFINES += -d ENABLE_COSIM
-RTL_DEFINES += -d DBG_SIG
-RTL_DEFINES += -d USE_BP
-#RTL_DEFINES += -d SYNTHESIS
-RTL_DEFINES_CS := $(subst -d ,-D,$(RTL_DEFINES)) # C-style defines for slang & verilator
-
 COMP_OPTS := -sv --incr --relax
 ELAB_DEBUG ?= typical
 ELAB_OPTS := -debug $(ELAB_DEBUG) --incr --relax --mt 8
@@ -34,6 +27,17 @@ WDB_SWITCH :=
 ifeq ($(strip $(UNIQUE_WDB)),1)
     WDB_SWITCH := -wdb $(CURDIR)/$(TEST_WDB)
 endif
+
+TEST_PATH_ABS := $(abspath $(TEST_PATH))
+
+RTL_DEFINES ?=
+RTL_DEFINES += -d ENABLE_COSIM
+RTL_DEFINES += -d DBG_SIG
+RTL_DEFINES += -d USE_BP
+RTL_DEFINES += -d SYNTHESIS
+#RTL_DEFINES += -d FPGA
+#RTL_DEFINES += -d FPGA_HEX_PATH=$(TEST_PATH_ABS)
+RTL_DEFINES_CS := $(subst -d ,-D,$(RTL_DEFINES)) # C-style defines for slang & verilator
 
 TIMEOUT_CLOCKS ?= 500000
 LOG_LEVEL ?= WARN
@@ -99,6 +103,10 @@ slang_pp:
 # slang has poor linting capabilities, use verilator instead
 lint:
 	@verilator --top $(DESIGN_TOP) -DSYNTHESIS $(RTL_DEFINES_CS) --lint-only $(SRC_DESIGN) $(PLUS_INCDIR) -Wall -Wpedantic > lint.log 2>&1
+
+print_defs:
+	@echo "RTL Defines:"
+	@echo "$(RTL_DEFINES)"
 
 # run standalone bench with provided sources and top name, oneshot
 
