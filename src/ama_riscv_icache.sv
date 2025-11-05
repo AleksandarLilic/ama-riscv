@@ -48,12 +48,6 @@ typedef enum logic [1:0] {
     IC_MISS // miss, go to main memory
 } icache_state_t;
 
-typedef union packed {
-    logic [CACHE_LINE_SIZE-1:0] f; // flat view
-    logic [CACHE_LINE_SIZE/MEM_DATA_BUS-1:0] [MEM_DATA_BUS-1:0] q; // mem bus
-    logic [CACHE_LINE_SIZE/INST_WIDTH-1:0] [INST_WIDTH-1:0] w; // inst 32
-} cache_line_data_t;
-
 typedef struct packed {
     logic [CORE_WORD_ADDR_BUS-1:0] addr;
     logic [WAY_BITS-1:0] way_idx;
@@ -101,7 +95,8 @@ logic new_core_req, new_core_req_d;
 logic hit, hit_d;
 logic load_req_hit, load_req_pending;
 
-if (WAYS == 1) begin: gen_direct_mapped
+if (WAYS == 1) begin: gen_dmap
+
 // wrap in always_comb to force functions to evaluate first
 always_comb begin
     cr.addr = req_core.data;
@@ -116,7 +111,8 @@ always_comb begin
     hit = &{tag_match, new_core_req, a_valid[cr.way_idx][set_idx_cr]};
 end
 
-end else begin: gen_set_assoc
+end else begin: gen_assoc
+
 logic [WAY_BITS-1:0] a_lru [WAYS-1:0][SETS-1:0];
 localparam unsigned LRU_MAX_CNT = WAYS - 1;
 always_comb begin
@@ -174,7 +170,8 @@ always_ff @(posedge clk) begin
         a_lru[lca.way_idx][lca.set_idx] <= '0;
     end
 end
-end
+
+end // gen_dmap/assoc
 
 assign new_core_req = (req_core.valid && (req_core.ready || spec.wrong));
 `DFF_CI_RI_RVI(new_core_req, new_core_req_d)
@@ -247,38 +244,6 @@ always_ff @(posedge clk) begin
         //`LOG_D($sformatf("i$ invalidating way %0d, set %0d", way_victim_idx, set_idx_cr));
     end
 end
-
-`ifdef DBG_SIG
-logic dbg_serving_pending_req;
-assign dbg_serving_pending_req =
-    (cr_pend.active && !new_core_req_d) && rsp_core.valid;
-
-logic [CORE_BYTE_ADDR_BUS-1:0] dbg_req_core_bytes;
-assign dbg_req_core_bytes = (cr.addr << 2);
-
-logic [CORE_BYTE_ADDR_BUS-1:0] dbg_req_core_bytes_valid;
-assign dbg_req_core_bytes_valid = (
-    (cr.addr << 2) & {CORE_BYTE_ADDR_BUS{req_core.valid}});
-
-if (SETS > 1) begin: dbg_s2p
-typedef struct packed {
-    logic [TAG_W-1:0] tag;
-    logic [IDX_BITS-1:0] set_idx;
-    logic [5:0] byte_addr;
-} dbg_core_addr_t;
-dbg_core_addr_t dbg_core_addr;
-assign dbg_core_addr = (cr.addr << 2);
-
-end else begin: dbg_s1
-typedef struct packed {
-    logic [TAG_W-1:0] tag;
-    logic [5:0] byte_addr;
-} dbg_core_addr_t;
-dbg_core_addr_t dbg_core_addr;
-assign dbg_core_addr = (cr.addr << 2);
-end
-// xsim is not happy with only one `assign dbg_core_addr` at the end, so 2 it is
-`endif
 
 // state transition
 `DFF_CI_RI_RV(IC_RESET, nx_state, state)
@@ -400,5 +365,88 @@ always_comb begin
 
     endcase
 end
+
+`ifndef SYNTHESIS
+`ifdef DEBUG
+
+`include "ama_riscv_defines.svh"
+
+logic dbg_serving_pending_req;
+assign dbg_serving_pending_req =
+    (cr_pend.active && !new_core_req_d) && rsp_core.valid;
+
+logic [CORE_BYTE_ADDR_BUS-1:0] dbg_req_core_bytes;
+assign dbg_req_core_bytes = (cr.addr << 2);
+
+logic [CORE_BYTE_ADDR_BUS-1:0] dbg_req_core_bytes_valid;
+assign dbg_req_core_bytes_valid = (
+    (cr.addr << 2) & {CORE_BYTE_ADDR_BUS{req_core.valid}});
+
+if (SETS > 1) begin: dbg_assoc // set-associative views
+
+// data view
+typedef struct {
+    logic valid;
+    logic [WAY_BITS-1:0] lru;
+    logic [TAG_W-1:0] tag;
+    cache_line_data_t data;
+} cache_line_t;
+
+cache_line_t data_view [WAYS-1:0][SETS-1:0];
+always_comb begin
+    for (int w = 0; w < WAYS; w++) begin
+        for (int s = 0; s < SETS; s++) begin
+            data_view[w][s].valid <= a_valid[w][s];
+            data_view[w][s].tag <= a_tag[w][s];
+            data_view[w][s].lru <= `ICACHE.gen_assoc.a_lru[w][s];
+            data_view[w][s].data <= a_data[w][s];
+        end
+    end
+end
+
+// address breakdown
+typedef struct packed {
+    logic [TAG_W-1:0] tag;
+    logic [IDX_BITS-1:0] set_idx;
+    logic [5:0] byte_addr;
+} core_addr_bd_t;
+
+core_addr_bd_t core_addr_bd;
+assign core_addr_bd = (cr.addr << 2);
+
+end else begin: dbg_dmap // direct-mapped views
+
+// data view
+typedef struct {
+    logic valid;
+    logic [TAG_W-1:0] tag;
+    cache_line_data_t data;
+} cache_line_t;
+
+cache_line_t data_view [WAYS-1:0][SETS-1:0];
+always_comb @(posedge clk) begin
+    for (int w = 0; w < WAYS; w++) begin
+        for (int s = 0; s < SETS; s++) begin
+            data_view[w][s].valid <= a_valid[w][s];
+            data_view[w][s].tag <= a_tag[w][s];
+            data_view[w][s].data <= a_data[w][s];
+        end
+    end
+end
+
+// address breakdown
+typedef struct packed {
+    logic [TAG_W-1:0] tag;
+    logic [5:0] byte_addr;
+} core_addr_bd_t;
+
+core_addr_bd_t core_addr_bd;
+assign core_addr_bd = (cr.addr << 2);
+
+end
+// xsim is not happy with only one `assign core_addr_bd` at the end, so 2 it is
+
+`endif
+`endif
 
 endmodule

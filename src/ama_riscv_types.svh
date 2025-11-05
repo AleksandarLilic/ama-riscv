@@ -257,6 +257,13 @@ parameter unsigned BP_C_CNT_BITS = 4;
 parameter bp_t BP_TYPE = BP_COMBINED; // or combined
 //parameter bp_t BP_TYPE = BP_1_TYPE; // reuse bp_1 param otherwise
 
+// common cache types
+typedef union packed {
+    logic [CACHE_LINE_SIZE-1:0] f; // flat view
+    logic [CACHE_LINE_SIZE/MEM_DATA_BUS-1:0] [MEM_DATA_BUS-1:0] q; // mem bus
+    logic [CACHE_LINE_SIZE/INST_WIDTH-1:0] [INST_WIDTH-1:0] w; // inst 32
+} cache_line_data_t;
+
 // CSRs
 typedef enum logic [11:0] {
     CSR_TOHOST = 12'h51E,

@@ -601,6 +601,14 @@ initial begin
     stats = new(core_stats);
 
     `LOG_I("Simulation started");
+
+    `ifdef SYNTHESIS
+    `ifdef DEBUG
+    `LOGNT_W({"Both `SYNTHESIS and `DEBUG have been defined, ",
+              "but they are incompatibale. `DEBUG is ignored"}, 1);
+    `endif
+    `endif
+
     load_memories({args.test_path, ".hex"});
     `ifdef ENABLE_COSIM
     cosim_setup(
