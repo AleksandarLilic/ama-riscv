@@ -11,6 +11,16 @@
 // NOP inst
 `define NOP 32'h13 // addi x0 x0 0
 
+`ifdef FPGA_SYNTHESIS
+`error_DONT_TOUCH_FPGA_SYNTHESIS_DEFINE
+`endif
+
+`ifdef SYNTHESIS
+`ifdef FPGA
+`define FPGA_SYNTHESIS
+`endif
+`endif
+
 `include "ama_riscv_types.svh"
 
 // DMEM Offset

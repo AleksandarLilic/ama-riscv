@@ -171,12 +171,10 @@ function automatic void load_memories;
     input string test_hex_path;
     int fd;
     begin
-        `ifdef SYNTHESIS
-        `ifdef FPGA
+        `ifdef FPGA_SYNTHESIS
         `LOG_W({"Build targeting FPGA, memory preloaded in RTL, ",
                 "-testplusarg 'test_path' ignored"}, 1);
         return;
-        `endif
         `endif
         fd = open_file(test_hex_path, "r"); // check that it can be opened
         $fclose(fd); // and close for the readmemh to use it
@@ -308,10 +306,14 @@ endfunction
 function void get_plusargs();
     automatic string log_str;
     begin
+        `ifdef FPGA_SYNTHESIS
+        args.test_path = `TO_STRING(`FPGA_HEX_PATH);
+        `else
         if (!$value$plusargs("test_path=%s", args.test_path)) begin
             `LOG_E("test_path not defined. Exiting.", 1);
             $finish();
         end
+        `endif
         args.test_path = strip_extension(args.test_path);
         args.tohost_chk_en = $test$plusargs("enable_tohost_checker");
 

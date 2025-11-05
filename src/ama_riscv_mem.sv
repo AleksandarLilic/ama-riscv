@@ -13,21 +13,17 @@ module ama_riscv_mem (
     rv_if.TX     rsp_dmem
 );
 
-`ifdef SYNTHESIS
-`ifdef FPGA
+`ifdef FPGA_SYNTHESIS
 // in case synthesis tool is too aggressive with optimization due to readmemh
 (* dont_touch = "true" *)
 `endif
-`endif
 logic [MEM_DATA_BUS-1:0] mem [MEM_SIZE_Q-1:0];
 
-`ifdef SYNTHESIS
-`ifdef FPGA
+`ifdef FPGA_SYNTHESIS
 // preload for FPGA emulation
 initial begin
     $readmemh(`TO_STRING(`FPGA_HEX_PATH), mem, 0, MEM_SIZE_Q-1);
 end
-`endif
 `endif
 
 // imem read
