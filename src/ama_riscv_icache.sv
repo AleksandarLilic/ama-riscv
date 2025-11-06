@@ -206,13 +206,13 @@ logic [CNT_WIDTH-1:0] mem_miss_cnt;
 logic [CNT_WIDTH-1:0] mem_miss_cnt_d;
 `DFF_CI_RI_RVI(mem_miss_cnt, mem_miss_cnt_d)
 
-logic mem_r_transfer_done, mem_r_transfer_done_d;
+logic mem_transfer_done, mem_transfer_done_d;
 assign mem_transfer_done =
     (rsp_mem.valid && (mem_miss_cnt_d == (MEM_TRANSFERS_PER_CL - 1)));
-`DFF_CI_RI_RVI(mem_r_transfer_done, mem_r_transfer_done_d)
+`DFF_CI_RI_RVI(mem_transfer_done, mem_transfer_done_d)
 
 assign load_req_hit = (hit && new_core_req);
-assign load_req_pending = (mem_r_transfer_done_d && cr_pend.active);
+assign load_req_pending = (mem_transfer_done_d && cr_pend.active);
 
 logic [IDX_RANGE_TOP-1:0] set_idx_pend;
 logic [IDX_RANGE_TOP-1:0] set_idx_cr_d;
