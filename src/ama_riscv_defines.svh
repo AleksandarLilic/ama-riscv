@@ -11,13 +11,15 @@
 // NOP inst
 `define NOP 32'h13 // addi x0 x0 0
 
-`ifdef FPGA_SYNTHESIS
-`error_DONT_TOUCH_FPGA_SYNTHESIS_DEFINE
+`define TO_STRING(x) `"x`"
+
+`ifdef FPGA_SYNT
+`error_DONT_TOUCH_FPGA_SYNT_DEFINE
 `endif
 
-`ifdef SYNTHESIS
+`ifdef SYNT
 `ifdef FPGA
-`define FPGA_SYNTHESIS
+`define FPGA_SYNT
 `endif
 `endif
 

@@ -34,8 +34,6 @@ parameter unsigned CLOCK_FREQ = (1_000 / CLK_PERIOD) * 1_000_000; // Hz
 `define MEM `TOP.ama_riscv_mem_i
 `define MEM_ARRAY `MEM.mem
 
-`define TO_STRING(x) `"x`"
-
 //`define LOG_V(x) $fwrite(log_fd, "%0t: %0s\n", $time, x)
 //`define LOGNT(x) $fwrite(log_fd, "%0s\n", x)
 

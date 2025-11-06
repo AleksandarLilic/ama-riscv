@@ -34,10 +34,12 @@ RTL_DEFINES ?=
 RTL_DEFINES += -d ENABLE_COSIM
 RTL_DEFINES += -d USE_BP
 RTL_DEFINES += -d DEBUG
-#RTL_DEFINES += -d SYNTHESIS
+#RTL_DEFINES += -d SYNT
 #RTL_DEFINES += -d FPGA
 #RTL_DEFINES += -d FPGA_HEX_PATH=$(TEST_PATH_ABS)
+
 RTL_DEFINES_CS := $(subst -d ,-D,$(RTL_DEFINES)) # C-style defines for slang & verilator
+RTL_DEFINES_LIST := $(subst -d ,,$(RTL_DEFINES)) # just a list
 
 TIMEOUT_CLOCKS ?= 500000
 LOG_LEVEL ?= WARN
@@ -102,11 +104,13 @@ slang_pp:
 
 # slang has poor linting capabilities, use verilator instead
 lint:
-	@verilator --top $(DESIGN_TOP) -DSYNTHESIS $(RTL_DEFINES_CS) --lint-only $(SRC_DESIGN) $(PLUS_INCDIR) -Wall -Wpedantic > lint.log 2>&1
+	@verilator --top $(DESIGN_TOP) -DSYNT $(RTL_DEFINES_CS) --lint-only $(SRC_DESIGN) $(PLUS_INCDIR) -Wall -Wpedantic > lint.log 2>&1
 
 print_defs:
-	@echo "RTL Defines:"
 	@echo "$(RTL_DEFINES)"
+
+print_defs_vivado:
+	@echo "set_property verilog_define { $(RTL_DEFINES_LIST)} [current_fileset]"
 
 # run standalone bench with provided sources and top name, oneshot
 

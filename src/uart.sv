@@ -20,7 +20,7 @@ logic serial_out_tx;
 `DFF_CI_RI_RV(1'b1, serial_out_tx, serial_out);
 
 // use of shortcut allowed only if not synthesizing
-`ifndef SYNTHESIS
+`ifndef SYNT
 `ifdef UART_SHORTCUT
 `define USE_UART_SHORTCUT
 `endif
@@ -45,7 +45,7 @@ uart_tx #(
 );
 `endif
 
-`ifndef SYNTHESIS
+`ifndef SYNT
 `ifdef LOG_UART
 initial begin
     forever begin

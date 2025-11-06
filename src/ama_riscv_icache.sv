@@ -1,5 +1,5 @@
 `include "ama_riscv_defines.svh"
-`ifndef SYNTHESIS
+`ifndef SYNT
 `include "ama_riscv_tb_defines.svh"
 `endif
 
@@ -366,7 +366,7 @@ always_comb begin
     endcase
 end
 
-`ifndef SYNTHESIS
+`ifndef SYNT
 `ifdef DEBUG
 
 `include "ama_riscv_defines.svh"

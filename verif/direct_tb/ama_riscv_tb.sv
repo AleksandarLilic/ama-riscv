@@ -171,7 +171,7 @@ function automatic void load_memories;
     input string test_hex_path;
     int fd;
     begin
-        `ifdef FPGA_SYNTHESIS
+        `ifdef FPGA_SYNT
         `LOG_W({"Build targeting FPGA, memory preloaded in RTL, ",
                 "-testplusarg 'test_path' ignored"}, 1);
         return;
@@ -306,7 +306,7 @@ endfunction
 function void get_plusargs();
     automatic string log_str;
     begin
-        `ifdef FPGA_SYNTHESIS
+        `ifdef FPGA_SYNT
         args.test_path = `TO_STRING(`FPGA_HEX_PATH);
         `else
         if (!$value$plusargs("test_path=%s", args.test_path)) begin
@@ -604,9 +604,9 @@ initial begin
 
     `LOG_I("Simulation started");
 
-    `ifdef SYNTHESIS
+    `ifdef SYNT
     `ifdef DEBUG
-    `LOGNT_W({"Both `SYNTHESIS and `DEBUG have been defined, ",
+    `LOGNT_W({"Both `SYNT and `DEBUG have been defined, ",
               "but they are incompatibale. `DEBUG is ignored"}, 1);
     `endif
     `endif
