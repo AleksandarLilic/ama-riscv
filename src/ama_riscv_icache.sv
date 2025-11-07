@@ -231,7 +231,9 @@ always_ff @(posedge clk) begin
                 a_tag[w][s] <= 'h0;
             end
         end
-    end else if (rsp_mem.valid) begin // loading cache line from mem
+    end else if (rsp_mem.valid && (state == IC_MISS)) begin
+        // loading cache line from mem
+        // but may be an already discarded request on wrong speculative miss
         a_data[cr_pend.cr.way_idx][set_idx_pend].q[mem_miss_cnt_d] <=
             rsp_mem.data;
         // on the last transfer, update valid and tag
