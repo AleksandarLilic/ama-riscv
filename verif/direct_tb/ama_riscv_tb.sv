@@ -134,7 +134,7 @@ bind `CORE ama_riscv_core_view ama_riscv_core_view_i (
     .ctrl_exe_mem (ctrl_exe_mem),
     .ctrl_mem_wbk (ctrl_mem_wbk),
     .decoded_exe (decoded_exe),
-    .branch_taken (branch_taken),
+    .branch_resolution (branch_resolution),
     .csr_tohost (csr.tohost),
     `ifdef USE_BP
     .bp_hit (bp_hit),

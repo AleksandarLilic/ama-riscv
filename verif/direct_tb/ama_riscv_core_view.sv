@@ -13,7 +13,7 @@ module ama_riscv_core_view (
     input stage_ctrl_t ctrl_exe_mem,
     input stage_ctrl_t ctrl_mem_wbk,
     input decoder_t decoded_exe,
-    input logic branch_taken,
+    input branch_t branch_resolution,
     input arch_width_t csr_tohost,
     `ifdef USE_BP
     input logic bp_hit,
@@ -74,7 +74,8 @@ logic branch_inst_mem, branch_inst_wbk;
 `STAGE(ctrl_mem_wbk, branch_inst_mem, branch_inst_wbk, 'h0)
 
 logic branch_taken_exe, branch_taken_mem, branch_taken_wbk;
-assign branch_taken_exe = (branch_taken && decoded_exe.itype.branch);
+assign branch_taken_exe =
+    ((branch_resolution == B_T) && decoded_exe.itype.branch);
 `STAGE(ctrl_exe_mem, branch_taken_exe, branch_taken_mem, 'h0)
 `STAGE(ctrl_mem_wbk, branch_taken_mem, branch_taken_wbk, 'h0)
 
