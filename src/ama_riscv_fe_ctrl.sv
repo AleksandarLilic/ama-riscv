@@ -175,6 +175,10 @@ always_comb begin
                     nx_state = STEADY;
                 end
             end
+            `ifdef USE_BP
+            // whatever you are doing, drop it, it's wrong
+            if (spec.wrong) nx_state = STEADY;
+            `endif
         end
 
         default: ;
@@ -359,13 +363,6 @@ always_comb begin
                     fe_ctrl.pc_sel = flow_changed ? PC_SEL_ALU : PC_SEL_INC4;
 
                 `ifdef USE_BP
-                end else if (spec.wrong) begin
-                    fe_ctrl.pc_sel = branch_taken ? PC_SEL_ALU : PC_SEL_INC4;
-                    fe_ctrl.pc_we = 1'b1;
-                    fe_ctrl.bubble_dec = 1'b1;
-                    fe_ctrl.use_cp = 1'b1;
-                    imem_req.valid = 1'b1;
-                    imem_rsp.ready = 1'b1;
                 end else if (spec.enter) begin
                     // current inst inst is branch, fingers crossed
                     fe_ctrl.pc_sel = (bp_pred == B_T) ? PC_SEL_BP : PC_SEL_INC4;
@@ -380,6 +377,18 @@ always_comb begin
                     imem_req.valid = 1'b1;
                     imem_rsp.ready = 1'b1;
                 end
+
+                `ifdef USE_BP
+                // whatever you are doing, drop it, it's wrong
+                if (spec.wrong) begin
+                    fe_ctrl.pc_sel = branch_taken ? PC_SEL_ALU : PC_SEL_INC4;
+                    fe_ctrl.pc_we = 1'b1;
+                    fe_ctrl.bubble_dec = 1'b1;
+                    fe_ctrl.use_cp = 1'b1;
+                    imem_req.valid = 1'b1;
+                    imem_rsp.ready = 1'b1;
+                end
+                `endif
             end
         end
 
