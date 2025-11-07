@@ -543,7 +543,7 @@ task automatic single_step(longint unsigned clk_cnt);
 endtask
 
 task run_test();
-    automatic int unsigned clks_to_retire_csr_inst = 1;
+    automatic int unsigned clks_to_retire_last_inst = 2;
     automatic longint unsigned clk_cnt = 0;
     while (tohost_source !== 1'b1) begin
         @(posedge clk); #1;
@@ -551,7 +551,9 @@ task run_test();
         single_step(clk_cnt);
     end
 
-    repeat(clks_to_retire_csr_inst) begin // retire csr inst to match isa sim
+    // retire csr inst writing to tohost
+    // thus matching number of executed instructions with isa sim standalone run
+    repeat(clks_to_retire_last_inst) begin
         @(posedge clk); #1;
         clk_cnt += 1;
         single_step(clk_cnt);
