@@ -76,14 +76,19 @@ typedef enum logic [1:0] {
 typedef enum logic [1:0] {
     ALU_A_SEL_RS1 = 2'd0, // A = Reg[rs1]
     ALU_A_SEL_PC = 2'd1, // A = PC
-    ALU_A_SEL_FWD_ALU = 2'd2 // A = ALU; forwarding from MEM stage
+    ALU_A_SEL_FWD = 2'd2 // forward A from backend
 } alu_a_sel_t;
 
 typedef enum logic [1:0] {
     ALU_B_SEL_RS2 = 2'd0, // B = Reg[rs2]
     ALU_B_SEL_IMM = 2'd1, // B = Immediate value; from Imm Gen
-    ALU_B_SEL_FWD_ALU = 2'd2 // B = ALU; forwarding from MEM stage
+    ALU_B_SEL_FWD = 2'd2 // forward B from backend
 } alu_b_sel_t;
+
+typedef enum logic {
+    FWD_BE_EWBK = 1'b0, // early writeback
+    FWD_BE_WBK = 1'b1 // writeback
+} fwd_be_t;
 
 typedef enum logic [1:0] {
     WB_SEL_DMEM = 2'd0, // Reg[rd] = DMEM[ALU]
@@ -179,6 +184,19 @@ typedef struct packed {
 } csr_ctrl_t;
 
 typedef struct packed {
+    logic load;
+    logic store;
+    logic branch;
+    logic jump;
+} inst_type_t; // only types that backend cares about, add as needed
+
+typedef struct packed {
+    logic rd;
+    logic rs1;
+    logic rs2;
+} has_reg_t;
+
+typedef struct packed {
     pc_sel_t pc_sel;
     logic pc_we;
     logic bubble_dec;
@@ -186,10 +204,8 @@ typedef struct packed {
 } fe_ctrl_t;
 
 typedef struct packed {
-    logic load_inst;
-    logic store_inst;
-    logic branch_inst;
-    logic jump_inst;
+    inst_type_t itype;
+    has_reg_t has_reg;
     csr_ctrl_t csr_ctrl;
     alu_op_t alu_op_sel;
     alu_a_sel_t alu_a_sel;
@@ -197,7 +213,6 @@ typedef struct packed {
     ig_sel_t ig_sel;
     logic bc_uns;
     logic dmem_en;
-    logic load_sm_en;
     wb_sel_t wb_sel;
     logic rd_we;
 } decoder_t;
@@ -213,6 +228,11 @@ typedef struct packed {
     logic en;
     logic bubble;
 } stage_ctrl_t; // pipeline stage control
+
+typedef struct packed {
+    logic to_dec;
+    logic to_exe;
+} hazard_be_t;
 
 // branch predictor
 typedef enum logic [2:0] {
@@ -426,16 +446,16 @@ function automatic logic get_fn7_b5(input inst_width_t inst);
     get_fn7_b5 = inst[30];
 endfunction
 
-function automatic rf_addr_t get_rs1(input inst_width_t inst);
-    get_rs1 = rf_addr_t'(inst[19:15]);
+function automatic rf_addr_t get_rs1(input inst_width_t inst, input logic has);
+    get_rs1 = rf_addr_t'(inst[19:15] & {5{has}});
 endfunction
 
-function automatic rf_addr_t get_rs2(input inst_width_t inst);
-    get_rs2 = rf_addr_t'(inst[24:20]);
+function automatic rf_addr_t get_rs2(input inst_width_t inst, input logic has);
+    get_rs2 = rf_addr_t'(inst[24:20] & {5{has}});
 endfunction
 
-function automatic rf_addr_t get_rd(input inst_width_t inst);
-    get_rd = rf_addr_t'(inst[11:7]);
+function automatic rf_addr_t get_rd(input inst_width_t inst, input logic has);
+    get_rd = rf_addr_t'(inst[11:7] & {5{has}});
 endfunction
 
 /* verilator lint_on UNUSEDPARAM */

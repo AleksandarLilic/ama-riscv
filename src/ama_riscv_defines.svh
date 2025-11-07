@@ -26,10 +26,10 @@
 `include "ama_riscv_types.svh"
 
 // DMEM Offset
-`define DMEM_BYTE_OFF_0  2'd0
-`define DMEM_BYTE_OFF_1  2'd1
-`define DMEM_BYTE_OFF_2  2'd2
-`define DMEM_BYTE_OFF_3  2'd3
+`define DMEM_BYTE_OFF_0 2'd0
+`define DMEM_BYTE_OFF_1 2'd1
+`define DMEM_BYTE_OFF_2 2'd2
+`define DMEM_BYTE_OFF_3 2'd3
 
 // `ifdef IMEM_DELAY
 // `define IMEM_DELAY_CLK 3
@@ -45,12 +45,25 @@
         use_cp: 1'b0 \
     }
 
+`define INST_TYPE_RST_VAL \
+    '{ \
+        load: 1'b0, \
+        store: 1'b0, \
+        branch: 1'b0, \
+        jump: 1'b0 \
+    }
+
+`define HAS_REG_RST_VAL \
+    '{ \
+        rd: 1'b0, \
+        rs1: 1'b0, \
+        rs2: 1'b0 \
+    }
+
 `define DECODER_RST_VAL \
     '{ \
-        load_inst: 1'b0, \
-        store_inst: 1'b0, \
-        branch_inst: 1'b0, \
-        jump_inst: 1'b0, \
+        itype: `INST_TYPE_RST_VAL, \
+        has_reg: `HAS_REG_RST_VAL, \
         csr_ctrl: '{en: 1'b0, we: 1'b0, ui: 1'b0, op_sel: CSR_OP_SEL_NONE}, \
         alu_op_sel: ALU_OP_ADD, \
         alu_a_sel: ALU_A_SEL_RS1, \
@@ -58,7 +71,6 @@
         ig_sel: IG_DISABLED, \
         bc_uns: 1'b0, \
         dmem_en: 1'b0, \
-        load_sm_en: 1'b0, \
         wb_sel: WB_SEL_ALU, \
         rd_we: 1'b0 \
     }

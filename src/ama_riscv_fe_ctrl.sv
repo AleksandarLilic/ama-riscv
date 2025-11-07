@@ -14,13 +14,13 @@ module ama_riscv_fe_ctrl (
     input  logic        jump_inst_exe,
     input  branch_t     branch_resolution,
     input  logic        dc_stalled,
-    input  logic        load_hazard_stall,
+    input  hazard_be_t  hazard_be,
     input  fe_ctrl_t    decoded_fe_ctrl,
     output fe_ctrl_t    fe_ctrl,
     output logic        bp_hit,
     output arch_width_t pc_cp,
     output spec_exec_t  spec,
-    output logic        move_past_dec_stall
+    output logic        move_past_dec_exe_dc_stall
 );
 
 // types
@@ -29,7 +29,7 @@ typedef enum logic [2:0] {
     STEADY,
     STALL_FLOW,
     STALL_FE_IC,
-    STALL_BE_DC
+    STALL_BE
 } stall_state_t;
 
 typedef enum logic [1:0] {
@@ -46,7 +46,9 @@ typedef struct packed {
 typedef struct packed {
     logic flow;
     logic icache;
+    logic be;
     logic dcache;
+    logic hazard;
 } stall_sources_t;
 
 typedef enum logic {
@@ -78,10 +80,15 @@ assign spec = '{1'b0, 1'b0, 1'b0};
 
 assign stall_act.icache = !imem_req.ready;
 assign stall_act.dcache = dc_stalled;
+assign stall_act.hazard = (hazard_be.to_dec || hazard_be.to_exe);
+assign stall_act.be = (stall_act.dcache || stall_act.hazard);
+
 assign stall_res.flow =
-    ((stalled_entry.pc == pc_exe) && (pc_exe != 'h0) && (!load_hazard_stall));
+    ((stalled_entry.pc == pc_exe) && (pc_exe != 'h0) && (!hazard_be.to_exe));
 assign stall_res.icache = imem_req.ready;
 assign stall_res.dcache = !dc_stalled;
+assign stall_res.hazard = !(hazard_be.to_dec || hazard_be.to_exe);
+assign stall_res.be = (stall_res.dcache && stall_res.hazard);
 
 logic stall_res_flow_d;
 `DFF_CI_RI_RVI(stall_res.flow, stall_res_flow_d)
@@ -111,8 +118,8 @@ always_comb begin
 
         STEADY: begin
             clear_stall_entry = 1'b1; // save takes priority if both are active
-            if (stall_act.dcache) begin
-                nx_state = STALL_BE_DC;
+            if (stall_act.be) begin
+                nx_state = STALL_BE;
             end else if (stall_act.flow) begin
                 save_stall_entry = 1'b1;
                 nx_state = STALL_FLOW;
@@ -133,7 +140,7 @@ always_comb begin
             if (stall_res.flow) begin
                 // flow change resolved
                 if (stall_act.icache) nx_state = STALL_FE_IC;
-                else if (stall_act.dcache) nx_state = STALL_BE_DC;
+                else if (stall_act.be) nx_state = STALL_BE;
                 else nx_state = STEADY;
             end
         end
@@ -141,8 +148,8 @@ always_comb begin
         STALL_FE_IC: begin
             if (stall_res.icache) begin // imem returned inst
                 // stall again, now if inst is flow change, else proceed forward
-                if (stall_act.dcache) begin
-                    nx_state = STALL_BE_DC;
+                if (stall_act.be) begin
+                    nx_state = STALL_BE;
                 end else if (stall_act.flow) begin
                     save_stall_entry = 1'b1;
                     nx_state = STALL_FLOW;
@@ -156,8 +163,8 @@ always_comb begin
             `endif
         end
 
-        STALL_BE_DC: begin
-            if (stall_res.dcache) begin
+        STALL_BE: begin
+            if (stall_res.be) begin
                 // once backend resolves its stall, continue as per usual
                 if (stall_act.flow) begin
                     save_stall_entry = 1'b1;
@@ -190,7 +197,7 @@ always_comb begin
     fe_ctrl.use_cp = 1'b0;
     imem_req.valid = 1'b0;
     imem_rsp.ready = 1'b0;
-    move_past_dec_stall = 1'b0;
+    move_past_dec_exe_dc_stall = 1'b0;
 
     case (state)
         RST: begin
@@ -210,14 +217,14 @@ always_comb begin
             imem_rsp.ready = 1'b1;
 
             // override if in stall
-            if (stall_act.dcache) begin
+            if (stall_act.be) begin
                 // backend stalls, don't make any more requests
                 fe_ctrl.pc_we = 1'b0;
                 imem_req.valid = 1'b0;
                 imem_rsp.ready = 1'b0;
             end else if (stall_act.flow) begin
                 // current inst is stalling, bubble in next cycle
-                fe_ctrl.pc_we = 1'b0; // ... (1) overwritten for now
+                fe_ctrl.pc_we = 1'b0;
                 imem_req.valid = 1'b0;
                 imem_rsp.ready = 1'b0;
             end else if (stall_act.icache) begin
@@ -283,14 +290,14 @@ always_comb begin
             imem_rsp.ready = 1'b1;
 
             if (imem_rsp.valid) begin
-                if (stall_act.dcache) begin
+                if (stall_act.be) begin
                     // backend stalls, don't make any more requests
                     fe_ctrl.pc_we = 1'b0;
                     imem_req.valid = 1'b0;
                     imem_rsp.ready = 1'b0;
                 end else if (stall_act.flow) begin
                     // current inst is stalling, bubble in next cycle
-                    fe_ctrl.pc_we = 1'b0; // ... (1) overwritten for now
+                    fe_ctrl.pc_we = 1'b0;
                     fe_ctrl.bubble_dec = 1'b0;
                     imem_req.valid = 1'b0;
                     imem_rsp.ready = 1'b0;
@@ -312,7 +319,7 @@ always_comb begin
                     fe_ctrl.bubble_dec = 1'b0;
                     imem_req.valid = 1'b1;
                     imem_rsp.ready = 1'b1;
-                    if (stall_act.dcache) move_past_dec_stall = 1'b1;
+                    if (stall_act.dcache) move_past_dec_exe_dc_stall = 1'b1;
                 end
             end
 
@@ -329,14 +336,14 @@ always_comb begin
             `endif
         end
 
-        STALL_BE_DC: begin
-            // when dc stalls, fe keeps current state, no new requests
+        STALL_BE: begin
+            // when be stalls, fe keeps current state, no new requests
             fe_ctrl.pc_sel = decoded_fe_ctrl.pc_sel;
             fe_ctrl.pc_we = 1'b0;
             fe_ctrl.bubble_dec = 1'b0;
             imem_req.valid = 1'b0;
             imem_rsp.ready = 1'b0;
-            if (stall_res.dcache) begin
+            if (stall_res.be) begin
                 if (stall_act.icache) begin
                     fe_ctrl.pc_sel = PC_SEL_PC;
                     fe_ctrl.pc_we = 1'b0;
@@ -388,9 +395,10 @@ end
 spec_entry_t spec_entry, spec_entry_d;
 
 logic save_spec_entry, clear_spec_entry;
-assign spec.enter = (branch_inst_dec && (!dc_stalled) && (!load_hazard_stall));
+assign spec.enter = (
+    branch_inst_dec /* && (!(stall_act.dcache || stall_act.hazard)) */);
 assign spec.resolve =
-    ((spec_entry.pc == pc_exe) && (pc_exe != 'h0) && (!load_hazard_stall));
+    ((spec_entry.pc == pc_exe) && (pc_exe != 'h0) && (!hazard_be.to_exe));
 assign bp_hit = spec.resolve && (spec_entry.b_tnt == branch_resolution);
 
 // speculative execution FSM

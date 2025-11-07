@@ -9,11 +9,12 @@ module ama_riscv_core_view (
     rv_if_dc.TX dmem_req,
     input logic inst_retired,
     // internal signals
-    input stage_ctrl_t ctrl_dec,
-    input stage_ctrl_t ctrl_exe,
-    input stage_ctrl_t ctrl_mem,
+    input stage_ctrl_t ctrl_dec_exe,
+    input stage_ctrl_t ctrl_exe_mem,
+    input stage_ctrl_t ctrl_mem_wbk,
     input decoder_t decoded_exe,
     input logic branch_taken,
+    input arch_width_t csr_tohost,
     `ifdef USE_BP
     input logic bp_hit,
     `endif
@@ -69,23 +70,27 @@ assign pc_wbk = pc.wbk & {ARCH_WIDTH{inst_retired}};
 
 // branches
 logic branch_inst_mem, branch_inst_wbk;
-`STAGE(ctrl_exe, decoded_exe.branch_inst, branch_inst_mem, 'h0)
-`STAGE(ctrl_mem, branch_inst_mem, branch_inst_wbk, 'h0)
+`STAGE(ctrl_exe_mem, decoded_exe.itype.branch, branch_inst_mem, 'h0)
+`STAGE(ctrl_mem_wbk, branch_inst_mem, branch_inst_wbk, 'h0)
 
 logic branch_taken_exe, branch_taken_mem, branch_taken_wbk;
-assign branch_taken_exe = (branch_taken && decoded_exe.branch_inst);
-`STAGE(ctrl_exe, branch_taken_exe, branch_taken_mem, 'h0)
-`STAGE(ctrl_mem, branch_taken_mem, branch_taken_wbk, 'h0)
+assign branch_taken_exe = (branch_taken && decoded_exe.itype.branch);
+`STAGE(ctrl_exe_mem, branch_taken_exe, branch_taken_mem, 'h0)
+`STAGE(ctrl_mem_wbk, branch_taken_mem, branch_taken_wbk, 'h0)
 
 `ifdef USE_BP
 logic bp_hit_exe, bp_hit_mem, bp_hit_wbk;
-assign bp_hit_exe = (decoded_exe.branch_inst && bp_hit);
-`STAGE(ctrl_exe, bp_hit_exe, bp_hit_mem, 'h0)
-`STAGE(ctrl_mem, bp_hit_mem, bp_hit_wbk, 'h0)
+assign bp_hit_exe = (decoded_exe.itype.branch && bp_hit);
+`STAGE(ctrl_exe_mem, bp_hit_exe, bp_hit_mem, 'h0)
+`STAGE(ctrl_mem_wbk, bp_hit_mem, bp_hit_wbk, 'h0)
 `else
 logic bp_hit_wbk;
 assign bp_hit_wbk = 1'b0; // just to make trace function happy
 `endif
+
+arch_width_t csr_tohost_mem, csr_tohost_wbk;
+`DFF_CI_RI_RVI(csr_tohost, csr_tohost_mem)
+`DFF_CI_RI_RVI(csr_tohost_mem, csr_tohost_wbk)
 
 // dmem
 arch_width_t dmem_addr_exe, dmem_addr_mem, dmem_addr_wbk;
@@ -102,16 +107,23 @@ logic [3:0] dmem_size_exe, dmem_size_mem, dmem_size_wbk;
 assign dmem_size = dmem_req.dtype | {dmem_req.rtype, 2'b00};
 assign dmem_size_exe = dmem_req.valid ? {1'b0, dmem_size} : DMEM_SIZE_NA;
 
-`STAGE(ctrl_exe, dmem_addr_exe, dmem_addr_mem, 'h0)
-`STAGE(ctrl_mem, dmem_addr_mem, dmem_addr_wbk, 'h0)
+`STAGE(ctrl_exe_mem, dmem_addr_exe, dmem_addr_mem, 'h0)
+`STAGE(ctrl_mem_wbk, dmem_addr_mem, dmem_addr_wbk, 'h0)
 
-`STAGE(ctrl_exe, dmem_size_exe, dmem_size_mem, 'h0)
-`STAGE(ctrl_mem, dmem_size_mem, dmem_size_wbk, DMEM_SIZE_NA)
+`STAGE(ctrl_exe_mem, dmem_size_exe, dmem_size_mem, 'h0)
+`STAGE(ctrl_mem_wbk, dmem_size_mem, dmem_size_wbk, DMEM_SIZE_NA)
 
 // track down bubble
 pipeline_if_s bubble ();
-`DFF_CI_RI_RVI_EN(ctrl_dec.en, ctrl_dec.bubble, bubble.exe);
-`DFF_CI_RI_RVI_EN(ctrl_exe.en, (ctrl_exe.bubble || bubble.exe), bubble.mem);
-`DFF_CI_RI_RVI_EN(ctrl_mem.en, (ctrl_mem.bubble || bubble.mem), bubble.wbk);
+`DFF_CI_RI_RVI_EN(ctrl_dec_exe.en, ctrl_dec_exe.bubble, bubble.exe);
+`DFF_CI_RI_RVI_EN(
+    ctrl_exe_mem.en,
+    (ctrl_exe_mem.bubble || bubble.exe),
+    bubble.mem
+);
+`DFF_CI_RI_RVI_EN(ctrl_mem_wbk.en,
+    (ctrl_mem_wbk.bubble || bubble.mem),
+    bubble.wbk
+);
 
 endmodule

@@ -17,44 +17,23 @@ module ama_riscv_core #(
 
 localparam unsigned CLOCKS_PER_US = CLOCK_FREQ / 1_000_000;
 localparam unsigned CNT_WIDTH = $clog2(CLOCKS_PER_US);
+localparam unsigned PIPE_STAGES = 4;
+localparam logic [PIPE_STAGES-1:0] RST_INIT = (1 << PIPE_STAGES) - 1;
 
 pipeline_if #(.W(INST_WIDTH)) inst ();
 pipeline_if #(.W(ARCH_WIDTH)) pc ();
 pipeline_if_s flush ();
-pipeline_if_typed #(.T(rf_addr_t)) rd_addr ();
 
 // Reset sequence
-logic [2:0] reset_seq;
-`DFF_CI_RI_RV(3'b111, {reset_seq[1:0], 1'b0}, reset_seq)
-
-// Pipeline control inputs
-decoder_t decoded;
-decoder_t decoded_exe;
-fe_ctrl_t fe_ctrl;
-logic move_past_dec_stall;
-
-// from EXE stage
-branch_t branch_resolution;
-
-// from DEC stage
-logic rf_a_sel_fwd;
-logic rf_b_sel_fwd;
-
-// from EXE stage
-logic dc_stalled, dc_stalled_d;
-logic load_inst_mem;
-logic store_inst_mem;
-logic load_hazard_stall;
-
-// MEM stage
-logic rd_we_mem;
-logic inst_to_be_retired;
+logic [PIPE_STAGES-1:0] reset_seq;
+`DFF_CI_RI_RV(RST_INIT, {reset_seq[PIPE_STAGES-2:0], 1'b0}, reset_seq)
 
 //------------------------------------------------------------------------------
 // FET Stage
-arch_width_t pc_mux_out;
-arch_width_t pc_inc4;
-arch_width_t alu_out;
+arch_width_t pc_mux_out, pc_inc4, alu_out_exe; // pc mux inputs
+fe_ctrl_t fe_ctrl;
+logic be_stalled_d;
+
 `ifdef USE_BP
 arch_width_t pc_fet_cp; // checkpoint fetch PC before going to speculative
 arch_width_t bp_pc;
@@ -63,19 +42,20 @@ logic bp_hit;
 `endif
 
 always_comb begin
-    case (fe_ctrl.pc_sel)
+    pc_mux_out = pc.fet;
+    unique case (fe_ctrl.pc_sel)
         PC_SEL_PC: pc_mux_out = pc.fet;
         PC_SEL_INC4: pc_mux_out = pc_inc4;
-        PC_SEL_ALU: pc_mux_out = alu_out;
+        PC_SEL_ALU: pc_mux_out = alu_out_exe;
         `ifdef USE_BP
         PC_SEL_BP: pc_mux_out = bp_pc;
         `endif
-        default: pc_mux_out = pc.fet;
     endcase
 end
 assign imem_req.data = pc_mux_out[15:2];
 
 `DFF_CI_RI_RV_EN(`RESET_VECTOR, fe_ctrl.pc_we, pc_mux_out, pc.fet)
+
 `ifdef USE_BP
 assign pc_inc4 = fe_ctrl.use_cp ? pc_fet_cp + 'd4 : pc.fet + 'd4;
 `else
@@ -87,7 +67,7 @@ assign pc_inc4 = pc.fet + 'd4;
 inst_width_t inst_dec_d;
 arch_width_t pc_dec_d;
 always_comb begin
-    if (dc_stalled_d) begin
+    if (be_stalled_d) begin
         if (imem_rsp.valid) begin
             // new inst arrived on miss before BE stalled
             // but d$ is still stalling
@@ -107,17 +87,22 @@ end
 `DFF_CI_RI_RVI(inst.dec, inst_dec_d)
 `DFF_CI_RI_RVI(pc.dec, pc_dec_d)
 
+decoder_t decoded, decoded_exe;
 fe_ctrl_t decoded_fe_ctrl;
 ama_riscv_decoder ama_riscv_decoder_i (
     .clk (clk),
     .rst (rst),
     // inputs
-    .inst (inst.IN),
+    .inst_dec (inst.dec),
     // outputs
     .decoded (decoded),
     .fe_ctrl (decoded_fe_ctrl)
 );
 
+branch_t branch_resolution;
+logic move_past_dec_exe_dc_stall;
+logic dc_stalled;
+hazard_be_t hazard_be;
 ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     .clk (clk),
     .rst (rst),
@@ -126,16 +111,16 @@ ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     // inputs
     .pc_dec (pc.dec),
     .pc_exe (pc.exe),
-    .branch_inst_dec (decoded.branch_inst),
-    .jump_inst_dec (decoded.jump_inst),
+    .branch_inst_dec (decoded.itype.branch),
+    .jump_inst_dec (decoded.itype.jump),
     `ifdef USE_BP
     .bp_pred (bp_pred),
     `endif
-    .branch_inst_exe (decoded_exe.branch_inst),
-    .jump_inst_exe (decoded_exe.jump_inst),
+    .branch_inst_exe (decoded_exe.itype.branch),
+    .jump_inst_exe (decoded_exe.itype.jump),
     .branch_resolution (branch_resolution),
     .decoded_fe_ctrl (decoded_fe_ctrl),
-    .load_hazard_stall (load_hazard_stall),
+    .hazard_be (hazard_be),
     .dc_stalled (dc_stalled),
     // outputs
     .fe_ctrl (fe_ctrl),
@@ -144,23 +129,28 @@ ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     .pc_cp (pc_fet_cp),
     `endif
     .spec (spec), // tied to 0 when BP is not used
-    .move_past_dec_stall (move_past_dec_stall)
+    .move_past_dec_exe_dc_stall (move_past_dec_exe_dc_stall)
 );
 
 // from MEM stage
+arch_width_t e_writeback_mem;
+// from WBK stage
 arch_width_t writeback;
+
 // reg file
+pipeline_if_typed #(.T(rf_addr_t)) rd_addr ();
+pipeline_if_s rd_we ();
 rf_addr_t rs1_addr_dec;
 rf_addr_t rs2_addr_dec;
 rf_addr_t rs1_addr_exe;
 rf_addr_t rs2_addr_exe;
-arch_width_t rd_data;
 arch_width_t rs1_data_dec;
 arch_width_t rs2_data_dec;
-assign rs1_addr_dec = get_rs1(inst.dec);
-assign rs2_addr_dec = get_rs2(inst.dec);
-assign rd_addr.dec = get_rd(inst.dec);
-assign rd_data = writeback;
+
+assign rs1_addr_dec = get_rs1(inst.dec, decoded.has_reg.rs1);
+assign rs2_addr_dec = get_rs2(inst.dec, decoded.has_reg.rs2);
+assign rd_addr.dec = get_rd(inst.dec, decoded.has_reg.rd);
+
 // imm gen
 logic [24:0] imm_gen_in;
 arch_width_t imm_gen_out_dec;
@@ -169,11 +159,11 @@ assign imm_gen_in = inst.dec[31:7];
 ama_riscv_reg_file ama_riscv_reg_file_i(
     .clk (clk),
     // inputs
-    .we (rd_we_mem && !dc_stalled),
+    .we (rd_we.wbk),
     .addr_a (rs1_addr_dec),
     .addr_b (rs2_addr_dec),
-    .addr_d (rd_addr.mem),
-    .data_d (rd_data),
+    .addr_d (rd_addr.wbk),
+    .data_d (writeback),
     // outputs
     .data_a (rs1_data_dec),
     .data_b (rs2_data_dec)
@@ -191,7 +181,7 @@ ama_riscv_imm_gen ama_riscv_imm_gen_i(
 
 `ifdef USE_BP
 // all predictors use imm_gen right away, no BTB
-assign bp_pc = decoded.branch_inst ? (pc.dec + imm_gen_out_dec) : 'h0;
+assign bp_pc = decoded.itype.branch ? (pc.dec + imm_gen_out_dec) : 'h0;
 
 if (BP_TYPE == BP_STATIC) begin: gen_bp_sttc
 
@@ -200,7 +190,7 @@ assign bp_pred = B_T;
 end else if (BP_STATIC_TYPE == BP_STATIC_ANT) begin: gen_bp_sttc_ant
 assign bp_pred = B_NT;
 end else if (BP_STATIC_TYPE == BP_STATIC_BTFN) begin: gen_bp_sttc_btfn
-assign bp_pred = branch_t'(decoded.branch_inst && (bp_pc < pc.dec));
+assign bp_pred = branch_t'(decoded.itype.branch && (bp_pc < pc.dec));
 end
 
 end else begin: gen_bp_dyn
@@ -256,77 +246,95 @@ end
 end
 `endif // USE_BP
 
-logic bc_a_sel_fwd_exe;
-logic bcs_b_sel_fwd_exe;
-alu_a_sel_t alu_a_sel_fwd_exe;
-alu_b_sel_t alu_b_sel_fwd_exe;
+fwd_be_t fwd_be_rs1_dec, fwd_be_rs2_dec, fwd_be_rs1_exe, fwd_be_rs2_exe;
+alu_a_sel_t alu_a_sel_fwd;
+alu_b_sel_t alu_b_sel_fwd;
+logic rf_a_sel_fwd, rf_b_sel_fwd;
+logic bc_a_sel_fwd_exe, bcs_b_sel_fwd_exe;
+logic load_inst_mem, store_inst_mem;
 
 ama_riscv_operand_forwarding ama_riscv_operand_forwarding_i (
     // inputs
-    .store_inst_dec (decoded.store_inst),
-    .branch_inst_dec (decoded.branch_inst),
-    .store_inst_exe (decoded_exe.store_inst),
-    .branch_inst_exe (decoded_exe.branch_inst),
+    .store_inst_dec (decoded.itype.store),
+    .branch_inst_dec (decoded.itype.branch),
+    .store_inst_exe (decoded_exe.itype.store),
+    .branch_inst_exe (decoded_exe.itype.branch),
     .load_inst_mem (load_inst_mem),
-    .dc_stalled (dc_stalled),
     .rs1_dec (rs1_addr_dec),
     .rs2_dec (rs2_addr_dec),
     .rs1_exe (rs1_addr_exe),
     .rs2_exe (rs2_addr_exe),
     .rd_mem (rd_addr.mem),
-    .rd_we_mem (rd_we_mem),
+    .rd_wbk (rd_addr.wbk),
+    .rd_we_mem (rd_we.mem),
+    .rd_we_wbk (rd_we.wbk),
     .alu_a_sel_dec (decoded.alu_a_sel),
     .alu_b_sel_dec (decoded.alu_b_sel),
     .alu_a_sel_exe (decoded_exe.alu_a_sel),
     .alu_b_sel_exe (decoded_exe.alu_b_sel),
     // outputs
-    .alu_a_sel_fwd (alu_a_sel_fwd_exe),
-    .alu_b_sel_fwd (alu_b_sel_fwd_exe),
+    .fwd_be_rs1_dec (fwd_be_rs1_dec),
+    .fwd_be_rs2_dec (fwd_be_rs2_dec),
+    .fwd_be_rs1_exe (fwd_be_rs1_exe),
+    .fwd_be_rs2_exe (fwd_be_rs2_exe),
+    .alu_a_sel_fwd (alu_a_sel_fwd),
+    .alu_b_sel_fwd (alu_b_sel_fwd),
     .bc_a_sel_fwd (bc_a_sel_fwd_exe),
     .bcs_b_sel_fwd (bcs_b_sel_fwd_exe),
     .rf_a_sel_fwd (rf_a_sel_fwd),
     .rf_b_sel_fwd (rf_b_sel_fwd),
-    .load_hazard_stall (load_hazard_stall)
+    .hazard_be (hazard_be)
 );
 
 //------------------------------------------------------------------------------
 // Pipeline FF DEC/EXE
-// Signals
-arch_width_t rs1_data_exe;
-arch_width_t rs2_data_exe;
+arch_width_t rs1_dec_be_fwd, rs2_dec_be_fwd;
+assign rs1_dec_be_fwd =
+    (fwd_be_rs1_dec == FWD_BE_EWBK) ? e_writeback_mem : writeback;
+assign rs2_dec_be_fwd =
+    (fwd_be_rs2_dec == FWD_BE_EWBK) ? e_writeback_mem : writeback;
+
+arch_width_t rs1_data_fwd, rs2_data_fwd;
+assign rs1_data_fwd = rf_a_sel_fwd ? rs1_dec_be_fwd : rs1_data_dec;
+assign rs2_data_fwd = rf_b_sel_fwd ? rs2_dec_be_fwd : rs2_data_dec;
+
+logic en_dec_exe;
+assign en_dec_exe =
+    ((!dc_stalled) || move_past_dec_exe_dc_stall) && (!hazard_be.to_exe);
+
+stage_ctrl_t ctrl_dec_exe;
+assign ctrl_dec_exe = '{
+    flush: flush.dec,
+    en: en_dec_exe,
+    bubble: (fe_ctrl.bubble_dec || hazard_be.to_dec)
+};
+
 arch_width_t imm_gen_out_exe;
-
-arch_width_t rs1_data_fwd;
-arch_width_t rs2_data_fwd;
-assign rs1_data_fwd = rf_a_sel_fwd ? writeback : rs1_data_dec;
-assign rs2_data_fwd = rf_b_sel_fwd ? writeback : rs2_data_dec;
-
-logic dec_en;
-assign dec_en = !dc_stalled || move_past_dec_stall;
-
-stage_ctrl_t ctrl_dec;
-assign ctrl_dec = '{flush: flush.dec, en: dec_en, bubble: fe_ctrl.bubble_dec};
-
-`STAGE(ctrl_dec, pc.dec, pc.exe, 'h0)
-`STAGE(ctrl_dec, inst.dec, inst.exe, 'h0)
-`STAGE(ctrl_dec, rd_addr.dec, rd_addr.exe, RF_X0_ZERO)
-`STAGE(ctrl_dec, rs1_addr_dec, rs1_addr_exe, RF_X0_ZERO)
-`STAGE(ctrl_dec, rs2_addr_dec, rs2_addr_exe, RF_X0_ZERO)
-`STAGE(ctrl_dec, rs1_data_fwd, rs1_data_exe, 'h0)
-`STAGE(ctrl_dec, rs2_data_fwd, rs2_data_exe, 'h0)
-`STAGE(ctrl_dec, imm_gen_out_dec, imm_gen_out_exe, 'h0)
-`STAGE(ctrl_dec, decoded, decoded_exe, `DECODER_RST_VAL)
+arch_width_t rs1_data_exe, rs2_data_exe;
+`STAGE(ctrl_dec_exe, pc.dec, pc.exe, 'h0)
+`STAGE(ctrl_dec_exe, inst.dec, inst.exe, 'h0)
+`STAGE(ctrl_dec_exe, rd_addr.dec, rd_addr.exe, RF_X0_ZERO)
+`STAGE(ctrl_dec_exe, rs1_addr_dec, rs1_addr_exe, RF_X0_ZERO)
+`STAGE(ctrl_dec_exe, rs2_addr_dec, rs2_addr_exe, RF_X0_ZERO)
+`STAGE(ctrl_dec_exe, rs1_data_fwd, rs1_data_exe, 'h0)
+`STAGE(ctrl_dec_exe, rs2_data_fwd, rs2_data_exe, 'h0)
+`STAGE(ctrl_dec_exe, imm_gen_out_dec, imm_gen_out_exe, 'h0)
+`STAGE(ctrl_dec_exe, decoded, decoded_exe, `DECODER_RST_VAL)
 
 //------------------------------------------------------------------------------
 // EXE stage
+arch_width_t rs1_exe_be_fwd, rs2_exe_be_fwd;
+assign rs1_exe_be_fwd =
+    (fwd_be_rs1_exe == FWD_BE_EWBK) ? e_writeback_mem : writeback;
+assign rs2_exe_be_fwd =
+    (fwd_be_rs2_exe == FWD_BE_EWBK) ? e_writeback_mem : writeback;
 
 // branch compare & resolution
-arch_width_t bc_a;
-arch_width_t bcs_b;
-logic bc_a_eq_b;
-logic bc_a_lt_b;
-assign bc_a = bc_a_sel_fwd_exe ? writeback : rs1_data_exe;
-assign bcs_b = bcs_b_sel_fwd_exe ? writeback : rs2_data_exe;
+arch_width_t bc_a, bcs_b;
+assign bc_a = bc_a_sel_fwd_exe ? rs1_exe_be_fwd : rs1_data_exe;
+assign bcs_b = bcs_b_sel_fwd_exe ? rs2_exe_be_fwd : rs2_data_exe;
+
+logic bc_a_eq_b, bc_a_lt_b;
 assign bc_a_eq_b =
     (decoded_exe.bc_uns) ? (bc_a == bcs_b) : ($signed(bc_a) == $signed(bcs_b));
 assign bc_a_lt_b =
@@ -336,50 +344,53 @@ branch_sel_t branch_sel_exe;
 assign branch_sel_exe = get_branch_sel(inst.exe);
 
 always_comb begin
-    case (branch_sel_exe)
+    unique case (branch_sel_exe)
         BRANCH_SEL_BEQ: branch_resolution = branch_t'(bc_a_eq_b);
         BRANCH_SEL_BNE: branch_resolution = branch_t'(!bc_a_eq_b);
         BRANCH_SEL_BLT: branch_resolution = branch_t'(bc_a_lt_b);
         BRANCH_SEL_BGE: branch_resolution = branch_t'(bc_a_eq_b || !bc_a_lt_b);
-        default: branch_resolution = B_NT;
     endcase
 end
 
 // ALU
-arch_width_t alu_in_a;
-arch_width_t alu_in_b;
-assign alu_in_a =
-    (alu_a_sel_fwd_exe == ALU_A_SEL_RS1) ? rs1_data_exe :
-    (alu_a_sel_fwd_exe == ALU_A_SEL_PC) ? pc.exe :
- /* (alu_a_sel_fwd_exe == ALU_A_SEL_FWD_ALU) ? */ writeback;
-assign alu_in_b =
-    (alu_b_sel_fwd_exe == ALU_B_SEL_RS2) ? rs2_data_exe :
-    (alu_b_sel_fwd_exe == ALU_B_SEL_IMM) ? imm_gen_out_exe :
- /* (alu_b_sel_fwd_exe == ALU_B_SEL_FWD_ALU) ? */ writeback;
+arch_width_t alu_in_a, alu_in_b;
+always_comb begin
+    alu_in_a = 'h0;
+    unique case (alu_a_sel_fwd)
+        ALU_A_SEL_RS1: alu_in_a = rs1_data_exe;
+        ALU_A_SEL_PC: alu_in_a = pc.exe;
+        ALU_A_SEL_FWD: alu_in_a = rs1_exe_be_fwd;
+    endcase
+end
+
+always_comb begin
+    alu_in_b = 'h0;
+    unique case (alu_b_sel_fwd)
+        ALU_B_SEL_RS2: alu_in_b = rs2_data_exe;
+        ALU_B_SEL_IMM: alu_in_b = imm_gen_out_exe;
+        ALU_B_SEL_FWD: alu_in_b = rs2_exe_be_fwd;
+    endcase
+end
 
 ama_riscv_alu ama_riscv_alu_i (
-    // inputs
-    .op_sel     (decoded_exe.alu_op_sel),
-    .in_a       (alu_in_a),
-    .in_b       (alu_in_b),
-    // outputs
-    .out_s      (alu_out)
+    .op_sel (decoded_exe.alu_op_sel),
+    .in_a (alu_in_a),
+    .in_b (alu_in_b),
+    .out_s (alu_out_exe)
 );
 
 // CSR
 csr_t csr; // regs
-arch_width_t csr_data_exe;
 csr_addr_t csr_addr;
-logic [ 4:0] csr_imm5;
-arch_width_t csr_din_imm;
-arch_width_t csr_wr_data_source;
-arch_width_t csr_wr_data;
-assign csr_imm5 = rs1_addr_exe;
-assign csr_din_imm = {27'h0, csr_imm5}; // Immediate Zero-Extend
+logic [4:0] csr_imm5;
+arch_width_t csr_din_imm, csr_wr_data_source, csr_wr_data;
+assign csr_imm5 = inst.exe[19:15];
+assign csr_din_imm = {27'h0, csr_imm5}; // zero-extend
 assign csr_wr_data_source = decoded_exe.csr_ctrl.ui ? csr_din_imm : alu_in_a;
 assign csr_addr = csr_addr_t'(inst.exe[31:20] & {12{decoded_exe.csr_ctrl.en}});
 
 // csr read
+arch_width_t csr_data_exe;
 always_comb begin
     csr_data_exe = 'h0;
     if (decoded_exe.csr_ctrl.en) begin
@@ -440,6 +451,7 @@ always_ff @(posedge clk) begin
 end
 
 // minstret
+logic inst_to_be_retired; // from retire pipeline
 logic csr_addr_match_minstret, csr_addr_match_minstret_l;
 assign csr_addr_match_minstret_l = (csr_addr == CSR_MINSTRET);
 assign csr_addr_match_minstret =
@@ -474,26 +486,28 @@ end
 
 `DFF_CI_RI_RVI((csr.mtime + tick_us), csr.mtime)
 
-//------------------------------------------------------------------------------
+// memory map
+logic map_dmem_exe, map_uart_exe;
+assign map_dmem_exe = (alu_out_exe[19:16] == `DMEM_RANGE);
+assign map_uart_exe = (alu_out_exe[19:16] == `MMIO_RANGE);
+
 // DMEM
 dmem_dtype_t dmem_dtype, dmem_dtype_mem;
 assign dmem_dtype = dmem_dtype_t'(get_fn3(inst.exe));
-
 assign dmem_req.valid =
-    (alu_out[19:16] == `DMEM_RANGE) && decoded_exe.dmem_en && (!dc_stalled);
+    map_dmem_exe && decoded_exe.dmem_en && (!dc_stalled) && (!hazard_be.to_exe);
 assign dmem_req.wdata = bcs_b;
-assign dmem_req.addr = alu_out[15:0];
+assign dmem_req.addr = alu_out_exe[15:0];
 assign dmem_req.dtype = dmem_dtype;
-assign dmem_req.rtype = decoded_exe.store_inst ? DMEM_WRITE : DMEM_READ;
+assign dmem_req.rtype = decoded_exe.itype.store ? DMEM_WRITE : DMEM_READ;
 assign dc_stalled = !dmem_req.ready;
 
 // UART
+logic uart_en, uart_we;
 uart_addr_t uart_addr;
-assign uart_addr = uart_addr_t'(alu_out[4:2]);
-logic uart_en;
-logic uart_we;
-assign uart_en = (alu_out[19:16] == `MMIO_RANGE) && decoded_exe.dmem_en;
-assign uart_we = uart_en && decoded_exe.store_inst;
+assign uart_en = map_uart_exe && decoded_exe.dmem_en;
+assign uart_we = uart_en && decoded_exe.itype.store;
+assign uart_addr = uart_addr_t'(alu_out_exe[4:2]);
 
 // uart sync write
 always_ff @(posedge clk) begin
@@ -555,48 +569,83 @@ end
 
 //------------------------------------------------------------------------------
 // Pipeline FF EXE/MEM
-arch_width_t pc_mem_inc4;
-arch_width_t alu_out_mem;
-arch_width_t csr_data_mem;
-wb_sel_t wb_sel_mem;
+arch_width_t pc_mem_inc4, alu_out_mem, csr_data_mem; // (early) writeback opts
+stage_ctrl_t ctrl_exe_mem;
 
-stage_ctrl_t ctrl_exe;
-assign ctrl_exe = '{flush: flush.exe, en: !dc_stalled, bubble: 1'b0};
+pipeline_if_typed #(.T(wb_sel_t)) wb_sel ();
+assign wb_sel.exe = decoded_exe.wb_sel;
+assign rd_we.exe = decoded_exe.rd_we;
+assign ctrl_exe_mem = '{
+    flush: flush.exe,
+    en: (!dc_stalled),
+    bubble: (!ctrl_dec_exe.en)
+};
 
-`STAGE(ctrl_exe, pc.exe, pc.mem, 'h0)
-`STAGE(ctrl_exe, pc.exe + 'd4, pc_mem_inc4, 'h0)
-`STAGE(ctrl_exe, inst.exe, inst.mem, 'h0)
-`STAGE(ctrl_exe, alu_out, alu_out_mem, 'h0)
-`STAGE(ctrl_exe, rd_addr.exe, rd_addr.mem, RF_X0_ZERO)
-`STAGE(ctrl_exe, decoded_exe.wb_sel, wb_sel_mem, WB_SEL_ALU)
-`STAGE(ctrl_exe, decoded_exe.rd_we, rd_we_mem, 'h0)
-`STAGE(ctrl_exe, csr_data_exe, csr_data_mem, 'h0)
-`STAGE(ctrl_exe, decoded_exe.load_inst, load_inst_mem, 'h0)
-`STAGE(ctrl_exe, decoded_exe.store_inst, store_inst_mem, 'h0)
+`STAGE(ctrl_exe_mem, pc.exe, pc.mem, 'h0)
+`STAGE(ctrl_exe_mem, pc.exe + 'd4, pc_mem_inc4, 'h0)
+`STAGE(ctrl_exe_mem, inst.exe, inst.mem, 'h0)
+`STAGE(ctrl_exe_mem, alu_out_exe, alu_out_mem, 'h0)
+`STAGE(ctrl_exe_mem, wb_sel.exe, wb_sel.mem, WB_SEL_ALU)
+`STAGE(ctrl_exe_mem, rd_addr.exe, rd_addr.mem, RF_X0_ZERO)
+`STAGE(ctrl_exe_mem, rd_we.exe, rd_we.mem, 'h0)
+`STAGE(ctrl_exe_mem, csr_data_exe, csr_data_mem, 'h0)
+`STAGE(ctrl_exe_mem, decoded_exe.itype.load, load_inst_mem, 'h0)
+`STAGE(ctrl_exe_mem, decoded_exe.itype.store, store_inst_mem, 'h0)
 
-`DFF_CI_RI_RVI(dc_stalled, dc_stalled_d)
-
-//------------------------------------------------------------------------------
-// MEM/Writeback
-arch_width_t dmem_data;
-assign dmem_data =
-    (alu_out_mem[19:16] == `MMIO_RANGE) ? uart_read : dmem_rsp.data;
-
-assign writeback = (wb_sel_mem == WB_SEL_DMEM) ? dmem_data :
-                   (wb_sel_mem == WB_SEL_ALU ) ? alu_out_mem :
-                   (wb_sel_mem == WB_SEL_INC4) ? pc_mem_inc4 :
-                /* (wb_sel_mem == WB_SEL_CSR) ? */ csr_data_mem;
+`DFF_CI_RI_RVI(dc_stalled || hazard_be.to_dec || hazard_be.to_exe, be_stalled_d)
 
 //------------------------------------------------------------------------------
-// Pipeline FF MEM/WB
-stage_ctrl_t ctrl_mem;
-assign ctrl_mem = '{flush: flush.exe, en: 1'b1, bubble: dc_stalled};
+// MEM stage
+always_comb begin
+    e_writeback_mem = 'h0;
+    case (wb_sel.mem)
+        WB_SEL_ALU: e_writeback_mem = alu_out_mem;
+        WB_SEL_INC4: e_writeback_mem = pc_mem_inc4;
+        WB_SEL_CSR: e_writeback_mem = csr_data_mem;
+    endcase
+end
 
-`STAGE(ctrl_mem, inst.mem, inst.wbk, 'h0)
-`STAGE(ctrl_mem, pc.mem, pc.wbk, 'h0)
+logic map_uart_exe_mem;
+arch_width_t dmem_out_mem;
+assign map_uart_exe_mem = (alu_out_mem[19:16] == `MMIO_RANGE);
+assign dmem_out_mem = map_uart_exe_mem ? uart_read : dmem_rsp.data;
 
-assign inst_retired = (pc.wbk != 'h0);
-assign inst_to_be_retired = (pc.mem != 'h0) && !(flush.mem || dc_stalled);
+//------------------------------------------------------------------------------
+// Pipeline FF MEM/WBK
+arch_width_t dmem_out_wbk;
+arch_width_t e_writeback_wbk;
+stage_ctrl_t ctrl_mem_wbk;
+
+assign ctrl_mem_wbk = '{
+    flush: flush.exe,
+    en: 1'b1,
+    bubble: (!ctrl_exe_mem.en)
+};
+
+`STAGE(ctrl_mem_wbk, inst.mem, inst.wbk, 'h0)
+`STAGE(ctrl_mem_wbk, pc.mem, pc.wbk, 'h0)
+`STAGE(ctrl_mem_wbk, dmem_out_mem, dmem_out_wbk, 'h0)
+`STAGE(ctrl_mem_wbk, e_writeback_mem, e_writeback_wbk, 'h0)
+`STAGE(ctrl_mem_wbk, rd_addr.mem, rd_addr.wbk, RF_X0_ZERO)
+`STAGE(ctrl_mem_wbk, rd_we.mem, rd_we.wbk, 'h0)
+`STAGE(ctrl_mem_wbk, wb_sel.mem, wb_sel.wbk, WB_SEL_ALU)
+
+//------------------------------------------------------------------------------
+// WBK stage
+assign writeback = (wb_sel.wbk == WB_SEL_DMEM) ? dmem_out_wbk : e_writeback_wbk;
+assign inst_to_be_retired = (pc.wbk != 'h0) && (!flush.wbk);
+
+//------------------------------------------------------------------------------
+// retire
+stage_ctrl_t ctrl_wbk_ret;
+assign ctrl_wbk_ret = '{flush: flush.wbk, en: 1'b1, bubble: (!ctrl_mem_wbk.en)};
+
+inst_width_t inst_ret;
+arch_width_t pc_ret;
+`STAGE(ctrl_wbk_ret, inst.wbk, inst_ret, 'h0)
+`STAGE(ctrl_wbk_ret, pc.wbk, pc_ret, 'h0)
+
+assign inst_retired = (pc_ret != 'h0);
 
 //------------------------------------------------------------------------------
 // pipeline control
@@ -606,6 +655,6 @@ assign flush.fet = 1'b0;
 assign flush.dec = reset_seq[0];
 assign flush.exe = reset_seq[1];
 assign flush.mem = reset_seq[2];
-assign flush.wbk = 1'b0;
+assign flush.wbk = reset_seq[3];
 
 endmodule

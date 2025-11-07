@@ -14,8 +14,7 @@ parameter unsigned CLOCK_FREQ = (1_000 / CLK_PERIOD) * 1_000_000; // Hz
 `define TOHOST_PASS 32'd1
 `define DEFAULT_TIMEOUT_CLOCKS 5_000_000
 `define RST_PULSES 2
-`define CHECKER_ACTIVE 1'b1
-`define CHECKER_INACTIVE 1'b0
+`define CHK_ACT 1'b1
 
 // path defines
 `define TB ama_riscv_tb

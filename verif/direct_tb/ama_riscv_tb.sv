@@ -23,6 +23,7 @@ void cosim_exec(
     input longint unsigned mtime,
     output int unsigned pc,
     output int unsigned inst,
+    output int unsigned tohost,
     output string inst_asm_str,
     output string stack_top_str,
     output int unsigned rf[32]
@@ -82,12 +83,25 @@ event go_in_reset;
 event reset_end;
 
 // cosim
-int unsigned cosim_pc;
-int unsigned cosim_inst;
-string cosim_inst_asm_str;
-string cosim_stack_top_str;
-int unsigned cosim_rf[RF_NUM];
 bit [RF_NUM-1:0] rf_chk_act;
+localparam int SLEN = 32; // number of characters in the string
+
+typedef struct {
+    int unsigned pc;
+    int unsigned inst;
+    int unsigned tohost;
+    int unsigned rf[RF_NUM];
+    logic [8*SLEN-1:0] stack_top_str_wave;
+    logic [8*SLEN-1:0] inst_asm_str_wave;
+} cosim_t;
+
+typedef struct {
+    string inst_asm;
+    string stack_top;
+} cosim_str_t;
+
+cosim_t cosim;
+cosim_str_t cosim_str;
 
 // perf
 typedef struct {
@@ -97,9 +111,7 @@ typedef struct {
     int unsigned wb_cnt = 'h0;
 } stats_counters_t;
 
-stats_counters_t ic_stats;
-stats_counters_t dc_stats;
-stats_counters_t bp_stats;
+stats_counters_t ic_stats, dc_stats, bp_stats;
 perf_stats stats;
 perf_counters_t core_stats;
 
@@ -118,11 +130,12 @@ bind `CORE ama_riscv_core_view ama_riscv_core_view_i (
     .rst (rst),
     .dmem_req (dmem_req),
     .inst_retired (inst_retired),
-    .ctrl_dec (ctrl_dec),
-    .ctrl_exe (ctrl_exe),
-    .ctrl_mem (ctrl_mem),
+    .ctrl_dec_exe (ctrl_dec_exe),
+    .ctrl_exe_mem (ctrl_exe_mem),
+    .ctrl_mem_wbk (ctrl_mem_wbk),
     .decoded_exe (decoded_exe),
     .branch_taken (branch_taken),
+    .csr_tohost (csr.tohost),
     `ifdef USE_BP
     .bp_hit (bp_hit),
     `endif
@@ -130,7 +143,7 @@ bind `CORE ama_riscv_core_view ama_riscv_core_view_i (
 );
 
 rv_if #(.DW(8)) recv_rsp_ch ();
-rv_if #(.DW(8)) dummy_send_req_ch ();
+rv_if #(.DW(8)) send_req_ch (); // not in use, but required for instantiation
 `ifndef UART_SHORTCUT
 uart # (
     .CLOCK_FREQ (CLOCK_FREQ),
@@ -138,7 +151,7 @@ uart # (
 ) uart_host (
     .clk (clk),
     .rst (rst),
-    .send_req (dummy_send_req_ch.RX),
+    .send_req (send_req_ch.RX),
     .recv_rsp (recv_rsp_ch.TX),
     // NOTE: lines are cross connected from first UART
     .serial_in (uart_serial_out),
@@ -273,14 +286,15 @@ function bit cosim_run_checkers;
     int unsigned checker_errors_prev;
     begin
         checker_errors_prev = errors;
-        checker_t("pc", `CHECKER_ACTIVE, `CORE.pc.wbk, cosim_pc);
-        checker_t("inst", `CHECKER_ACTIVE, `CORE.inst.wbk, cosim_inst);
+        checker_t("pc", `CHK_ACT, `CORE.pc_ret, cosim.pc);
+        checker_t("inst", `CHK_ACT, `CORE.inst_ret, cosim.inst);
+        checker_t("tohost", `CHK_ACT, `CORE_VIEW.csr_tohost_wbk, cosim.tohost);
         for (int unsigned i = 1; i < RF_NUM; i = i + 1) begin
             checker_t(
                 $sformatf("x%0d", i),
-                `CHECKER_ACTIVE && rf_chk_act[i],
+                (`CHK_ACT && rf_chk_act[i]),
                 `RF.rf[i],
-                cosim_rf[i]
+                cosim.rf[i]
             );
         end
         errors_for_wave = (errors != checker_errors_prev);
@@ -373,14 +387,10 @@ initial begin
         $fwrite(fd, "clk: ");
         $fwrite(fd, "%0d", lclk_cnt);
         $fwrite(fd, "; Inst WB: ");
-        $fdisplay(fd, "%8x", `CORE.inst.wbk );
+        $fdisplay(fd, "%8x", `CORE.inst_ret );
     end
 end
 */
-
-localparam int SLEN = 32; // number of characters in the string
-logic [8*SLEN-1:0] cosim_stack_top_str_wave;
-logic [8*SLEN-1:0] cosim_inst_asm_str_wave;
 
 function string trim_after_double_space(string s);
     // keep everything *before* the first of the two spaces
@@ -506,19 +516,19 @@ task automatic single_step(longint unsigned clk_cnt);
     if (!inst_retired) return;
 
     `ifdef ENABLE_COSIM
-    cosim_exec(clk_cnt, mtime_tb, cosim_pc, cosim_inst,
-               cosim_inst_asm_str, cosim_stack_top_str, cosim_rf);
+    cosim_exec(clk_cnt, mtime_tb, cosim.pc, cosim.inst, cosim.tohost,
+               cosim_str.inst_asm, cosim_str.stack_top, cosim.rf);
 
     core_ret = $sformatf(
-        "Core [R] %5h: %8h", `CORE.pc.wbk, `CORE.inst.wbk);
+        "Core [R] %5h: %8h", `CORE.pc_ret, `CORE.inst_ret);
     isa_ret = $sformatf(
-        "COSIM    %5h: %8h %0s", cosim_pc, cosim_inst, cosim_inst_asm_str);
+        "COSIM    %5h: %8h %0s", cosim.pc, cosim.inst, cosim_str.inst_asm);
     `LOG_V(core_ret);
     `LOG_V(isa_ret);
 
-    cosim_stack_top_str_wave = pack_string(cosim_stack_top_str);
-    cosim_inst_asm_str_wave =
-        pack_string(trim_after_double_space(cosim_inst_asm_str));
+    cosim.stack_top_str_wave = pack_string(cosim_str.stack_top);
+    cosim.inst_asm_str_wave =
+        pack_string(trim_after_double_space(cosim_str.inst_asm));
     if (args.cosim_chk_en) new_errors = cosim_run_checkers(rf_chk_act);
     if (new_errors) begin
         `LOG_E(core_ret, 0);
@@ -576,6 +586,7 @@ end
 // checker setup
 logic [4:0] dut_rf_addr;
 initial begin
+    bit is_unknown;
     rf_chk_act = {RF_NUM{1'b0}};
     @reset_end;
     // set bit to active when the corresponding register is first written to
@@ -585,13 +596,19 @@ initial begin
     while (!(&rf_chk_act)) begin
         @(posedge clk);
         dut_rf_addr = `RF.addr_d;
-        if (!rf_chk_act[dut_rf_addr] && `RF.we) begin
+        is_unknown = $isunknown(dut_rf_addr);
+        if (is_unknown) begin
+            `LOG_E("RF address is unknown value", 1);
+        end
+
+        if (!is_unknown && !rf_chk_act[dut_rf_addr] && `RF.we) begin
             #1;
             `LOG_V($sformatf(
                 "First write to x%0d. Checker activated", dut_rf_addr));
             rf_chk_act[dut_rf_addr] = 1'b1;
         end
     end
+
     `LOG_I("All RF checkers active");
 end
 

@@ -76,6 +76,7 @@ void cosim_exec(
     uint64_t mtime,
     unsigned int* pc,
     unsigned int* inst,
+    unsigned int* tohost,
     const char** inst_asm_str,
     const char** stack_top_str,
     unsigned int rf[32])
@@ -88,6 +89,7 @@ void cosim_exec(
     *pc = rv32->get_pc();
     rv32->exec_inst();
     *inst = rv32->get_inst();
+    *tohost = rv32->get_csr(CSR_TOHOST);
     for (int i = 0; i < 32; i++) rf[i] = rv32->get_reg(i);
     inst_asm = rv32->get_inst_asm().c_str();
     *inst_asm_str = inst_asm.c_str();

@@ -41,6 +41,7 @@ DPI_LINKER_DECL DPI_DLLESPEC
 	uint64_t mtime ,
 	unsigned int* pc ,
 	unsigned int* inst ,
+	unsigned int* tohost ,
 	const char** inst_asm_str ,
 	const char** stack_top_str ,
 	unsigned int rf[32]);
