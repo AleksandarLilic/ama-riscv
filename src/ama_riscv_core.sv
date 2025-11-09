@@ -67,18 +67,13 @@ assign pc_inc4 = pc.fet + 'd4;
 inst_width_t inst_dec_d;
 arch_width_t pc_dec_d;
 always_comb begin
-    if (be_stalled_d) begin
-        if (imem_rsp.valid) begin
-            // new inst arrived on miss before BE stalled
-            // but d$ is still stalling
-            inst.dec = imem_rsp.data;
-            pc.dec = pc.fet;
-        end else begin
-            // keep current inst, new requests are not issued to the same addr
-            inst.dec = inst_dec_d;
-            pc.dec = pc_dec_d;
-        end
+    if (be_stalled_d && !imem_rsp.valid) begin
+        // keep current inst, new requests are not issued to the same addr
+        inst.dec = inst_dec_d;
+        pc.dec = pc_dec_d;
     end else begin
+        // even if be in stall, take inst if imem_rsp.valid
+        // happens when i$ missed before be stalled
         inst.dec = imem_rsp.data;
         pc.dec = pc.fet;
     end
@@ -99,9 +94,8 @@ ama_riscv_decoder ama_riscv_decoder_i (
     .fe_ctrl (decoded_fe_ctrl)
 );
 
+logic dc_stalled, move_past_dec_exe_dc_stall;
 branch_t branch_resolution;
-logic move_past_dec_exe_dc_stall;
-logic dc_stalled;
 hazard_be_t hazard_be;
 ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     .clk (clk),
@@ -140,12 +134,8 @@ arch_width_t writeback;
 // reg file
 pipeline_if_typed #(.T(rf_addr_t)) rd_addr ();
 pipeline_if_s rd_we ();
-rf_addr_t rs1_addr_dec;
-rf_addr_t rs2_addr_dec;
-rf_addr_t rs1_addr_exe;
-rf_addr_t rs2_addr_exe;
-arch_width_t rs1_data_dec;
-arch_width_t rs2_data_dec;
+rf_addr_t rs1_addr_dec, rs2_addr_dec;
+arch_width_t rs1_data_dec, rs2_data_dec;
 
 assign rs1_addr_dec = get_rs1(inst.dec, decoded.has_reg.rs1);
 assign rs2_addr_dec = get_rs2(inst.dec, decoded.has_reg.rs2);
@@ -211,7 +201,7 @@ ama_riscv_bp #(
     .pred (bp_pred_1)
 );
 
-if (BP_TYPE != BP_COMBINED) begin: gen_bp_dyn_1
+if (BP_TYPE != BP_COMBINED) begin: gen_bp_dyn_single
 assign bp_pred = bp_pred_1;
 
 end else begin: gen_bp_dyn_comb
@@ -242,15 +232,15 @@ ama_riscv_bp #(
 );
 assign bp_pred = bp_pred_meta;
 
-end
-end
+end // gen_bp_dyn_single/gen_bp_dyn_comb
+end // gen_bp_sttc/gen_bp_dyn
 `endif // USE_BP
 
 fwd_be_t fwd_be_rs1_dec, fwd_be_rs2_dec, fwd_be_rs1_exe, fwd_be_rs2_exe;
+logic rf_a_sel_fwd, rf_b_sel_fwd, bc_a_sel_fwd_exe, bcs_b_sel_fwd_exe;
 alu_a_sel_t alu_a_sel_fwd;
 alu_b_sel_t alu_b_sel_fwd;
-logic rf_a_sel_fwd, rf_b_sel_fwd;
-logic bc_a_sel_fwd_exe, bcs_b_sel_fwd_exe;
+rf_addr_t rs1_addr_exe, rs2_addr_exe;
 logic load_inst_mem, store_inst_mem;
 
 ama_riscv_operand_forwarding ama_riscv_operand_forwarding_i (
@@ -469,8 +459,8 @@ always_ff @(posedge clk) begin
 end
 
 // mtime
-logic [CNT_WIDTH-1:0] cnt_us; // 1 microsecond cnt
 logic tick_us;
+logic [CNT_WIDTH-1:0] cnt_us; // 1 microsecond cnt
 always_ff @(posedge clk) begin
     if (rst) begin
         cnt_us <= 'h0;
