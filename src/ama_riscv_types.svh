@@ -6,6 +6,7 @@ parameter unsigned ARCH_DOUBLE_WIDTH = ARCH_WIDTH*2;
 parameter unsigned INST_WIDTH = 32;
 typedef logic [ARCH_WIDTH-1:0] arch_width_t;
 typedef logic [ARCH_DOUBLE_WIDTH-1:0] arch_double_width_t;
+typedef logic signed [ARCH_DOUBLE_WIDTH-1:0] arch_double_width_s_t;
 typedef logic [INST_WIDTH-1:0] inst_width_t;
 
 parameter unsigned RF_NUM = 32;
@@ -126,6 +127,13 @@ typedef enum logic [3:0] {
     ALU_OP_PASS_B = 4'b1111
 } alu_op_t;
 
+typedef enum logic [1:0] {
+    MULT_OP_MUL = 2'b00,
+    MULT_OP_MULH = 2'b01,
+    MULT_OP_MULHSU = 2'b10,
+    MULT_OP_MULHU = 2'b11
+} mult_op_t;
+
 typedef enum logic [2:0] {
     IG_DISABLED = 3'b000,
     IG_I_TYPE = 3'b001,
@@ -184,6 +192,7 @@ typedef struct packed {
 } csr_ctrl_t;
 
 typedef struct packed {
+    logic mult;
     logic load;
     logic store;
     logic branch;
@@ -208,6 +217,7 @@ typedef struct packed {
     has_reg_t has_reg;
     csr_ctrl_t csr_ctrl;
     alu_op_t alu_op_sel;
+    mult_op_t mult_op_sel;
     alu_a_sel_t alu_a_sel;
     alu_b_sel_t alu_b_sel;
     ig_sel_t ig_sel;
@@ -444,6 +454,10 @@ endfunction
 
 function automatic logic get_fn7_b5(input inst_width_t inst);
     get_fn7_b5 = inst[30];
+endfunction
+
+function automatic logic get_fn7_b0(input inst_width_t inst);
+    get_fn7_b0 = inst[25];
 endfunction
 
 function automatic rf_addr_t get_rs1(input inst_width_t inst, input logic has);

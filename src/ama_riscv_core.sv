@@ -369,6 +369,16 @@ ama_riscv_alu ama_riscv_alu_i (
     .out_s (alu_out_exe)
 );
 
+arch_width_t mult_out_exe, arith_out_exe;
+ama_riscv_mult ama_riscv_mult_i (
+    .op_sel (decoded_exe.mult_op_sel),
+    .in_a (alu_in_a),
+    .in_b (alu_in_b),
+    .out_s (mult_out_exe)
+);
+
+assign arith_out_exe = decoded_exe.itype.mult ? mult_out_exe : alu_out_exe;
+
 // CSR
 csr_t csr; // regs
 csr_addr_t csr_addr;
@@ -559,8 +569,9 @@ end
 
 //------------------------------------------------------------------------------
 // Pipeline FF EXE/MEM
-arch_width_t pc_mem_inc4, alu_out_mem, csr_data_mem; // (early) writeback opts
+arch_width_t pc_mem_inc4, arith_out_mem, csr_data_mem; // (early) writeback opts
 stage_ctrl_t ctrl_exe_mem;
+logic map_uart_mem;
 
 pipeline_if_typed #(.T(wb_sel_t)) wb_sel ();
 assign wb_sel.exe = decoded_exe.wb_sel;
@@ -574,13 +585,14 @@ assign ctrl_exe_mem = '{
 `STAGE(ctrl_exe_mem, pc.exe, pc.mem, 'h0)
 `STAGE(ctrl_exe_mem, pc.exe + 'd4, pc_mem_inc4, 'h0)
 `STAGE(ctrl_exe_mem, inst.exe, inst.mem, 'h0)
-`STAGE(ctrl_exe_mem, alu_out_exe, alu_out_mem, 'h0)
+`STAGE(ctrl_exe_mem, arith_out_exe, arith_out_mem, 'h0)
 `STAGE(ctrl_exe_mem, wb_sel.exe, wb_sel.mem, WB_SEL_ALU)
 `STAGE(ctrl_exe_mem, rd_addr.exe, rd_addr.mem, RF_X0_ZERO)
 `STAGE(ctrl_exe_mem, rd_we.exe, rd_we.mem, 'h0)
 `STAGE(ctrl_exe_mem, csr_data_exe, csr_data_mem, 'h0)
 `STAGE(ctrl_exe_mem, decoded_exe.itype.load, load_inst_mem, 'h0)
 `STAGE(ctrl_exe_mem, decoded_exe.itype.store, store_inst_mem, 'h0)
+`STAGE(ctrl_exe_mem, map_uart_exe, map_uart_mem, 'h0)
 
 `DFF_CI_RI_RVI(dc_stalled || hazard_be.to_dec || hazard_be.to_exe, be_stalled_d)
 
@@ -589,16 +601,14 @@ assign ctrl_exe_mem = '{
 always_comb begin
     e_writeback_mem = 'h0;
     case (wb_sel.mem)
-        WB_SEL_ALU: e_writeback_mem = alu_out_mem;
+        WB_SEL_ALU: e_writeback_mem = arith_out_mem;
         WB_SEL_INC4: e_writeback_mem = pc_mem_inc4;
         WB_SEL_CSR: e_writeback_mem = csr_data_mem;
     endcase
 end
 
-logic map_uart_exe_mem;
 arch_width_t dmem_out_mem;
-assign map_uart_exe_mem = (alu_out_mem[19:16] == `MMIO_RANGE);
-assign dmem_out_mem = map_uart_exe_mem ? uart_read : dmem_rsp.data;
+assign dmem_out_mem = map_uart_mem ? uart_read : dmem_rsp.data;
 
 //------------------------------------------------------------------------------
 // Pipeline FF MEM/WBK

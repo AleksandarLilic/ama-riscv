@@ -21,6 +21,7 @@ logic fn7_dec_b5;
 assign opc7_dec = get_opc7(inst_dec);
 assign fn3_dec = get_fn3(inst_dec);
 assign fn7_dec_b5 = get_fn7_b5(inst_dec);
+assign fn7_dec_b0 = get_fn7_b0(inst_dec);
 
 always_comb begin
     decoded = `DECODER_RST_VAL;
@@ -32,7 +33,9 @@ always_comb begin
         OPC7_R_TYPE: begin
             fe_ctrl.pc_sel = PC_SEL_INC4;
             fe_ctrl.pc_we = 1'b1;
+            decoded.itype.mult = fn7_dec_b0;
             decoded.alu_op_sel = alu_op_t'({fn7_dec_b5, fn3_dec});
+            decoded.mult_op_sel = mult_op_t'(fn3_dec[1:0]);
             decoded.alu_a_sel = ALU_A_SEL_RS1;
             decoded.alu_b_sel = ALU_B_SEL_RS2;
             decoded.wb_sel = WB_SEL_ALU;
