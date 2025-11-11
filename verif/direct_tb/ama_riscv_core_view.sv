@@ -12,6 +12,9 @@ module ama_riscv_core_view (
     input stage_ctrl_t ctrl_dec_exe,
     input stage_ctrl_t ctrl_exe_mem,
     input stage_ctrl_t ctrl_mem_wbk,
+    input stage_ctrl_t ctrl_wbk_ret,
+    input inst_width_t inst_ret,
+    input arch_width_t pc_ret,
     input decoder_t decoded_exe,
     input branch_t branch_resolution,
     input arch_width_t csr_tohost,
@@ -21,9 +24,21 @@ module ama_riscv_core_view (
     input logic dc_stalled
 );
 
+// struct for all signals that are being tracked to retirement
+typedef struct {
+    inst_width_t inst;
+    arch_width_t pc;
+    logic branch_inst;
+    logic branch_taken;
+    logic bp_hit;
+    arch_width_t dmem_addr;
+    logic [3:0] dmem_size;
+} retired_t;
+
 pipeline_if_typed #(.T(inst_t)) inst_shadow ();
 pipeline_if_s nop ();
 pipeline_if_s flush ();
+retired_t r;
 
 function automatic inst_t classify_inst(input inst_width_t s);
     inst_t d;
@@ -63,30 +78,30 @@ assign flush.wbk = (inst.wbk == 'h0);
 // signals for tracing
 
 // inst, pc
-inst_width_t inst_wbk;
-arch_width_t pc_wbk;
-assign inst_wbk = inst.wbk & {INST_WIDTH{inst_retired}};
-assign pc_wbk = pc.wbk & {ARCH_WIDTH{inst_retired}};
+assign r.inst = inst_ret & {INST_WIDTH{inst_retired}};
+assign r.pc = pc_ret & {ARCH_WIDTH{inst_retired}};
 
 // branches
 logic branch_inst_mem, branch_inst_wbk;
 `STAGE(ctrl_exe_mem, decoded_exe.itype.branch, branch_inst_mem, 'h0)
 `STAGE(ctrl_mem_wbk, branch_inst_mem, branch_inst_wbk, 'h0)
+`STAGE(ctrl_wbk_ret, branch_inst_wbk, r.branch_inst, 'h0)
 
 logic branch_taken_exe, branch_taken_mem, branch_taken_wbk;
 assign branch_taken_exe =
     ((branch_resolution == B_T) && decoded_exe.itype.branch);
 `STAGE(ctrl_exe_mem, branch_taken_exe, branch_taken_mem, 'h0)
 `STAGE(ctrl_mem_wbk, branch_taken_mem, branch_taken_wbk, 'h0)
+`STAGE(ctrl_wbk_ret, branch_taken_wbk, r.branch_taken, 'h0)
 
 `ifdef USE_BP
 logic bp_hit_exe, bp_hit_mem, bp_hit_wbk;
 assign bp_hit_exe = (decoded_exe.itype.branch && bp_hit);
 `STAGE(ctrl_exe_mem, bp_hit_exe, bp_hit_mem, 'h0)
 `STAGE(ctrl_mem_wbk, bp_hit_mem, bp_hit_wbk, 'h0)
+`STAGE(ctrl_wbk_ret, bp_hit_wbk, r.bp_hit, 'h0)
 `else
-logic bp_hit_wbk;
-assign bp_hit_wbk = 1'b0; // just to make trace function happy
+assign r.bp_hit = 1'b0; // just to make trace function happy
 `endif
 
 arch_width_t csr_tohost_mem, csr_tohost_wbk;
@@ -110,9 +125,11 @@ assign dmem_size_exe = dmem_req.valid ? {1'b0, dmem_size} : DMEM_SIZE_NA;
 
 `STAGE(ctrl_exe_mem, dmem_addr_exe, dmem_addr_mem, 'h0)
 `STAGE(ctrl_mem_wbk, dmem_addr_mem, dmem_addr_wbk, 'h0)
+`STAGE(ctrl_wbk_ret, dmem_addr_wbk, r.dmem_addr, 'h0)
 
 `STAGE(ctrl_exe_mem, dmem_size_exe, dmem_size_mem, 'h0)
 `STAGE(ctrl_mem_wbk, dmem_size_mem, dmem_size_wbk, DMEM_SIZE_NA)
+`STAGE(ctrl_wbk_ret, dmem_size_wbk, r.dmem_size, DMEM_SIZE_NA)
 
 // track down bubble
 pipeline_if_s bubble ();

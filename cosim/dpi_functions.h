@@ -51,8 +51,8 @@ DPI_LINKER_DECL DPI_DLLESPEC
 DPI_LINKER_DECL DPI_DLLESPEC 
  void cosim_add_te(
 	uint64_t clk_cnt ,
-	unsigned int inst_wbk ,
-	unsigned int pc_wbk ,
+	unsigned int inst_ret ,
+	unsigned int pc_ret ,
 	unsigned int x2_sp ,
 	unsigned int dmem_addr ,
 	char dmem_size ,

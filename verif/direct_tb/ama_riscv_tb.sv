@@ -32,8 +32,8 @@ void cosim_exec(
 import "DPI-C" function
 void cosim_add_te(
     input longint unsigned clk_cnt,
-    input int unsigned inst_wbk,
-    input int unsigned pc_wbk,
+    input int unsigned inst_ret,
+    input int unsigned pc_ret,
     input int unsigned x2_sp,
     input int unsigned dmem_addr,
     input byte dmem_size,
@@ -130,9 +130,13 @@ bind `CORE ama_riscv_core_view ama_riscv_core_view_i (
     .rst (rst),
     .dmem_req (dmem_req),
     .inst_retired (inst_retired),
+    // internal
     .ctrl_dec_exe (ctrl_dec_exe),
     .ctrl_exe_mem (ctrl_exe_mem),
     .ctrl_mem_wbk (ctrl_mem_wbk),
+    .ctrl_wbk_ret (ctrl_wbk_ret),
+    .inst_ret (inst_ret),
+    .pc_ret (pc_ret),
     .decoded_exe (decoded_exe),
     .branch_resolution (branch_resolution),
     .csr_tohost (csr.tohost),
@@ -448,10 +452,9 @@ function automatic byte get_bp_status(ref stats_counters_t stats);
     byte bp_hm;
     begin
         bp_hm = hw_status_t_none;
-        // no BP, miss on every branch
-        if (`CORE_VIEW.branch_inst_wbk) begin
+        if (`CORE_VIEW.r.branch_inst) begin
             stats.ref_cnt++;
-            if (`CORE_VIEW.bp_hit_wbk) begin
+            if (`CORE_VIEW.r.bp_hit) begin
                 bp_hm = hw_status_t_hit;
                 stats.hit_cnt++;
             end else begin
@@ -468,12 +471,12 @@ function automatic void add_trace_entry(longint unsigned clk_cnt);
     // NOTE: cache & bp stats collected when they happen, inst when retired
     cosim_add_te(
         clk_cnt,
-        `CORE_VIEW.inst_wbk,
-        `CORE_VIEW.pc_wbk,
+        `CORE_VIEW.r.inst,
+        `CORE_VIEW.r.pc,
         `RF.rf[RF_X2_SP],
-        `CORE_VIEW.dmem_addr_wbk,
-        `CORE_VIEW.dmem_size_wbk,
-        `CORE_VIEW.branch_taken_wbk,
+        `CORE_VIEW.r.dmem_addr,
+        `CORE_VIEW.r.dmem_size,
+        `CORE_VIEW.r.branch_taken,
         get_cache_status(
             ic_stats,
             `ICACHE.new_core_req_d,

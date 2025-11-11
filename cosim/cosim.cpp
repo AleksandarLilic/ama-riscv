@@ -45,8 +45,8 @@ int cosim_setup(
 DPI_LINKER_DECL DPI_DLLESPEC
 void cosim_add_te(
     uint64_t clk_cnt,
-    unsigned int inst_wbk,
-    unsigned int pc_wbk,
+    unsigned int inst_ret,
+    unsigned int pc_ret,
     unsigned int x2_sp,
     unsigned int dmem_addr,
     char dmem_size,
@@ -55,8 +55,8 @@ void cosim_add_te(
     char dc_hm,
     char bp_hm)
 {
-    te.inst = inst_wbk;
-    te.pc = pc_wbk;
+    te.inst = inst_ret;
+    te.pc = pc_ret;
     // te.next_pc = 0u; // next_pc not always known in DPI, default from rst_te
     te.sp = x2_sp;
     te.taken = branch_taken;
