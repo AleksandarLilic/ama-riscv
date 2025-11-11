@@ -363,18 +363,12 @@ always_comb begin
 end
 
 ama_riscv_alu ama_riscv_alu_i (
-    .op_sel (decoded_exe.alu_op_sel),
-    .in_a (alu_in_a),
-    .in_b (alu_in_b),
-    .out_s (alu_out_exe)
+    .op (decoded_exe.alu_op), .a (alu_in_a), .b (alu_in_b), .s (alu_out_exe)
 );
 
 arch_width_t mult_out_exe, arith_out_exe;
 ama_riscv_mult ama_riscv_mult_i (
-    .op_sel (decoded_exe.mult_op_sel),
-    .in_a (alu_in_a),
-    .in_b (alu_in_b),
-    .out_s (mult_out_exe)
+    .op (decoded_exe.mult_op), .a (alu_in_a), .b (alu_in_b), .p (mult_out_exe)
 );
 
 assign arith_out_exe = decoded_exe.itype.mult ? mult_out_exe : alu_out_exe;
@@ -411,10 +405,10 @@ end
 // csr write
 always_comb begin
     csr_wr_data = 'h0;
-    case(decoded_exe.csr_ctrl.op_sel)
-        CSR_OP_SEL_ASSIGN: csr_wr_data = csr_wr_data_source;
-        CSR_OP_SEL_SET_BITS: csr_wr_data = csr_data_exe | csr_wr_data_source;
-        CSR_OP_SEL_CLR_BITS: csr_wr_data = csr_data_exe & ~csr_wr_data_source;
+    case(decoded_exe.csr_ctrl.op)
+        CSR_OP_ASSIGN: csr_wr_data = csr_wr_data_source;
+        CSR_OP_SET_BITS: csr_wr_data = csr_data_exe | csr_wr_data_source;
+        CSR_OP_CLR_BITS: csr_wr_data = csr_data_exe & ~csr_wr_data_source;
         default: ;
     endcase
 end

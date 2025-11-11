@@ -65,9 +65,9 @@
     '{ \
         itype: `INST_TYPE_RST_VAL, \
         has_reg: `HAS_REG_RST_VAL, \
-        csr_ctrl: '{en: 1'b0, we: 1'b0, ui: 1'b0, op_sel: CSR_OP_SEL_NONE}, \
-        alu_op_sel: ALU_OP_ADD, \
-        mult_op_sel: MULT_OP_MUL, \
+        csr_ctrl: '{en: 1'b0, we: 1'b0, ui: 1'b0, op: CSR_OP_NONE}, \
+        alu_op: ALU_OP_ADD, \
+        mult_op: MULT_OP_MUL, \
         alu_a_sel: ALU_A_SEL_RS1, \
         alu_b_sel: ALU_B_SEL_RS2, \
         ig_sel: IG_DISABLED, \

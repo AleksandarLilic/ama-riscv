@@ -56,11 +56,11 @@ typedef enum logic [6:0] {
 } opc7_t;
 
 typedef enum logic [1:0] {
-    CSR_OP_SEL_NONE = 2'b00,
-    CSR_OP_SEL_ASSIGN = 2'b01,
-    CSR_OP_SEL_SET_BITS = 2'b10,
-    CSR_OP_SEL_CLR_BITS = 2'b11
-} csr_op_sel_t;
+    CSR_OP_NONE = 2'b00,
+    CSR_OP_ASSIGN = 2'b01,
+    CSR_OP_SET_BITS = 2'b10,
+    CSR_OP_CLR_BITS = 2'b11
+} csr_op_t;
 
 typedef enum logic {
     B_NT = 1'b0,
@@ -188,7 +188,7 @@ typedef struct packed {
     logic en;
     logic we;
     logic ui;
-    csr_op_sel_t op_sel;
+    csr_op_t op;
 } csr_ctrl_t;
 
 typedef struct packed {
@@ -216,8 +216,8 @@ typedef struct packed {
     inst_type_t itype;
     has_reg_t has_reg;
     csr_ctrl_t csr_ctrl;
-    alu_op_t alu_op_sel;
-    mult_op_t mult_op_sel;
+    alu_op_t alu_op;
+    mult_op_t mult_op;
     alu_a_sel_t alu_a_sel;
     alu_b_sel_t alu_b_sel;
     ig_sel_t ig_sel;

@@ -34,8 +34,8 @@ always_comb begin
             fe_ctrl.pc_sel = PC_SEL_INC4;
             fe_ctrl.pc_we = 1'b1;
             decoded.itype.mult = fn7_dec_b0;
-            decoded.alu_op_sel = alu_op_t'({fn7_dec_b5, fn3_dec});
-            decoded.mult_op_sel = mult_op_t'(fn3_dec[1:0]);
+            decoded.alu_op = alu_op_t'({fn7_dec_b5, fn3_dec});
+            decoded.mult_op = mult_op_t'(fn3_dec[1:0]);
             decoded.alu_a_sel = ALU_A_SEL_RS1;
             decoded.alu_b_sel = ALU_B_SEL_RS2;
             decoded.wb_sel = WB_SEL_ALU;
@@ -46,7 +46,7 @@ always_comb begin
         OPC7_I_TYPE: begin
             fe_ctrl.pc_sel = PC_SEL_INC4;
             fe_ctrl.pc_we = 1'b1;
-            decoded.alu_op_sel =
+            decoded.alu_op =
                 (fn3_dec[1:0] == 2'b01) ?
                     alu_op_t'({fn7_dec_b5, fn3_dec}) : // shift
                     alu_op_t'({1'b0, fn3_dec}); // imm
@@ -62,7 +62,7 @@ always_comb begin
             fe_ctrl.pc_sel = PC_SEL_INC4;
             fe_ctrl.pc_we = 1'b1;
             decoded.itype.load = 1'b1;
-            decoded.alu_op_sel = ALU_OP_ADD;
+            decoded.alu_op = ALU_OP_ADD;
             decoded.alu_a_sel = ALU_A_SEL_RS1;
             decoded.alu_b_sel = ALU_B_SEL_IMM;
             decoded.ig_sel = IG_I_TYPE;
@@ -76,7 +76,7 @@ always_comb begin
             fe_ctrl.pc_sel = PC_SEL_INC4;
             fe_ctrl.pc_we = 1'b1;
             decoded.itype.store = 1'b1;
-            decoded.alu_op_sel = ALU_OP_ADD;
+            decoded.alu_op = ALU_OP_ADD;
             decoded.alu_a_sel = ALU_A_SEL_RS1;
             decoded.alu_b_sel = ALU_B_SEL_IMM;
             decoded.ig_sel = IG_S_TYPE;
@@ -88,7 +88,7 @@ always_comb begin
             fe_ctrl.pc_sel = PC_SEL_INC4;
             fe_ctrl.pc_we = 1'b1;
             decoded.itype.branch = 1'b1;
-            decoded.alu_op_sel = ALU_OP_ADD;
+            decoded.alu_op = ALU_OP_ADD;
             decoded.alu_a_sel = ALU_A_SEL_PC;
             decoded.alu_b_sel = ALU_B_SEL_IMM;
             decoded.ig_sel = IG_B_TYPE;
@@ -100,7 +100,7 @@ always_comb begin
             fe_ctrl.pc_sel = PC_SEL_ALU;
             fe_ctrl.pc_we = 1'b1;
             decoded.itype.jump = 1'b1;
-            decoded.alu_op_sel = ALU_OP_ADD;
+            decoded.alu_op = ALU_OP_ADD;
             decoded.alu_a_sel = ALU_A_SEL_RS1;
             decoded.alu_b_sel = ALU_B_SEL_IMM;
             decoded.ig_sel = IG_I_TYPE;
@@ -113,7 +113,7 @@ always_comb begin
             fe_ctrl.pc_sel = PC_SEL_ALU;
             fe_ctrl.pc_we = 1'b1;
             decoded.itype.jump = 1'b1;
-            decoded.alu_op_sel = ALU_OP_ADD;
+            decoded.alu_op = ALU_OP_ADD;
             decoded.alu_a_sel = ALU_A_SEL_PC;
             decoded.alu_b_sel = ALU_B_SEL_IMM;
             decoded.ig_sel = IG_J_TYPE;
@@ -125,7 +125,7 @@ always_comb begin
         OPC7_LUI: begin
             fe_ctrl.pc_sel = PC_SEL_INC4;
             fe_ctrl.pc_we = 1'b1;
-            decoded.alu_op_sel = ALU_OP_PASS_B;
+            decoded.alu_op = ALU_OP_PASS_B;
             decoded.alu_b_sel = ALU_B_SEL_IMM;
             decoded.ig_sel = IG_U_TYPE;
             decoded.wb_sel = WB_SEL_ALU;
@@ -136,7 +136,7 @@ always_comb begin
         OPC7_AUIPC: begin
             fe_ctrl.pc_sel = PC_SEL_INC4;
             fe_ctrl.pc_we = 1'b1;
-            decoded.alu_op_sel = ALU_OP_ADD;
+            decoded.alu_op = ALU_OP_ADD;
             decoded.alu_a_sel = ALU_A_SEL_PC;
             decoded.alu_b_sel = ALU_B_SEL_IMM;
             decoded.ig_sel = IG_U_TYPE;
@@ -149,11 +149,11 @@ always_comb begin
             fe_ctrl.pc_sel = PC_SEL_INC4;
             fe_ctrl.pc_we = 1'b1;
             decoded.csr_ctrl.en =
-                !((fn3_dec[1:0] == CSR_OP_SEL_ASSIGN) && rs1_nz);
+                !((fn3_dec[1:0] == CSR_OP_ASSIGN) && rs1_nz);
             decoded.csr_ctrl.we =
-                !((fn3_dec[1:0] != CSR_OP_SEL_ASSIGN) && rs1_nz);
+                !((fn3_dec[1:0] != CSR_OP_ASSIGN) && rs1_nz);
             decoded.csr_ctrl.ui = fn3_dec[2];
-            decoded.csr_ctrl.op_sel = csr_op_sel_t'(fn3_dec[1:0]);
+            decoded.csr_ctrl.op = csr_op_t'(fn3_dec[1:0]);
             decoded.alu_a_sel = ALU_A_SEL_RS1;
             decoded.wb_sel = WB_SEL_CSR;
             decoded.rd_we = rd_nz;
