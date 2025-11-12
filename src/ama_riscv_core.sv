@@ -319,10 +319,17 @@ assign rs1_exe_be_fwd =
 assign rs2_exe_be_fwd =
     (fwd_be_rs2_exe == FWD_BE_EWBK) ? e_writeback_mem : writeback;
 
+arch_width_t arith_out_mem;
+arch_width_t rs1_exe_be_fwd_b, rs2_exe_be_fwd_b;
+assign rs1_exe_be_fwd_b =
+    (fwd_be_rs1_exe == FWD_BE_EWBK) ? arith_out_mem : writeback;
+assign rs2_exe_be_fwd_b =
+    (fwd_be_rs2_exe == FWD_BE_EWBK) ? arith_out_mem : writeback;
+
 // branch compare & resolution
 arch_width_t bc_a, bcs_b;
-assign bc_a = bc_a_sel_fwd_exe ? rs1_exe_be_fwd : rs1_data_exe;
-assign bcs_b = bcs_b_sel_fwd_exe ? rs2_exe_be_fwd : rs2_data_exe;
+assign bc_a = bc_a_sel_fwd_exe ? rs1_exe_be_fwd_b : rs1_data_exe;
+assign bcs_b = bcs_b_sel_fwd_exe ? rs2_exe_be_fwd_b : rs2_data_exe;
 
 logic bc_a_eq_b, bc_a_lt_b;
 assign bc_a_eq_b =
@@ -563,7 +570,7 @@ end
 
 //------------------------------------------------------------------------------
 // Pipeline FF EXE/MEM
-arch_width_t pc_mem_inc4, arith_out_mem, csr_data_mem; // (early) writeback opts
+arch_width_t pc_mem_inc4, csr_data_mem;
 stage_ctrl_t ctrl_exe_mem;
 logic map_uart_mem;
 
