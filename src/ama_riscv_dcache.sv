@@ -417,7 +417,7 @@ assign serve_pending_load =
 logic hit_d_load;
 assign hit_d_load = (hit_d && new_core_req_d && (cr_d.rtype == DMEM_READ));
 
-logic [ARCH_WIDTH-1:0] data_out;
+logic [ARCH_WIDTH-1:0] rd_data;
 logic [IDX_RANGE_TOP-1:0] set_idx;
 logic [WAY_BITS-1:0] way_idx;
 logic [CORE_WORD_ADDR_BUS-1:0] word_idx;
@@ -439,7 +439,7 @@ always_comb begin
     req_mem_w.addr = 'h0;
     req_mem_w.wdata = 'h0;
     // others
-    data_out = 'h0;
+    rd_data = 'h0;
     dtype = DMEM_DTYPE_BYTE;
     rd_offset = 'h0;
     victim_wb_start_addr = 'h0;
@@ -516,8 +516,8 @@ always_comb begin
                 end
             end
             if (serve_pending_load || hit_d_load) begin
-                data_out = a_data[way_idx][set_idx].w[word_idx];
-                // `LOG_D($sformatf("dcache data out: %8h", data_out));
+                rd_data = a_data[way_idx][set_idx].w[word_idx];
+                // `LOG_D($sformatf("dcache data out: %8h", rd_data));
             end
         end
 
@@ -559,10 +559,10 @@ always_comb begin
 end
 
 // shift data as/if needed
-logic [ 1:0] load_dw;
-logic        load_ds;
+logic load_uns;
+logic [1:0] load_dw;
 assign load_dw = dtype[1:0];
-assign load_ds = dtype[2]; // 0: signed, 1: unsigned
+assign load_uns = dtype[2]; // 0: signed, 1: unsigned
 
 // Check unaligned access
 logic unaligned_access_h;
@@ -576,28 +576,29 @@ assign unaligned_access_w =
 assign unaligned_access = /* en && */ (unaligned_access_h || unaligned_access_w);
 
 // Shift mask
+logic [ARCH_WIDTH-1:0] data_out;
 always_comb begin
-    rsp_core.data = 'h0;
+    data_out = 'h0;
     if (/* en && */ !unaligned_access) begin
         case (load_dw)
             DMEM_DTYPE_BYTE: begin
-                rsp_core.data[ 7: 0] = data_out[rd_offset*8 +:  8];
-                rsp_core.data[31: 8] =
-                    load_ds ? {24{1'b0}} : {24{data_out[rd_offset*8 +  7]}};
+                data_out[7:0] = rd_data[rd_offset*8 +: 8];
+                data_out[31:8] =
+                    load_uns ? {24{1'b0}} : {24{rd_data[rd_offset*8 + 7]}};
             end
 
             DMEM_DTYPE_HALF: begin
-                rsp_core.data[15: 0] = data_out[rd_offset*8 +: 16];
-                rsp_core.data[31:16] =
-                    load_ds ? {16{1'b0}} : {16{data_out[rd_offset*8 + 15]}};
+                data_out[15:0] = rd_data[rd_offset*8 +: 16];
+                data_out[31:16] =
+                    load_uns ? {16{1'b0}} : {16{rd_data[rd_offset*8 + 15]}};
             end
 
             DMEM_DTYPE_WORD: begin
-                rsp_core.data = data_out;
+                data_out = rd_data;
             end
 
             default: begin
-                rsp_core.data = 'h0;
+                data_out = 'h0;
             end
 
         endcase
@@ -605,6 +606,11 @@ always_comb begin
         TODO: raise exception for unaligned access
     end */
 end
+
+// TODO: core is currently always ready
+// so rsp_core.ready is not used by core nor checked by dcache
+// this violates RV interface, but is functionally fine for now
+assign rsp_core.data = data_out;
 
 `ifndef SYNT
 `ifdef DEBUG
