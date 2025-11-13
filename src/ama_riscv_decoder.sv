@@ -17,7 +17,7 @@ assign rd_nz = (rd_addr_dec != RF_X0_ZERO);
 
 opc7_t opc7_dec;
 logic [2:0] fn3_dec;
-logic fn7_dec_b5;
+logic fn7_dec_b5, fn7_dec_b0;
 assign opc7_dec = get_opc7(inst_dec);
 assign fn3_dec = get_fn3(inst_dec);
 assign fn7_dec_b5 = get_fn7_b5(inst_dec);
