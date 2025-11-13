@@ -387,7 +387,7 @@ assign csr_addr = csr_addr_t'(inst.exe[31:20] & {12{decoded_exe.csr_ctrl.en}});
 arch_width_t csr_data_exe;
 always_comb begin
     csr_data_exe = 'h0;
-    if (decoded_exe.csr_ctrl.en) begin
+    if (decoded_exe.csr_ctrl.re) begin
         case (csr_addr)
             CSR_TOHOST: csr_data_exe = csr.tohost;
             CSR_MCYCLE: csr_data_exe = csr.mcycle.r[CSR_LOW];
@@ -406,10 +406,9 @@ end
 always_comb begin
     csr_wr_data = 'h0;
     case(decoded_exe.csr_ctrl.op)
-        CSR_OP_ASSIGN: csr_wr_data = csr_wr_data_source;
-        CSR_OP_SET_BITS: csr_wr_data = csr_data_exe | csr_wr_data_source;
-        CSR_OP_CLR_BITS: csr_wr_data = csr_data_exe & ~csr_wr_data_source;
-        default: ;
+        CSR_OP_RW: csr_wr_data = csr_wr_data_source;
+        CSR_OP_RS: csr_wr_data = csr_data_exe | csr_wr_data_source;
+        CSR_OP_RC: csr_wr_data = csr_data_exe & ~csr_wr_data_source;
     endcase
 end
 
@@ -563,7 +562,7 @@ end
 
 //------------------------------------------------------------------------------
 // Pipeline FF EXE/MEM
-arch_width_t pc_mem_inc4, arith_out_mem, csr_data_mem; // (early) writeback opts
+arch_width_t pc_inc4_mem, arith_out_mem, csr_data_mem;
 stage_ctrl_t ctrl_exe_mem;
 logic map_uart_mem;
 
@@ -577,7 +576,7 @@ assign ctrl_exe_mem = '{
 };
 
 `STAGE(ctrl_exe_mem, pc.exe, pc.mem, 'h0)
-`STAGE(ctrl_exe_mem, pc.exe + 'd4, pc_mem_inc4, 'h0)
+`STAGE(ctrl_exe_mem, pc.exe + 'd4, pc_inc4_mem, 'h0)
 `STAGE(ctrl_exe_mem, inst.exe, inst.mem, 'h0)
 `STAGE(ctrl_exe_mem, arith_out_exe, arith_out_mem, 'h0)
 `STAGE(ctrl_exe_mem, wb_sel.exe, wb_sel.mem, WB_SEL_ALU)
@@ -596,7 +595,7 @@ always_comb begin
     e_writeback_mem = 'h0;
     case (wb_sel.mem)
         WB_SEL_ALU: e_writeback_mem = arith_out_mem;
-        WB_SEL_INC4: e_writeback_mem = pc_mem_inc4;
+        WB_SEL_INC4: e_writeback_mem = pc_inc4_mem;
         WB_SEL_CSR: e_writeback_mem = csr_data_mem;
     endcase
 end

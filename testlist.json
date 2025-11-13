@@ -1,5 +1,6 @@
 [
     ["sim/sw/baremetal/asm_rv32i", "basic.hex"],
+    ["sim/sw/baremetal/asm_rv32i_zicsr", "basic.hex"],
     ["sim/sw/baremetal/asm_rv32im", "basic.hex"],
 
     ["sim/sw/baremetal/factorial", "n_20.hex"],
@@ -19,6 +20,7 @@
     ["sim/sw/baremetal/stream_int", "stream.elf"],
 
     ["sim/sw/baremetal/aapg_static/rv32i", "aapg.hex"],
+    ["sim/sw/baremetal/aapg_static/rv32i_zmmul", "aapg.hex"],
     ["sim/sw/baremetal/aapg_static/rv32i_branches", "aapg.hex"],
     ["sim/sw/baremetal/aapg_static/rv32i_mem", "aapg.hex"],
 

@@ -148,10 +148,11 @@ always_comb begin
         OPC7_SYSTEM: begin
             fe_ctrl.pc_sel = PC_SEL_INC4;
             fe_ctrl.pc_we = 1'b1;
-            decoded.csr_ctrl.en =
-                !((fn3_dec[1:0] == CSR_OP_ASSIGN) && rs1_nz);
-            decoded.csr_ctrl.we =
-                !((fn3_dec[1:0] != CSR_OP_ASSIGN) && rs1_nz);
+            // FIXME: rw/rwi should not read CSR on rd=x0;
+            // no impact w/ current CSRs
+            decoded.csr_ctrl.en = 1'b1;
+            decoded.csr_ctrl.re = 1'b1;
+            decoded.csr_ctrl.we = !((fn3_dec[1:0] != CSR_OP_RW) && rs1_nz);
             decoded.csr_ctrl.ui = fn3_dec[2];
             decoded.csr_ctrl.op = csr_op_t'(fn3_dec[1:0]);
             decoded.alu_a_sel = ALU_A_SEL_RS1;

@@ -57,9 +57,9 @@ typedef enum logic [6:0] {
 
 typedef enum logic [1:0] {
     CSR_OP_NONE = 2'b00,
-    CSR_OP_ASSIGN = 2'b01,
-    CSR_OP_SET_BITS = 2'b10,
-    CSR_OP_CLR_BITS = 2'b11
+    CSR_OP_RW = 2'b01, // Atomic Read/Write CSR
+    CSR_OP_RS = 2'b10, // Atomic Read and Set Bits in CSR
+    CSR_OP_RC = 2'b11 // Atomic Read and Clear Bits in CSR
 } csr_op_t;
 
 typedef enum logic {
@@ -186,6 +186,7 @@ typedef enum logic {
 // Core signal bundles
 typedef struct packed {
     logic en;
+    logic re;
     logic we;
     logic ui;
     csr_op_t op;

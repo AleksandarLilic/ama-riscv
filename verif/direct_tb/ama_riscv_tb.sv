@@ -59,6 +59,16 @@ logic tohost_source;
 bit chk_pass_tohost = 1'b1;
 bit chk_pass_cosim = 1'b1;
 
+string msg_pass = "==== PASS ====";
+string msg_fail = "==== FAIL ====";
+
+string core_ret;
+string isa_ret;
+
+longint unsigned clk_cnt = 0;
+logic [ARCH_DOUBLE_WIDTH-1:0] mtime_d[3];
+logic [ARCH_DOUBLE_WIDTH-1:0] clk_cnt_d[3];
+
 typedef struct {
     string test_path;
     bit tohost_chk_en;
@@ -180,10 +190,6 @@ function automatic int open_file(string name, string op);
     return fd;
 endfunction
 
-// TODO: rework for uart output?
-//string log_name = "run.log";
-//int log_fd = open_file(log_name, "w");
-
 function automatic void load_memories;
     input string test_hex_path;
     int fd;
@@ -210,9 +216,6 @@ function void cosim_check_inst_cnt;
     if (cosim != core) `LOGNT($sformatf("Instruction count mismatch"));
 endfunction
 `endif
-
-string msg_pass = "==== PASS ====";
-string msg_fail = "==== FAIL ====";
 
 function automatic void check_test_status(input bit completed);
     string msg;
@@ -380,22 +383,6 @@ function void get_plusargs();
     end
 endfunction
 
-/*
-// Log to file
-int lclk_cnt = 0;
-initial begin
-    forever begin
-        @(posedge clk);
-        #1;
-        lclk_cnt = lclk_cnt + 1;
-        $fwrite(fd, "clk: ");
-        $fwrite(fd, "%0d", lclk_cnt);
-        $fwrite(fd, "; Inst WB: ");
-        $fdisplay(fd, "%8x", `CORE.inst_ret );
-    end
-end
-*/
-
 function string trim_after_double_space(string s);
     // keep everything *before* the first of the two spaces
     for (int unsigned i = 0; i < s.len()-1; i++) begin
@@ -496,13 +483,7 @@ function automatic void add_trace_entry(longint unsigned clk_cnt);
 endfunction
 `endif
 
-// needs 1 clk delay between CSR write and inst ret
-logic [ARCH_DOUBLE_WIDTH-1:0] mtime_tb;
-`DFF_CI_RI_RVI(`CORE.csr.mtime, mtime_tb)
-
-string core_ret;
-string isa_ret;
-task automatic single_step(longint unsigned clk_cnt);
+task automatic single_step();
     bit new_errors;
     stats.update(core_stats, inst_retired);
     `LOG_V($sformatf(
@@ -519,7 +500,7 @@ task automatic single_step(longint unsigned clk_cnt);
     if (!inst_retired) return;
 
     `ifdef ENABLE_COSIM
-    cosim_exec(clk_cnt, mtime_tb, cosim.pc, cosim.inst, cosim.tohost,
+    cosim_exec(clk_cnt_d[2], mtime_d[2], cosim.pc, cosim.inst, cosim.tohost,
                cosim_str.inst_asm, cosim_str.stack_top, cosim.rf);
 
     core_ret = $sformatf(
@@ -547,25 +528,35 @@ endtask
 
 task run_test();
     automatic int unsigned clks_to_retire_last_inst = 2;
-    automatic longint unsigned clk_cnt = 0;
     while (tohost_source !== 1'b1) begin
         @(posedge clk); #1;
-        clk_cnt += 1;
-        single_step(clk_cnt);
+        single_step();
     end
 
     // retire csr inst writing to tohost
     // thus matching number of executed instructions with isa sim standalone run
     repeat(clks_to_retire_last_inst) begin
         @(posedge clk); #1;
-        clk_cnt += 1;
-        single_step(clk_cnt);
+        single_step();
     end
-
 endtask
 
-// clk gen
+//------------------------------------------------------------------------------
+// setup and run
+
 always #(`CLK_HALF_PERIOD) clk = ~clk;
+always @(posedge clk) clk_cnt += 1;
+
+// 3 clk delay between CSR access and inst ret
+`DFF_CI_RI_RVI(
+    {`CORE.csr.mtime, mtime_d[0], mtime_d[1]},
+    {mtime_d[0], mtime_d[1], mtime_d[2]}
+)
+
+`DFF_CI_RI_RVI(
+    {clk_cnt, clk_cnt_d[0], clk_cnt_d[1]},
+    {clk_cnt_d[0], clk_cnt_d[1], clk_cnt_d[2]}
+)
 
 initial begin
     // set %t:
@@ -573,11 +564,9 @@ initial begin
     // - with 0 precision digits
     // - with the " ns" string
     // - taking up a total of 12 characters, including the string
-    //
     $timeformat(-9, 0, " ns", 12);
 end
 
-// Reset handler
 initial begin
     @go_in_reset;
     #1;
