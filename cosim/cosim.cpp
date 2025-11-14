@@ -54,20 +54,33 @@ void cosim_add_te(
     char branch_taken,
     char ic_hm,
     char dc_hm,
-    char bp_hm)
+    char bp_hm,
+    char ct_imem_core,
+    char ct_imem_mem,
+    char ct_dmem_core_r,
+    char ct_dmem_core_w,
+    char ct_dmem_mem_r,
+    char ct_dmem_mem_w)
 {
+    te.rst();
     te.inst = inst_ret;
     te.pc = pc_ret;
-    // te.next_pc = 0u; // next_pc not always known in DPI, default from rst_te
+    // te.next_pc = 0u; // next_pc not always known in DPI, default rst value
     te.sp = x2_sp;
     te.taken = branch_taken;
     te.inst_size = 4; // always 4 bytes in DPI, RV32C not supported
     te.dmem = dmem_addr;
     te.dmem_size = dmem_size;
-    te.sample_cnt = clk_cnt; // every clock is this called
+    te.sample_cnt = clk_cnt; // new sample every clock
     te.ic_hm = ic_hm;
     te.dc_hm = dc_hm;
     te.bp_hm = bp_hm;
+    te.ct_imem_core = ct_imem_core;
+    te.ct_imem_mem = ct_imem_mem;
+    te.ct_dmem_core_r = ct_dmem_core_r;
+    te.ct_dmem_core_w = ct_dmem_core_w;
+    te.ct_dmem_mem_r = ct_dmem_mem_r;
+    te.ct_dmem_mem_w = ct_dmem_mem_w;
     rv32->save_trace_entry(te);
 }
 

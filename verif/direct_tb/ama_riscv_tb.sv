@@ -40,7 +40,13 @@ void cosim_add_te(
     input byte branch_taken,
     input byte ic_hm,
     input byte dc_hm,
-    input byte bp_hm
+    input byte bp_hm,
+    input byte ct_imem_core,
+    input byte ct_imem_mem,
+    input byte ct_dmem_core_r,
+    input byte ct_dmem_core_w,
+    input byte ct_dmem_mem_r,
+    input byte ct_dmem_mem_w
 );
 
 import "DPI-C" function
@@ -455,7 +461,21 @@ endfunction
 
 `ifdef ENABLE_COSIM
 function automatic void add_trace_entry(longint unsigned clk_cnt);
-    // NOTE: cache & bp stats collected when they happen, inst when retired
+    // NOTE: hw stats collected when they happen, inst when retired
+    bit imem2core, imem2mem, dmem2core_r, dmem2mem_r, dmem2core_w, dmem2mem_w;
+    byte dmem2core_r_s, dmem2core_w_s; // transfer sizes
+    // imem, only reads
+    imem2core = `ICACHE.rsp_core.valid;
+    imem2mem = `ICACHE.rsp_mem.valid;
+    // dmem reads
+    dmem2core_r = `DCACHE.rsp_core.valid;
+    dmem2core_r_s = (`DCACHE.load_dw == DMEM_DTYPE_WORD) ? 4 : `DCACHE.load_dw;
+    dmem2mem_r = `DCACHE.rsp_mem.valid;
+    // dmem writes
+    dmem2core_w = (`DCACHE.store_req_pending || `DCACHE.store_req_hit);
+    dmem2core_w_s = $countones(`DCACHE.store_mask_q);
+    dmem2mem_w = `DCACHE.req_mem_w.valid;
+
     cosim_add_te(
         clk_cnt,
         `CORE_VIEW.r.inst,
@@ -478,7 +498,13 @@ function automatic void add_trace_entry(longint unsigned clk_cnt);
             `DCACHE.cr_victim_dirty_d,
             `DCACHE.cr_pend.active
         ),
-        get_bp_status(bp_stats)
+        get_bp_status(bp_stats),
+        (imem2core * CORE_DATA_BUS_B), // all instructions are 4 bytes
+        (imem2mem * MEM_DATA_BUS_B),
+        (dmem2core_r * dmem2core_r_s),
+        (dmem2core_w * dmem2core_w_s),
+        (dmem2mem_r * MEM_DATA_BUS_B),
+        (dmem2mem_w * MEM_DATA_BUS_B)
     );
 endfunction
 `endif
@@ -494,7 +520,7 @@ task automatic single_step();
     );
 
     `ifdef ENABLE_COSIM
-    add_trace_entry(clk_cnt);
+    add_trace_entry(clk_cnt - `RST_PULSES); // don't count time in reset
     `endif
     // cosim advances only if rtl retires an instruction
     if (!inst_retired) return;

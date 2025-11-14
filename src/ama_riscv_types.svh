@@ -27,6 +27,7 @@ parameter unsigned CORE_BYTE_ADDR_BUS = CORE_WORD_ADDR_BUS + 2; // 16
 
 parameter unsigned MEM_DATA_BUS = 128;
 parameter unsigned MEM_DATA_BUS_B = MEM_DATA_BUS >> 3; // 16
+parameter unsigned CORE_DATA_BUS_B = 4;
 parameter unsigned CACHE_LINE_SIZE_B = 64;
 parameter unsigned CACHE_LINE_B_MASK = CACHE_LINE_SIZE_B - 1; // 63 aka 0x3F
 parameter unsigned CACHE_LINE_SIZE = CACHE_LINE_SIZE_B << 3; // 512

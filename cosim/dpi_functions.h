@@ -59,7 +59,13 @@ DPI_LINKER_DECL DPI_DLLESPEC
 	char branch_taken ,
 	char ic_hm ,
 	char dc_hm ,
-	char bp_hm);
+	char bp_hm ,
+	char ct_imem_core ,
+	char ct_imem_mem ,
+	char ct_dmem_core_r ,
+	char ct_dmem_core_w ,
+	char ct_dmem_mem_r ,
+	char ct_dmem_mem_w);
 
 
 /* Imported (by SV) function */
