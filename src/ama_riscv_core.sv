@@ -367,7 +367,11 @@ ama_riscv_alu ama_riscv_alu_i (
 );
 
 arch_width_t mult_out_exe, arith_out_exe;
-ama_riscv_mult ama_riscv_mult_i (
+//ama_riscv_mult ama_riscv_mult_i (
+//    .op (decoded_exe.mult_op), .a (alu_in_a), .b (alu_in_b), .p (mult_out_exe)
+//);
+
+ama_riscv_simd ama_riscv_simd_i (
     .op (decoded_exe.mult_op), .a (alu_in_a), .b (alu_in_b), .p (mult_out_exe)
 );
 

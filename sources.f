@@ -13,7 +13,10 @@ sv work \
 "$REPO_ROOT/src/ama_riscv_operand_forwarding.sv" \
 "$REPO_ROOT/src/ama_riscv_reg_file.sv" \
 "$REPO_ROOT/src/ama_riscv_alu.sv" \
-"$REPO_ROOT/src/ama_riscv_mult.sv" \
+"$REPO_ROOT/src/ama_riscv_simd.sv" \
+"$REPO_ROOT/src/csa_b.sv" \
+"$REPO_ROOT/src/csa.sv" \
+"$REPO_ROOT/src/csa_tree_8.sv" \
 "$REPO_ROOT/src/ama_riscv_icache.sv" \
 "$REPO_ROOT/src/ama_riscv_dcache.sv" \
 "$REPO_ROOT/src/ama_riscv_mem.sv" \

@@ -4,10 +4,24 @@
 parameter unsigned ARCH_WIDTH = 32;
 parameter unsigned ARCH_DOUBLE_WIDTH = ARCH_WIDTH*2;
 parameter unsigned INST_WIDTH = 32;
+
 typedef logic [ARCH_WIDTH-1:0] arch_width_t;
 typedef logic [ARCH_DOUBLE_WIDTH-1:0] arch_double_width_t;
 typedef logic signed [ARCH_DOUBLE_WIDTH-1:0] arch_double_width_s_t;
 typedef logic [INST_WIDTH-1:0] inst_width_t;
+
+typedef union packed {
+    logic [ARCH_WIDTH-1:0] w;
+    logic [1:0] [(ARCH_WIDTH/2)-1:0] h;
+    logic [3:0] [(ARCH_WIDTH/4)-1:0] b;
+} simd_t;
+
+typedef union packed {
+    logic [ARCH_DOUBLE_WIDTH-1:0] d;
+    logic [1:0] [(ARCH_DOUBLE_WIDTH/2)-1:0] w;
+    logic [3:0] [(ARCH_DOUBLE_WIDTH/4)-1:0] h;
+    logic [7:0] [(ARCH_DOUBLE_WIDTH/8)-1:0] b;
+} simd_d_t;
 
 parameter unsigned RF_NUM = 32;
 
