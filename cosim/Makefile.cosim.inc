@@ -75,7 +75,7 @@ cleancosim:
 	rm -rf $(COSIM_BDIR_FULL)
 
 cleanisa:
-	$(MAKE) -C $(ISA_SIM_DIR) cleanbuild COSIM_BDIR=$(ISA_SIM_BDIR)
+	$(MAKE) -C $(ISA_SIM_DIR) cleanbuild BDIR=$(ISA_SIM_BDIR)
 	rm -f .isa_sim_obj.touchfile
 
 .PHONY: cleancosim cleanisa
