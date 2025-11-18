@@ -21,7 +21,7 @@ always_comb begin
     unique case (op)
         ALU_OP_ADD: s = a + b;
         ALU_OP_SUB: s = a - b;
-        ALU_OP_SLL: s = a_d_sll[(ARCH_DOUBLE_WIDTH-1-shamt) -: ARCH_WIDTH];
+        ALU_OP_SLL: s = a_d_sll[(ARCH_WIDTH_D-1-shamt) -: ARCH_WIDTH];
         ALU_OP_SRL: s = a_d_srl[shamt +: ARCH_WIDTH];
         ALU_OP_SRA: s = a_d_sra[shamt +: ARCH_WIDTH];
         ALU_OP_SLT: s = ($signed(a) < $signed(b)) ? 'h1 : 'h0;

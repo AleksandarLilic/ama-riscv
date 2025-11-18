@@ -17,9 +17,10 @@ assign rd_nz = (rd_addr_dec != RF_X0_ZERO);
 
 opc7_t opc7_dec;
 logic [2:0] fn3_dec;
-logic fn7_dec_b5, fn7_dec_b0;
+logic fn7_dec_b6, fn7_dec_b5, fn7_dec_b0;
 assign opc7_dec = get_opc7(inst_dec);
 assign fn3_dec = get_fn3(inst_dec);
+assign fn7_dec_b6 = get_fn7_b6(inst_dec);
 assign fn7_dec_b5 = get_fn7_b5(inst_dec);
 assign fn7_dec_b0 = get_fn7_b0(inst_dec);
 
@@ -35,7 +36,7 @@ always_comb begin
             fe_ctrl.pc_we = 1'b1;
             decoded.itype.mult = fn7_dec_b0;
             decoded.alu_op = alu_op_t'({fn7_dec_b5, fn3_dec});
-            decoded.mult_op = mult_op_t'(fn3_dec[1:0]);
+            decoded.mult_op = mult_op_t'({1'b0, fn3_dec[1:0]});
             decoded.alu_a_sel = ALU_A_SEL_RS1;
             decoded.alu_b_sel = ALU_B_SEL_RS2;
             decoded.wb_sel = WB_SEL_ALU;
@@ -143,6 +144,21 @@ always_comb begin
             decoded.wb_sel = WB_SEL_ALU;
             decoded.rd_we = rd_nz;
             decoded.has_reg = '{rd: 1'b1, rs1: 1'b0, rs2: 1'b0};
+        end
+
+        OPC7_CUSTOM: begin
+            // TODO: 'case' on 'fuct3' for type [SIMD, UNPAK]
+            fe_ctrl.pc_sel = PC_SEL_INC4;
+            fe_ctrl.pc_we = 1'b1;
+            // decoded.itype.custom = 1'b1;
+            decoded.itype.mult = 1'b1;
+            decoded.mult_op = mult_op_t'({1'b1, fn7_dec_b6, fn7_dec_b0});
+            // decoded.simd_op = ;
+            decoded.alu_a_sel = ALU_A_SEL_RS1;
+            decoded.alu_b_sel = ALU_B_SEL_RS2;
+            decoded.wb_sel = WB_SEL_ALU;
+            decoded.rd_we = rd_nz;
+            decoded.has_reg = '{rd: 1'b1, rs1: 1'b1, rs2: 1'b1};
         end
 
         OPC7_SYSTEM: begin

@@ -2,12 +2,13 @@
 `define AMA_RISCV_TYPES
 
 parameter unsigned ARCH_WIDTH = 32;
-parameter unsigned ARCH_DOUBLE_WIDTH = ARCH_WIDTH*2;
+parameter unsigned ARCH_WIDTH_H = ARCH_WIDTH/2;
+parameter unsigned ARCH_WIDTH_D = ARCH_WIDTH*2;
 parameter unsigned INST_WIDTH = 32;
 
 typedef logic [ARCH_WIDTH-1:0] arch_width_t;
-typedef logic [ARCH_DOUBLE_WIDTH-1:0] arch_double_width_t;
-typedef logic signed [ARCH_DOUBLE_WIDTH-1:0] arch_double_width_s_t;
+typedef logic [ARCH_WIDTH_D-1:0] arch_double_width_t;
+typedef logic signed [ARCH_WIDTH_D-1:0] arch_double_width_s_t;
 typedef logic [INST_WIDTH-1:0] inst_width_t;
 
 typedef union packed {
@@ -17,10 +18,10 @@ typedef union packed {
 } simd_t;
 
 typedef union packed {
-    logic [ARCH_DOUBLE_WIDTH-1:0] d;
-    logic [1:0] [(ARCH_DOUBLE_WIDTH/2)-1:0] w;
-    logic [3:0] [(ARCH_DOUBLE_WIDTH/4)-1:0] h;
-    logic [7:0] [(ARCH_DOUBLE_WIDTH/8)-1:0] b;
+    logic [ARCH_WIDTH_D-1:0] d;
+    logic [1:0] [(ARCH_WIDTH_D/2)-1:0] w;
+    logic [3:0] [(ARCH_WIDTH_D/4)-1:0] h;
+    logic [7:0] [(ARCH_WIDTH_D/8)-1:0] b;
 } simd_d_t;
 
 parameter unsigned RF_NUM = 32;
@@ -67,6 +68,7 @@ typedef enum logic [6:0] {
     OPC7_JAL = 7'b110_1111,
     OPC7_LUI = 7'b011_0111,
     OPC7_AUIPC = 7'b001_0111,
+    OPC7_CUSTOM = 7'b000_1011,
     OPC7_SYSTEM = 7'b111_0011
 } opc7_t;
 
@@ -142,11 +144,15 @@ typedef enum logic [3:0] {
     ALU_OP_PASS_B = 4'b1111
 } alu_op_t;
 
-typedef enum logic [1:0] {
-    MULT_OP_MUL = 2'b00,
-    MULT_OP_MULH = 2'b01,
-    MULT_OP_MULHSU = 2'b10,
-    MULT_OP_MULHU = 2'b11
+typedef enum logic [2:0] {
+    MULT_OP_MUL = 3'b000,
+    MULT_OP_MULH = 3'b001,
+    MULT_OP_MULHSU = 3'b010,
+    MULT_OP_MULHU = 3'b011,
+    MULT_OP_DOT16 = 3'b100,
+    MULT_OP_DOT8 = 3'b101
+    // MULT_OP_DOT4 = 3'b110
+    // MULT_OP_DOT2 = 3'b111
 } mult_op_t;
 
 typedef enum logic [2:0] {
@@ -466,6 +472,10 @@ endfunction
 
 function automatic logic [6:0] get_fn7(input inst_width_t inst);
     get_fn7 = inst[31:25];
+endfunction
+
+function automatic logic get_fn7_b6(input inst_width_t inst);
+    get_fn7_b6 = inst[31];
 endfunction
 
 function automatic logic get_fn7_b5(input inst_width_t inst);

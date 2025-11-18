@@ -72,8 +72,8 @@ string core_ret;
 string isa_ret;
 
 longint unsigned clk_cnt = 0;
-logic [ARCH_DOUBLE_WIDTH-1:0] mtime_d[3];
-logic [ARCH_DOUBLE_WIDTH-1:0] clk_cnt_d[3];
+logic [ARCH_WIDTH_D-1:0] mtime_d[3];
+logic [ARCH_WIDTH_D-1:0] clk_cnt_d[3];
 
 typedef struct {
     string test_path;
