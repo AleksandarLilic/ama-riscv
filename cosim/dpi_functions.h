@@ -31,7 +31,8 @@ DPI_LINKER_DECL DPI_DLLESPEC int cosim_setup(
 	unsigned int prof_pc_start ,
 	unsigned int prof_pc_stop ,
 	unsigned int prof_pc_single_match ,
-	char prof_trace);
+	char prof_trace ,
+	char log_isa_sim);
 
 
 /* Imported (by SV) function */

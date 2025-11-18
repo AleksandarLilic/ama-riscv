@@ -24,15 +24,16 @@ int cosim_setup(
     unsigned int prof_pc_start,
     unsigned int prof_pc_stop,
     unsigned int prof_pc_single_match,
-    char prof_trace
+    char prof_trace,
+    char log_isa_sim
 ) {
     cfg.perf_event = perf_event_t::cycle; // TODO: plusarg
     cfg.prof_pc.start = prof_pc_start;
     cfg.prof_pc.stop = prof_pc_stop;
     cfg.prof_pc.single_match_num = prof_pc_single_match;
     cfg.prof_trace = (prof_trace == 1);
+    cfg.log = (log_isa_sim == 1);
     cfg.sink_uart = true;
-    cfg.log = true;
 
     std::string l_test_elf(test_elf);
     cfg.out_dir = gen_out_dir(l_test_elf, "cosim");

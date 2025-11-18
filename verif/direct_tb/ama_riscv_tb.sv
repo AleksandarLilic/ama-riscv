@@ -14,7 +14,8 @@ cosim_setup(
     input int unsigned prof_pc_start,
     input int unsigned prof_pc_stop,
     input int unsigned prof_pc_single_match,
-    input byte unsigned prof_trace
+    input byte unsigned prof_trace,
+    input byte unsigned log_isa_sim
 );
 
 import "DPI-C" function
@@ -86,6 +87,7 @@ typedef struct {
     int unsigned prof_pc_stop;
     int unsigned prof_pc_single_match;
     bit prof_trace;
+    bit log_isa_sim;
 } plusargs_t;
 
 plusargs_t args;
@@ -359,6 +361,7 @@ function void get_plusargs();
             args.prof_pc_single_match = 0;
         end
         args.prof_trace = $test$plusargs("prof_trace");
+        args.log_isa_sim = $test$plusargs("log_isa_sim");
         `endif
 
         if (!$value$plusargs("timeout_clocks=%d", args.timeout_clocks)) begin
@@ -655,7 +658,8 @@ initial begin
         args.prof_pc_start,
         args.prof_pc_stop,
         args.prof_pc_single_match,
-        args.prof_trace
+        args.prof_trace,
+        args.log_isa_sim
     );
     `endif
 

@@ -43,13 +43,16 @@ RTL_DEFINES_LIST := $(subst -d ,,$(RTL_DEFINES)) # just a list
 
 TIMEOUT_CLOCKS ?= 500000
 LOG_LEVEL ?= WARN
-COSIM_CHECKER :=
-COSIM_CHECKER += -testplusarg enable_tohost_checker
-COSIM_CHECKER += -testplusarg enable_cosim_checkers
-COSIM_CHECKER += -testplusarg stop_on_cosim_error
-COSIM_CHECKER += -testplusarg prof_trace
-COSIM_CHECKER += -testplusarg prof_pc_start=40000
-#COSIM_CHECKER += -testplusarg prof_pc_single_match=2
+
+# TODO: run_test should set these up for testlist runs
+COSIM_ARGS :=
+COSIM_ARGS += -testplusarg enable_tohost_checker
+COSIM_ARGS += -testplusarg enable_cosim_checkers
+COSIM_ARGS += -testplusarg stop_on_cosim_error
+COSIM_ARGS += -testplusarg prof_trace
+COSIM_ARGS += -testplusarg prof_pc_start=40000
+#COSIM_ARGS += -testplusarg prof_pc_single_match=2
+#COSIM_ARGS += -testplusarg log_isa_sim
 
 all: sim
 
@@ -80,7 +83,7 @@ MAX_DELTA = -maxdeltaid 100
 
 # example usage: 'make sim -j TEST_PATH=sim/sw/baremetal/asm_rv32i/basic UNIQUE_WDB=1 TIMEOUT_CLOCKS=1000 LOG_LEVEL=$LL | tee make_run_asm_rv32i.log | tail -n 30 | tee >(rg "====")'
 sim: .elab.touchfile
-	xsim $(TOP) $(TCLBATCH_SWITCH) $(WDB_SWITCH) -stats -onerror quit -testplusarg test_path=$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) -testplusarg log_level=$(LOG_LEVEL) $(COSIM_CHECKER) $(SIM_LOG) $(MAX_DELTA)
+	xsim $(TOP) $(TCLBATCH_SWITCH) $(WDB_SWITCH) -stats -onerror quit -testplusarg test_path=$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) -testplusarg log_level=$(LOG_LEVEL) $(COSIM_ARGS) $(SIM_LOG) $(MAX_DELTA)
 	@rm xsim.jou
 	@touch .sim.touchfile
 
