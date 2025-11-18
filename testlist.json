@@ -3,6 +3,8 @@
     ["sim/sw/baremetal/asm_rv32i_zicsr", "basic.hex"],
     ["sim/sw/baremetal/asm_rv32im", "basic.hex"],
 
+    ["sim/sw/baremetal/asm_rv32i_custom-simd-dot", "basic.hex"],
+
     ["sim/sw/baremetal/factorial", "n_20.hex"],
     ["sim/sw/baremetal/fibonacci", "n_18.hex"],
     ["sim/sw/baremetal/gcd_lcm", "n_large.hex"],
@@ -10,10 +12,18 @@
 
     ["sim/sw/baremetal/vector_ew_al_uint8", "basic.hex"],
     ["sim/sw/baremetal/vector_ew_mac_uint8", "basic.hex"],
-    ["sim/sw/baremetal/vector_ew_basic", "*.hex"],
+    ["sim/sw/baremetal/vector_ew_basic", "add*.hex"],
+    ["sim/sw/baremetal/vector_ew_basic", "sub*.hex"],
+    ["sim/sw/baremetal/vector_ew_basic", "mul*.hex"],
+    ["sim/sw/baremetal/vector_ew_basic", "div*.hex"],
+
+    ["sim/sw/baremetal/dot_product", "int16.hex"],
+    ["sim/sw/baremetal/dot_product", "int8.hex"],
 
     ["sim/sw/baremetal/uart_direct_send", "hello_world.elf"],
     ["sim/sw/baremetal/uart_printf_mini", "hello_world.elf"],
+
+    ["sim/sw/baremetal/mlp", "w8a8.elf"],
 
     ["sim/sw/baremetal/dhrystone", "dhrystone.elf"],
     ["sim/sw/baremetal/coremark", "coremark.elf"],

@@ -3,6 +3,8 @@
     ["sim/sw/baremetal/asm_rv32i_zicsr", "basic.hex"],
     ["sim/sw/baremetal/asm_rv32im", "basic.hex"],
 
+    ["sim/sw/baremetal/asm_rv32i_custom-simd-dot", "basic.hex"],
+
     ["sim/sw/baremetal/factorial/", "n_20.hex"],
     ["sim/sw/baremetal/fibonacci/", "n_18.hex"],
     ["sim/sw/baremetal/gcd_lcm/", "n_large.hex"],
