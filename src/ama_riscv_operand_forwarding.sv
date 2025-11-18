@@ -2,59 +2,72 @@
 
 module ama_riscv_operand_forwarding (
     // inputs
-    input  logic        store_inst_dec,
-    input  logic        branch_inst_dec,
-    input  logic        store_inst_exe,
-    input  logic        branch_inst_exe,
-    input  logic        load_inst_mem,
-    input  rf_addr_t    rs1_dec,
-    input  rf_addr_t    rs2_dec,
-    input  rf_addr_t    rs1_exe,
-    input  rf_addr_t    rs2_exe,
-    input  rf_addr_t    rd_mem,
-    input  rf_addr_t    rd_wbk,
-    input  logic        rd_we_mem,
-    input  logic        rd_we_wbk,
-    input  alu_a_sel_t  alu_a_sel_dec,
-    input  alu_b_sel_t  alu_b_sel_dec,
-    input  alu_a_sel_t  alu_a_sel_exe,
-    input  alu_b_sel_t  alu_b_sel_exe,
+    input  logic store_inst_dec,
+    input  logic branch_inst_dec,
+    input  logic store_inst_exe,
+    input  logic branch_inst_exe,
+    input  logic load_inst_mem,
+    input  rf_addr_t rs1_dec,
+    input  rf_addr_t rs2_dec,
+    input  rf_addr_t rs1_exe,
+    input  rf_addr_t rs2_exe,
+    input  rf_addr_t rd_mem,
+    input  rf_addr_t rd_wbk,
+    input  logic rd_we_mem,
+    input  logic rd_we_wbk,
+    input  alu_a_sel_t alu_a_sel_dec,
+    input  alu_b_sel_t alu_b_sel_dec,
+    input  alu_a_sel_t alu_a_sel_exe,
+    input  alu_b_sel_t alu_b_sel_exe,
     // outputs
-    output fwd_be_t     fwd_be_rs1_dec,
-    output fwd_be_t     fwd_be_rs2_dec,
-    output fwd_be_t     fwd_be_rs1_exe,
-    output fwd_be_t     fwd_be_rs2_exe,
-    output alu_a_sel_t  alu_a_sel_fwd,
-    output alu_b_sel_t  alu_b_sel_fwd,
-    output logic        bc_a_sel_fwd,
-    output logic        bcs_b_sel_fwd,
-    output logic        rf_a_sel_fwd,
-    output logic        rf_b_sel_fwd,
-    output hazard_be_t  hazard_be
+    output fwd_be_t fwd_be_rs1_dec,
+    output fwd_be_t fwd_be_rs2_dec,
+    output fwd_be_t fwd_be_rs1_exe,
+    output fwd_be_t fwd_be_rs2_exe,
+    output alu_a_sel_t alu_a_sel_fwd,
+    output alu_b_sel_t alu_b_sel_fwd,
+    output logic bc_a_sel_fwd,
+    output logic bcs_b_sel_fwd,
+    output logic rf_a_sel_fwd,
+    output logic rf_b_sel_fwd,
+    output hazard_be_t hazard_be
 );
 
-// is any source reg anywhere in the backend?
+function automatic logic in_mem (input rf_addr_t rs);
+    in_mem = ((rs == rd_mem) && rd_we_mem);
+endfunction
+
+function automatic logic in_wbk (input rf_addr_t rs);
+    in_wbk = ((rs == rd_wbk) && rd_we_wbk);
+endfunction
+
+// are source regs non-zeros
 logic rs1_dec_nz, rs2_dec_nz, rs1_exe_nz, rs2_exe_nz;
 assign rs1_dec_nz = (rs1_dec != RF_X0_ZERO);
 assign rs2_dec_nz = (rs2_dec != RF_X0_ZERO);
 assign rs1_exe_nz = (rs1_exe != RF_X0_ZERO);
 assign rs2_exe_nz = (rs2_exe != RF_X0_ZERO);
 
+// is any source reg anywhere in the machine?
 // anywhere in the mem stage?
 logic rs1_dec_in_mem, rs2_dec_in_mem, rs1_exe_in_mem, rs2_exe_in_mem;
-assign rs1_dec_in_mem = (rs1_dec_nz && (rs1_dec == rd_mem) && rd_we_mem);
-assign rs2_dec_in_mem = (rs2_dec_nz && (rs2_dec == rd_mem) && rd_we_mem);
-assign rs1_exe_in_mem = (rs1_exe_nz && (rs1_exe == rd_mem) && rd_we_mem);
-assign rs2_exe_in_mem = (rs2_exe_nz && (rs2_exe == rd_mem) && rd_we_mem);
+always_comb begin
+    rs1_dec_in_mem = (rs1_dec_nz && in_mem(rs1_dec));
+    rs2_dec_in_mem = (rs2_dec_nz && in_mem(rs2_dec));
+    rs1_exe_in_mem = (rs1_exe_nz && in_mem(rs1_exe));
+    rs2_exe_in_mem = (rs2_exe_nz && in_mem(rs2_exe));
+end
 
 // anywhere in the writeback stage?
 logic rs1_dec_in_wbk, rs2_dec_in_wbk, rs1_exe_in_wbk, rs2_exe_in_wbk;
-assign rs1_dec_in_wbk = (rs1_dec_nz && (rs1_dec == rd_wbk) && rd_we_wbk);
-assign rs2_dec_in_wbk = (rs2_dec_nz && (rs2_dec == rd_wbk) && rd_we_wbk);
-assign rs1_exe_in_wbk = (rs1_exe_nz && (rs1_exe == rd_wbk) && rd_we_wbk);
-assign rs2_exe_in_wbk = (rs2_exe_nz && (rs2_exe == rd_wbk) && rd_we_wbk);
+always_comb begin
+    rs1_dec_in_wbk = (rs1_dec_nz && in_wbk(rs1_dec));
+    rs2_dec_in_wbk = (rs2_dec_nz && in_wbk(rs2_dec));
+    rs1_exe_in_wbk = (rs1_exe_nz && in_wbk(rs1_exe));
+    rs2_exe_in_wbk = (rs2_exe_nz && in_wbk(rs2_exe));
+end
 
-// combine to anywhere in the backend
+// anywhere in the backend?
 logic rs1_dec_in_be, rs2_dec_in_be, rs1_exe_in_be, rs2_exe_in_be;
 assign rs1_dec_in_be = (rs1_dec_in_mem || rs1_dec_in_wbk);
 assign rs2_dec_in_be = (rs2_dec_in_mem || rs2_dec_in_wbk);
