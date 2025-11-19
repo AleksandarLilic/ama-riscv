@@ -359,8 +359,7 @@ assign bc_a = bc_a_sel_fwd_exe ? rs1_exe_be_fwd : rs1_data_exe;
 assign bcs_b = bcs_b_sel_fwd_exe ? rs2_exe_be_fwd : rs2_data_exe;
 
 logic bc_a_eq_b, bc_a_lt_b;
-assign bc_a_eq_b =
-    (decoded_exe.bc_uns) ? (bc_a == bcs_b) : ($signed(bc_a) == $signed(bcs_b));
+assign bc_a_eq_b = (bc_a == bcs_b);
 assign bc_a_lt_b =
     (decoded_exe.bc_uns) ? (bc_a < bcs_b) : ($signed(bc_a) < $signed(bcs_b));
 
