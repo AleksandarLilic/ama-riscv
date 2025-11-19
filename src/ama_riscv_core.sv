@@ -126,14 +126,13 @@ ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     .move_past_dec_exe_dc_stall (move_past_dec_exe_dc_stall)
 );
 
-// from MEM stage
-arch_width_t e_writeback_mem;
-// from WBK stage
-arch_width_t writeback;
+arch_width_t e_writeback_mem, unpk_out_p_mem; // from MEM stage
+arch_width_t writeback, unpk_out_p_wbk; // from WBK stage
 
 // reg file
 pipeline_if_typed #(.T(rf_addr_t)) rd_addr ();
 pipeline_if_s rd_we ();
+pipeline_if_s rdp_we ();
 rf_addr_t rs1_addr_dec, rs2_addr_dec;
 arch_width_t rs1_data_dec, rs2_data_dec;
 
@@ -150,10 +149,12 @@ ama_riscv_reg_file ama_riscv_reg_file_i(
     .clk (clk),
     // inputs
     .we (rd_we.wbk),
+    .we_p (rdp_we.wbk),
     .addr_a (rs1_addr_dec),
     .addr_b (rs2_addr_dec),
     .addr_d (rd_addr.wbk),
     .data_d (writeback),
+    .data_dp (unpk_out_p_wbk),
     // outputs
     .data_a (rs1_data_dec),
     .data_b (rs2_data_dec)
@@ -258,6 +259,8 @@ ama_riscv_operand_forwarding ama_riscv_operand_forwarding_i (
     .rd_wbk (rd_addr.wbk),
     .rd_we_mem (rd_we.mem),
     .rd_we_wbk (rd_we.wbk),
+    .rdp_we_mem (rdp_we.mem),
+    .rdp_we_wbk (rdp_we.wbk),
     .alu_a_sel_dec (decoded.alu_a_sel),
     .alu_b_sel_dec (decoded.alu_b_sel),
     .alu_a_sel_exe (decoded_exe.alu_a_sel),
@@ -279,10 +282,26 @@ ama_riscv_operand_forwarding ama_riscv_operand_forwarding_i (
 //------------------------------------------------------------------------------
 // Pipeline FF DEC/EXE
 arch_width_t rs1_dec_be_fwd, rs2_dec_be_fwd;
-assign rs1_dec_be_fwd =
-    (fwd_be_rs1_dec == FWD_BE_EWBK) ? e_writeback_mem : writeback;
-assign rs2_dec_be_fwd =
-    (fwd_be_rs2_dec == FWD_BE_EWBK) ? e_writeback_mem : writeback;
+
+always_comb begin
+    rs1_dec_be_fwd = 'h0;
+    unique case (fwd_be_rs1_dec)
+        FWD_BE_EWBK: rs1_dec_be_fwd = e_writeback_mem;
+        FWD_BE_WBK: rs1_dec_be_fwd = writeback;
+        FWD_BE_EWBK_P: rs1_dec_be_fwd = unpk_out_p_mem;
+        FWD_BE_WBK_P: rs1_dec_be_fwd = unpk_out_p_wbk;
+    endcase
+end
+
+always_comb begin
+    rs2_dec_be_fwd = 'h0;
+    unique case (fwd_be_rs2_dec)
+        FWD_BE_EWBK: rs2_dec_be_fwd = e_writeback_mem;
+        FWD_BE_WBK: rs2_dec_be_fwd = writeback;
+        FWD_BE_EWBK_P: rs2_dec_be_fwd = unpk_out_p_mem;
+        FWD_BE_WBK_P: rs2_dec_be_fwd = unpk_out_p_wbk;
+    endcase
+end
 
 arch_width_t rs1_data_fwd, rs2_data_fwd;
 assign rs1_data_fwd = rf_a_sel_fwd ? rs1_dec_be_fwd : rs1_data_dec;
@@ -314,10 +333,25 @@ arch_width_t rs1_data_exe, rs2_data_exe;
 //------------------------------------------------------------------------------
 // EXE stage
 arch_width_t rs1_exe_be_fwd, rs2_exe_be_fwd;
-assign rs1_exe_be_fwd =
-    (fwd_be_rs1_exe == FWD_BE_EWBK) ? e_writeback_mem : writeback;
-assign rs2_exe_be_fwd =
-    (fwd_be_rs2_exe == FWD_BE_EWBK) ? e_writeback_mem : writeback;
+always_comb begin
+    rs1_exe_be_fwd = 'h0;
+    unique case (fwd_be_rs1_exe)
+        FWD_BE_EWBK: rs1_exe_be_fwd = e_writeback_mem;
+        FWD_BE_WBK: rs1_exe_be_fwd = writeback;
+        FWD_BE_EWBK_P: rs1_exe_be_fwd = unpk_out_p_mem;
+        FWD_BE_WBK_P: rs1_exe_be_fwd = unpk_out_p_wbk;
+    endcase
+end
+
+always_comb begin
+    rs2_exe_be_fwd = 'h0;
+    unique case (fwd_be_rs2_exe)
+        FWD_BE_EWBK: rs2_exe_be_fwd = e_writeback_mem;
+        FWD_BE_WBK: rs2_exe_be_fwd = writeback;
+        FWD_BE_EWBK_P: rs2_exe_be_fwd = unpk_out_p_mem;
+        FWD_BE_WBK_P: rs2_exe_be_fwd = unpk_out_p_wbk;
+    endcase
+end
 
 // branch compare & resolution
 arch_width_t bc_a, bcs_b;
@@ -366,16 +400,27 @@ ama_riscv_alu ama_riscv_alu_i (
     .op (decoded_exe.alu_op), .a (alu_in_a), .b (alu_in_b), .s (alu_out_exe)
 );
 
-arch_width_t mult_out_exe, arith_out_exe;
-//ama_riscv_mult ama_riscv_mult_i (
-//    .op (decoded_exe.mult_op), .a (alu_in_a), .b (alu_in_b), .p (mult_out_exe)
-//);
-
+simd_t mult_out_exe, arith_out_exe;
 ama_riscv_simd ama_riscv_simd_i (
     .op (decoded_exe.mult_op), .a (alu_in_a), .b (alu_in_b), .p (mult_out_exe)
 );
 
-assign arith_out_exe = decoded_exe.itype.mult ? mult_out_exe : alu_out_exe;
+simd_d_t unpk_out;
+ama_riscv_unpk ama_riscv_unpk_i (
+    .op (decoded_exe.unpk_op), .a (alu_in_a), .s (unpk_out)
+);
+
+simd_t unpk_out_exe, unpk_out_p_exe;
+assign unpk_out_exe = unpk_out.w[0];
+assign unpk_out_p_exe = unpk_out.w[1];
+
+always_comb begin
+    unique case (1'b1)
+        decoded_exe.itype.mult: arith_out_exe = mult_out_exe;
+        decoded_exe.itype.unpk: arith_out_exe = unpk_out_exe;
+        default: arith_out_exe = alu_out_exe;
+    endcase
+end
 
 // CSR
 csr_t csr; // regs
@@ -409,7 +454,7 @@ end
 // csr write
 always_comb begin
     csr_wr_data = 'h0;
-    case(decoded_exe.csr_ctrl.op)
+    case (decoded_exe.csr_ctrl.op)
         CSR_OP_RW: csr_wr_data = csr_wr_data_source;
         CSR_OP_RS: csr_wr_data = csr_data_exe | csr_wr_data_source;
         CSR_OP_RC: csr_wr_data = csr_data_exe & ~csr_wr_data_source;
@@ -573,6 +618,7 @@ logic map_uart_mem;
 pipeline_if_typed #(.T(wb_sel_t)) wb_sel ();
 assign wb_sel.exe = decoded_exe.wb_sel;
 assign rd_we.exe = decoded_exe.rd_we;
+assign rdp_we.exe = decoded_exe.itype.unpk;
 assign ctrl_exe_mem = '{
     flush: flush.exe,
     en: (!dc_stalled),
@@ -583,15 +629,18 @@ assign ctrl_exe_mem = '{
 `STAGE(ctrl_exe_mem, pc.exe + 'd4, pc_inc4_mem, 'h0)
 `STAGE(ctrl_exe_mem, inst.exe, inst.mem, 'h0)
 `STAGE(ctrl_exe_mem, arith_out_exe, arith_out_mem, 'h0)
+`STAGE(ctrl_exe_mem, unpk_out_p_exe, unpk_out_p_mem, 'h0)
 `STAGE(ctrl_exe_mem, wb_sel.exe, wb_sel.mem, WB_SEL_ALU)
 `STAGE(ctrl_exe_mem, rd_addr.exe, rd_addr.mem, RF_X0_ZERO)
 `STAGE(ctrl_exe_mem, rd_we.exe, rd_we.mem, 'h0)
+`STAGE(ctrl_exe_mem, rdp_we.exe, rdp_we.mem, 'h0)
 `STAGE(ctrl_exe_mem, csr_data_exe, csr_data_mem, 'h0)
 `STAGE(ctrl_exe_mem, decoded_exe.itype.load, load_inst_mem, 'h0)
 `STAGE(ctrl_exe_mem, decoded_exe.itype.store, store_inst_mem, 'h0)
 `STAGE(ctrl_exe_mem, map_uart_exe, map_uart_mem, 'h0)
 
-`DFF_CI_RI_RVI(dc_stalled || hazard_be.to_dec || hazard_be.to_exe, be_stalled_d)
+`DFF_CI_RI_RVI(
+    (dc_stalled || hazard_be.to_dec || hazard_be.to_exe), be_stalled_d)
 
 //------------------------------------------------------------------------------
 // MEM stage
@@ -622,9 +671,11 @@ assign ctrl_mem_wbk = '{
 `STAGE(ctrl_mem_wbk, inst.mem, inst.wbk, 'h0)
 `STAGE(ctrl_mem_wbk, pc.mem, pc.wbk, 'h0)
 `STAGE(ctrl_mem_wbk, dmem_out_mem, dmem_out_wbk, 'h0)
+`STAGE(ctrl_mem_wbk, unpk_out_p_mem, unpk_out_p_wbk, 'h0)
 `STAGE(ctrl_mem_wbk, e_writeback_mem, e_writeback_wbk, 'h0)
 `STAGE(ctrl_mem_wbk, rd_addr.mem, rd_addr.wbk, RF_X0_ZERO)
 `STAGE(ctrl_mem_wbk, rd_we.mem, rd_we.wbk, 'h0)
+`STAGE(ctrl_mem_wbk, rdp_we.mem, rdp_we.wbk, 'h0)
 `STAGE(ctrl_mem_wbk, wb_sel.mem, wb_sel.wbk, WB_SEL_ALU)
 
 //------------------------------------------------------------------------------

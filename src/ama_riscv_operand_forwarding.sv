@@ -15,6 +15,8 @@ module ama_riscv_operand_forwarding (
     input  rf_addr_t rd_wbk,
     input  logic rd_we_mem,
     input  logic rd_we_wbk,
+    input  logic rdp_we_mem,
+    input  logic rdp_we_wbk,
     input  alu_a_sel_t alu_a_sel_dec,
     input  alu_b_sel_t alu_b_sel_dec,
     input  alu_a_sel_t alu_a_sel_exe,
@@ -33,12 +35,38 @@ module ama_riscv_operand_forwarding (
     output hazard_be_t hazard_be
 );
 
+typedef struct packed {
+    logic has;
+    logic on_rd;
+    logic on_rdp;
+    logic in_mem;
+    logic in_wbk;
+    logic in_mem_on_rd;
+    logic in_mem_on_rdp;
+    logic in_wbk_on_rd;
+    logic in_wbk_on_rdp;
+} dep_t;
+
+// get paired reg addr
+rf_addr_t rdp_mem, rdp_wbk;
+assign rdp_mem = get_rdp(rd_mem);
+assign rdp_wbk = get_rdp(rd_wbk);
+
+// shorthands for common checks
 function automatic logic in_mem (input rf_addr_t rs);
     in_mem = ((rs == rd_mem) && rd_we_mem);
 endfunction
 
+function automatic logic in_mem_p (input rf_addr_t rs);
+    in_mem_p = ((rs == rdp_mem) && rdp_we_mem);
+endfunction
+
 function automatic logic in_wbk (input rf_addr_t rs);
     in_wbk = ((rs == rd_wbk) && rd_we_wbk);
+endfunction
+
+function automatic logic in_wbk_p (input rf_addr_t rs);
+    in_wbk_p = ((rs == rdp_wbk) && rdp_we_wbk);
 endfunction
 
 // are source regs non-zeros
@@ -48,61 +76,89 @@ assign rs2_dec_nz = (rs2_dec != RF_X0_ZERO);
 assign rs1_exe_nz = (rs1_exe != RF_X0_ZERO);
 assign rs2_exe_nz = (rs2_exe != RF_X0_ZERO);
 
-// is any source reg anywhere in the machine?
+// has any source reg anywhere in the machine?
 // anywhere in the mem stage?
-logic rs1_dec_in_mem, rs2_dec_in_mem, rs1_exe_in_mem, rs2_exe_in_mem;
+dep_t d_rs1_dec, d_rs2_dec, d_rs1_exe, d_rs2_exe;
 always_comb begin
-    rs1_dec_in_mem = (rs1_dec_nz && in_mem(rs1_dec));
-    rs2_dec_in_mem = (rs2_dec_nz && in_mem(rs2_dec));
-    rs1_exe_in_mem = (rs1_exe_nz && in_mem(rs1_exe));
-    rs2_exe_in_mem = (rs2_exe_nz && in_mem(rs2_exe));
+    d_rs1_dec.in_mem_on_rd = (rs1_dec_nz && in_mem(rs1_dec));
+    d_rs2_dec.in_mem_on_rd = (rs2_dec_nz && in_mem(rs2_dec));
+    d_rs1_exe.in_mem_on_rd = (rs1_exe_nz && in_mem(rs1_exe));
+    d_rs2_exe.in_mem_on_rd = (rs2_exe_nz && in_mem(rs2_exe));
+
+    d_rs1_dec.in_mem_on_rdp = (rs1_dec_nz && in_mem_p(rs1_dec));
+    d_rs2_dec.in_mem_on_rdp = (rs2_dec_nz && in_mem_p(rs2_dec));
+    d_rs1_exe.in_mem_on_rdp = (rs1_exe_nz && in_mem_p(rs1_exe));
+    d_rs2_exe.in_mem_on_rdp = (rs2_exe_nz && in_mem_p(rs2_exe));
+
+    d_rs1_dec.in_mem = (d_rs1_dec.in_mem_on_rd || d_rs1_dec.in_mem_on_rdp);
+    d_rs2_dec.in_mem = (d_rs2_dec.in_mem_on_rd || d_rs2_dec.in_mem_on_rdp);
+    d_rs1_exe.in_mem = (d_rs1_exe.in_mem_on_rd || d_rs1_exe.in_mem_on_rdp);
+    d_rs2_exe.in_mem = (d_rs2_exe.in_mem_on_rd || d_rs2_exe.in_mem_on_rdp);
 end
 
 // anywhere in the writeback stage?
-logic rs1_dec_in_wbk, rs2_dec_in_wbk, rs1_exe_in_wbk, rs2_exe_in_wbk;
 always_comb begin
-    rs1_dec_in_wbk = (rs1_dec_nz && in_wbk(rs1_dec));
-    rs2_dec_in_wbk = (rs2_dec_nz && in_wbk(rs2_dec));
-    rs1_exe_in_wbk = (rs1_exe_nz && in_wbk(rs1_exe));
-    rs2_exe_in_wbk = (rs2_exe_nz && in_wbk(rs2_exe));
+    d_rs1_dec.in_wbk_on_rd = (rs1_dec_nz && in_wbk(rs1_dec));
+    d_rs2_dec.in_wbk_on_rd = (rs2_dec_nz && in_wbk(rs2_dec));
+    d_rs1_exe.in_wbk_on_rd = (rs1_exe_nz && in_wbk(rs1_exe));
+    d_rs2_exe.in_wbk_on_rd = (rs2_exe_nz && in_wbk(rs2_exe));
+
+    d_rs1_dec.in_wbk_on_rdp = (rs1_dec_nz && in_wbk_p(rs1_dec));
+    d_rs2_dec.in_wbk_on_rdp = (rs2_dec_nz && in_wbk_p(rs2_dec));
+    d_rs1_exe.in_wbk_on_rdp = (rs1_exe_nz && in_wbk_p(rs1_exe));
+    d_rs2_exe.in_wbk_on_rdp = (rs2_exe_nz && in_wbk_p(rs2_exe));
+
+    d_rs1_dec.in_wbk = (d_rs1_dec.in_wbk_on_rd || d_rs1_dec.in_wbk_on_rdp);
+    d_rs2_dec.in_wbk = (d_rs2_dec.in_wbk_on_rd || d_rs2_dec.in_wbk_on_rdp);
+    d_rs1_exe.in_wbk = (d_rs1_exe.in_wbk_on_rd || d_rs1_exe.in_wbk_on_rdp);
+    d_rs2_exe.in_wbk = (d_rs2_exe.in_wbk_on_rd || d_rs2_exe.in_wbk_on_rdp);
 end
 
-// anywhere in the backend?
-logic rs1_dec_in_be, rs2_dec_in_be, rs1_exe_in_be, rs2_exe_in_be;
-assign rs1_dec_in_be = (rs1_dec_in_mem || rs1_dec_in_wbk);
-assign rs2_dec_in_be = (rs2_dec_in_mem || rs2_dec_in_wbk);
-assign rs1_exe_in_be = (rs1_exe_in_mem || rs1_exe_in_wbk);
-assign rs2_exe_in_be = (rs2_exe_in_mem || rs2_exe_in_wbk);
+// on paired register?
+assign d_rs1_dec.on_rdp = (d_rs1_dec.in_mem_on_rdp || d_rs1_dec.in_wbk_on_rdp);
+assign d_rs2_dec.on_rdp = (d_rs2_dec.in_mem_on_rdp || d_rs2_dec.in_wbk_on_rdp);
+assign d_rs1_exe.on_rdp = (d_rs1_exe.in_mem_on_rdp || d_rs1_exe.in_wbk_on_rdp);
+assign d_rs2_exe.on_rdp = (d_rs2_exe.in_mem_on_rdp || d_rs2_exe.in_wbk_on_rdp);
 
-// if it is, where to get the data from?
+// anywhere in the machine?
+assign d_rs1_dec.has = (d_rs1_dec.in_mem || d_rs1_dec.in_wbk);
+assign d_rs2_dec.has = (d_rs2_dec.in_mem || d_rs2_dec.in_wbk);
+assign d_rs1_exe.has = (d_rs1_exe.in_mem || d_rs1_exe.in_wbk);
+assign d_rs2_exe.has = (d_rs2_exe.in_mem || d_rs2_exe.in_wbk);
+
+// if it has, where to get the data from and which rd?
 // if it's found in both mem and wbk, prioritize mem as a later update to the rd
-assign fwd_be_rs1_dec = rs1_dec_in_mem ? FWD_BE_EWBK : FWD_BE_WBK;
-assign fwd_be_rs2_dec = rs2_dec_in_mem ? FWD_BE_EWBK : FWD_BE_WBK;
-assign fwd_be_rs1_exe = rs1_exe_in_mem ? FWD_BE_EWBK : FWD_BE_WBK;
-assign fwd_be_rs2_exe = rs2_exe_in_mem ? FWD_BE_EWBK : FWD_BE_WBK;
+// also set rd/rdp high bit
+assign fwd_be_rs1_dec = fwd_be_t'({d_rs1_dec.on_rdp, !d_rs1_dec.in_mem});
+assign fwd_be_rs2_dec = fwd_be_t'({d_rs2_dec.on_rdp, !d_rs2_dec.in_mem});
+assign fwd_be_rs1_exe = fwd_be_t'({d_rs1_exe.on_rdp, !d_rs1_exe.in_mem});
+assign fwd_be_rs2_exe = fwd_be_t'({d_rs2_exe.on_rdp, !d_rs2_exe.in_mem});
 
-// ALU operand forwarding
-assign alu_a_sel_fwd = (rs1_exe_in_be && (alu_a_sel_exe == ALU_A_SEL_RS1)) ?
+// should ALU forward?
+assign alu_a_sel_fwd = (d_rs1_exe.has && (alu_a_sel_exe == ALU_A_SEL_RS1)) ?
     ALU_A_SEL_FWD : alu_a_sel_exe;
 
-assign alu_b_sel_fwd = (rs2_exe_in_be && (alu_b_sel_exe == ALU_B_SEL_RS2)) ?
+assign alu_b_sel_fwd = (d_rs2_exe.has && (alu_b_sel_exe == ALU_B_SEL_RS2)) ?
     ALU_B_SEL_FWD : alu_b_sel_exe;
 
-// Branch Compare amd store dmem operand forwarding
-assign bc_a_sel_fwd = (rs1_exe_in_be && branch_inst_exe);
-assign bcs_b_sel_fwd = (rs2_exe_in_be && (store_inst_exe || branch_inst_exe));
+// should branch compare and store forward?
+assign bc_a_sel_fwd = (d_rs1_exe.has && branch_inst_exe);
+assign bcs_b_sel_fwd = (d_rs2_exe.has && (store_inst_exe || branch_inst_exe));
 
-// RF read operand forwarding
+// should forward instead of rf read?
 assign rf_a_sel_fwd = (
-    rs1_dec_in_be &&
+    d_rs1_dec.has &&
     ((alu_a_sel_dec == ALU_A_SEL_RS1) || branch_inst_dec)
 );
 assign rf_b_sel_fwd = (
-    rs2_dec_in_be &&
+    d_rs2_dec.has &&
     ((alu_b_sel_dec == ALU_B_SEL_RS2) || branch_inst_dec || store_inst_dec)
 );
 
-assign hazard_be.to_dec = load_inst_mem && (rs1_dec_in_mem || rs2_dec_in_mem);
-assign hazard_be.to_exe = load_inst_mem && (rs1_exe_in_mem || rs2_exe_in_mem);
+// hazards on 2 clk instructions?
+assign hazard_be.to_dec =
+    (load_inst_mem && (d_rs1_dec.in_mem || d_rs2_dec.in_mem));
+assign hazard_be.to_exe =
+    (load_inst_mem && (d_rs1_exe.in_mem || d_rs2_exe.in_mem));
 
 endmodule

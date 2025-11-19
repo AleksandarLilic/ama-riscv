@@ -12,9 +12,11 @@ typedef logic signed [ARCH_WIDTH_D-1:0] arch_double_width_s_t;
 typedef logic [INST_WIDTH-1:0] inst_width_t;
 
 typedef union packed {
-    logic [ARCH_WIDTH-1:0] w;
-    logic [1:0] [(ARCH_WIDTH/2)-1:0] h;
-    logic [3:0] [(ARCH_WIDTH/4)-1:0] b;
+    logic [ARCH_WIDTH-1:0] w; // word
+    logic [1:0] [(ARCH_WIDTH/2)-1:0] h; // half
+    logic [3:0] [(ARCH_WIDTH/4)-1:0] b; // byte
+    logic [7:0] [(ARCH_WIDTH/8)-1:0] n; // nibble
+    logic [15:0] [(ARCH_WIDTH/16)-1:0] c; // crumb
 } simd_t;
 
 typedef union packed {
@@ -22,6 +24,8 @@ typedef union packed {
     logic [1:0] [(ARCH_WIDTH_D/2)-1:0] w;
     logic [3:0] [(ARCH_WIDTH_D/4)-1:0] h;
     logic [7:0] [(ARCH_WIDTH_D/8)-1:0] b;
+    logic [15:0] [(ARCH_WIDTH_D/16)-1:0] n;
+    logic [31:0] [(ARCH_WIDTH_D/32)-1:0] c;
 } simd_d_t;
 
 parameter unsigned RF_NUM = 32;
@@ -72,6 +76,11 @@ typedef enum logic [6:0] {
     OPC7_SYSTEM = 7'b111_0011
 } opc7_t;
 
+typedef enum logic {
+    CUSTOM_SIMD_DOT,
+    CUSTOM_SIMD_UNPK
+} custom_isa_t;
+
 typedef enum logic [1:0] {
     CSR_OP_NONE = 2'b00,
     CSR_OP_RW = 2'b01, // Atomic Read/Write CSR
@@ -103,9 +112,11 @@ typedef enum logic [1:0] {
     ALU_B_SEL_FWD = 2'd2 // forward B from backend
 } alu_b_sel_t;
 
-typedef enum logic {
-    FWD_BE_EWBK = 1'b0, // early writeback
-    FWD_BE_WBK = 1'b1 // writeback
+typedef enum logic [1:0] {
+    FWD_BE_EWBK = 2'b00, // early writeback (mem)
+    FWD_BE_WBK = 2'b01, // writeback (wbk)
+    FWD_BE_EWBK_P = 2'b10, // early writeback rdp (mem)
+    FWD_BE_WBK_P = 2'b11 // writeback rdp (wbk)
 } fwd_be_t;
 
 typedef enum logic [1:0] {
@@ -154,6 +165,17 @@ typedef enum logic [2:0] {
     // MULT_OP_DOT4 = 3'b110
     // MULT_OP_DOT2 = 3'b111
 } mult_op_t;
+
+typedef enum logic [2:0] {
+    UNPK_OP_16 = 3'b000,
+    UNPK_OP_16U = 3'b010,
+    UNPK_OP_8 = 3'b001,
+    UNPK_OP_8U = 3'b011,
+    UNPK_OP_4 = 3'b100,
+    UNPK_OP_4U = 3'b110,
+    UNPK_OP_2 = 3'b101,
+    UNPK_OP_2U = 3'b111
+} unpk_op_t;
 
 typedef enum logic [2:0] {
     IG_DISABLED = 3'b000,
@@ -215,6 +237,7 @@ typedef struct packed {
 
 typedef struct packed {
     logic mult;
+    logic unpk;
     logic load;
     logic store;
     logic branch;
@@ -237,9 +260,11 @@ typedef struct packed {
 typedef struct packed {
     inst_type_t itype;
     has_reg_t has_reg;
+    logic has_reg_p;
     csr_ctrl_t csr_ctrl;
     alu_op_t alu_op;
     mult_op_t mult_op;
+    unpk_op_t unpk_op;
     alu_a_sel_t alu_a_sel;
     alu_b_sel_t alu_b_sel;
     ig_sel_t ig_sel;
@@ -496,6 +521,26 @@ endfunction
 
 function automatic rf_addr_t get_rd(input inst_width_t inst, input logic has);
     get_rd = rf_addr_t'(inst[11:7] & {5{has}});
+endfunction
+
+function automatic rf_addr_t get_rdp (input rf_addr_t rd);
+    get_rdp = rf_addr_t'((rd + 5'h1) & 5'h1f);
+endfunction
+
+function automatic logic[31:0] e_16_32(input logic sign, input logic [15:0] a);
+    e_16_32 = {{16{sign}}, a};
+endfunction
+
+function automatic logic[15:0] e_8_16(input logic sign, input logic [7:0] a);
+    e_8_16 = {{8{sign}}, a};
+endfunction
+
+function automatic logic[7:0] e_4_8(input logic sign, input logic [3:0] a);
+    e_4_8 = {{4{sign}}, a};
+endfunction
+
+function automatic logic[3:0] e_2_4(input logic sign, input logic [1:0] a);
+    e_2_4 = {{2{sign}}, a};
 endfunction
 
 /* verilator lint_on UNUSEDPARAM */

@@ -1,20 +1,28 @@
 `include "ama_riscv_defines.svh"
 
 module ama_riscv_reg_file (
-    input  logic        clk,
-    input  logic        we,
-    input  rf_addr_t    addr_a,
-    input  rf_addr_t    addr_b,
-    input  rf_addr_t    addr_d,
+    input  logic clk,
+    input  logic we,
+    input  logic we_p,
+    input  rf_addr_t addr_a,
+    input  rf_addr_t addr_b,
+    input  rf_addr_t addr_d,
     input  arch_width_t data_d,
+    input  arch_width_t data_dp,
     output arch_width_t data_a,
     output arch_width_t data_b
 );
 
 arch_width_t rf [1:RF_NUM-1];
 
-// synchronous register writeback
-`DFF_CI_EN((we && (addr_d != RF_X0_ZERO)), data_d, rf[addr_d])
+// synchronous register write with optional paired register
+rf_addr_t addr_dp;
+assign addr_dp = get_rdp(addr_d);
+
+always @ (posedge clk) begin
+    if (we && (addr_d != RF_X0_ZERO)) rf[addr_d] <= data_d;
+    if (we_p && (addr_dp != RF_X0_ZERO)) rf[addr_dp] <= data_dp;
+end
 
 // asynchronous register read
 always_comb begin
