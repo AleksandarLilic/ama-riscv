@@ -37,6 +37,8 @@
 // `define IMEM_DELAY_CLK 1
 // `endif
 
+`define IT(x) for (int i = 0; i < x; i++)
+
 `define FE_CTRL_RST_VAL \
     '{ \
         pc_sel: PC_SEL_INC4, \
