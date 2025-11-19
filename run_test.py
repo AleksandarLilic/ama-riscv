@@ -202,7 +202,7 @@ def run_test(test_path, run_dir, build_dir, make_args, cnt):
     with open(status_file_path, 'w') as status_file:
         status = check_test_status(test_log, test_name)
         status_file.write(status+"\n")
-        print(status)
+        print(status.replace(f"Test <{test_name}>", "").strip())
 
 def print_runtime(start_time, process_name, end='\n'):
     end_time = datetime.datetime.now()
@@ -287,12 +287,13 @@ def main():
                         cnt=cnt,
                         make_args=ma
                     )
-                pool.map(partial_run_test, all_tests)
+                pool.map(partial_run_test, all_tests, chunksize=2)
 
     except KeyboardInterrupt:
-        print("KeyboardInterrupt received. Terminating...")
-        pool.terminate()
-        pool.join() # wait for them to actually exit
+        print("KeyboardInterrupt received. Terminating.")
+        # __exit__ in Pool should handle these
+        #pool.terminate()
+        #pool.join() # wait for them to actually exit
         sys.exit(1)
 
     print_runtime(start_time, "Simulation")
