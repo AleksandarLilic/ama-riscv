@@ -28,6 +28,9 @@ pipeline_if_s flush ();
 logic [PIPE_STAGES-1:0] reset_seq;
 `DFF_CI_RI_RV(RST_INIT, {reset_seq[PIPE_STAGES-2:0], 1'b0}, reset_seq)
 
+// pipe stage controls
+stage_ctrl_t ctrl_exe_mem, ctrl_dec_exe, ctrl_mem_wbk, ctrl_wbk_ret;
+
 //------------------------------------------------------------------------------
 // FET Stage
 arch_width_t pc_mux_out, pc_inc4, alu_out_exe; // pc mux inputs
@@ -242,7 +245,7 @@ logic rf_a_sel_fwd, rf_b_sel_fwd, bc_a_sel_fwd_exe, bcs_b_sel_fwd_exe;
 alu_a_sel_t alu_a_sel_fwd;
 alu_b_sel_t alu_b_sel_fwd;
 rf_addr_t rs1_addr_exe, rs2_addr_exe;
-logic load_inst_mem, store_inst_mem;
+logic load_inst_mem, store_inst_mem, mult_inst_mem;
 
 ama_riscv_operand_forwarding ama_riscv_operand_forwarding_i (
     // inputs
@@ -251,6 +254,7 @@ ama_riscv_operand_forwarding ama_riscv_operand_forwarding_i (
     .store_inst_exe (decoded_exe.itype.store),
     .branch_inst_exe (decoded_exe.itype.branch),
     .load_inst_mem (load_inst_mem),
+    .mult_inst_mem (mult_inst_mem),
     .rs1_dec (rs1_addr_dec),
     .rs2_dec (rs2_addr_dec),
     .rs1_exe (rs1_addr_exe),
@@ -311,7 +315,6 @@ logic en_dec_exe;
 assign en_dec_exe =
     ((!dc_stalled) || move_past_dec_exe_dc_stall) && (!hazard_be.to_exe);
 
-stage_ctrl_t ctrl_dec_exe;
 assign ctrl_dec_exe = '{
     flush: flush.dec,
     en: en_dec_exe,
@@ -399,27 +402,25 @@ ama_riscv_alu ama_riscv_alu_i (
     .op (decoded_exe.alu_op), .a (alu_in_a), .b (alu_in_b), .s (alu_out_exe)
 );
 
-simd_t mult_out_exe, arith_out_exe;
-ama_riscv_simd ama_riscv_simd_i (
-    .op (decoded_exe.mult_op), .a (alu_in_a), .b (alu_in_b), .p (mult_out_exe)
-);
-
 simd_d_t unpk_out;
 ama_riscv_unpk ama_riscv_unpk_i (
     .op (decoded_exe.unpk_op), .a (alu_in_a), .s (unpk_out)
 );
 
+simd_t simd_out_mem;
+ama_riscv_simd ama_riscv_simd_i (
+    .clk (clk),
+    .rst (rst),
+    .ctrl_exe_mem (ctrl_exe_mem),
+    .op (decoded_exe.mult_op),
+    .a (alu_in_a),
+    .b (alu_in_b),
+    .p (simd_out_mem)
+);
+
 simd_t unpk_out_exe, unpk_out_p_exe;
 assign unpk_out_exe = unpk_out.w[0];
 assign unpk_out_p_exe = unpk_out.w[1];
-
-always_comb begin
-    unique case (1'b1)
-        decoded_exe.itype.mult: arith_out_exe = mult_out_exe;
-        decoded_exe.itype.unpk: arith_out_exe = unpk_out_exe;
-        default: arith_out_exe = alu_out_exe;
-    endcase
-end
 
 // CSR
 csr_t csr; // regs
@@ -610,11 +611,12 @@ end
 
 //------------------------------------------------------------------------------
 // Pipeline FF EXE/MEM
-arch_width_t pc_inc4_mem, arith_out_mem, csr_data_mem;
-stage_ctrl_t ctrl_exe_mem;
+arch_width_t pc_inc4_mem, alu_out_mem, csr_data_mem, unpk_out_mem;
 logic map_uart_mem;
 
+pipeline_if_typed #(.T(ewb_sel_t)) ewb_sel ();
 pipeline_if_typed #(.T(wb_sel_t)) wb_sel ();
+assign ewb_sel.exe = decoded_exe.ewb_sel;
 assign wb_sel.exe = decoded_exe.wb_sel;
 assign rd_we.exe = decoded_exe.rd_we;
 assign rdp_we.exe = decoded_exe.itype.unpk;
@@ -627,15 +629,18 @@ assign ctrl_exe_mem = '{
 `STAGE(ctrl_exe_mem, pc.exe, pc.mem, 'h0)
 `STAGE(ctrl_exe_mem, pc.exe + 'd4, pc_inc4_mem, 'h0)
 `STAGE(ctrl_exe_mem, inst.exe, inst.mem, 'h0)
-`STAGE(ctrl_exe_mem, arith_out_exe, arith_out_mem, 'h0)
+`STAGE(ctrl_exe_mem, alu_out_exe, alu_out_mem, 'h0)
+`STAGE(ctrl_exe_mem, unpk_out_exe, unpk_out_mem, 'h0)
 `STAGE(ctrl_exe_mem, unpk_out_p_exe, unpk_out_p_mem, 'h0)
-`STAGE(ctrl_exe_mem, wb_sel.exe, wb_sel.mem, WB_SEL_ALU)
+`STAGE(ctrl_exe_mem, ewb_sel.exe, ewb_sel.mem, EWB_SEL_ALU)
+`STAGE(ctrl_exe_mem, wb_sel.exe, wb_sel.mem, WB_SEL_EWB)
 `STAGE(ctrl_exe_mem, rd_addr.exe, rd_addr.mem, RF_X0_ZERO)
 `STAGE(ctrl_exe_mem, rd_we.exe, rd_we.mem, 'h0)
 `STAGE(ctrl_exe_mem, rdp_we.exe, rdp_we.mem, 'h0)
 `STAGE(ctrl_exe_mem, csr_data_exe, csr_data_mem, 'h0)
 `STAGE(ctrl_exe_mem, decoded_exe.itype.load, load_inst_mem, 'h0)
 `STAGE(ctrl_exe_mem, decoded_exe.itype.store, store_inst_mem, 'h0)
+`STAGE(ctrl_exe_mem, decoded_exe.itype.mult, mult_inst_mem, 'h0)
 `STAGE(ctrl_exe_mem, map_uart_exe, map_uart_mem, 'h0)
 
 `DFF_CI_RI_RVI(
@@ -645,10 +650,11 @@ assign ctrl_exe_mem = '{
 // MEM stage
 always_comb begin
     e_writeback_mem = 'h0;
-    case (wb_sel.mem)
-        WB_SEL_ALU: e_writeback_mem = arith_out_mem;
-        WB_SEL_INC4: e_writeback_mem = pc_inc4_mem;
-        WB_SEL_CSR: e_writeback_mem = csr_data_mem;
+    unique case (ewb_sel.mem)
+        EWB_SEL_ALU: e_writeback_mem = alu_out_mem;
+        EWB_SEL_PC_INC4: e_writeback_mem = pc_inc4_mem;
+        EWB_SEL_CSR: e_writeback_mem = csr_data_mem;
+        EWB_SEL_UNPK: e_writeback_mem = unpk_out_mem;
     endcase
 end
 
@@ -657,9 +663,7 @@ assign dmem_out_mem = map_uart_mem ? uart_read : dmem_rsp.data;
 
 //------------------------------------------------------------------------------
 // Pipeline FF MEM/WBK
-arch_width_t dmem_out_wbk;
-arch_width_t e_writeback_wbk;
-stage_ctrl_t ctrl_mem_wbk;
+arch_width_t e_writeback_wbk, dmem_out_wbk, simd_out_wbk;
 
 assign ctrl_mem_wbk = '{
     flush: flush.exe,
@@ -670,21 +674,29 @@ assign ctrl_mem_wbk = '{
 `STAGE(ctrl_mem_wbk, inst.mem, inst.wbk, 'h0)
 `STAGE(ctrl_mem_wbk, pc.mem, pc.wbk, 'h0)
 `STAGE(ctrl_mem_wbk, dmem_out_mem, dmem_out_wbk, 'h0)
+`STAGE(ctrl_mem_wbk, simd_out_mem, simd_out_wbk, 'h0)
 `STAGE(ctrl_mem_wbk, unpk_out_p_mem, unpk_out_p_wbk, 'h0)
 `STAGE(ctrl_mem_wbk, e_writeback_mem, e_writeback_wbk, 'h0)
 `STAGE(ctrl_mem_wbk, rd_addr.mem, rd_addr.wbk, RF_X0_ZERO)
 `STAGE(ctrl_mem_wbk, rd_we.mem, rd_we.wbk, 'h0)
 `STAGE(ctrl_mem_wbk, rdp_we.mem, rdp_we.wbk, 'h0)
-`STAGE(ctrl_mem_wbk, wb_sel.mem, wb_sel.wbk, WB_SEL_ALU)
+`STAGE(ctrl_mem_wbk, wb_sel.mem, wb_sel.wbk, WB_SEL_EWB)
 
 //------------------------------------------------------------------------------
 // WBK stage
-assign writeback = (wb_sel.wbk == WB_SEL_DMEM) ? dmem_out_wbk : e_writeback_wbk;
+always_comb begin
+    writeback = 'h0;
+    unique case (wb_sel.wbk)
+        WB_SEL_EWB: writeback = e_writeback_wbk;
+        WB_SEL_DMEM: writeback = dmem_out_wbk;
+        WB_SEL_SIMD: writeback = simd_out_wbk;
+    endcase
+end
+
 assign inst_to_be_retired = (pc.wbk != 'h0) && (!flush.wbk);
 
 //------------------------------------------------------------------------------
 // retire
-stage_ctrl_t ctrl_wbk_ret;
 assign ctrl_wbk_ret = '{flush: flush.wbk, en: 1'b1, bubble: (!ctrl_mem_wbk.en)};
 
 inst_width_t inst_ret;

@@ -78,7 +78,8 @@
         ig_sel: IG_DISABLED, \
         bc_uns: 1'b0, \
         dmem_en: 1'b0, \
-        wb_sel: WB_SEL_ALU, \
+        ewb_sel: EWB_SEL_ALU, \
+        wb_sel: WB_SEL_EWB, \
         rd_we: 1'b0 \
     }
 

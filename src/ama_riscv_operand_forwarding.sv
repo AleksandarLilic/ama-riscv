@@ -7,6 +7,7 @@ module ama_riscv_operand_forwarding (
     input  logic store_inst_exe,
     input  logic branch_inst_exe,
     input  logic load_inst_mem,
+    input  logic mult_inst_mem,
     input  rf_addr_t rs1_dec,
     input  rf_addr_t rs2_dec,
     input  rf_addr_t rs1_exe,
@@ -37,7 +38,7 @@ module ama_riscv_operand_forwarding (
 
 typedef struct packed {
     logic has;
-    logic on_rd;
+    // logic on_rd;
     logic on_rdp;
     logic in_mem;
     logic in_wbk;
@@ -156,9 +157,11 @@ assign rf_b_sel_fwd = (
 );
 
 // hazards on 2 clk instructions?
+logic two_clk_inst;
+assign two_clk_inst = (load_inst_mem || mult_inst_mem);
 assign hazard_be.to_dec =
-    (load_inst_mem && (d_rs1_dec.in_mem || d_rs2_dec.in_mem));
+    (two_clk_inst && (d_rs1_dec.in_mem || d_rs2_dec.in_mem));
 assign hazard_be.to_exe =
-    (load_inst_mem && (d_rs1_exe.in_mem || d_rs2_exe.in_mem));
+    (two_clk_inst && (d_rs1_exe.in_mem || d_rs2_exe.in_mem));
 
 endmodule

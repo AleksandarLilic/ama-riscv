@@ -1,6 +1,9 @@
 `include "ama_riscv_defines.svh"
 
 module ama_riscv_simd (
+    input  logic clk,
+    input  logic rst,
+    input  stage_ctrl_t ctrl_exe_mem,
     input  mult_op_t op,
     input  simd_t a,
     input  simd_t b,
@@ -114,8 +117,27 @@ csa_tree_8 #(.W(64)) csa_tree_8_i3 (.a (ppv[31:24]), .o (o_tree_3));
 simd_d_t [7:0] i_tree_f, i_tree_f_d; // inputs to the final tree
 assign i_tree_f = {o_tree_3, o_tree_2, o_tree_1, o_tree_0};
 
-// TODO: provisional pipeline
-assign i_tree_f_d = i_tree_f;
+logic b_sign_bit;
+assign b_sign_bit = b[ARCH_WIDTH-1]; // b MSB
+
+simd_t a_d;
+logic b_sign_bit_d;
+mult_op_t op_d;
+simd_d_t corr_d;
+
+// in general case, simple FFs are fine
+//`DFF_CI_RI_RVI(i_tree_f, i_tree_f_d)
+//`DFF_CI_RI_RV(MULT_OP_MUL, op, op_d)
+//`DFF_CI_RI_RVI(corr, corr_d)
+//`DFF_CI_RI_RVI(b_sign_bit, b_sign_bit_d)
+//`DFF_CI_RI_RVI(a, a_d)
+
+// but, in CPU, make sure it's aligned with stage its using
+`STAGE(ctrl_exe_mem, i_tree_f, i_tree_f_d, 'h0)
+`STAGE(ctrl_exe_mem, op, op_d, MULT_OP_MUL)
+`STAGE(ctrl_exe_mem, corr, corr_d, 'h0)
+`STAGE(ctrl_exe_mem, b_sign_bit, b_sign_bit_d, 1'b0)
+`STAGE(ctrl_exe_mem, a, a_d, 'h0)
 
 // final tree
 simd_d_t [1:0] o_tree_f;
@@ -127,12 +149,10 @@ assign tree_sum = o_tree_f[0] + o_tree_f[1];
 // wrap up multiplication
 simd_d_t mul_u, mul_s;
 assign mul_u = tree_sum;
-assign mul_s = tree_sum + corr;
+assign mul_s = tree_sum + corr_d;
 
-logic b_sign_bit;
-assign b_sign_bit = b[ARCH_WIDTH-1]; // b MSB
 simd_t mul_su;
-assign mul_su = b_sign_bit ? (mul_s.w[1] + a) : mul_s.w[1];
+assign mul_su = b_sign_bit_d ? (mul_s.w[1] + a_d) : mul_s.w[1];
 
 // wrap up simd
 simd_d_t dot16, dot8;
@@ -145,7 +165,7 @@ localparam unsigned DOT8_SIGN = ARCH_WIDTH - DOT8_W; // sign pad, 15 bits
 // output assignment based on the operation
 always_comb begin
     p = 'h0;
-    unique case (op)
+    unique case (op_d)
         MULT_OP_MUL: p = mul_s[ARCH_WIDTH-1:0];
         MULT_OP_MULH: p = mul_s[ARCH_WIDTH_D-1:ARCH_WIDTH];
         MULT_OP_MULHSU: p = mul_su;

@@ -120,10 +120,16 @@ typedef enum logic [1:0] {
 } fwd_be_t;
 
 typedef enum logic [1:0] {
-    WB_SEL_DMEM = 2'd0, // Reg[rd] = DMEM[ALU]
-    WB_SEL_ALU = 2'd1, // Reg[rd] = ALU
-    WB_SEL_INC4 = 2'd2, // Reg[rd] = PC + 4
-    WB_SEL_CSR = 2'd3 // Reg[rd] = CSR data
+    EWB_SEL_ALU = 2'd0,
+    EWB_SEL_PC_INC4 = 2'd1,
+    EWB_SEL_CSR = 2'd2,
+    EWB_SEL_UNPK = 2'd3
+} ewb_sel_t;
+
+typedef enum logic [1:0] {
+    WB_SEL_EWB = 2'd0,
+    WB_SEL_DMEM = 2'd1,
+    WB_SEL_SIMD = 2'd2
 } wb_sel_t;
 
 typedef enum logic [1:0] {
@@ -270,6 +276,7 @@ typedef struct packed {
     ig_sel_t ig_sel;
     logic bc_uns;
     logic dmem_en;
+    ewb_sel_t ewb_sel;
     wb_sel_t wb_sel;
     logic rd_we;
 } decoder_t;

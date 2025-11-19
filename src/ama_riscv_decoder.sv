@@ -1,11 +1,11 @@
 `include "ama_riscv_defines.svh"
 
 module ama_riscv_decoder (
-    input  logic        clk,
-    input  logic        rst,
+    input  logic clk,
+    input  logic rst,
     input  arch_width_t inst_dec,
-    output decoder_t    decoded,
-    output fe_ctrl_t    fe_ctrl
+    output decoder_t decoded,
+    output fe_ctrl_t fe_ctrl
 );
 
 rf_addr_t rs1_addr, rd_addr;
@@ -45,7 +45,8 @@ always_comb begin
             d.mult_op = mult_op_t'({1'b0, fn3[1:0]});
             d.alu_a_sel = ALU_A_SEL_RS1;
             d.alu_b_sel = ALU_B_SEL_RS2;
-            d.wb_sel = WB_SEL_ALU;
+            d.ewb_sel = EWB_SEL_ALU;
+            d.wb_sel = d.itype.mult ? WB_SEL_SIMD : WB_SEL_EWB;
             d.rd_we = rd_nz;
             d.has_reg = '{rd: 1'b1, rs1: 1'b1, rs2: 1'b1};
         end
@@ -58,7 +59,8 @@ always_comb begin
             d.alu_a_sel = ALU_A_SEL_RS1;
             d.alu_b_sel = ALU_B_SEL_IMM;
             d.ig_sel = IG_I_TYPE;
-            d.wb_sel = WB_SEL_ALU;
+            d.ewb_sel = EWB_SEL_ALU;
+            d.wb_sel = WB_SEL_EWB;
             d.rd_we = rd_nz;
             d.has_reg = '{rd: 1'b1, rs1: 1'b1, rs2: 1'b0};
         end
@@ -109,7 +111,8 @@ always_comb begin
             d.alu_a_sel = ALU_A_SEL_RS1;
             d.alu_b_sel = ALU_B_SEL_IMM;
             d.ig_sel = IG_I_TYPE;
-            d.wb_sel = WB_SEL_INC4;
+            d.ewb_sel = EWB_SEL_PC_INC4;
+            d.wb_sel = WB_SEL_EWB;
             d.rd_we = rd_nz;
             d.has_reg = '{rd: 1'b1, rs1: 1'b1, rs2: 1'b0};
         end
@@ -122,7 +125,8 @@ always_comb begin
             d.alu_a_sel = ALU_A_SEL_PC;
             d.alu_b_sel = ALU_B_SEL_IMM;
             d.ig_sel = IG_J_TYPE;
-            d.wb_sel = WB_SEL_INC4;
+            d.ewb_sel = EWB_SEL_PC_INC4;
+            d.wb_sel = WB_SEL_EWB;
             d.rd_we = rd_nz;
             d.has_reg = '{rd: 1'b1, rs1: 1'b0, rs2: 1'b0};
         end
@@ -133,7 +137,8 @@ always_comb begin
             d.alu_op = ALU_OP_PASS_B;
             d.alu_b_sel = ALU_B_SEL_IMM;
             d.ig_sel = IG_U_TYPE;
-            d.wb_sel = WB_SEL_ALU;
+            d.ewb_sel = EWB_SEL_ALU;
+            d.wb_sel = WB_SEL_EWB;
             d.rd_we = rd_nz;
             d.has_reg = '{rd: 1'b1, rs1: 1'b0, rs2: 1'b0};
         end
@@ -145,7 +150,8 @@ always_comb begin
             d.alu_a_sel = ALU_A_SEL_PC;
             d.alu_b_sel = ALU_B_SEL_IMM;
             d.ig_sel = IG_U_TYPE;
-            d.wb_sel = WB_SEL_ALU;
+            d.ewb_sel = EWB_SEL_ALU;
+            d.wb_sel = WB_SEL_EWB;
             d.rd_we = rd_nz;
             d.has_reg = '{rd: 1'b1, rs1: 1'b0, rs2: 1'b0};
         end
@@ -160,7 +166,7 @@ always_comb begin
                     d.mult_op = mult_op_t'({1'b1, fn7_b6, fn7_b0});
                     d.alu_a_sel = ALU_A_SEL_RS1;
                     d.alu_b_sel = ALU_B_SEL_RS2;
-                    d.wb_sel = WB_SEL_ALU;
+                    d.wb_sel = WB_SEL_SIMD;
                     d.rd_we = rd_nz;
                     d.has_reg = '{rd: 1'b1, rs1: 1'b1, rs2: 1'b1};
                 end
@@ -170,7 +176,8 @@ always_comb begin
                     d.itype.unpk = 1'b1;
                     d.unpk_op = unpk_op_t'({fn7_b6, fn7_b5, fn7_b0});
                     d.alu_a_sel = ALU_A_SEL_RS1;
-                    d.wb_sel = WB_SEL_ALU;
+                    d.ewb_sel = EWB_SEL_UNPK;
+                    d.wb_sel = WB_SEL_EWB;
                     d.rd_we = rd_nz;
                     d.has_reg = '{rd: 1'b1, rs1: 1'b1, rs2: 1'b1};
                     d.has_reg_p = 1'b1;
@@ -189,7 +196,8 @@ always_comb begin
             d.csr_ctrl.ui = fn3[2];
             d.csr_ctrl.op = csr_op_t'(fn3[1:0]);
             d.alu_a_sel = ALU_A_SEL_RS1;
-            d.wb_sel = WB_SEL_CSR;
+            d.ewb_sel = EWB_SEL_CSR;
+            d.wb_sel = WB_SEL_EWB;
             d.rd_we = rd_nz;
             d.has_reg = '{rd: 1'b1, rs1: !fn3[2], rs2: 1'b0};
         end
