@@ -122,7 +122,7 @@ always_comb begin
     tag_cr = get_tag(cr.addr);
     tag_match = 1'b0;
     way_victim_idx = '0;
-    for (int w = 0; w < WAYS; w++) begin
+    `IT_P(w, WAYS) begin
         if (a_valid[w][set_idx_cr] && (a_tag[w][set_idx_cr] == tag_cr)) begin
             tag_match = 1'b1;
             cr.way_idx = w;
@@ -153,13 +153,13 @@ assign update_lru = load_req_hit || load_req_pending;
 
 always_ff @(posedge clk) begin
     if (rst) begin
-        for (int w = 0; w < WAYS; w++) begin
-            for (int s = 0; s < SETS; s++) begin
+        `IT_P(w, WAYS) begin
+            `IT_P(s, SETS) begin
                 a_lru[w][s] <= w; // init LRU to way idx
             end
         end
     end else if (update_lru) begin
-        for (int w = 0; w < WAYS; w++) begin
+        `IT_P(w, WAYS) begin
             // if LRU counter is less than the one that hit, increment it
             // no need to make cnt saturating - can't increment last lru
             if (a_lru[w][lca.set_idx] < a_lru[lca.way_idx][lca.set_idx]) begin
@@ -225,8 +225,8 @@ assign tag_pend = (cr_pend.mem_start_addr >> (2 + IDX_BITS));
 
 always_ff @(posedge clk) begin
     if (rst) begin
-        for (int w = 0; w < WAYS; w++) begin
-            for (int s = 0; s < SETS; s++) begin
+        `IT_P(w, WAYS) begin
+            `IT_P(s, SETS) begin
                 a_valid[w][s] <= 1'b0;
                 a_tag[w][s] <= 'h0;
             end
@@ -396,8 +396,8 @@ typedef struct {
 
 cache_line_t data_view [WAYS-1:0][SETS-1:0];
 always_comb begin
-    for (int w = 0; w < WAYS; w++) begin
-        for (int s = 0; s < SETS; s++) begin
+    `IT_P(w, WAYS) begin
+        `IT_P(s, SETS) begin
             data_view[w][s].valid <= a_valid[w][s];
             data_view[w][s].tag <= a_tag[w][s];
             data_view[w][s].lru <= `ICACHE.gen_assoc.a_lru[w][s];
@@ -427,8 +427,8 @@ typedef struct {
 
 cache_line_t data_view [WAYS-1:0][SETS-1:0];
 always_comb @(posedge clk) begin
-    for (int w = 0; w < WAYS; w++) begin
-        for (int s = 0; s < SETS; s++) begin
+    `IT_P(w, WAYS) begin
+        `IT_P(s, SETS) begin
             data_view[w][s].valid <= a_valid[w][s];
             data_view[w][s].tag <= a_tag[w][s];
             data_view[w][s].data <= a_data[w][s];

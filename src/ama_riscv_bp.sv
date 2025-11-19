@@ -76,7 +76,7 @@ always_ff @(posedge clk) begin
     if (rst) begin
         // initialize to weakly taken
         /* verilator lint_off WIDTHTRUNC */
-        for (int unsigned c = 0; c < CNT_ENTRIES; c++) cnt[c] <= CNT_THR;
+        `IT_P(c, CNT_ENTRIES) cnt[c] <= CNT_THR;
         /* verilator lint_on WIDTHTRUNC */
     end else if (pipe_in.spec.resolve) begin
         if (taken) cnt[cnt_idx_up] <= cnt[cnt_idx_up] + inc;
@@ -105,7 +105,7 @@ always_ff @(posedge clk) begin
     if (rst) begin
         // initialize to slight bp1 prediction bias
         /* verilator lint_off WIDTHTRUNC */
-        for (int unsigned c = 0; c < CNT_ENTRIES; c++) cnt[c] <= CNT_THR;
+        `IT_P(c, CNT_ENTRIES) cnt[c] <= CNT_THR;
         /* verilator lint_on WIDTHTRUNC */
     end else if (pipe_in.spec.resolve) begin
         if (bp_comp_diff) begin

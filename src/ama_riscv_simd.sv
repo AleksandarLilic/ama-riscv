@@ -13,29 +13,19 @@ module ama_riscv_simd (
 localparam int unsigned W = 32;
 
 // set up masks
+// select which 8x8/16x16 tile (y,x) belongs to
+// set ones only on diagonal tile blocks (ty == tx)
+
 localparam int unsigned TILE_8 = 8; // 8x8 blocks
 simd_t [W-1:0] mask_8;
 always_comb begin
-    for (int y = 0; y < W; y++) begin
-        for (int x = 0; x < W; x++) begin
-            // select which 8x8 tile (y,x) belongs to
-            // set ones only on diagonal tile blocks (ty == tx)
-            mask_8[y][x] = ((y / TILE_8) == (x / TILE_8));
-        end
-    end
+    `IT_P(y, W) `IT_P(x, W) mask_8[y][x] = ((y / TILE_8) == (x / TILE_8));
 end
 
 localparam int unsigned TILE_16 = 16; // 16x16 blocks
 simd_t [W-1:0] mask_16;
-
 always_comb begin
-    for (int y = 0; y < W; y++) begin
-        for (int x = 0; x < W; x++) begin
-            // select which 16x16 tile (y,x) belongs to
-            // set ones only on diagonal tile blocks (ty == tx)
-            mask_16[y][x] = ((y / TILE_16) == (x / TILE_16));
-        end
-    end
+    `IT_P(y, W) `IT_P(x, W) mask_16[y][x] = ((y / TILE_16) == (x / TILE_16));
 end
 
 logic op_dot16, op_dot8, op_simd;
@@ -51,8 +41,8 @@ always_comb begin
     else if (op_dot16) lane_sz = 16;
     else lane_sz = W; // plain 32x32 signed
 
-    for (int i = 0; i < W; i++) begin
-        for (int j = 0; j < W; j++) begin
+    `IT_P(i, W) begin
+        `IT_P(j, W) begin
             logic y, flip;
             int li, lj; // lane-local indices
 
@@ -77,7 +67,7 @@ end
 
 simd_d_t [W-1:0] ppv; // double-wide pp view
 always_comb begin
-    for (int i = 0; i < W; i++) begin
+    `IT_P(i, W) begin
         simd_d_t x;
         x = {32'h0, pp[i]};
         ppv[i] = x; // idk whatever

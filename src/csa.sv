@@ -11,10 +11,8 @@ module csa #(
 );
 
 always_comb begin
-    for (int i = 0; i < W; i++) begin
-        // csa_b cb_i (.x (x[i]), .y (y[i]), .z (z[i]), .s (s[i]), .c (c[i]));
-        {c[i], s[i]} = (x[i] + y[i] + z[i]);
-    end
+    `IT(W) {c[i], s[i]} = (x[i] + y[i] + z[i]);
+    // csa_b csa_b_i (.x (x[i]), .y (y[i]), .z (z[i]), .s (s[i]), .c (c[i]));
 end
 
 endmodule

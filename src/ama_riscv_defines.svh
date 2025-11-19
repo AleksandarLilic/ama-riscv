@@ -38,6 +38,7 @@
 // `endif
 
 `define IT(x) for (int i = 0; i < x; i++)
+`define IT_P(p, x) for (int p = 0; p < x; p++)
 
 `define FE_CTRL_RST_VAL \
     '{ \
