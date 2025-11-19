@@ -1,5 +1,6 @@
 # vendored code
-constraints_fpga/Zybo-Z7-Master.xdc linguist-vendored
+fpga_constraints/Zybo-Z7-Master.xdc linguist-vendored
+fpga_constraints/Arty-A7-100-Master.xdc linguist-vendored
 
 # overrides
 Makefile.inc linguist-language=Makefile

@@ -1,4 +1,4 @@
-# taken drom Digilent at https://github.com/Digilent/digilent-xdc/blob/master/Zybo-Z7-Master.xdc
+# taken from Digilent at https://github.com/Digilent/digilent-xdc/blob/master/Zybo-Z7-Master.xdc
 
 ## This file is a general .xdc for the Zybo Z7 Rev. B
 ## It is compatible with the Zybo Z7-20 and Zybo Z7-10
