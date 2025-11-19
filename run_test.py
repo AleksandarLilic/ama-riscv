@@ -287,7 +287,7 @@ def main():
                         cnt=cnt,
                         make_args=ma
                     )
-                pool.map(partial_run_test, all_tests, chunksize=2)
+                pool.map(partial_run_test, all_tests) # , chunksize=2
 
     except KeyboardInterrupt:
         print("KeyboardInterrupt received. Terminating.")
