@@ -7,6 +7,7 @@ import glob
 import json
 import os
 import random
+import re
 import shlex
 import shutil
 import subprocess
@@ -35,6 +36,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Run RTL simulation.")
     parser.add_argument('-t', '--test', help="Specify single test to run")
     parser.add_argument('--testlist', help="Path to a JSON file containing a list of tests")
+    parser.add_argument('-f', '--filter', help="Apply regex filtering to the testlist on the group name. Passed in as comma-separated values. Use ~ to exclude test. E.g., -f 'riscv_isa,~zmmul' includes all groups that match 'riscv_isa' string in the group name, except those that match 'zmmul'. If not specified, all tests in the testlist are run")
     parser.add_argument('-r', '--rundir', help="Optional custom run directory name")
     parser.add_argument('-o', '--build_only', action='store_true', help="Only build the testbench")
     parser.add_argument('-k', '--keep_build', action='store_true', default=False, help="Reuse existing build if available")
@@ -73,10 +75,36 @@ def read_from_json(file_path):
     with open(file_path, 'r') as file:
         return json.load(file)
 
-def find_all_tests(test_list):
+def find_all_tests(test_list, filters=[]):
+    # if filtering is used, apply on top level keys, and put only those entires
+    # otherwise, just flatten the entire test_list
+
+    tl_flat = [item for sublist in test_list.values() for item in sublist]
+    if filters:
+        mode = "neg" if all(f.startswith('~') for f in filters) else "pos"
+
+        tl = {"inc" : [], "exc" : []}
+        if filters:
+            for key in test_list:
+                for f in filters:
+                    idx = "inc"
+                    if f.startswith('~'):
+                        f = f[1:]
+                        idx = "exc"
+                    if re.match(f, key):
+                        tl[idx].extend(test_list[key])
+
+        if mode == "pos":
+            # include all from inc, and remove items from exc
+            tl_flat = [item for item in tl_flat if item in tl["inc"]]
+            tl_flat = [item for item in tl_flat if item not in tl["exc"]]
+        else:
+            # exclude from all those in exc, no inc list
+            tl_flat = [item for item in tl_flat if item not in tl["exc"]]
+
     valid_tests = []
     some_mismatched = False
-    for path, test_name_pattern in test_list:
+    for path, test_name_pattern in tl_flat:
         full_pattern = os.path.join(REPO_ROOT, path, test_name_pattern)
         matched_files = glob.glob(full_pattern)
         if matched_files:
@@ -224,6 +252,9 @@ def main():
     # check arguments
     if args.test and args.testlist:
         raise ValueError("Cannot use both -t|--test and --testlist. Choose one")
+    if args.test and args.filter:
+        raise ValueError("Cannot use -f|--filter with -t|--test. " +
+                         "Filter can only be applied to testlist.")
 
     create_run_cfg(args.log_wave, args.log_vcd)
     if args.test:
@@ -232,7 +263,11 @@ def main():
         )
         print(f"\nRunning {all_tests[0]}")
     elif args.testlist:
-        all_tests = find_all_tests(read_from_json(args.testlist))
+        filters = []
+        if args.filter:
+            filters = [f.strip() for f in args.filter.split(',')]
+            print(f"Applying filter(s): {filters}")
+        all_tests = find_all_tests(read_from_json(args.testlist), filters)
         print(f"\nTestlist:")
         print("   " + "\n   ".join(all_tests))
         print(f"Running {len(all_tests)} test(s) total")
