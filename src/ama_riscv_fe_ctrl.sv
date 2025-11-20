@@ -203,7 +203,7 @@ always_comb begin
     imem_rsp.ready = 1'b0;
     move_past_dec_exe_dc_stall = 1'b0;
 
-    case (state)
+    unique case (state)
         RST: begin
             // reset vector on boot, cold icache
             fe_ctrl.pc_sel = PC_SEL_PC;
@@ -392,8 +392,6 @@ always_comb begin
             end
         end
 
-        default: ;
-
     endcase
 end
 
@@ -409,6 +407,7 @@ assign spec.enter = (
 assign spec.resolve =
     ((spec_entry.pc == pc_exe) && (pc_exe != 'h0) && (!hazard_be.to_exe));
 assign bp_hit = spec.resolve && (spec_entry.b_tnt == branch_resolution);
+assign spec.wrong = (spec.resolve && !bp_hit);
 
 // speculative execution FSM
 exec_state_t state_e, nx_state_e;
@@ -421,21 +420,20 @@ always_comb begin
     nx_state_e = state_e;
     save_spec_entry = 1'b0;
     clear_spec_entry = 1'b0;
-    spec.wrong = 1'b0;
 
-    case (state_e)
+    unique case (state_e)
         NS_E: begin
             if (spec.enter) begin
                 nx_state_e = SPEC_E;
                 save_spec_entry = 1'b1;
             end
         end
+
         SPEC_E: begin
             if (spec.resolve) begin
                 clear_spec_entry = 1'b1;
-                if (!bp_hit) begin // missed, whantever you have is wrong
+                if (spec.wrong) begin // missed, whantever you have is wrong
                     nx_state_e = NS_E;
-                    spec.wrong = !bp_hit;
                 end else begin // on correct path
                     if (spec.enter) begin // branch in dec again
                         nx_state_e = SPEC_E;
@@ -446,6 +444,7 @@ always_comb begin
                 end
             end
         end
+
     endcase
 end
 
