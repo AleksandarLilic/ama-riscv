@@ -1,3 +1,5 @@
+SHELL := /bin/bash
+
 # RTL build
 TOP := ama_riscv_tb
 DESIGN_TOP := ama_riscv_top
@@ -19,13 +21,37 @@ RUN_CFG ?= $(REPO_ROOT)/run_cfg.tcl
 TCLBATCH_SWITCH := -tclbatch $(RUN_CFG)
 
 TEST_PATH ?=
-TEST_WDB := $(shell path='$(TEST_PATH)'; echo "$$(basename "$$(dirname "$$path")")_$$(basename "$$path")")
+# if TEST_PATH is not set, use a default unique name
+ifeq ($(strip $(TEST_PATH)),)
+    TEST_WDB := make_run_default
+else
+    TEST_WDB := $(shell path='$(TEST_PATH)'; echo "$$(basename "$$(dirname "$$path")")_$$(basename "$$path")")
+endif
 
 # useful for standalone make runs, but not for test suite
 UNIQUE_WDB ?= 1
 WDB_SWITCH :=
 ifeq ($(strip $(UNIQUE_WDB)),1)
     WDB_SWITCH := -wdb $(CURDIR)/$(TEST_WDB)
+endif
+
+#LOG_ARG :=
+#LOG_ARG := -log test.log
+#LOG_ARG := -log /dev/null > test.log 2>&1
+LOG_ARG := -log /dev/null 2>&1
+
+LOG_NAME = $(TEST_WDB).log
+TO_LOG ?= 1
+ifeq ($(strip $(TO_LOG)),1)
+    $(shell echo "" > $(LOG_NAME))
+    LOG_ARG := $(LOG_ARG) >> $(LOG_NAME)
+endif
+
+# silence make output if logging to file
+ifeq ($(TO_LOG), 1)
+Q = @
+else
+Q =
 endif
 
 TEST_PATH_ABS := $(abspath $(TEST_PATH))
@@ -58,34 +84,46 @@ all: sim
 
 include cosim/Makefile.cosim.inc
 
+# used to limit the number of delta cycles during simulation, default is 10000
+# prevents large logs and long runtimes when debugging accidental comb. loops
+MAX_DELTA = -maxdeltaid 100
+
+CMD_COMP := xvlog $(COMP_OPTS) -prj $(SOURCE_FILES) $(RTL_DEFINES) $(LOG_ARG)
+CMD_ELAB := xelab $(WORKLIB).$(TOP) $(ELAB_OPTS) -sv_lib $(COSIM_TARGET) $(RTL_DEFINES) $(LOG_ARG)
+CMD_SIM := xsim $(TOP) $(TCLBATCH_SWITCH) $(WDB_SWITCH) -stats -onerror quit -testplusarg test_path=$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) -testplusarg log_level=$(LOG_LEVEL) $(COSIM_ARGS) $(MAX_DELTA) $(LOG_ARG)
+
 compile: .compile.touchfile
 .compile.touchfile: $(SRC_VERIF) $(SRC_DESIGN) $(SRC_INC)
-	xvlog $(COMP_OPTS) -prj $(SOURCE_FILES) $(RTL_DEFINES) -log /dev/null 2>&1
+	@if [ "$(TO_LOG)" -eq 1 ]; then \
+		echo $(CMD_COMP) >> $(LOG_NAME); \
+	fi
+	$(Q)$(CMD_COMP)
 	@rm xvlog.pb
 	@touch .compile.touchfile
 
 elab: .elab.touchfile
 .elab.touchfile: .compile.touchfile $(COSIM_TARGET)
-	xelab $(WORKLIB).$(TOP) $(ELAB_OPTS) -sv_lib $(COSIM_TARGET) $(RTL_DEFINES) -log /dev/null 2>&1
+	@if [ "$(TO_LOG)" -eq 1 ]; then \
+		echo $(CMD_ELAB) >> $(LOG_NAME); \
+	fi
+	$(Q)$(CMD_ELAB)
 	@rm xelab.pb
 	@touch .elab.touchfile
 
 dpi_header_gen: .compile.touchfile
 	xelab $(WORKLIB).$(TOP) $(ELAB_OPTS) $(RTL_DEFINES) -dpiheader $(DPI_FUNCS_H) -log /dev/null 2>&1
 
-#SIM_LOG := -log test.log
-#SIM_LOG := -log /dev/null > test.log 2>&1
-SIM_LOG := -log /dev/null 2>&1
-
-# used to limit the number of delta cycles during simulation, default is 10000
-# prevents large logs and long runtimes when debugging accidental comb. loops
-MAX_DELTA = -maxdeltaid 100
-
 # example usage: 'make sim -j TEST_PATH=sim/sw/baremetal/asm_rv32i/basic UNIQUE_WDB=1 TIMEOUT_CLOCKS=1000 LOG_LEVEL=$LL | tee make_run_asm_rv32i.log | tail -n 30 | tee >(rg "====")'
 sim: .elab.touchfile
-	xsim $(TOP) $(TCLBATCH_SWITCH) $(WDB_SWITCH) -stats -onerror quit -testplusarg test_path=$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) -testplusarg log_level=$(LOG_LEVEL) $(COSIM_ARGS) $(SIM_LOG) $(MAX_DELTA)
+	@if [ "$(TO_LOG)" -eq 1 ]; then \
+		echo $(CMD_SIM) >> $(LOG_NAME); \
+	fi
+	$(Q)$(CMD_SIM)
 	@rm xsim.jou
 	@touch .sim.touchfile
+	@if [ "$(TO_LOG)" -eq 1 ]; then \
+		tail -n 30 $(LOG_NAME) | grep -A30 "^Test" | tee >(grep --color=always "===="); \
+	fi
 
 # run target in terminal once; it will watch for any file save and re-run slang
 # alternative to a setup with vscode extension(s)
