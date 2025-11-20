@@ -15,7 +15,6 @@ sv work \
 "$REPO_ROOT/src/ama_riscv_alu.sv" \
 "$REPO_ROOT/src/ama_riscv_simd.sv" \
 "$REPO_ROOT/src/ama_riscv_unpk.sv" \
-"$REPO_ROOT/src/csa_b.sv" \
 "$REPO_ROOT/src/csa.sv" \
 "$REPO_ROOT/src/csa_tree_8.sv" \
 "$REPO_ROOT/src/ama_riscv_icache.sv" \

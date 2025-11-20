@@ -74,9 +74,16 @@ always_comb begin
         if (!op_simd) begin // MULT 32x32
             ppv[i] = (x << i);
         end else if (op_dot16) begin // DOT16
-            ppv[i] = (((x & mask_16[i]) << (i % 16)) >> ((i / 16) * 16));
+            // every 16 rows (one lane) shifted left per the algorithm
+            // but every lane is shifted right to start at idx 0 for dotp
+            ppv[i] = (
+                ({32'h0, (x.w[0] & mask_16[i])} << (i % 16)) >> ((i / 16) * 16)
+            );
         end else if (op_dot8) begin // DOT8
-            ppv[i] = (((x & mask_8[i]) << (i % 8)) >> ((i / 8) * 8));
+            // same as above, but done on 8-bit blocks
+            ppv[i] = (
+                ({32'h0, (x.w[0] & mask_8[i])} << (i % 8)) >> ((i / 8) * 8)
+            );
         end
     end
 end
