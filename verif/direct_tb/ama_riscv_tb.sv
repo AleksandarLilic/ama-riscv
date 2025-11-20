@@ -515,25 +515,28 @@ endfunction
 task automatic single_step();
     bit new_errors;
     stats.update(core_stats, inst_retired);
-    `LOG_V($sformatf(
-        "Core [F] %5h: %8h %0s",
-        `CORE.pc.dec,
-        `CORE.imem_rsp.data,
-        `CORE.fe_ctrl.bubble_dec ? ("(fe stalled)") : "")
-    );
+    //`LOG_V($sformatf(
+    //    "Core [F] %5h: %8h %0s",
+    //    `CORE.pc.dec,
+    //    `CORE.imem_rsp.data,
+    //    `CORE.fe_ctrl.bubble_dec ? ("(fe stalled)") : "")
+    //);
 
     `ifdef ENABLE_COSIM
     add_trace_entry(clk_cnt - `RST_PULSES); // don't count time in reset
     `endif
+
     // cosim advances only if rtl retires an instruction
-    if (!inst_retired) return;
+    if (!inst_retired) begin
+        `LOG_V("Core [R] empty cycle");
+        return;
+    end
 
     `ifdef ENABLE_COSIM
     cosim_exec(clk_cnt_d[2], mtime_d[2], cosim.pc, cosim.inst, cosim.tohost,
                cosim_str.inst_asm, cosim_str.stack_top, cosim.rf);
 
-    core_ret = $sformatf(
-        "Core [R] %5h: %8h", `CORE.pc_ret, `CORE.inst_ret);
+    core_ret = $sformatf("Core [R] %5h: %8h", `CORE.pc_ret, `CORE.inst_ret);
     isa_ret = $sformatf(
         "COSIM    %5h: %8h %0s", cosim.pc, cosim.inst, cosim_str.inst_asm);
     `LOG_V(core_ret);
@@ -558,14 +561,14 @@ endtask
 task run_test();
     automatic int unsigned clks_to_retire_last_inst = 2;
     while (tohost_source !== 1'b1) begin
-        @(posedge clk); #1;
+        @(posedge clk); #0.1;
         single_step();
     end
 
     // retire csr inst writing to tohost
     // thus matching number of executed instructions with isa sim standalone run
     repeat(clks_to_retire_last_inst) begin
-        @(posedge clk); #1;
+        @(posedge clk); #0.1;
         single_step();
     end
 endtask
