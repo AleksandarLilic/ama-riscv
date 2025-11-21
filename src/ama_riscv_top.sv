@@ -20,8 +20,7 @@ rv_if_da #(.AW(MEM_ADDR_BUS), .DW(MEM_DATA_BUS)) mem_w_req_ch_dmem ();
 rv_if #(.DW(MEM_DATA_BUS)) mem_r_rsp_ch_dmem ();
 
 // core <-> uart
-rv_if #(.DW(8)) uart_send_req_ch ();
-rv_if #(.DW(8)) uart_recv_rsp_ch ();
+uart_if uart_ch ();
 
 ama_riscv_core_top ama_riscv_core_top_i(
     .clk (clk),
@@ -31,8 +30,7 @@ ama_riscv_core_top ama_riscv_core_top_i(
     .req_dmem_r (mem_r_req_ch_dmem.TX),
     .req_dmem_w (mem_w_req_ch_dmem.TX),
     .rsp_dmem (mem_r_rsp_ch_dmem.RX),
-    .uart_send_req (uart_send_req_ch.TX),
-    .uart_recv_rsp (uart_recv_rsp_ch.RX),
+    .uart_ch (uart_ch.TX),
     .inst_retired (inst_retired)
 );
 
@@ -46,14 +44,13 @@ ama_riscv_mem ama_riscv_mem_i (
     .rsp_dmem (mem_r_rsp_ch_dmem.TX)
 );
 
-uart # (
+ama_riscv_uart # (
     .CLOCK_FREQ (CLOCK_FREQ),
     .BAUD_RATE (UART_BR)
-) uart_i (
+) ama_riscv_uart_i (
     .clk (clk),
     .rst (rst),
-    .send_req (uart_send_req_ch.RX),
-    .recv_rsp (uart_recv_rsp_ch.TX),
+    .uart_ch (uart_ch.RX),
     .serial_in (uart_serial_in),
     .serial_out (uart_serial_out)
 );

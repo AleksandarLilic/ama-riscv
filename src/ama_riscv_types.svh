@@ -382,13 +382,20 @@ typedef struct {
 typedef struct packed {
     logic rx_valid;
     logic tx_ready;
-} uart_ctrl_t;
+} uart_rv_ctrl_t;
 
 typedef enum logic [1:0] {
     UART_CTRL = 2'd0,
     UART_RX = 2'd1,
     UART_TX = 2'd2
 } uart_addr_t;
+
+typedef struct packed {
+    logic en;
+    logic we;
+    logic load_signed;
+    uart_addr_t addr;
+} uart_ctrl_t;
 
 typedef enum int unsigned {
     BR_9600 = 9600,
@@ -453,6 +460,14 @@ interface rv_if_dc #(parameter AW = ARCH_WIDTH, parameter DW = ARCH_WIDTH) ();
         input  rtype,
         output ready
     );
+endinterface
+
+interface uart_if ();
+    uart_ctrl_t ctrl;
+    logic [7:0] send;
+    logic [7:0] recv;
+    modport TX (output ctrl, output send, input recv); // core
+    modport RX (input ctrl, input send, output recv); // uart
 endinterface
 
 // not all stages will be used by every instatiation

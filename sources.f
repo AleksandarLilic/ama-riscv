@@ -20,6 +20,8 @@ sv work \
 "$REPO_ROOT/src/ama_riscv_icache.sv" \
 "$REPO_ROOT/src/ama_riscv_dcache.sv" \
 "$REPO_ROOT/src/ama_riscv_mem.sv" \
+"$REPO_ROOT/src/ama_riscv_csr.sv" \
+"$REPO_ROOT/src/ama_riscv_uart.sv" \
 "$REPO_ROOT/src/uart.sv" \
 "$REPO_ROOT/src/uart_tx.sv" \
 "$REPO_ROOT/src/uart_rx.sv" \

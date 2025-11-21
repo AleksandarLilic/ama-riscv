@@ -9,14 +9,11 @@ module ama_riscv_core #(
     rv_if.RX     imem_rsp,
     rv_if_dc.TX  dmem_req,
     rv_if.RX     dmem_rsp,
-    rv_if.TX     uart_send_req,
-    rv_if.RX     uart_recv_rsp,
-    output spec_exec_t  spec,
+    uart_if.TX   uart_ch,
+    output spec_exec_t spec,
     output logic inst_retired
 );
 
-localparam unsigned CLOCKS_PER_US = CLOCK_FREQ / 1_000_000;
-localparam unsigned CNT_WIDTH = $clog2(CLOCKS_PER_US);
 localparam unsigned PIPE_STAGES = 4;
 localparam logic [PIPE_STAGES-1:0] RST_INIT = (1 << PIPE_STAGES) - 1;
 
@@ -423,110 +420,19 @@ assign unpk_out_exe = unpk_out.w[0];
 assign unpk_out_p_exe = unpk_out.w[1];
 
 // CSR
-csr_t csr; // regs
-csr_addr_t csr_addr;
-logic [4:0] csr_imm5;
-arch_width_t csr_din_imm, csr_wr_data_source, csr_wr_data;
-assign csr_imm5 = inst.exe[19:15];
-assign csr_din_imm = {27'h0, csr_imm5}; // zero-extend
-assign csr_wr_data_source = decoded_exe.csr_ctrl.ui ? csr_din_imm : alu_in_a;
-assign csr_addr = csr_addr_t'(inst.exe[31:20] & {12{decoded_exe.csr_ctrl.en}});
-
-// csr read
-arch_width_t csr_data_exe;
-always_comb begin
-    csr_data_exe = 'h0;
-    if (decoded_exe.csr_ctrl.re) begin
-        case (csr_addr)
-            CSR_TOHOST: csr_data_exe = csr.tohost;
-            CSR_MCYCLE: csr_data_exe = csr.mcycle.r[CSR_LOW];
-            CSR_MCYCLEH: csr_data_exe = csr.mcycle.r[CSR_HIGH];
-            CSR_MINSTRET: csr_data_exe = csr.minstret.r[CSR_LOW];
-            CSR_MINSTRETH: csr_data_exe = csr.minstret.r[CSR_HIGH];
-            CSR_MSCRATCH: csr_data_exe = csr.mscratch;
-            CSR_TIME: csr_data_exe = csr.mtime.r[CSR_LOW];
-            CSR_TIMEH: csr_data_exe = csr.mtime.r[CSR_HIGH];
-            default: ;
-        endcase
-    end
-end
-
-// csr write
-always_comb begin
-    csr_wr_data = 'h0;
-    case (decoded_exe.csr_ctrl.op)
-        CSR_OP_RW: csr_wr_data = csr_wr_data_source;
-        CSR_OP_RS: csr_wr_data = csr_data_exe | csr_wr_data_source;
-        CSR_OP_RC: csr_wr_data = csr_data_exe & ~csr_wr_data_source;
-    endcase
-end
-
-// tohost/mscratch
-always_ff @(posedge clk) begin
-    if (rst) begin
-        csr.tohost <= 'h0;
-        csr.mscratch <= 'h0;
-    end else if (decoded_exe.csr_ctrl.we) begin
-        case (csr_addr)
-            CSR_TOHOST: csr.tohost <= csr_wr_data;
-            CSR_MSCRATCH: csr.mscratch <= csr_wr_data;
-            default: ;
-        endcase
-    end
-end
-
-// mcycle
-logic csr_addr_match_mcycle, csr_addr_match_mcycle_l;
-assign csr_addr_match_mcycle_l = (csr_addr == CSR_MCYCLE);
-assign csr_addr_match_mcycle =
-    csr_addr_match_mcycle_l || (csr_addr == CSR_MCYCLEH);
-
-always_ff @(posedge clk) begin
-    if (rst) begin
-        csr.mcycle <= 'h0;
-    end else if (decoded_exe.csr_ctrl.we && csr_addr_match_mcycle) begin
-        if (csr_addr_match_mcycle_l) csr.mcycle.r[CSR_LOW] <= csr_wr_data;
-        else csr.mcycle.r[CSR_HIGH] <= csr_wr_data;
-    end else begin
-        csr.mcycle <= csr.mcycle + 'h1;
-    end
-end
-
-// minstret
+arch_width_t csr_out_exe;
 logic inst_to_be_retired; // from retire pipeline
-logic csr_addr_match_minstret, csr_addr_match_minstret_l;
-assign csr_addr_match_minstret_l = (csr_addr == CSR_MINSTRET);
-assign csr_addr_match_minstret =
-    csr_addr_match_minstret_l || (csr_addr == CSR_MINSTRETH);
-
-always_ff @(posedge clk) begin
-    if (rst) begin
-        csr.minstret <= 'h0;
-    end else if (decoded_exe.csr_ctrl.we && csr_addr_match_minstret) begin
-        if (csr_addr_match_minstret_l) csr.minstret.r[CSR_LOW] <= csr_wr_data;
-        else csr.minstret.r[CSR_HIGH] <= csr_wr_data;
-    end else begin
-        csr.minstret <= csr.minstret + inst_to_be_retired;
-    end
-end
-
-// mtime
-logic tick_us;
-logic [CNT_WIDTH-1:0] cnt_us; // 1 microsecond cnt
-always_ff @(posedge clk) begin
-    if (rst) begin
-        cnt_us <= 'h0;
-        tick_us <= 1'b0;
-    end else if (cnt_us == (CLOCKS_PER_US - 1)) begin
-        cnt_us <= 'h0;
-        tick_us <= 1'b1;
-    end else begin
-        cnt_us <= cnt_us + 'h1;
-        tick_us <= 1'b0;
-    end
-end
-
-`DFF_CI_RI_RVI((csr.mtime + tick_us), csr.mtime)
+ama_riscv_csr #(
+    .CLOCK_FREQ(CLOCK_FREQ)
+) ama_riscv_csr_i (
+    .clk (clk),
+    .rst (rst),
+    .csr_ctrl (decoded_exe.csr_ctrl),
+    .in (alu_in_a),
+    .inst_exe (inst.exe),
+    .inst_to_be_retired (inst_to_be_retired),
+    .csr_out (csr_out_exe)
+);
 
 // memory map
 logic map_dmem_exe, map_uart_exe;
@@ -545,73 +451,16 @@ assign dmem_req.rtype = decoded_exe.itype.store ? DMEM_WRITE : DMEM_READ;
 assign dc_stalled = !dmem_req.ready;
 
 // UART
-logic uart_en, uart_we;
-uart_addr_t uart_addr;
-assign uart_en = map_uart_exe && decoded_exe.dmem_en;
-assign uart_we = uart_en && decoded_exe.itype.store;
-assign uart_addr = uart_addr_t'(alu_out_exe[4:2]);
-
-// uart sync write
-always_ff @(posedge clk) begin
-    if (rst) begin
-        uart_send_req.data <= 'h0;
-        uart_send_req.valid <= 'b0;
-    end else begin
-        if (uart_we) begin
-            case (uart_addr)
-                UART_TX: begin
-                    uart_send_req.data <= bcs_b[7:0];
-                    uart_send_req.valid <= 1'b1;
-                end
-                default: ;
-            endcase
-        end else begin
-            uart_send_req.data <= 'h0;
-            uart_send_req.valid <= 'b0;
-        end
-    end
-end
-
-// uart sync read
-uart_ctrl_t uart_ctrl_in, uart_ctrl;
-assign uart_ctrl_in =
-    '{rx_valid: uart_recv_rsp.valid, tx_ready: uart_send_req.ready};
-`DFF_CI_RI_RV('{0, 0}, uart_ctrl_in, uart_ctrl)
-
-arch_width_t uart_read;
-always_ff @(posedge clk) begin
-    if (rst) begin
-        uart_read <= 'h0;
-        uart_recv_rsp.ready <= 1'b0;
-    end else if (uart_en) begin
-        case (uart_addr)
-            UART_CTRL: begin
-                uart_read <= {30'd0, uart_ctrl};
-                uart_recv_rsp.ready <= 1'b1;
-            end
-            UART_RX: begin
-                if (dmem_dtype == DMEM_DTYPE_BYTE) begin
-                    uart_read <=
-                        {{24{uart_recv_rsp.data[7]}}, uart_recv_rsp.data};
-                end else begin // DMEM_DTYPE_UBYTE
-                    uart_read <= {24'd0, uart_recv_rsp.data};
-                end
-                uart_recv_rsp.ready <= 1'b1;
-            end
-            default: begin
-                uart_read <= 32'd0;
-                uart_recv_rsp.ready <= 1'b0;
-            end
-        endcase
-    end else begin
-        uart_read <= 'h0;
-        uart_recv_rsp.ready <= 1'b0;
-    end
-end
+assign uart_ch.ctrl.en = map_uart_exe && decoded_exe.dmem_en;
+assign uart_ch.ctrl.we = uart_ch.ctrl.en && decoded_exe.itype.store;
+assign uart_ch.ctrl.addr = uart_addr_t'(alu_out_exe[4:2]);
+assign uart_ch.ctrl.load_signed = (dmem_dtype == DMEM_DTYPE_BYTE);
+assign uart_ch.send = bcs_b[7:0];
+// uart_ch.recv aligned with mem stage
 
 //------------------------------------------------------------------------------
 // Pipeline FF EXE/MEM
-arch_width_t pc_inc4_mem, alu_out_mem, csr_data_mem, unpk_out_mem;
+arch_width_t pc_inc4_mem, alu_out_mem, csr_out_mem, unpk_out_mem;
 logic map_uart_mem;
 
 pipeline_if_typed #(.T(ewb_sel_t)) ewb_sel ();
@@ -637,7 +486,7 @@ assign ctrl_exe_mem = '{
 `STAGE(ctrl_exe_mem, rd_addr.exe, rd_addr.mem, RF_X0_ZERO)
 `STAGE(ctrl_exe_mem, rd_we.exe, rd_we.mem, 'h0)
 `STAGE(ctrl_exe_mem, rdp_we.exe, rdp_we.mem, 'h0)
-`STAGE(ctrl_exe_mem, csr_data_exe, csr_data_mem, 'h0)
+`STAGE(ctrl_exe_mem, csr_out_exe, csr_out_mem, 'h0)
 `STAGE(ctrl_exe_mem, decoded_exe.itype.load, load_inst_mem, 'h0)
 `STAGE(ctrl_exe_mem, decoded_exe.itype.store, store_inst_mem, 'h0)
 `STAGE(ctrl_exe_mem, decoded_exe.itype.mult, mult_inst_mem, 'h0)
@@ -653,13 +502,13 @@ always_comb begin
     unique case (ewb_sel.mem)
         EWB_SEL_ALU: e_writeback_mem = alu_out_mem;
         EWB_SEL_PC_INC4: e_writeback_mem = pc_inc4_mem;
-        EWB_SEL_CSR: e_writeback_mem = csr_data_mem;
+        EWB_SEL_CSR: e_writeback_mem = csr_out_mem;
         EWB_SEL_UNPK: e_writeback_mem = unpk_out_mem;
     endcase
 end
 
 arch_width_t dmem_out_mem;
-assign dmem_out_mem = map_uart_mem ? uart_read : dmem_rsp.data;
+assign dmem_out_mem = map_uart_mem ? uart_ch.recv : dmem_rsp.data;
 
 //------------------------------------------------------------------------------
 // Pipeline FF MEM/WBK

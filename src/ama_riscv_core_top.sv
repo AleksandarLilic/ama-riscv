@@ -8,8 +8,7 @@ module ama_riscv_core_top (
     rv_if.TX     req_dmem_r,
     rv_if_da.TX  req_dmem_w,
     rv_if.RX     rsp_dmem,
-    rv_if.TX     uart_send_req,
-    rv_if.RX     uart_recv_rsp,
+    uart_if.TX   uart_ch,
     output logic inst_retired
 );
 
@@ -30,8 +29,7 @@ ama_riscv_core ama_riscv_core_i(
     .imem_rsp (imem_rsp_ch.RX),
     .dmem_req (dmem_req_ch),
     .dmem_rsp (dmem_rsp_ch),
-    .uart_send_req (uart_send_req),
-    .uart_recv_rsp (uart_recv_rsp),
+    .uart_ch (uart_ch),
     .spec (spec),
     .inst_retired (inst_retired)
 );

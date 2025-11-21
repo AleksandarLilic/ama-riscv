@@ -157,7 +157,7 @@ bind `CORE ama_riscv_core_view ama_riscv_core_view_i (
     .pc_ret (pc_ret),
     .decoded_exe (decoded_exe),
     .branch_resolution (branch_resolution),
-    .csr_tohost (csr.tohost),
+    .csr_tohost (`CSR.csr.tohost), // this
     `ifdef USE_BP
     .bp_hit (bp_hit),
     `endif
@@ -236,11 +236,11 @@ function automatic void check_test_status(input bit completed);
         if (args.tohost_chk_en) begin
             msg = {msg, "ENABLED: "};
             if (completed) begin // tohost meaningless unless test completes
-                chk_pass_tohost = (`CORE.csr.tohost === `TOHOST_PASS);
+                chk_pass_tohost = (`CSR.csr.tohost === `TOHOST_PASS);
                 msg = {msg, chk_pass_tohost ? "PASS" : "FAIL"};
                 if (!chk_pass_tohost) begin
                     `LOGNT($sformatf("'tohost' failed # %0d",
-                                     `CORE.csr.tohost[31:1]));
+                                     `CSR.csr.tohost[31:1]));
                 end
             end else begin
                 msg = {msg, "invalid result, test didn't complete"};
@@ -581,7 +581,7 @@ always @(posedge clk) clk_cnt += 1;
 
 // 3 clk delay between CSR access and inst ret
 `DFF_CI_RI_RVI(
-    {`CORE.csr.mtime, mtime_d[0], mtime_d[1]},
+    {`CSR.csr.mtime, mtime_d[0], mtime_d[1]},
     {mtime_d[0], mtime_d[1], mtime_d[2]}
 )
 
@@ -639,7 +639,7 @@ initial begin
 end
 
 // Test
-assign tohost_source = `CORE.csr.tohost[0];
+assign tohost_source = `CSR.csr.tohost[0];
 initial begin
     `LOGNT("");
     get_plusargs();
