@@ -1,5 +1,5 @@
 {
-    "simple" : [
+    "simple": [
         ["sim/sw/baremetal/asm_rv32i", "basic.hex"],
         ["sim/sw/baremetal/asm_rv32i_zicsr", "basic.hex"],
         ["sim/sw/baremetal/asm_rv32im", "basic.hex"],
@@ -16,47 +16,61 @@
         ["sim/sw/baremetal/vector_ew_mac_uint8", "basic.hex"]
     ],
 
-    "vector" : [
+    "vector": [
         ["sim/sw/baremetal/vector_ew_basic", "add*.hex"],
         ["sim/sw/baremetal/vector_ew_basic", "sub*.hex"],
         ["sim/sw/baremetal/vector_ew_basic", "mul*.hex"],
         ["sim/sw/baremetal/vector_ew_basic", "div*.hex"]
     ],
 
-    "dot_product" : [
+    "dot_product": [
         ["sim/sw/baremetal/dot_product", "int16.hex"],
         ["sim/sw/baremetal/dot_product", "int8.hex"]
     ],
 
-    "uart" : [
-        ["sim/sw/baremetal/uart_direct_send", "hello_world.elf"],
-        ["sim/sw/baremetal/uart_printf_mini", "hello_world.elf"]
+    "uart": [
+        ["sim/sw/baremetal/uart_direct_send", "hello_world.hex"],
+        ["sim/sw/baremetal/uart_printf_mini", "hello_world.hex"]
     ],
 
-    "mlp" : [
-        ["sim/sw/baremetal/mlp", "w8a8.elf"],
-        ["sim/sw/baremetal/mlp", "w4a8.elf"],
-        ["sim/sw/baremetal/mlp", "w2a8.elf"]
+    "mlp": [
+        ["sim/sw/baremetal/mlp", "w8a8.hex"],
+        ["sim/sw/baremetal/mlp", "w4a8.hex"],
+        ["sim/sw/baremetal/mlp", "w2a8.hex"]
     ],
 
-    "benchmark" : [
-        ["sim/sw/baremetal/dhrystone", "dhrystone.elf"],
-        ["sim/sw/baremetal/coremark", "coremark.elf"],
-        ["sim/sw/baremetal/stream_int", "stream.elf"]
+    "benchmark": [
+        ["sim/sw/baremetal/dhrystone", "dhrystone.hex"],
+        ["sim/sw/baremetal/coremark", "coremark.hex"],
+        ["sim/sw/baremetal/stream_int", "stream.hex"]
     ],
 
-    "aapg" : [
+    "embench": [
+        ["sim/sw/baremetal/embench/aha-mont64/", "bench.hex"],
+        ["sim/sw/baremetal/embench/crc32/", "bench.hex"],
+        ["sim/sw/baremetal/embench/edn/", "bench.hex"],
+        ["sim/sw/baremetal/embench/matmult-int/", "bench.hex"],
+        ["sim/sw/baremetal/embench/nsichneu/", "bench.hex"],
+        ["sim/sw/baremetal/embench/nettle-sha256/", "bench.hex"],
+        ["sim/sw/baremetal/embench/slre/", "bench.hex"],
+        ["sim/sw/baremetal/embench/statemate/", "bench.hex"],
+        ["sim/sw/baremetal/embench/tarfind/", "bench.hex"],
+        ["sim/sw/baremetal/embench/ud/", "bench.hex"]
+
+    ],
+
+    "aapg": [
         ["sim/sw/baremetal/aapg_static/rv32i", "aapg.hex"],
         ["sim/sw/baremetal/aapg_static/rv32i_zmmul", "aapg.hex"],
         ["sim/sw/baremetal/aapg_static/rv32i_branches", "aapg.hex"],
         ["sim/sw/baremetal/aapg_static/rv32i_mem", "aapg.hex"]
     ],
 
-    "imperas_riscv" : [
+    "imperas_riscv": [
         ["sim/sw/baremetal/imperas-riscv-tests", "*/test.hex"]
     ],
 
-    "riscv_isa_rv32i" : [
+    "riscv_isa_rv32i": [
         ["sim/sw/riscv-isa-tests", "add.hex"],
         ["sim/sw/riscv-isa-tests", "addi.hex"],
         ["sim/sw/riscv-isa-tests", "and.hex"],
@@ -98,7 +112,7 @@
         ["sim/sw/riscv-isa-tests", "csr.hex"]
     ],
 
-    "riscv_isa_rv32i_zmmul" : [
+    "riscv_isa_rv32i_zmmul": [
         ["sim/sw/riscv-isa-tests", "mul.hex"],
         ["sim/sw/riscv-isa-tests", "mulh.hex"],
         ["sim/sw/riscv-isa-tests", "mulhsu.hex"],
