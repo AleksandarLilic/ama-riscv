@@ -296,13 +296,13 @@ def main():
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         run_dir = f"testrun_{timestamp}"
 
-    if not os.path.exists(run_dir):
-        os.makedirs(run_dir)
-
     build_dir = os.path.join(run_dir, "build")
     if args.keep_build and os.path.exists(f"{build_dir}/.elab.touchfile"):
         print(f"Reusing existing build directory at <{build_dir}>")
     else:
+        if os.path.exists(run_dir): # clean up previous run_dir if it exists
+            shutil.rmtree(run_dir)
+        os.makedirs(run_dir)
         build_tb(build_dir, args.rebuild_all)
 
     if args.build_only:

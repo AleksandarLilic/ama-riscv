@@ -45,7 +45,7 @@
         ["sim/sw/baremetal/stream_int", "stream.hex"]
     ],
 
-    "embench": [
+    "embench_p1": [
         ["sim/sw/baremetal/embench/aha-mont64/", "bench.hex"],
         ["sim/sw/baremetal/embench/crc32/", "bench.hex"],
         ["sim/sw/baremetal/embench/edn/", "bench.hex"],
@@ -56,7 +56,24 @@
         ["sim/sw/baremetal/embench/statemate/", "bench.hex"],
         ["sim/sw/baremetal/embench/tarfind/", "bench.hex"],
         ["sim/sw/baremetal/embench/ud/", "bench.hex"]
+    ],
 
+    "embench_p2": [
+        ["sim/sw/baremetal/embench/huffbench/", "bench.hex"],
+        ["sim/sw/baremetal/embench/md5sum/", "bench.hex"],
+        ["sim/sw/baremetal/embench/minver/", "bench.hex"],
+        ["sim/sw/baremetal/embench/nettle-aes/", "bench.hex"],
+        ["sim/sw/baremetal/embench/sglib-combined/", "bench.hex"]
+    ],
+
+    "embench_p3": [
+        ["sim/sw/baremetal/embench/cubic/", "bench.hex"],
+        ["sim/sw/baremetal/embench/nbody/", "bench.hex"],
+        ["sim/sw/baremetal/embench/picojpeg/", "bench.hex"],
+        ["sim/sw/baremetal/embench/primecount/", "bench.hex"],
+        ["sim/sw/baremetal/embench/qrduino/", "bench.hex"],
+        ["sim/sw/baremetal/embench/st/", "bench.hex"],
+        ["sim/sw/baremetal/embench/wikisort/", "bench.hex"]
     ],
 
     "aapg": [
