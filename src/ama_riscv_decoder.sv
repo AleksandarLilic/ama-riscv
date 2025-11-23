@@ -1,8 +1,6 @@
 `include "ama_riscv_defines.svh"
 
 module ama_riscv_decoder (
-    input  logic clk,
-    input  logic rst,
     input  arch_width_t inst_dec,
     output decoder_t decoded,
     output fe_ctrl_t fe_ctrl

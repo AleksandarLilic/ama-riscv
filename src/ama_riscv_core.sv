@@ -85,13 +85,7 @@ end
 decoder_t decoded, decoded_exe;
 fe_ctrl_t decoded_fe_ctrl;
 ama_riscv_decoder ama_riscv_decoder_i (
-    .clk (clk),
-    .rst (rst),
-    // inputs
-    .inst_dec (inst.dec),
-    // outputs
-    .decoded (decoded),
-    .fe_ctrl (decoded_fe_ctrl)
+    .inst_dec (inst.dec), .decoded (decoded), .fe_ctrl (decoded_fe_ctrl)
 );
 
 logic dc_stalled, move_past_dec_exe_dc_stall;
