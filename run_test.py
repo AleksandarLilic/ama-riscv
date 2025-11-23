@@ -23,6 +23,7 @@ INDENT = " " * 4
 TEST_LOG = "test.log"
 REPO_ROOT = os.getenv("REPO_ROOT")
 RUN_CFG = os.path.join(REPO_ROOT, "run_cfg_suite.tcl")
+TEST_STATUS = "test.status"
 
 MSG_PASS = "==== PASS ===="
 MSG_FAIL = "==== FAIL ===="
@@ -41,6 +42,7 @@ def parse_args():
     parser.add_argument('-o', '--build_only', action='store_true', help="Only build the testbench")
     parser.add_argument('-k', '--keep_build', action='store_true', default=False, help="Reuse existing build if available")
     parser.add_argument('-b', '--rebuild_all', action='store_true', default=False, help="Rebuild everything: RTL, ISA sim, cosim. Takes priority over -k if both are specified")
+    parser.add_argument('-p', '--keep_pass', action='store_true', default=False, help="Keep rundir of passed tests. Applicable only if -k is used")
     parser.add_argument('-j', '--jobs', type=int, default=MAX_WORKERS, help="Number of parallel jobs to run (default: number of CPU cores)")
     parser.add_argument('-c', '--timeout_clocks', type=int, default=500_000, help="Number of clocks before simulations times out")
     parser.add_argument('-v', '--log_level', type=str, default="WARN", help="Log level during simulation")
@@ -54,6 +56,7 @@ def parse_args():
 def create_run_cfg(log_wave, log_vcd):
     tcl_content = []
     tcl_content.append("# AUTOMATICALLY GENERATED FILE. DO NOT EDIT.")
+    tcl_content.append("set start [expr {[clock seconds] - 1}]")
     if log_wave:
         tcl_content.append("log_wave -recursive *")
     if log_vcd:
@@ -62,6 +65,7 @@ def create_run_cfg(log_wave, log_vcd):
     tcl_content.append("run all")
     if log_vcd:
         tcl_content.append("close_vcd")
+    tcl_content.append("puts \"Simulation runtime: [expr {[clock seconds] - $start}]s\"")
     tcl_content.append("exit")
 
     with open(RUN_CFG, 'w') as file:
@@ -91,7 +95,7 @@ def find_all_tests(test_list, filters=[]):
                     if f.startswith('~'):
                         f = f[1:]
                         idx = "exc"
-                    if re.match(f, key):
+                    if re.search(f, key):
                         tl[idx].extend(test_list[key])
 
         if mode == "pos":
@@ -182,7 +186,7 @@ def build_tb(build_dir, force_rebuild):
 
     print_runtime(start_time, "Build done,")
 
-def run_test(test_path, run_dir, build_dir, make_args, cnt):
+def run_test(test_path, run_dir, build_dir, make_args, cnt, keep_pass=False):
     test_name = format_test_name(test_path)
     test_path_make = os.path.splitext(test_path)[0]
     with cnt["lock"]:
@@ -192,7 +196,17 @@ def run_test(test_path, run_dir, build_dir, make_args, cnt):
     test_dir = os.path.join(run_dir, f"test_{test_name}")
     test_log = os.path.join(test_dir, "test.log")
     if os.path.exists(test_dir):
+        if keep_pass:
+            status_file_path = os.path.join(test_dir, TEST_STATUS)
+            if os.path.exists(status_file_path):
+                with open(status_file_path, 'r') as status_file:
+                    status = status_file.read()
+                    if "PASSED" in status:
+                        print(f"Test <{test_name}> already PASSED. Skipping.")
+                        return
+
         shutil.rmtree(test_dir)
+
     shutil.copytree(build_dir, test_dir, symlinks=True)
     make_cmd = [
         "make", "sim",
@@ -227,7 +241,7 @@ def run_test(test_path, run_dir, build_dir, make_args, cnt):
                          f"Check test log '{test_log}' for details.")
 
     # write to test.status
-    status_file_path = os.path.join(test_dir, "test.status")
+    status_file_path = os.path.join(test_dir, TEST_STATUS)
     with open(status_file_path, 'w') as status_file:
         status = check_test_status(test_log, test_name)
         status_file.write(status+"\n")
@@ -320,8 +334,9 @@ def main():
                         run_test,
                         run_dir=run_dir,
                         build_dir=build_dir,
+                        make_args=ma,
                         cnt=cnt,
-                        make_args=ma
+                        keep_pass=args.keep_pass
                     )
                 pool.map(partial_run_test, all_tests) # , chunksize=2
 
@@ -342,7 +357,7 @@ def main():
     for test_path in all_tests:
         test_name = format_test_name(test_path)
         test_dir = os.path.join(run_dir, f"test_{test_name}")
-        status_file_path = os.path.join(test_dir, "test.status")
+        status_file_path = os.path.join(test_dir, TEST_STATUS)
         if os.path.exists(status_file_path):
             with open(status_file_path, 'r') as status_file:
                 status = status_file.read()
