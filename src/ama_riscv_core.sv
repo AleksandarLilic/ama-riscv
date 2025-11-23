@@ -27,6 +27,7 @@ logic [PIPE_STAGES-1:0] reset_seq;
 
 // pipe stage controls
 stage_ctrl_t ctrl_exe_mem, ctrl_dec_exe, ctrl_mem_wbk, ctrl_wbk_ret;
+perf_event_t perf_event;
 
 //------------------------------------------------------------------------------
 // FET Stage
@@ -492,6 +493,11 @@ assign uart_ch.send = bcs_b[7:0];
 // Pipeline FF EXE/MEM
 arch_width_t pc_inc4_mem, alu_out_mem, csr_out_mem, unpk_out_mem;
 logic map_uart_mem;
+logic simd_inst_exe, simd_inst_mem;
+assign simd_inst_exe =
+    (decoded_exe.itype.unpk ||
+    (decoded_exe.itype.mult && decoded_exe.mult_op[2])
+);
 
 pipeline_if_typed #(.T(ewb_sel_t)) ewb_sel ();
 pipeline_if_typed #(.T(wb_sel_t)) wb_sel ();
@@ -521,6 +527,7 @@ assign ctrl_exe_mem = '{
 `STAGE(ctrl_exe_mem, decoded_exe.itype.store, store_inst_mem, 'h0)
 `STAGE(ctrl_exe_mem, decoded_exe.itype.mult, mult_inst_mem, 'h0)
 `STAGE(ctrl_exe_mem, map_uart_exe, map_uart_mem, 'h0)
+`STAGE(ctrl_exe_mem, simd_inst_exe, simd_inst_mem, 'b0)
 
 `DFF_CI_RI_RVI((dc_stalled /*|| hazard.to_dec*/ || hazard.to_exe), be_stalled_d)
 
@@ -542,6 +549,7 @@ assign dmem_out_mem = map_uart_mem ? uart_ch.recv : dmem_rsp.data;
 //------------------------------------------------------------------------------
 // Pipeline FF MEM/WBK
 arch_width_t e_writeback_wbk, dmem_out_wbk, simd_out_wbk;
+logic simd_inst_wbk;
 
 assign ctrl_mem_wbk = '{
     flush: flush.exe,
@@ -559,6 +567,7 @@ assign ctrl_mem_wbk = '{
 `STAGE(ctrl_mem_wbk, rd_we.mem, rd_we.wbk, 'h0)
 `STAGE(ctrl_mem_wbk, rdp_we.mem, rdp_we.wbk, 'h0)
 `STAGE(ctrl_mem_wbk, wb_sel.mem, wb_sel.wbk, WB_SEL_EWB)
+`STAGE(ctrl_mem_wbk, simd_inst_mem, simd_inst_wbk, 'h0)
 
 //------------------------------------------------------------------------------
 // WBK stage
@@ -579,15 +588,31 @@ assign ctrl_wbk_ret = '{flush: flush.wbk, en: 1'b1, bubble: (!ctrl_mem_wbk.en)};
 
 inst_width_t inst_ret;
 arch_width_t pc_ret;
+logic simd_inst_ret;
 `STAGE(ctrl_wbk_ret, inst.wbk, inst_ret, 'h0)
 `STAGE(ctrl_wbk_ret, pc.wbk, pc_ret, 'h0)
+`STAGE(ctrl_wbk_ret, simd_inst_wbk, simd_inst_ret, 'h0)
 
 assign inst_retired = (pc_ret != 'h0);
 
 //------------------------------------------------------------------------------
-// pipeline control
+// perf
+logic stall_flow;
+`ifdef USE_BP
+assign stall_flow = decoded.itype.jump;
+`else
+assign stall_flow = decoded.itype.branch || decoded.itype.jump;
+`endif
 
-// Pipeline FFs flush
+assign perf_event.bad_spec = spec.wrong;
+assign perf_event.be = (!spec.wrong && (dc_stalled || hazard.to_exe));
+assign perf_event.be_dc = (!spec.wrong && dc_stalled);
+assign perf_event.fe = (!perf_event.be && (stall_flow || !imem_req.ready));
+assign perf_event.fe_ic = (!perf_event.be && (!imem_req.ready));
+assign perf_event.ret_simd = (inst_retired && simd_inst_ret);
+
+//------------------------------------------------------------------------------
+// pipeline control
 assign flush.fet = 1'b0;
 assign flush.dec = reset_seq[0];
 assign flush.exe = reset_seq[1];

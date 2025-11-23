@@ -129,9 +129,21 @@ typedef struct {
     int unsigned wb_cnt = 'h0;
 } stats_counters_t;
 
+typedef struct {
+    int unsigned bad_spec;
+    int unsigned fe_ic;
+    int unsigned fe;
+    int unsigned be_dc;
+    int unsigned be;
+    int unsigned ret_simd;
+} perf_event_counters_t;
+
 stats_counters_t ic_stats, dc_stats, bp_stats;
+perf_event_counters_t tda;
+perf_event_t events_gen;
 perf_stats stats;
 perf_counters_t core_stats;
+int diff = 0;
 
 //------------------------------------------------------------------------------
 // DUT
@@ -181,6 +193,7 @@ uart # (
 );
 `else
 assign recv_rsp_ch.valid = 1'b0;
+assign uart_serial_in = 1'b1; // idle if shortcut is used
 `endif
 
 //------------------------------------------------------------------------------
@@ -638,6 +651,17 @@ initial begin
     `LOG_I("All RF checkers active");
 end
 
+// perf counters
+assign events_gen = `CORE.perf_event;
+always_ff @(posedge clk) begin
+    tda.bad_spec += events_gen.bad_spec;
+    tda.fe_ic += events_gen.fe_ic;
+    tda.be_dc += events_gen.be_dc;
+    tda.fe += events_gen.fe;
+    tda.be += events_gen.be;
+    tda.ret_simd += events_gen.ret_simd;
+end
+
 // Test
 assign tohost_source = `CSR.csr.tohost[0];
 initial begin
@@ -726,6 +750,22 @@ initial begin
     `LOGNT(stats.get(core_stats));
 
     // TODO: these stats really need to be consolidated like core stats
+    diff = core_stats.hw_stall - (tda.bad_spec + tda.fe + tda.be);
+    $display("TDA");
+    $display(
+        "    L1: ",
+        "bad spec %0d, fe bound %0d, be bound %0d, retiring %0d/%0d",
+        tda.bad_spec, tda.fe, tda.be,
+        `CSR.csr.minstret, `CSR.csr.mcycle - (tda.bad_spec + tda.fe + tda.be));
+    $display(
+        "    L2: ",
+        "fe mem %0d, fe core %0d, be mem %0d, be core %0d, int %0d, simd %0d",
+        tda.fe_ic, tda.fe - tda.fe_ic,
+        tda.be_dc, tda.be - tda.be_dc,
+        `CSR.csr.minstret - tda.ret_simd, tda.ret_simd
+        );
+    $display("tda diff to hw counter: %0d", diff);
+
     $display(
         "bpred: P: %0d, M: %0d, ACC: %0.2f%%, MPKI: %0.2f",
             bp_stats.hit_cnt,

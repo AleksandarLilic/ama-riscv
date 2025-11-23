@@ -298,6 +298,15 @@ typedef struct packed {
     logic to_exe;
 } hazard_t;
 
+typedef struct packed {
+    logic bad_spec;
+    logic fe;
+    logic fe_ic;
+    logic be;
+    logic be_dc;
+    logic ret_simd;
+} perf_event_t;
+
 // branch predictor
 typedef enum logic [2:0] {
     BP_STATIC,
