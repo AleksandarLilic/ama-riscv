@@ -96,7 +96,7 @@ ama_riscv_decoder ama_riscv_decoder_i (
 
 logic dc_stalled, move_past_dec_exe_dc_stall;
 branch_t branch_resolution;
-hazard_be_t hazard_be;
+hazard_t hazard;
 ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     .clk (clk),
     .rst (rst),
@@ -107,14 +107,14 @@ ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     .pc_exe (pc.exe),
     .branch_inst_dec (decoded.itype.branch),
     .jump_inst_dec (decoded.itype.jump),
+    .branch_inst_exe (decoded_exe.itype.branch),
+    .jump_inst_exe (decoded_exe.itype.jump),
     `ifdef USE_BP
     .bp_pred (bp_pred),
     `endif
-    .branch_inst_exe (decoded_exe.itype.branch),
-    .jump_inst_exe (decoded_exe.itype.jump),
     .branch_resolution (branch_resolution),
     .decoded_fe_ctrl (decoded_fe_ctrl),
-    .hazard_be (hazard_be),
+    .hazard (hazard),
     .dc_stalled (dc_stalled),
     // outputs
     .fe_ctrl (fe_ctrl),
@@ -249,6 +249,7 @@ ama_riscv_operand_forwarding ama_riscv_operand_forwarding_i (
     .store_inst_dec (decoded.itype.store),
     .branch_inst_dec (decoded.itype.branch),
     .store_inst_exe (decoded_exe.itype.store),
+    .load_inst_exe (decoded_exe.itype.load),
     .branch_inst_exe (decoded_exe.itype.branch),
     .load_inst_mem (load_inst_mem),
     .mult_inst_mem (mult_inst_mem),
@@ -277,7 +278,7 @@ ama_riscv_operand_forwarding ama_riscv_operand_forwarding_i (
     .bcs_b_sel_fwd (bcs_b_sel_fwd_exe),
     .rf_a_sel_fwd (rf_a_sel_fwd),
     .rf_b_sel_fwd (rf_b_sel_fwd),
-    .hazard_be (hazard_be)
+    .hazard (hazard)
 );
 
 //------------------------------------------------------------------------------
@@ -287,20 +288,20 @@ arch_width_t rs1_dec_be_fwd, rs2_dec_be_fwd;
 always_comb begin
     rs1_dec_be_fwd = 'h0;
     unique case (fwd_be_rs1_dec)
-        FWD_BE_EWBK: rs1_dec_be_fwd = e_writeback_mem;
-        FWD_BE_WBK: rs1_dec_be_fwd = writeback;
-        FWD_BE_EWBK_P: rs1_dec_be_fwd = unpk_out_p_mem;
-        FWD_BE_WBK_P: rs1_dec_be_fwd = unpk_out_p_wbk;
+        //FWD_BE_EWB: rs1_dec_be_fwd = e_writeback_mem;
+        FWD_BE_WB: rs1_dec_be_fwd = writeback;
+        //FWD_BE_EWB_P: rs1_dec_be_fwd = unpk_out_p_mem;
+        FWD_BE_WB_P: rs1_dec_be_fwd = unpk_out_p_wbk;
     endcase
 end
 
 always_comb begin
     rs2_dec_be_fwd = 'h0;
     unique case (fwd_be_rs2_dec)
-        FWD_BE_EWBK: rs2_dec_be_fwd = e_writeback_mem;
-        FWD_BE_WBK: rs2_dec_be_fwd = writeback;
-        FWD_BE_EWBK_P: rs2_dec_be_fwd = unpk_out_p_mem;
-        FWD_BE_WBK_P: rs2_dec_be_fwd = unpk_out_p_wbk;
+        //FWD_BE_EWB: rs2_dec_be_fwd = e_writeback_mem;
+        FWD_BE_WB: rs2_dec_be_fwd = writeback;
+        //FWD_BE_EWB_P: rs2_dec_be_fwd = unpk_out_p_mem;
+        FWD_BE_WB_P: rs2_dec_be_fwd = unpk_out_p_wbk;
     endcase
 end
 
@@ -310,12 +311,12 @@ assign rs2_data_fwd = rf_b_sel_fwd ? rs2_dec_be_fwd : rs2_data_dec;
 
 logic en_dec_exe;
 assign en_dec_exe =
-    ((!dc_stalled) || move_past_dec_exe_dc_stall) && (!hazard_be.to_exe);
+    ((!dc_stalled) || move_past_dec_exe_dc_stall) && (!hazard.to_exe);
 
 assign ctrl_dec_exe = '{
     flush: flush.dec,
     en: en_dec_exe,
-    bubble: (fe_ctrl.bubble_dec || hazard_be.to_dec)
+    bubble: (fe_ctrl.bubble_dec /*|| hazard.to_dec*/)
 };
 
 arch_width_t imm_gen_out_exe;
@@ -336,27 +337,62 @@ arch_width_t rs1_exe_be_fwd, rs2_exe_be_fwd;
 always_comb begin
     rs1_exe_be_fwd = 'h0;
     unique case (fwd_be_rs1_exe)
-        FWD_BE_EWBK: rs1_exe_be_fwd = e_writeback_mem;
-        FWD_BE_WBK: rs1_exe_be_fwd = writeback;
-        FWD_BE_EWBK_P: rs1_exe_be_fwd = unpk_out_p_mem;
-        FWD_BE_WBK_P: rs1_exe_be_fwd = unpk_out_p_wbk;
+        FWD_BE_EWB: rs1_exe_be_fwd = e_writeback_mem;
+        FWD_BE_WB: rs1_exe_be_fwd = writeback;
+        FWD_BE_EWB_P: rs1_exe_be_fwd = unpk_out_p_mem;
+        FWD_BE_WB_P: rs1_exe_be_fwd = unpk_out_p_wbk;
     endcase
 end
 
 always_comb begin
     rs2_exe_be_fwd = 'h0;
     unique case (fwd_be_rs2_exe)
-        FWD_BE_EWBK: rs2_exe_be_fwd = e_writeback_mem;
-        FWD_BE_WBK: rs2_exe_be_fwd = writeback;
-        FWD_BE_EWBK_P: rs2_exe_be_fwd = unpk_out_p_mem;
-        FWD_BE_WBK_P: rs2_exe_be_fwd = unpk_out_p_wbk;
+        FWD_BE_EWB: rs2_exe_be_fwd = e_writeback_mem;
+        FWD_BE_WB: rs2_exe_be_fwd = writeback;
+        FWD_BE_EWB_P: rs2_exe_be_fwd = unpk_out_p_mem;
+        FWD_BE_WB_P: rs2_exe_be_fwd = unpk_out_p_wbk;
     endcase
+end
+
+// save wb in case inst in mem stalls, while exe inst needs forwarded value
+logic use_swb_rs1, use_swb_rs2; // saved writeback
+arch_width_t swb_rs1, swb_rs2;
+always_ff @(posedge clk) begin
+    if (rst) begin
+        use_swb_rs1 = 1'b0;
+        use_swb_rs2 = 1'b0;
+    end else if (ctrl_exe_mem.bubble) begin
+        if (bc_a_sel_fwd_exe || (alu_a_sel_fwd == ALU_A_SEL_FWD)) begin
+            swb_rs1 = rs1_exe_be_fwd;
+            use_swb_rs1 = 1'b1;
+        end
+        if (bcs_b_sel_fwd_exe || (alu_b_sel_fwd == ALU_B_SEL_FWD)) begin
+            swb_rs2 = rs2_exe_be_fwd;
+            use_swb_rs2 = 1'b1;
+        end
+    end else if (!ctrl_exe_mem.bubble) begin
+        use_swb_rs1 = 1'b0;
+        use_swb_rs2 = 1'b0;
+    end
 end
 
 // branch compare & resolution
 arch_width_t bc_a, bcs_b;
-assign bc_a = bc_a_sel_fwd_exe ? rs1_exe_be_fwd : rs1_data_exe;
-assign bcs_b = bcs_b_sel_fwd_exe ? rs2_exe_be_fwd : rs2_data_exe;
+always_comb begin
+    case (1'b1)
+        bc_a_sel_fwd_exe: bc_a = rs1_exe_be_fwd;
+        use_swb_rs1: bc_a = swb_rs1;
+        default: bc_a = rs1_data_exe;
+    endcase
+end
+
+always_comb begin
+    case (1'b1)
+        bcs_b_sel_fwd_exe: bcs_b = rs2_exe_be_fwd;
+        use_swb_rs2: bcs_b = swb_rs2;
+        default: bcs_b = rs2_data_exe;
+    endcase
+end
 
 logic bc_a_eq_b, bc_a_lt_b;
 assign bc_a_eq_b = (bc_a == bcs_b);
@@ -380,7 +416,7 @@ arch_width_t alu_in_a, alu_in_b;
 always_comb begin
     alu_in_a = 'h0;
     unique case (alu_a_sel_fwd)
-        ALU_A_SEL_RS1: alu_in_a = rs1_data_exe;
+        ALU_A_SEL_RS1: alu_in_a = use_swb_rs1 ? swb_rs1 : rs1_data_exe;
         ALU_A_SEL_PC: alu_in_a = pc.exe;
         ALU_A_SEL_FWD: alu_in_a = rs1_exe_be_fwd;
     endcase
@@ -389,7 +425,7 @@ end
 always_comb begin
     alu_in_b = 'h0;
     unique case (alu_b_sel_fwd)
-        ALU_B_SEL_RS2: alu_in_b = rs2_data_exe;
+        ALU_B_SEL_RS2: alu_in_b = use_swb_rs2 ? swb_rs2 : rs2_data_exe;
         ALU_B_SEL_IMM: alu_in_b = imm_gen_out_exe;
         ALU_B_SEL_FWD: alu_in_b = rs2_exe_be_fwd;
     endcase
@@ -443,9 +479,9 @@ assign map_uart_exe = (alu_out_exe[19:16] == `MMIO_RANGE);
 dmem_dtype_t dmem_dtype, dmem_dtype_mem;
 assign dmem_dtype = dmem_dtype_t'(get_fn3(inst.exe));
 assign dmem_req.valid =
-    map_dmem_exe && decoded_exe.dmem_en && (!dc_stalled) && (!hazard_be.to_exe);
+    map_dmem_exe && decoded_exe.dmem_en && (!dc_stalled) && (!hazard.to_exe);
 assign dmem_req.wdata = bcs_b;
-assign dmem_req.addr = alu_out_exe[15:0];
+assign dmem_req.addr = alu_out_exe[CORE_BYTE_ADDR_BUS-1:0];
 assign dmem_req.dtype = dmem_dtype;
 assign dmem_req.rtype = decoded_exe.itype.store ? DMEM_WRITE : DMEM_READ;
 assign dc_stalled = !dmem_req.ready;
@@ -472,7 +508,7 @@ assign rdp_we.exe = decoded_exe.itype.unpk;
 assign ctrl_exe_mem = '{
     flush: flush.exe,
     en: (!dc_stalled),
-    bubble: (!ctrl_dec_exe.en)
+    bubble: (!ctrl_dec_exe.en || hazard.to_exe)
 };
 
 `STAGE(ctrl_exe_mem, pc.exe, pc.mem, 'h0)
@@ -492,8 +528,7 @@ assign ctrl_exe_mem = '{
 `STAGE(ctrl_exe_mem, decoded_exe.itype.mult, mult_inst_mem, 'h0)
 `STAGE(ctrl_exe_mem, map_uart_exe, map_uart_mem, 'h0)
 
-`DFF_CI_RI_RVI(
-    (dc_stalled || hazard_be.to_dec || hazard_be.to_exe), be_stalled_d)
+`DFF_CI_RI_RVI((dc_stalled /*|| hazard.to_dec*/ || hazard.to_exe), be_stalled_d)
 
 //------------------------------------------------------------------------------
 // MEM stage

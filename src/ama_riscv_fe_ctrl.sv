@@ -1,26 +1,30 @@
 `include "ama_riscv_defines.svh"
 
 module ama_riscv_fe_ctrl (
-    input  logic        clk,
-    input  logic        rst,
-    rv_if.TX            imem_req,
-    rv_if.RX            imem_rsp,
+    input  logic clk,
+    input  logic rst,
+    rv_if.TX imem_req,
+    rv_if.RX imem_rsp,
     input  arch_width_t pc_dec,
     input  arch_width_t pc_exe,
-    input  logic        branch_inst_dec,
-    input  logic        jump_inst_dec,
-    input  branch_t     bp_pred,
-    input  logic        branch_inst_exe,
-    input  logic        jump_inst_exe,
-    input  branch_t     branch_resolution,
-    input  logic        dc_stalled,
-    input  hazard_be_t  hazard_be,
-    input  fe_ctrl_t    decoded_fe_ctrl,
-    output fe_ctrl_t    fe_ctrl,
-    output logic        bp_hit,
+    input  logic branch_inst_dec,
+    input  logic jump_inst_dec,
+    input  logic branch_inst_exe,
+    input  logic jump_inst_exe,
+    `ifdef USE_BP
+    input  branch_t bp_pred,
+    `endif
+    input  branch_t branch_resolution,
+    input  logic dc_stalled,
+    input  hazard_t hazard,
+    input  fe_ctrl_t decoded_fe_ctrl,
+    output fe_ctrl_t fe_ctrl,
+    `ifdef USE_BP
+    output logic bp_hit,
     output arch_width_t pc_cp,
-    output spec_exec_t  spec,
-    output logic        move_past_dec_exe_dc_stall
+    `endif
+    output spec_exec_t spec,
+    output logic move_past_dec_exe_dc_stall
 );
 
 // types
@@ -80,14 +84,14 @@ assign spec = '{1'b0, 1'b0, 1'b0};
 
 assign stall_act.icache = !imem_req.ready;
 assign stall_act.dcache = dc_stalled;
-assign stall_act.hazard = (hazard_be.to_dec || hazard_be.to_exe);
+assign stall_act.hazard = (/* hazard.to_dec || */hazard.to_exe);
 assign stall_act.be = (stall_act.dcache || stall_act.hazard);
 
 assign stall_res.flow =
-    ((stalled_entry.pc == pc_exe) && (pc_exe != 'h0) && (!hazard_be.to_exe));
+    ((stalled_entry.pc == pc_exe) && (pc_exe != 'h0) && (!hazard.to_exe));
 assign stall_res.icache = imem_req.ready;
 assign stall_res.dcache = !dc_stalled;
-assign stall_res.hazard = !(hazard_be.to_dec || hazard_be.to_exe);
+assign stall_res.hazard = !(/* hazard.to_dec || */ hazard.to_exe);
 assign stall_res.be = (stall_res.dcache && stall_res.hazard);
 
 logic stall_res_flow_d;
@@ -405,7 +409,7 @@ logic save_spec_entry, clear_spec_entry;
 assign spec.enter = (
     branch_inst_dec /* && (!(stall_act.dcache || stall_act.hazard)) */);
 assign spec.resolve =
-    ((spec_entry.pc == pc_exe) && (pc_exe != 'h0) && (!hazard_be.to_exe));
+    ((spec_entry.pc == pc_exe) && (pc_exe != 'h0) && (!hazard.to_exe));
 assign bp_hit = spec.resolve && (spec_entry.b_tnt == branch_resolution);
 assign spec.wrong = (spec.resolve && !bp_hit);
 
@@ -453,6 +457,7 @@ always_ff @(posedge clk) begin
     else if (save_spec_entry) spec_entry = '{pc: pc_dec, b_tnt: bp_pred};
     else if (clear_spec_entry) spec_entry = '{pc: 'h0, b_tnt: B_NT};
 end
+
 assign pc_cp = spec_entry.pc;
 `endif
 

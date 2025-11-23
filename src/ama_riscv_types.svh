@@ -113,10 +113,10 @@ typedef enum logic [1:0] {
 } alu_b_sel_t;
 
 typedef enum logic [1:0] {
-    FWD_BE_EWBK = 2'b00, // early writeback (mem)
-    FWD_BE_WBK = 2'b01, // writeback (wbk)
-    FWD_BE_EWBK_P = 2'b10, // early writeback rdp (mem)
-    FWD_BE_WBK_P = 2'b11 // writeback rdp (wbk)
+    FWD_BE_EWB = 2'b00, // early writeback (mem)
+    FWD_BE_WB = 2'b01, // writeback (wbk)
+    FWD_BE_EWB_P = 2'b10, // early writeback rdp (mem)
+    FWD_BE_WB_P = 2'b11 // writeback rdp (wbk)
 } fwd_be_t;
 
 typedef enum logic [1:0] {
@@ -294,9 +294,9 @@ typedef struct packed {
 } stage_ctrl_t; // pipeline stage control
 
 typedef struct packed {
-    logic to_dec;
+    //logic to_dec;
     logic to_exe;
-} hazard_be_t;
+} hazard_t;
 
 // branch predictor
 typedef enum logic [2:0] {
@@ -422,6 +422,8 @@ interface rv_if #(parameter DW = ARCH_WIDTH) (/* input logic clk */);
     logic [DW-1:0] data;
     modport TX (output valid, output data, input  ready); // producer
     modport RX (input  valid, input  data, output ready); // consumer
+    //modport TX_RV (output valid, input  ready); // producer
+    //modport RX_RV (input  valid, output ready); // consumer
 endinterface
 
 // rv interface with data and address (da) bus

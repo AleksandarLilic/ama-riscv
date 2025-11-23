@@ -5,6 +5,7 @@ module ama_riscv_operand_forwarding (
     input  logic store_inst_dec,
     input  logic branch_inst_dec,
     input  logic store_inst_exe,
+    input  logic load_inst_exe,
     input  logic branch_inst_exe,
     input  logic load_inst_mem,
     input  logic mult_inst_mem,
@@ -33,7 +34,7 @@ module ama_riscv_operand_forwarding (
     output logic bcs_b_sel_fwd,
     output logic rf_a_sel_fwd,
     output logic rf_b_sel_fwd,
-    output hazard_be_t hazard_be
+    output hazard_t hazard
 );
 
 typedef struct packed {
@@ -122,16 +123,16 @@ assign d_rs1_exe.on_rdp = (d_rs1_exe.in_mem_on_rdp || d_rs1_exe.in_wbk_on_rdp);
 assign d_rs2_exe.on_rdp = (d_rs2_exe.in_mem_on_rdp || d_rs2_exe.in_wbk_on_rdp);
 
 // anywhere in the machine?
-assign d_rs1_dec.has = (d_rs1_dec.in_mem || d_rs1_dec.in_wbk);
-assign d_rs2_dec.has = (d_rs2_dec.in_mem || d_rs2_dec.in_wbk);
+assign d_rs1_dec.has = (/* d_rs1_dec.in_mem || */ d_rs1_dec.in_wbk);
+assign d_rs2_dec.has = (/* d_rs2_dec.in_mem || */ d_rs2_dec.in_wbk);
 assign d_rs1_exe.has = (d_rs1_exe.in_mem || d_rs1_exe.in_wbk);
 assign d_rs2_exe.has = (d_rs2_exe.in_mem || d_rs2_exe.in_wbk);
 
 // if it has, where to get the data from and which rd?
 // if it's found in both mem and wbk, prioritize mem as a later update to the rd
 // also set rd/rdp high bit
-assign fwd_be_rs1_dec = fwd_be_t'({d_rs1_dec.on_rdp, !d_rs1_dec.in_mem});
-assign fwd_be_rs2_dec = fwd_be_t'({d_rs2_dec.on_rdp, !d_rs2_dec.in_mem});
+assign fwd_be_rs1_dec = fwd_be_t'({d_rs1_dec.on_rdp,/*!d_rs1_dec.in_mem*/1'b1});
+assign fwd_be_rs2_dec = fwd_be_t'({d_rs2_dec.on_rdp,/*!d_rs2_dec.in_mem*/1'b1});
 assign fwd_be_rs1_exe = fwd_be_t'({d_rs1_exe.on_rdp, !d_rs1_exe.in_mem});
 assign fwd_be_rs2_exe = fwd_be_t'({d_rs2_exe.on_rdp, !d_rs2_exe.in_mem});
 
@@ -156,12 +157,13 @@ assign rf_b_sel_fwd = (
     ((alu_b_sel_dec == ALU_B_SEL_RS2) || branch_inst_dec || store_inst_dec)
 );
 
-// hazards on 2 clk instructions?
-logic two_clk_inst;
-assign two_clk_inst = (load_inst_mem || mult_inst_mem);
-assign hazard_be.to_dec =
-    (two_clk_inst && (d_rs1_dec.in_mem || d_rs2_dec.in_mem));
-assign hazard_be.to_exe =
-    (two_clk_inst && (d_rs1_exe.in_mem || d_rs2_exe.in_mem));
+// hazards on 2 cycle execute instructions?
+logic two_clk_inst_mem;
+assign two_clk_inst_mem = (load_inst_mem || mult_inst_mem);
+//assign hazard.to_dec = 1'b0;
+//assign hazard_be.to_dec =
+//    (two_clk_inst && (d_rs1_dec.in_mem || d_rs2_dec.in_mem));
+assign hazard.to_exe =
+    (two_clk_inst_mem && (d_rs1_exe.in_mem || d_rs2_exe.in_mem));
 
 endmodule
