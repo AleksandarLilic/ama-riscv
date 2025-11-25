@@ -458,11 +458,12 @@ ama_riscv_csr #(
 ) ama_riscv_csr_i (
     .clk (clk),
     .rst (rst),
-    .csr_ctrl (decoded_exe.csr_ctrl),
+    .ctrl (decoded_exe.csr_ctrl),
     .in (alu_in_a),
     .inst_exe (inst.exe),
     .inst_to_be_retired (inst_to_be_retired),
-    .csr_out (csr_out_exe)
+    .perf_event (perf_event),
+    .out (csr_out_exe)
 );
 
 // memory map

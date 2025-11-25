@@ -37,8 +37,11 @@
 // `define IMEM_DELAY_CLK 1
 // `endif
 
-`define IT(x) for (int i = 0; i < x; i++)
-`define IT_P(p, x) for (int p = 0; p < x; p++)
+`define IT(limit) for (int i = 0; i < limit; i++)
+`define IT_NT(limit) for (i = 0; i < limit; i++)
+`define IT2(init, limit) for (int i = init; i < limit; i++)
+`define IT2_NT(init, limit) for (i = init; i < limit; i++)
+`define IT_P(p, limit) for (int p = 0; p < limit; p++)
 
 `define FE_CTRL_RST_VAL \
     '{ \

@@ -365,6 +365,24 @@ typedef enum logic [11:0] {
     CSR_MCYCLEH = 12'hB80,
     CSR_MINSTRETH = 12'hB82,
     CSR_MSCRATCH = 12'h340,
+    CSR_MHPMCOUNTER3 = 12'hB03,
+    CSR_MHPMCOUNTER4 = 12'hB04,
+    CSR_MHPMCOUNTER5 = 12'hB05,
+    CSR_MHPMCOUNTER6 = 12'hB06,
+    CSR_MHPMCOUNTER7 = 12'hB07,
+    CSR_MHPMCOUNTER8 = 12'hB08,
+    CSR_MHPMCOUNTER3H = 12'hB83,
+    CSR_MHPMCOUNTER4H = 12'hB84,
+    CSR_MHPMCOUNTER5H = 12'hB85,
+    CSR_MHPMCOUNTER6H = 12'hB86,
+    CSR_MHPMCOUNTER7H = 12'hB87,
+    CSR_MHPMCOUNTER8H = 12'hB88,
+    CSR_MHPMEVENT3 = 12'h323,
+    CSR_MHPMEVENT4 = 12'h324,
+    CSR_MHPMEVENT5 = 12'h325,
+    CSR_MHPMEVENT6 = 12'h326,
+    CSR_MHPMEVENT7 = 12'h327,
+    CSR_MHPMEVENT8 = 12'h328,
     CSR_TIME = 12'hC01, // URO
     CSR_TIMEH = 12'hC81 // URO
 } csr_addr_t;
@@ -379,13 +397,28 @@ typedef union packed {
     arch_width_t [1:0] r; // reg
 } csr_dw_t;
 
+parameter unsigned MHPM_OFFSET = 3; // starts at idx 3
+parameter unsigned MHPMCOUNTERS = 6;
+parameter unsigned MHPMEVENTS = 6;
+
 typedef struct {
     arch_width_t tohost;
+    arch_width_t mscratch;
     csr_dw_t mcycle;
     csr_dw_t minstret;
     csr_dw_t mtime;
-    arch_width_t mscratch;
 } csr_t;
+
+// Machine Hardware Performance Monitor (MHPM) counters & events
+typedef enum logic [MHPMEVENTS-1:0] {
+    MHPMEVENT_NONE = 0,
+    MHPMEVENT_BAD_SPEC = (1 << 0),
+    MHPMEVENT_BE = (1 << 1),
+    MHPMEVENT_BE_DC = (1 << 2),
+    MHPMEVENT_FE = (1 << 3),
+    MHPMEVENT_FE_IC = (1 << 4),
+    MHPMEVENT_RET_SIMD = (1 << 5)
+} mhpmevent_t;
 
 // peripherals
 typedef struct packed {
