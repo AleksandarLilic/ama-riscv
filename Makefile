@@ -73,6 +73,7 @@ LOG_LEVEL ?= WARN
 # TODO: run_test should set these up for testlist runs
 COSIM_ARGS :=
 COSIM_ARGS += -testplusarg enable_tohost_checker
+COSIM_ARGS += -testplusarg enable_cosim
 COSIM_ARGS += -testplusarg enable_cosim_checkers
 COSIM_ARGS += -testplusarg stop_on_cosim_error
 COSIM_ARGS += -testplusarg prof_trace

@@ -79,6 +79,7 @@ logic [ARCH_WIDTH_D-1:0] clk_cnt_d[3];
 typedef struct {
     string test_path;
     bit tohost_chk_en;
+    bit cosim_en;
     bit cosim_chk_en;
     bit stop_on_cosim_error;
     int unsigned timeout_clocks;
@@ -265,7 +266,7 @@ function automatic void check_test_status(input bit completed);
 
         `ifdef ENABLE_COSIM
         msg = {"Checker 2/2 - 'cosim' : "};
-        if (args.cosim_chk_en) begin
+        if (args.cosim_en && args.cosim_chk_en) begin
             msg = {msg, "ENABLED: "};
             msg = {msg, chk_pass_cosim ? "PASS" : "FAIL"};
         end else begin
@@ -360,6 +361,7 @@ function void get_plusargs();
         args.tohost_chk_en = $test$plusargs("enable_tohost_checker");
 
         `ifdef ENABLE_COSIM
+        args.cosim_en = $test$plusargs("enable_cosim");
         args.cosim_chk_en = $test$plusargs("enable_cosim_checkers");
         args.stop_on_cosim_error = $test$plusargs("stop_on_cosim_error");
 
@@ -405,8 +407,8 @@ function void get_plusargs();
     end
 endfunction
 
-function string trim_after_double_space(string s);
-    // keep everything *before* the first of the two spaces
+function string trim_ws(string s);
+    // keep everything *before* the first of the two whitespaces
     for (int unsigned i = 0; i < s.len()-1; i++) begin
         if (s[i] == " " && s[i+1] == " ") return s.substr(0, i-1);
     end
@@ -545,27 +547,29 @@ task automatic single_step();
         return;
     end
 
-    `ifdef ENABLE_COSIM
-    cosim_exec(clk_cnt_d[2], mtime_d[2], cosim.pc, cosim.inst, cosim.tohost,
-               cosim_str.inst_asm, cosim_str.stack_top, cosim.rf);
-
     core_ret = $sformatf("Core [R] %5h: %8h", `CORE.pc_ret, `CORE.inst_ret);
-    isa_ret = $sformatf(
-        "COSIM    %5h: %8h %0s", cosim.pc, cosim.inst, cosim_str.inst_asm);
     `LOG_V(core_ret);
-    `LOG_V(isa_ret);
 
-    cosim.stack_top_str_wave = pack_string(cosim_str.stack_top);
-    cosim.inst_asm_str_wave =
-        pack_string(trim_after_double_space(cosim_str.inst_asm));
-    if (args.cosim_chk_en) new_errors = cosim_run_checkers(rf_chk_act);
-    if (new_errors) begin
-        `LOG_E(core_ret, 0);
-        `LOG_E(isa_ret, 0);
-        if (args.stop_on_cosim_error) begin
-            `LOG_I("Exiting on first error");
-            check_test_status(1'b0);
-            $finish();
+    `ifdef ENABLE_COSIM
+    if (args.cosim_en) begin
+        cosim_exec(clk_cnt_d[2], mtime_d[2], cosim.pc, cosim.inst, cosim.tohost,
+                   cosim_str.inst_asm, cosim_str.stack_top, cosim.rf);
+        isa_ret = $sformatf(
+            "COSIM    %5h: %8h %0s", cosim.pc, cosim.inst, cosim_str.inst_asm);
+        `LOG_V(isa_ret);
+
+        cosim.stack_top_str_wave = pack_string(cosim_str.stack_top);
+        cosim.inst_asm_str_wave = pack_string(trim_ws(cosim_str.inst_asm));
+
+        if (args.cosim_chk_en) new_errors = cosim_run_checkers(rf_chk_act);
+        if (new_errors) begin
+            `LOG_E(core_ret, 0);
+            `LOG_E(isa_ret, 0);
+            if (args.stop_on_cosim_error) begin
+                `LOG_I("Exiting on first error");
+                check_test_status(1'b0);
+                $finish();
+            end
         end
     end
     `endif
