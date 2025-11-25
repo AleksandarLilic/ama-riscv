@@ -604,12 +604,20 @@ assign stall_flow = decoded.itype.jump;
 assign stall_flow = decoded.itype.branch || decoded.itype.jump;
 `endif
 
-assign perf_event.bad_spec = spec.wrong;
-assign perf_event.be = (!spec.wrong && (dc_stalled || hazard.to_exe));
-assign perf_event.be_dc = (!spec.wrong && dc_stalled);
-assign perf_event.fe = (!perf_event.be && (stall_flow || !imem_req.ready));
-assign perf_event.fe_ic = (!perf_event.be && (!imem_req.ready));
-assign perf_event.ret_simd = (inst_retired && simd_inst_ret);
+perf_event_t get_pe;
+always_comb begin
+    get_pe = '{0, 0, 0, 0, 0, 0};
+    get_pe.bad_spec = spec.wrong;
+    get_pe.ret_simd = (inst_retired && simd_inst_ret);
+    if (!spec.wrong) begin
+        get_pe.be = (dc_stalled || hazard.to_exe);
+        get_pe.be_dc = dc_stalled;
+        get_pe.fe = (!get_pe.be && (stall_flow || !imem_req.ready));
+        get_pe.fe_ic = (!get_pe.be && (!imem_req.ready));
+    end
+end
+
+`DFF_CI_RI_RVI(get_pe, perf_event)
 
 //------------------------------------------------------------------------------
 // pipeline control
