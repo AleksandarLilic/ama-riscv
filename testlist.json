@@ -16,6 +16,11 @@
         ["sim/sw/baremetal/vector_ew_mac_uint8", "basic.hex"]
     ],
 
+    "pref_cnts": [
+        ["sim/sw/baremetal/asm_rv32i_zihpm", "basic.hex"],
+        ["sim/sw/baremetal/rv32i_zihpm", "basic.hex"]
+    ],
+
     "vector": [
         ["sim/sw/baremetal/vector_ew_basic", "add*.hex"],
         ["sim/sw/baremetal/vector_ew_basic", "sub*.hex"],

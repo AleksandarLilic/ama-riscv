@@ -29,11 +29,13 @@ ISA_SIM_H += $(wildcard $(ISA_SIM_DIR)/devices/*.h)
 ISA_SIM_H += $(wildcard $(ISA_SIM_DIR)/profilers/*.h)
 ISA_SIM_H += $(wildcard $(ISA_SIM_DIR)/hw_models/*.h)
 
+# ISA sim header files needed for cosim build
 ISA_SIM_INC := -I$(ISA_SIM_DIR) -I$(ISA_SIM_DIR)/devices -I$(ISA_SIM_DIR)/profilers -I$(ISA_SIM_DIR)/hw_models
 ISA_SIM_INC += -isystem $(ISA_SIM_DIR)/external/ELFIO
 
 # COSIM
 COSIM_ROOT := cosim
+COSIM_ROOT_ABS := $(REPO_ROOT)/$(COSIM_ROOT)
 DPI_FUNCS_H := $(COSIM_ROOT)/dpi_functions.h
 COSIM_BDIR := build
 COSIM_BDIR_FULL := $(COSIM_ROOT)/$(COSIM_BDIR)
@@ -45,7 +47,11 @@ COSIM_OBJS := $(patsubst $(COSIM_ROOT)/%.cpp,$(COSIM_ROOT)/$(COSIM_BDIR)/%.o,$(C
 COSIM_DEPS := $(patsubst $(COSIM_ROOT)/%.cpp,$(COSIM_ROOT)/$(COSIM_BDIR)/%.d,$(COSIM_SRCS))
 
 COSIM_INC := -I$(VIVADO_ROOT)/data/xsim/include
+COSIM_INC += -I$(COSIM_ROOT)
 DPI_LINK_LIB := -L$(VIVADO_ROOT)/tps/lnx64/gcc-9.3.0/lib64/
+
+ISA_SIM_EXT := -I$(COSIM_ROOT_ABS)
+ISA_SIM_EXT += -I$(VIVADO_ROOT)/data/xsim/include
 
 # TARGETS
 cosim_target: $(COSIM_TARGET)
@@ -61,7 +67,7 @@ $(COSIM_TARGET): .isa_sim_obj.touchfile $(COSIM_OBJS)
 isa_sim_obj: .isa_sim_obj.touchfile
 .isa_sim_obj.touchfile: $(ISA_SIM_SRCS) $(ISA_SIM_H)
 	@echo "Building ISA SIM"
-	$(MAKE) -C $(ISA_SIM_DIR) obj_for_cosim BDIR=$(ISA_SIM_BDIR) DEFINES="-DDPI -DCACHE_MODE=CACHE_MODE_FUNC"
+	$(MAKE) -C $(ISA_SIM_DIR) obj_for_cosim INC_EXT="$(ISA_SIM_EXT)" BDIR=$(ISA_SIM_BDIR) DEFINES="-DDPI -DCACHE_MODE=CACHE_MODE_FUNC"
 	@touch .isa_sim_obj.touchfile
 
 $(COSIM_ROOT)/$(COSIM_BDIR)/%.o: $(COSIM_ROOT)/%.cpp $(DPI_FUNCS_H) $(ISA_SIM_H)

@@ -8,8 +8,7 @@ module `TB();
 
 `ifdef ENABLE_COSIM
 // imported functions/tasks
-import "DPI-C" task
-cosim_setup(
+import "DPI-C" function void cosim_setup(
     input string test_bin,
     input int unsigned prof_pc_start,
     input int unsigned prof_pc_stop,
@@ -18,10 +17,8 @@ cosim_setup(
     input byte unsigned log_isa_sim
 );
 
-import "DPI-C" function
-void cosim_exec(
+import "DPI-C" function void cosim_exec(
     input longint unsigned clk_cnt,
-    input longint unsigned mtime,
     output int unsigned pc,
     output int unsigned inst,
     output int unsigned tohost,
@@ -30,8 +27,7 @@ void cosim_exec(
     output int unsigned rf[32]
 );
 
-import "DPI-C" function
-void cosim_add_te(
+import "DPI-C" function void cosim_add_te(
     input longint unsigned clk_cnt,
     input int unsigned inst_ret,
     input int unsigned pc_ret,
@@ -50,11 +46,11 @@ void cosim_add_te(
     input byte ct_dmem_mem_w
 );
 
-import "DPI-C" function
-int unsigned cosim_get_inst_cnt();
+import "DPI-C" function int unsigned cosim_get_inst_cnt();
+import "DPI-C" function void cosim_finish();
 
-import "DPI-C" function
-void cosim_finish();
+export "DPI-C" function sync_csrs;
+
 `endif // ENABLE_COSIM
 
 //------------------------------------------------------------------------------
@@ -75,6 +71,7 @@ string isa_ret;
 longint unsigned clk_cnt = 0;
 logic [ARCH_WIDTH_D-1:0] mtime_d[3];
 logic [ARCH_WIDTH_D-1:0] clk_cnt_d[3];
+csr_sync_t csr_d;
 
 typedef struct {
     string test_path;
@@ -525,6 +522,11 @@ function automatic void add_trace_entry(longint unsigned clk_cnt);
         (dmem2mem_w * MEM_DATA_BUS_B)
     );
 endfunction
+
+function void sync_csrs(output csr_sync_t csr);
+    csr.mtime = mtime_d[2];
+    `IT((MHPMCOUNTERS+MHPM_OFFSET)) csr.mhpmcounter[i] = csr_d.mhpmcounter[i];
+endfunction
 `endif
 
 task automatic single_step();
@@ -552,7 +554,7 @@ task automatic single_step();
 
     `ifdef ENABLE_COSIM
     if (args.cosim_en) begin
-        cosim_exec(clk_cnt_d[2], mtime_d[2], cosim.pc, cosim.inst, cosim.tohost,
+        cosim_exec(clk_cnt_d[2], cosim.pc, cosim.inst, cosim.tohost,
                    cosim_str.inst_asm, cosim_str.stack_top, cosim.rf);
         isa_ret = $sformatf(
             "COSIM    %5h: %8h %0s", cosim.pc, cosim.inst, cosim_str.inst_asm);
@@ -606,6 +608,11 @@ always @(posedge clk) clk_cnt += 1;
     {clk_cnt, clk_cnt_d[0], clk_cnt_d[1]},
     {clk_cnt_d[0], clk_cnt_d[1], clk_cnt_d[2]}
 )
+
+// perf counters only 1 clk delay
+always_ff @(posedge clk) begin
+    `IT((MHPMCOUNTERS+MHPM_OFFSET)) csr_d.mhpmcounter[i] = `CSR.mhpmcounter[i];
+end
 
 initial begin
     // set %t:

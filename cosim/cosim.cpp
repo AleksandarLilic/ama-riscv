@@ -19,7 +19,7 @@ std::string inst_asm;
 trace_entry te;
 
 DPI_LINKER_DECL DPI_DLLESPEC
-int cosim_setup(
+void cosim_setup(
     const char *test_elf,
     unsigned int prof_pc_start,
     unsigned int prof_pc_stop,
@@ -40,8 +40,6 @@ int cosim_setup(
 
     mem = new memory(l_test_elf, cfg, hw_cfg);
     rv32 = new core(mem, cfg, hw_cfg);
-
-    return 0;
 }
 
 DPI_LINKER_DECL DPI_DLLESPEC
@@ -88,7 +86,6 @@ void cosim_add_te(
 DPI_LINKER_DECL DPI_DLLESPEC
 void cosim_exec(
     uint64_t clk_cnt,
-    uint64_t mtime,
     unsigned int* pc,
     unsigned int* inst,
     unsigned int* tohost,
@@ -100,7 +97,7 @@ void cosim_exec(
     stack_top = rv32->get_callstack_top_str().c_str();
     *stack_top_str = stack_top.c_str();
 
-    rv32->update_clk(clk_cnt, mtime); // issue for profiling multiple windows
+    rv32->update_clk(clk_cnt); // issue for profiling multiple windows
     *pc = rv32->get_pc();
     rv32->exec_inst();
     *inst = rv32->get_inst();

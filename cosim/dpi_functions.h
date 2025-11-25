@@ -25,8 +25,9 @@
 
 
 
-/* Imported (by SV) task */
-DPI_LINKER_DECL DPI_DLLESPEC int cosim_setup(
+/* Imported (by SV) function */
+DPI_LINKER_DECL DPI_DLLESPEC 
+ void cosim_setup(
 	const char* test_bin ,
 	unsigned int prof_pc_start ,
 	unsigned int prof_pc_stop ,
@@ -39,7 +40,6 @@ DPI_LINKER_DECL DPI_DLLESPEC int cosim_setup(
 DPI_LINKER_DECL DPI_DLLESPEC 
  void cosim_exec(
 	uint64_t clk_cnt ,
-	uint64_t mtime ,
 	unsigned int* pc ,
 	unsigned int* inst ,
 	unsigned int* tohost ,
@@ -78,6 +78,19 @@ DPI_LINKER_DECL DPI_DLLESPEC
 /* Imported (by SV) function */
 DPI_LINKER_DECL DPI_DLLESPEC 
  void cosim_finish(
+);
+
+typedef struct {
+	uint64_t mtime;
+	uint64_t mhpmcounters[9];
+} csr_sync_t;
+
+
+
+/* Exported (from SV) function */
+DPI_LINKER_DECL 
+ void sync_csrs(
+	csr_sync_t* csr
 );
 
 

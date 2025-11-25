@@ -147,4 +147,9 @@ typedef enum logic [1:0] {
     hw_status_t_none = 2'b10
 } hw_status_t;
 
+typedef struct {
+    longint unsigned mtime;
+    longint unsigned mhpmcounter[MHPMCOUNTERS+MHPM_OFFSET];
+} csr_sync_t;
+
 `endif // AMA_RISCV_TB_DEFINES
