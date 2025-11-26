@@ -121,11 +121,20 @@ cosim_str_t cosim_str;
 
 // perf
 typedef struct {
-    int unsigned ref_cnt = 'h0;
-    int unsigned hit_cnt = 'h0;
-    int unsigned miss_cnt = 'h0;
-    int unsigned wb_cnt = 'h0;
-} stats_counters_t;
+    bit aref = 'h0; // because 'ref' is a keyword
+    bit hit = 'h0;
+    bit miss = 'h0;
+    bit wb = 'h0; // writeback
+    // bit handle_pending_req = 'h0;
+    byte hm = 'h0;
+} hw_events_t;
+
+typedef struct {
+    int unsigned aref = 'h0;
+    int unsigned hit = 'h0;
+    int unsigned miss = 'h0;
+    int unsigned wb = 'h0;
+} hw_counters_t;
 
 typedef struct {
     int unsigned cycles;
@@ -141,11 +150,11 @@ typedef struct {
     int unsigned ret;
 } perf_event_cnt_t;
 
-stats_counters_t ic_stats, dc_stats, bp_stats;
+hw_counters_t ic_stats, dc_stats, bp_stats;
 perf_event_cnt_t tda;
 perf_event_t events_gen;
-perf_stats stats;
-perf_counters_t core_stats;
+core_stats core_stats_all;
+core_counters_t core_cnt_all;
 
 //------------------------------------------------------------------------------
 // DUT
@@ -233,7 +242,7 @@ endfunction
 function void cosim_check_inst_cnt;
     int unsigned cosim, core;
     cosim = cosim_get_inst_cnt();
-    core = stats.get_inst_cnt(core_stats);
+    core = core_stats_all.get_inst_cnt(core_cnt_all);
     `LOGNT($sformatf("Cosim instruction count: %0d", cosim));
     `LOGNT($sformatf("DUT instruction count: %0d", core));
     if (cosim != core) `LOGNT($sformatf("Instruction count mismatch"));
@@ -428,59 +437,57 @@ function automatic [8*SLEN-1:0] pack_string(input string str);
     end
 endfunction
 
-function automatic byte get_cache_status(
-    ref stats_counters_t stats,
+function automatic hw_events_t get_cache_status(
     input logic new_core_req_d,
     input logic hit_d,
     input logic cr_victim_dirty_d,
     input logic cr_pend_active
 );
-    byte hm;
-    bit hit;
-    bit miss;
-    bit wb; // writeback
-    bit handle_pending_req;
+    hw_events_t e;
     begin
-        hm = hw_status_t_none;
+        e.aref = new_core_req_d;
+        e.hit = (new_core_req_d && hit_d);
+        e.miss = (new_core_req_d && !hit_d);
+        e.wb = (e.miss && cr_victim_dirty_d);
+        // e.handle_pending_req = ((cr_pend_active && !new_core_req_d));
 
-        hit = (new_core_req_d && hit_d);
-        miss = (new_core_req_d && !hit_d);
-        wb = miss && cr_victim_dirty_d;
-        handle_pending_req = ((cr_pend_active && !new_core_req_d));
+        e.hm = hw_status_t_none;
+        if (e.miss) e.hm = hw_status_t_miss;
+        else if (e.hit) e.hm = hw_status_t_hit;
 
-        if (miss) hm = hw_status_t_miss;
-        else if (hit) hm = hw_status_t_hit;
-
-        stats.ref_cnt += (new_core_req_d);
-        stats.hit_cnt += hit;
-        stats.miss_cnt += miss;
-        stats.wb_cnt += wb;
-
-        return hm;
+        return e;
     end
 endfunction
 
-function automatic byte get_bp_status(ref stats_counters_t stats);
-    byte bp_hm;
+function automatic hw_events_t get_bp_status(
+    input logic branch_inst, input logic hit );
+    hw_events_t e;
     begin
-        bp_hm = hw_status_t_none;
-        if (`CORE_VIEW.r.branch_inst) begin
-            stats.ref_cnt++;
-            if (`CORE_VIEW.r.bp_hit) begin
-                bp_hm = hw_status_t_hit;
-                stats.hit_cnt++;
-            end else begin
-                bp_hm = hw_status_t_miss;
-                stats.miss_cnt++;
-            end
-        end
-        return bp_hm;
+        e.aref = branch_inst;
+        e.hit = e.aref && hit;
+        e.miss = e.aref && !hit;
+
+        e.hm = hw_status_t_none;
+        if (e.miss) e.hm = hw_status_t_miss;
+        else if (e.hit) e.hm = hw_status_t_hit;
+
+        return e;
     end
+endfunction
+
+function automatic void add_up_events(
+    ref hw_counters_t cnt, input hw_events_t e);
+    cnt.aref += e.aref;
+    cnt.hit += e.hit;
+    cnt.miss += e.miss;
+    cnt.wb += e.wb;
 endfunction
 
 `ifdef ENABLE_COSIM
-function automatic void add_trace_entry(longint unsigned clk_cnt);
-    // NOTE: hw stats collected when they happen, inst when retired
+function automatic void add_trace_entry(
+    longint unsigned clk_cnt, byte ic_hm, byte dc_hm, byte bp_hm );
+
+    // NOTE: hw core_stats_all collected when they happen, inst when retired
     bit imem2core, imem2mem, dmem2core_r, dmem2mem_r, dmem2core_w, dmem2mem_w;
     byte dmem2core_r_s, dmem2core_w_s; // transfer sizes
     // imem, only reads
@@ -503,21 +510,9 @@ function automatic void add_trace_entry(longint unsigned clk_cnt);
         `CORE_VIEW.r.dmem_addr,
         `CORE_VIEW.r.dmem_size,
         `CORE_VIEW.r.branch_taken,
-        get_cache_status(
-            ic_stats,
-            `ICACHE.new_core_req_d,
-            `ICACHE.hit_d,
-            1'b0,
-            `ICACHE.cr_pend.active
-        ),
-        get_cache_status(
-            dc_stats,
-            `DCACHE.new_core_req_d,
-            `DCACHE.hit_d,
-            `DCACHE.cr_victim_dirty_d,
-            `DCACHE.cr_pend.active
-        ),
-        get_bp_status(bp_stats),
+        ic_hm,
+        dc_hm,
+        bp_hm,
         (imem2core * CORE_DATA_BUS_B), // all instructions are 4 bytes
         (imem2mem * MEM_DATA_BUS_B),
         (dmem2core_r * dmem2core_r_s),
@@ -535,7 +530,9 @@ endfunction
 
 task automatic single_step();
     bit new_errors;
-    stats.update(core_stats, inst_retired);
+    hw_events_t e_ic, e_dc, e_bp;
+
+    core_stats_all.update(core_cnt_all, inst_retired);
     //`LOG_V($sformatf(
     //    "Core [F] %5h: %8h %0s",
     //    `CORE.pc.dec,
@@ -543,8 +540,22 @@ task automatic single_step();
     //    `CORE.fe_ctrl.bubble_dec ? ("(fe stalled)") : "")
     //);
 
+    e_ic = get_cache_status(
+        `ICACHE.new_core_req_d, `ICACHE.hit_d, 1'b0, `ICACHE.cr_pend.active);
+    e_dc = get_cache_status(
+        `DCACHE.new_core_req_d,
+        `DCACHE.hit_d,
+        `DCACHE.cr_victim_dirty_d,
+        `DCACHE.cr_pend.active
+    );
+    e_bp = get_bp_status(`CORE_VIEW.r.branch_inst, `CORE_VIEW.r.bp_hit);
+    add_up_events(ic_stats, e_ic);
+    add_up_events(dc_stats, e_dc);
+    add_up_events(bp_stats, e_bp);
+
     `ifdef ENABLE_COSIM
-    add_trace_entry(clk_cnt - `RST_PULSES); // don't count time in reset
+    // don't count time in reset
+    add_trace_entry((clk_cnt - `RST_PULSES), e_ic.hm, e_dc.hm, e_bp.hm);
     `endif
 
     // cosim advances only if rtl retires an instruction
@@ -683,7 +694,7 @@ assign tohost_source = `CSR.csr.tohost[0];
 initial begin
     `LOGNT("");
     get_plusargs();
-    stats = new(core_stats);
+    core_stats_all = new(core_cnt_all);
 
     `LOG_I("Simulation started");
 
@@ -763,14 +774,16 @@ initial begin
     if (args.cosim_chk_en) cosim_check_inst_cnt();
     cosim_finish();
     `endif
-    `LOGNT(stats.get(core_stats));
+    `LOGNT(core_stats_all.get(core_cnt_all));
 
-    // TODO: these stats really need to be consolidated like core stats
+    // if (args.cosim_en) $finish(); // using cosim stats for this run
+
+    // TODO: these really need to be consolidated like core core_stats
     tda.be_core = (tda.be - tda.be_dc);
     tda.fe_core = (tda.fe - tda.fe_ic);
     tda.ret = (tda.cycles - (tda.bad_spec + tda.fe + tda.be));
     tda.ret_int = (tda.ret - tda.ret_simd);
-    $display("TDA");
+    $display("TDA: ");
     $display(
         "    L1: bad spec %0d, fe bound %0d, be bound %0d, retiring %0d",
         tda.bad_spec, tda.fe, tda.be, tda.ret
@@ -782,32 +795,34 @@ initial begin
     );
 
     $display(
-        "bpred: P: %0d, M: %0d, ACC: %0.2f%%, MPKI: %0.2f",
-            bp_stats.hit_cnt,
-            bp_stats.miss_cnt,
-            (bp_stats.hit_cnt != 0) ?
-                (bp_stats.hit_cnt * 100.0) / bp_stats.ref_cnt : 0.0,
-            (bp_stats.miss_cnt != 0) ?
-                bp_stats.miss_cnt / (stats.get_inst_cnt(core_stats) / 1000.0) :
-                0.0
-        );
+        "bpred:\n    P: %0d, M: %0d, ACC: %0.2f%%, MPKI: %0.2f",
+        bp_stats.hit,
+        bp_stats.miss,
+        (bp_stats.hit != 0) ?
+            ((bp_stats.hit * 100.0) / bp_stats.aref) : 0.0,
+        (bp_stats.miss != 0) ?
+            (bp_stats.miss / (core_stats_all.get_kinst(core_cnt_all))) :0.0
+    );
+
     $display(
-        "icache: Ref: %0d, H: %0d, M: %0d, HR: %0.2f%%",
-            ic_stats.ref_cnt,
-            ic_stats.hit_cnt,
-            ic_stats.miss_cnt,
-            (ic_stats.ref_cnt != 0) ?
-                (ic_stats.hit_cnt * 100.0) / ic_stats.ref_cnt : 0.0
-        );
+        "icache:\n    Ref: %0d, H: %0d, M: %0d, HR: %0.2f%%",
+        ic_stats.aref,
+        ic_stats.hit,
+        ic_stats.miss,
+        (ic_stats.aref != 0) ?
+                ((ic_stats.hit * 100.0) / ic_stats.aref) : 0.0
+    );
+
     $display(
-        "dcache: Ref: %0d, H: %0d, M: %0d, WB: %0d, HR: %0.2f%%",
-            dc_stats.ref_cnt,
-            dc_stats.hit_cnt,
-            dc_stats.miss_cnt,
-            dc_stats.wb_cnt,
-            (dc_stats.ref_cnt != 0) ?
-                (dc_stats.hit_cnt * 100.0) / dc_stats.ref_cnt : 0.0
-        );
+        "dcache:\n    Ref: %0d, H: %0d, M: %0d, WB: %0d, HR: %0.2f%%",
+        dc_stats.aref,
+        dc_stats.hit,
+        dc_stats.miss,
+        dc_stats.wb,
+        (dc_stats.aref != 0) ?
+            ((dc_stats.hit * 100.0) / dc_stats.aref) : 0.0
+    );
+
     $display("");
 
     $finish();
