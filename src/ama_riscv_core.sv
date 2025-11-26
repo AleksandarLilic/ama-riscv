@@ -89,7 +89,7 @@ ama_riscv_decoder ama_riscv_decoder_i (
     .inst_dec (inst.dec), .decoded (decoded), .fe_ctrl (decoded_fe_ctrl)
 );
 
-logic dc_stalled, move_past_dec_exe_dc_stall;
+logic dc_stalled;
 branch_t branch_resolution;
 hazard_t hazard;
 ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
@@ -112,13 +112,12 @@ ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     .hazard (hazard),
     .dc_stalled (dc_stalled),
     // outputs
-    .fe_ctrl (fe_ctrl),
     `ifdef USE_BP
     .bp_hit (bp_hit),
     .pc_cp (pc_fet_cp),
     `endif
     .spec (spec), // tied to 0 when BP is not used
-    .move_past_dec_exe_dc_stall (move_past_dec_exe_dc_stall)
+    .fe_ctrl (fe_ctrl)
 );
 
 arch_width_t e_writeback_mem, unpk_out_p_mem; // from MEM stage
@@ -305,9 +304,7 @@ assign rs1_data_fwd = rf_a_sel_fwd ? rs1_dec_be_fwd : rs1_data_dec;
 assign rs2_data_fwd = rf_b_sel_fwd ? rs2_dec_be_fwd : rs2_data_dec;
 
 logic en_dec_exe;
-assign en_dec_exe =
-    ((!dc_stalled) || move_past_dec_exe_dc_stall) && (!hazard.to_exe);
-
+assign en_dec_exe = ((!dc_stalled) && (!hazard.to_exe));
 assign ctrl_dec_exe = '{
     flush: flush.dec,
     en: en_dec_exe,

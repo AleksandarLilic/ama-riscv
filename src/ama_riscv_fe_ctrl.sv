@@ -18,13 +18,12 @@ module ama_riscv_fe_ctrl (
     input  logic dc_stalled,
     input  hazard_t hazard,
     input  fe_ctrl_t decoded_fe_ctrl,
-    output fe_ctrl_t fe_ctrl,
     `ifdef USE_BP
     output logic bp_hit,
     output arch_width_t pc_cp,
     `endif
     output spec_exec_t spec,
-    output logic move_past_dec_exe_dc_stall
+    output fe_ctrl_t fe_ctrl
 );
 
 // types
@@ -205,7 +204,6 @@ always_comb begin
     fe_ctrl.use_cp = 1'b0;
     imem_req.valid = 1'b0;
     imem_rsp.ready = 1'b0;
-    move_past_dec_exe_dc_stall = 1'b0;
 
     unique case (state)
         RST: begin
@@ -327,7 +325,6 @@ always_comb begin
                     fe_ctrl.bubble_dec = 1'b0;
                     imem_req.valid = 1'b1;
                     imem_rsp.ready = 1'b1;
-                    if (stall_act.dcache) move_past_dec_exe_dc_stall = 1'b1;
                 end
             end
 
@@ -370,6 +367,7 @@ always_comb begin
                 end else if (spec.enter) begin
                     // current inst inst is branch, fingers crossed
                     fe_ctrl.pc_sel = (bp_pred == B_T) ? PC_SEL_BP : PC_SEL_INC4;
+                    //fe_ctrl.pc_sel = (spec_entry.b_tnt == B_T) ? PC_SEL_BP : PC_SEL_INC4;
                     fe_ctrl.pc_we = 1'b1;
                     fe_ctrl.bubble_dec = 1'b0;
                     imem_req.valid = 1'b1;
@@ -407,7 +405,7 @@ spec_entry_t spec_entry, spec_entry_d;
 
 logic save_spec_entry, clear_spec_entry;
 assign spec.enter = (
-    branch_inst_dec /* && (!(stall_act.dcache || stall_act.hazard)) */);
+    branch_inst_dec && (!(stall_act.dcache || stall_act.hazard)));
 assign spec.resolve =
     ((spec_entry.pc == pc_exe) && (pc_exe != 'h0) && (!hazard.to_exe));
 assign bp_hit = spec.resolve && (spec_entry.b_tnt == branch_resolution);
