@@ -625,7 +625,7 @@ logic [CORE_BYTE_ADDR_BUS-1:0] dbg_req_core_bytes_valid;
 assign dbg_req_core_bytes_valid =
     ((cr.addr) & {CORE_BYTE_ADDR_BUS{req_core.valid}});
 
-if (SETS > 1) begin: dbg_assoc // set-associative views
+if (WAYS > 1) begin: dbg_assoc // set-associative views
 
 // data view
 typedef struct {
