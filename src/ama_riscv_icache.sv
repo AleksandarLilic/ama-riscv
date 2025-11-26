@@ -384,6 +384,10 @@ logic [CORE_BYTE_ADDR_BUS-1:0] dbg_req_core_bytes_valid;
 assign dbg_req_core_bytes_valid = (
     (cr.addr << 2) & {CORE_BYTE_ADDR_BUS{req_core.valid}});
 
+logic miss, miss_d;
+assign miss = (new_core_req && !hit);
+assign miss_d = (new_core_req_d && !hit_d);
+
 if (WAYS > 1) begin: dbg_assoc // set-associative views
 
 // data view
