@@ -128,20 +128,24 @@ typedef struct {
 } stats_counters_t;
 
 typedef struct {
+    int unsigned cycles;
     int unsigned bad_spec;
-    int unsigned fe_ic;
-    int unsigned fe;
-    int unsigned be_dc;
     int unsigned be;
+    int unsigned be_dc;
+    int unsigned be_core;
+    int unsigned fe;
+    int unsigned fe_ic;
+    int unsigned fe_core;
     int unsigned ret_simd;
-} perf_event_counters_t;
+    int unsigned ret_int;
+    int unsigned ret;
+} perf_event_cnt_t;
 
 stats_counters_t ic_stats, dc_stats, bp_stats;
-perf_event_counters_t tda;
+perf_event_cnt_t tda;
 perf_event_t events_gen;
 perf_stats stats;
 perf_counters_t core_stats;
-int diff = 0;
 
 //------------------------------------------------------------------------------
 // DUT
@@ -671,6 +675,7 @@ always_ff @(posedge clk) begin
     tda.fe += events_gen.fe;
     tda.be += events_gen.be;
     tda.ret_simd += events_gen.ret_simd;
+    tda.cycles += 1;
 end
 
 // Test
@@ -761,21 +766,20 @@ initial begin
     `LOGNT(stats.get(core_stats));
 
     // TODO: these stats really need to be consolidated like core stats
-    diff = core_stats.hw_stall - (tda.bad_spec + tda.fe + tda.be);
+    tda.be_core = (tda.be - tda.be_dc);
+    tda.fe_core = (tda.fe - tda.fe_ic);
+    tda.ret = (tda.cycles - (tda.bad_spec + tda.fe + tda.be));
+    tda.ret_int = (tda.ret - tda.ret_simd);
     $display("TDA");
     $display(
-        "    L1: ",
-        "bad spec %0d, fe bound %0d, be bound %0d, retiring %0d/%0d",
-        tda.bad_spec, tda.fe, tda.be,
-        `CSR.csr.minstret, `CSR.csr.mcycle - (tda.bad_spec + tda.fe + tda.be));
+        "    L1: bad spec %0d, fe bound %0d, be bound %0d, retiring %0d",
+        tda.bad_spec, tda.fe, tda.be, tda.ret
+    );
     $display(
         "    L2: ",
         "fe mem %0d, fe core %0d, be mem %0d, be core %0d, int %0d, simd %0d",
-        tda.fe_ic, tda.fe - tda.fe_ic,
-        tda.be_dc, tda.be - tda.be_dc,
-        `CSR.csr.minstret - tda.ret_simd, tda.ret_simd
-        );
-    $display("tda diff to hw counter: %0d", diff);
+        tda.fe_ic, tda.fe_core, tda.be_dc, tda.be_core, tda.ret_int,tda.ret_simd
+    );
 
     $display(
         "bpred: P: %0d, M: %0d, ACC: %0.2f%%, MPKI: %0.2f",
