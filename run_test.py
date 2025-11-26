@@ -65,7 +65,8 @@ def create_run_cfg(log_wave, log_vcd):
     tcl_content.append("run all")
     if log_vcd:
         tcl_content.append("close_vcd")
-    tcl_content.append("puts \"Simulation runtime: [expr {[clock seconds] - $start}]s\"")
+    tcl_content.append(
+        "puts \"Simulation runtime: [expr {[clock seconds] - $start}]s\"")
     tcl_content.append("exit")
 
     with open(RUN_CFG, 'w') as file:
@@ -84,7 +85,9 @@ def find_all_tests(test_list, filters=[]):
     # otherwise, just flatten the entire test_list
 
     tl_flat = [item for sublist in test_list.values() for item in sublist]
+    tl_filt = tl_flat
     if filters:
+        tl_filt = [] # reset, filled after filtering
         mode = "neg" if all(f.startswith('~') for f in filters) else "pos"
 
         tl = {"inc" : [], "exc" : []}
@@ -100,15 +103,22 @@ def find_all_tests(test_list, filters=[]):
 
         if mode == "pos":
             # include all from inc, and remove items from exc
-            tl_flat = [item for item in tl_flat if item in tl["inc"]]
-            tl_flat = [item for item in tl_flat if item not in tl["exc"]]
+            if len(tl["inc"]) > 0:
+                tl_filt_all = [
+                    item for item in tl_flat
+                    if (item in tl["inc"]) and (item not in tl["exc"])
+                ]
+                # go through list and add only unique items to tl_filt
+                for item in tl_filt_all:
+                    if item not in tl_filt:
+                        tl_filt.append(item)
         else:
             # exclude from all those in exc, no inc list
-            tl_flat = [item for item in tl_flat if item not in tl["exc"]]
+            tl_filt = [item for item in tl_flat if item not in tl["exc"]]
 
     valid_tests = []
     some_mismatched = False
-    for path, test_name_pattern in tl_flat:
+    for path, test_name_pattern in tl_filt:
         full_pattern = os.path.join(REPO_ROOT, path, test_name_pattern)
         matched_files = glob.glob(full_pattern)
         if matched_files:
@@ -186,6 +196,14 @@ def build_tb(build_dir, force_rebuild):
 
     print_runtime(start_time, "Build done,")
 
+def get_paths_for_test(run_dir, test_name):
+    p = {}
+    p['test_dir'] = os.path.join(run_dir, test_name)
+    p['test_log'] = os.path.join(p['test_dir'], "test.log")
+    p['run_sh'] = os.path.join(p['test_dir'], "run.sh") # save cmd for rerun
+    p['status_file'] = os.path.join(p['test_dir'], TEST_STATUS)
+    return p
+
 def run_test(test_path, run_dir, build_dir, make_args, cnt, keep_pass=False):
     test_name = format_test_name(test_path)
     test_path_make = os.path.splitext(test_path)[0]
@@ -193,21 +211,18 @@ def run_test(test_path, run_dir, build_dir, make_args, cnt, keep_pass=False):
         cnt["t"].value += 1
         print(f"Running test {cnt['t'].value}/{cnt['total']}: <{test_name}>")
 
-    test_dir = os.path.join(run_dir, f"test_{test_name}")
-    test_log = os.path.join(test_dir, "test.log")
-    if os.path.exists(test_dir):
+    p = get_paths_for_test(run_dir, test_name)
+    if os.path.exists(p['test_dir']):
         if keep_pass:
-            status_file_path = os.path.join(test_dir, TEST_STATUS)
-            if os.path.exists(status_file_path):
-                with open(status_file_path, 'r') as status_file:
+            if os.path.exists(p['status_file']):
+                with open(p['status_file'], 'r') as status_file:
                     status = status_file.read()
                     if "PASSED" in status:
                         print(f"Test <{test_name}> already PASSED. Skipping.")
                         return
+        shutil.rmtree(p['test_dir'])
 
-        shutil.rmtree(test_dir)
-
-    shutil.copytree(build_dir, test_dir, symlinks=True)
+    shutil.copytree(build_dir, p['test_dir'], symlinks=True)
     make_cmd = [
         "make", "sim",
         "ISA_SIM_BDIR=build_obj_runtest",
@@ -220,30 +235,33 @@ def run_test(test_path, run_dir, build_dir, make_args, cnt, keep_pass=False):
         f"TO_LOG=0", # stdout will be picked up by this script instead
     ]
 
-    run_sh = os.path.join(test_dir, "run.sh") # save cmd for rerun if needed
-    with open(run_sh, "w") as f:
+    with open(p['run_sh'], "w") as f:
         f.write("#!/bin/sh\n")
         # quote each argument so spaces/special chars survive
         f.write(" ".join(shlex.quote(arg) for arg in make_cmd))
         f.write("\n")
-    os.chmod(run_sh, 0o755)
+    os.chmod(p['run_sh'], 0o755)
 
     make_status = subprocess.run(
-        make_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=test_dir)
+        make_cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=p['test_dir']
+    )
 
-    with open(test_log, 'w') as f:
+    with open(p['test_log'], 'w') as f:
         f.write(make_status.stdout.decode('utf-8'))
         f.write(make_status.stderr.decode('utf-8'))
 
     print(f"Test <{test_name}> DONE.", end=" ")
     if make_status.returncode != 0:
+        # something went wrong at make level
         raise ValueError(f"Error: Run test <{test_name}> failed. "
-                         f"Check test log '{test_log}' for details.")
+                         f"Check test log '{p['test_log']}' for details.")
 
     # write to test.status
-    status_file_path = os.path.join(test_dir, TEST_STATUS)
-    with open(status_file_path, 'w') as status_file:
-        status = check_test_status(test_log, test_name)
+    with open(p['status_file'], 'w') as status_file:
+        status = check_test_status(p['test_log'], test_name)
         status_file.write(status+"\n")
         print(status.replace(f"Test <{test_name}>", "").strip())
 
@@ -356,10 +374,9 @@ def main():
     print("\nSummary:")
     for test_path in all_tests:
         test_name = format_test_name(test_path)
-        test_dir = os.path.join(run_dir, f"test_{test_name}")
-        status_file_path = os.path.join(test_dir, TEST_STATUS)
-        if os.path.exists(status_file_path):
-            with open(status_file_path, 'r') as status_file:
+        p = get_paths_for_test(run_dir, test_name)
+        if os.path.exists(p['status_file']):
+            with open(p['status_file'], 'r') as status_file:
                 status = status_file.read()
                 if "PASSED" not in status:
                     all_tests_passed = False
