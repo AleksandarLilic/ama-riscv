@@ -37,6 +37,7 @@ localparam unsigned IDX_BITS = $clog2(SETS);
 localparam unsigned WAY_BITS = $clog2(WAYS);
 localparam unsigned TAG_W = CORE_BYTE_ADDR_BUS - CACHE_LINE_BYTE_ADDR -IDX_BITS;
 localparam unsigned IDX_RANGE_TOP = (SETS == 1) ? 1: IDX_BITS;
+localparam [MEM_DATA_BUS_B-1:0] MEM_DATA_BUS_B_MASK = {MEM_DATA_BUS_B{1'b1}};
 
 // just rename for clarity
 `define DC_CR_ASSIGN \
@@ -272,8 +273,11 @@ assign mem_r_transfer_done =
     (rsp_mem.valid && (mem_miss_cnt_d == (MEM_TRANSFERS_PER_CL - 1)));
 `DFF_CI_RI_RVI(mem_r_transfer_done, mem_r_transfer_done_d)
 
-assign load_req_hit = (hit && (cr.rtype == DMEM_READ) && new_core_req);
-assign store_req_hit = (hit && (cr.rtype == DMEM_WRITE) && new_core_req);
+logic load_req, store_req;
+assign load_req = (new_core_req && (cr.rtype == DMEM_READ));
+assign store_req = (new_core_req && (cr.rtype == DMEM_WRITE));
+assign load_req_hit = (hit && load_req);
+assign store_req_hit = (hit && store_req);
 assign load_req_pending = (
     mem_r_transfer_done_d && cr_pend.active && (cr_pend.cr.rtype == DMEM_READ)
 );
@@ -310,7 +314,7 @@ assign store_mask_b = get_store_mask(stc.dtype[1:0]);
 
 logic [MEM_DATA_BUS_B-1:0] store_mask_q, store_mask_core;
 assign store_mask_core = {12'h0, store_mask_b} << stc.byte_idx[3:0];
-assign store_mask_q = rsp_mem.valid ? 16'hffff : store_mask_core;
+assign store_mask_q = rsp_mem.valid ? MEM_DATA_BUS_B_MASK : store_mask_core;
 
 logic [MEM_DATA_BUS-1:0] store_data_q, store_data_core;
 logic [7:0] store_shift_core;
