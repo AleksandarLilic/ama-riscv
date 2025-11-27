@@ -6,24 +6,20 @@ typedef struct {
     int unsigned hw_stall;
 } core_counters_t;
 
-class core_stats;
-    function new(ref core_counters_t cnt);
-        reset(cnt);
-    endfunction
-
-    function void reset(ref core_counters_t cnt);
+virtual class core_stats;
+    static function void reset(ref core_counters_t cnt);
         cnt.cycle = 0;
         cnt.inst = 0;
         cnt.hw_stall = 0;
     endfunction
 
-    function void update(ref core_counters_t cnt, input logic inst_retired);
+    static function void update(ref core_counters_t cnt, input logic inst_retired);
         cnt.cycle++;
         cnt.inst += inst_retired;
         cnt.hw_stall += !inst_retired;
     endfunction
 
-    function string get(ref core_counters_t cnt);
+    static function string get(ref core_counters_t cnt);
         string s = "";
         real cpi, ipc;
         if (cnt.cycle == 0) begin
@@ -43,11 +39,11 @@ class core_stats;
         return s;
     endfunction
 
-    function int unsigned get_inst_cnt(ref core_counters_t cnt);
+    static function int unsigned get_inst_cnt(ref core_counters_t cnt);
         return cnt.inst;
     endfunction
 
-    function real get_kinst(ref core_counters_t cnt);
+    static function real get_kinst(ref core_counters_t cnt);
         return (cnt.inst / 1000.0);
     endfunction
 

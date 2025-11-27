@@ -50,6 +50,31 @@ DPI_LINKER_DECL DPI_DLLESPEC
 
 /* Imported (by SV) function */
 DPI_LINKER_DECL DPI_DLLESPEC 
+ unsigned int cosim_get_inst_cnt(
+);
+
+
+/* Imported (by SV) function */
+DPI_LINKER_DECL DPI_DLLESPEC 
+ void cosim_finish(
+);
+
+typedef struct {
+	uint64_t mtime;
+	uint64_t mhpmcounter[9];
+} csr_sync_t;
+
+
+
+/* Exported (from SV) function */
+DPI_LINKER_DECL 
+ void cosim_sync_csrs(
+	csr_sync_t* csr
+);
+
+
+/* Imported (by SV) function */
+DPI_LINKER_DECL DPI_DLLESPEC 
  void cosim_add_te(
 	uint64_t clk_cnt ,
 	unsigned int inst_ret ,
@@ -68,30 +93,24 @@ DPI_LINKER_DECL DPI_DLLESPEC
 	char ct_dmem_mem_r ,
 	char ct_dmem_mem_w);
 
-
-/* Imported (by SV) function */
-DPI_LINKER_DECL DPI_DLLESPEC 
- unsigned int cosim_get_inst_cnt(
-);
-
-
-/* Imported (by SV) function */
-DPI_LINKER_DECL DPI_DLLESPEC 
- void cosim_finish(
-);
-
 typedef struct {
-	uint64_t mtime;
-	uint64_t mhpmcounters[9];
-} csr_sync_t;
+	char aref;
+	char hit;
+	char miss;
+	char wb;
+	char load;
+	char size;
+	char hm;
+} hw_events_t;
 
 
 
-/* Exported (from SV) function */
-DPI_LINKER_DECL 
- void sync_csrs(
-	csr_sync_t* csr
-);
+/* Imported (by SV) function */
+DPI_LINKER_DECL DPI_DLLESPEC 
+ void cosim_log_stats(
+	const hw_events_t* icache ,
+	const hw_events_t* dcache ,
+	const hw_events_t* bp);
 
 
 #endif

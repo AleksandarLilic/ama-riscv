@@ -2,7 +2,12 @@
 fpga_constraints/Zybo-Z7-Master.xdc linguist-vendored
 fpga_constraints/Arty-A7-100-Master.xdc linguist-vendored
 
+# generated code
+cosim/dpi_functions.h linguist-generated
+
 # overrides
 Makefile.inc linguist-language=Makefile
 cosim/Makefile.cosim.inc linguist-language=Makefile
 *.f linguist-detectable=false
+cosim/*h linguist-language=C++
+cosim/*cpp linguist-language=C++

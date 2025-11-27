@@ -2,6 +2,7 @@
 `define AMA_RISCV_TB_DEFINES
 
 `include "ama_riscv_defines.svh"
+`include "ama_riscv_tb_types.svh"
 
 `define LOG_UART
 `define UART_SHORTCUT
@@ -38,16 +39,6 @@ parameter unsigned CLOCK_FREQ = (1_000 / CLK_PERIOD) * 1_000_000; // Hz
 //`define LOG_V(x) $fwrite(log_fd, "%0t: %0s\n", $time, x)
 //`define LOGNT(x) $fwrite(log_fd, "%0s\n", x)
 
-int log_level;
-typedef enum int {
-    LOG_NONE = 0,
-    LOG_ERROR = 1,
-    LOG_WARN = 2,
-    LOG_INFO = 3,
-    LOG_VERBOSE = 4,
-    LOG_DEBUG = 5
-} log_level_e;
-
 `define LOG(x) $display("%12t: %0s", $time, x)
 `define LOGNT(x) $display("%0s", x)
 
@@ -71,85 +62,5 @@ typedef enum int {
 
 `define LOG_D(x) \
     if (`TB.args.log_level >= LOG_DEBUG) `LOG($sformatf("DEBUG: %0s", x))
-
-// tb-only types
-typedef struct packed {
-    logic [6:0] fn7;
-    rf_addr_t rs2;
-    rf_addr_t rs1;
-    logic [2:0] fn3;
-    rf_addr_t rd;
-    opc7_t opc;
-} inst_r_t;
-
-typedef struct packed {
-    logic [11:0] imm;
-    rf_addr_t rs1;
-    logic [2:0] fn3;
-    rf_addr_t rd;
-    opc7_t opc;
-} inst_i_t;
-
-typedef struct packed {
-    logic [11:5] imm_h;
-    rf_addr_t rs2;
-    rf_addr_t rs1;
-    logic [2:0] fn3;
-    logic [4:0] imm_l;
-    opc7_t opc;
-} inst_s_t;
-
-typedef struct packed {
-    logic [11:5] imm_h_unord; // unordered value, bits don't correspond to 11:5
-    rf_addr_t rs2;
-    rf_addr_t rs1;
-    logic [2:0] fn3;
-    logic [4:0] imm_l_unord;
-    opc7_t opc;
-} inst_b_t;
-
-typedef struct packed {
-    logic [31:12] imm_unord;
-    rf_addr_t rd;
-    opc7_t opc;
-} inst_j_t;
-
-typedef struct packed {
-    logic [31:12] imm;
-    rf_addr_t rd;
-    opc7_t opc;
-} inst_u_t;
-
-typedef union packed {
-    inst_width_t i;
-    inst_r_t r_type;
-    inst_i_t i_type;
-    inst_s_t s_type;
-    inst_b_t b_type;
-    inst_j_t j_type;
-    inst_u_t u_type;
-} inst_shadow_t;
-
-typedef struct packed {
-    inst_r_t r_type;
-    inst_i_t i_type;
-    inst_s_t s_type;
-    inst_b_t b_type;
-    inst_j_t j_type;
-    inst_u_t u_type;
-} inst_t;
-
-// profiling from isa sim
-// enum class hw_status_t { miss, hit, none };
-typedef enum logic [1:0] {
-    hw_status_t_miss = 2'b00,
-    hw_status_t_hit = 2'b01,
-    hw_status_t_none = 2'b10
-} hw_status_t;
-
-typedef struct {
-    longint unsigned mtime;
-    longint unsigned mhpmcounter[MHPMCOUNTERS+MHPM_OFFSET];
-} csr_sync_t;
 
 `endif // AMA_RISCV_TB_DEFINES

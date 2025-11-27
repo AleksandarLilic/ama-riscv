@@ -7,7 +7,7 @@
 module `TB();
 
 `ifdef ENABLE_COSIM
-// imported functions/tasks
+// cosim execution
 import "DPI-C" function void cosim_setup(
     input string test_bin,
     input int unsigned prof_pc_start,
@@ -27,6 +27,12 @@ import "DPI-C" function void cosim_exec(
     output int unsigned rf[32]
 );
 
+import "DPI-C" function int unsigned cosim_get_inst_cnt();
+import "DPI-C" function void cosim_finish();
+
+export "DPI-C" function cosim_sync_csrs;
+
+// cosim tracing and stats
 import "DPI-C" function void cosim_add_te(
     input longint unsigned clk_cnt,
     input int unsigned inst_ret,
@@ -46,24 +52,25 @@ import "DPI-C" function void cosim_add_te(
     input byte ct_dmem_mem_w
 );
 
-import "DPI-C" function int unsigned cosim_get_inst_cnt();
-import "DPI-C" function void cosim_finish();
-
-export "DPI-C" function sync_csrs;
+import "DPI-C" function void cosim_log_stats(
+    hw_events_t icache,
+    hw_events_t dcache,
+    hw_events_t bp
+    // TODO: core events
+);
 
 `endif // ENABLE_COSIM
 
 //------------------------------------------------------------------------------
 // Testbench variables
+plusargs_t args;
 int unsigned errors = 0;
 int unsigned warnings = 0;
 bit errors_for_wave = 1'b0;
 logic tohost_source;
 bit chk_pass_tohost = 1'b1;
 bit chk_pass_cosim = 1'b1;
-
-string msg_pass = "==== PASS ====";
-string msg_fail = "==== FAIL ====";
+int log_level;
 
 string core_ret;
 string isa_ret;
@@ -73,91 +80,30 @@ logic [ARCH_WIDTH_D-1:0] mtime_d[3];
 logic [ARCH_WIDTH_D-1:0] clk_cnt_d[3];
 csr_sync_t csr_d;
 
-typedef struct {
-    string test_path;
-    bit tohost_chk_en;
-    bit cosim_en;
-    bit cosim_chk_en;
-    bit stop_on_cosim_error;
-    int unsigned timeout_clocks;
-    int unsigned log_level;
-    int unsigned prof_pc_start;
-    int unsigned prof_pc_stop;
-    int unsigned prof_pc_single_match;
-    bit prof_trace;
-    bit log_isa_sim;
-} plusargs_t;
+// cosim
+bit [RF_NUM-1:0] rf_chk_act;
+cosim_t cosim;
+cosim_str_t cosim_str;
 
-plusargs_t args;
+// perf
+hw_counters_t ic_stats, dc_stats, bp_stats;
+perf_event_t pe_gen;
+perf_event_cnt_t tda;
+
+// works without probing core internally, needed for GLS
+core_counters_t core_cnt_main;
 
 // uart
 string uart_out;
 int uart_char; // wider than char so it can fit and print specials like newline
 
+//------------------------------------------------------------------------------
+// DUT
+
 // events
 event go_in_reset;
 event reset_end;
 
-// cosim
-bit [RF_NUM-1:0] rf_chk_act;
-localparam int SLEN = 32; // number of characters in the string
-
-typedef struct {
-    int unsigned pc;
-    int unsigned inst;
-    int unsigned tohost;
-    int unsigned rf[RF_NUM];
-    logic [8*SLEN-1:0] stack_top_str_wave;
-    logic [8*SLEN-1:0] inst_asm_str_wave;
-} cosim_t;
-
-typedef struct {
-    string inst_asm;
-    string stack_top;
-} cosim_str_t;
-
-cosim_t cosim;
-cosim_str_t cosim_str;
-
-// perf
-typedef struct {
-    bit aref = 'h0; // because 'ref' is a keyword
-    bit hit = 'h0;
-    bit miss = 'h0;
-    bit wb = 'h0; // writeback
-    // bit handle_pending_req = 'h0;
-    byte hm = 'h0;
-} hw_events_t;
-
-typedef struct {
-    int unsigned aref = 'h0;
-    int unsigned hit = 'h0;
-    int unsigned miss = 'h0;
-    int unsigned wb = 'h0;
-} hw_counters_t;
-
-typedef struct {
-    int unsigned cycles;
-    int unsigned bad_spec;
-    int unsigned be;
-    int unsigned be_dc;
-    int unsigned be_core;
-    int unsigned fe;
-    int unsigned fe_ic;
-    int unsigned fe_core;
-    int unsigned ret_simd;
-    int unsigned ret_int;
-    int unsigned ret;
-} perf_event_cnt_t;
-
-hw_counters_t ic_stats, dc_stats, bp_stats;
-perf_event_cnt_t tda;
-perf_event_t events_gen;
-core_stats core_stats_all;
-core_counters_t core_cnt_all;
-
-//------------------------------------------------------------------------------
-// DUT
 logic clk = 1;
 logic rst;
 logic inst_retired;
@@ -237,17 +183,6 @@ function automatic void load_memories;
         `LOG_D("Finished loading main memory");
     end
 endfunction
-
-`ifdef ENABLE_COSIM
-function void cosim_check_inst_cnt;
-    int unsigned cosim, core;
-    cosim = cosim_get_inst_cnt();
-    core = core_stats_all.get_inst_cnt(core_cnt_all);
-    `LOGNT($sformatf("Cosim instruction count: %0d", cosim));
-    `LOGNT($sformatf("DUT instruction count: %0d", core));
-    if (cosim != core) `LOGNT($sformatf("Instruction count mismatch"));
-endfunction
-`endif
 
 function automatic void check_test_status(input bit completed);
     string msg;
@@ -339,6 +274,15 @@ function bit cosim_run_checkers;
         errors_for_wave = (errors != checker_errors_prev);
     end
     return errors_for_wave;
+endfunction
+
+function void cosim_check_inst_cnt;
+    int unsigned cosim_i, core_i;
+    cosim_i = cosim_get_inst_cnt();
+    core_i = core_stats::get_inst_cnt(core_cnt_main);
+    `LOGNT($sformatf("Cosim instruction count: %0d", cosim_i));
+    `LOGNT($sformatf("DUT instruction count: %0d", core_i));
+    if (cosim_i != core_i) `LOGNT($sformatf("Instruction count mismatch"));
 endfunction
 `endif
 
@@ -437,19 +381,23 @@ function automatic [8*SLEN-1:0] pack_string(input string str);
     end
 endfunction
 
-function automatic hw_events_t get_cache_status(
-    input logic new_core_req_d,
-    input logic hit_d,
-    input logic cr_victim_dirty_d,
-    input logic cr_pend_active
+function automatic hw_events_t
+get_cache_status(
+    input logic new_core_req,
+    input logic hit,
+    input logic cr_victim_dirty,
+    input logic access_load,
+    input byte size
 );
     hw_events_t e;
     begin
-        e.aref = new_core_req_d;
-        e.hit = (new_core_req_d && hit_d);
-        e.miss = (new_core_req_d && !hit_d);
-        e.wb = (e.miss && cr_victim_dirty_d);
-        // e.handle_pending_req = ((cr_pend_active && !new_core_req_d));
+        e.aref = new_core_req;
+        e.hit = (new_core_req && hit);
+        e.miss = (new_core_req && !hit);
+        e.wb = (e.miss && cr_victim_dirty);
+        e.load = access_load;
+        e.size = size;
+        // e.handle_pending_req = ((cr_pend_active && !new_core_req));
 
         e.hm = hw_status_t_none;
         if (e.miss) e.hm = hw_status_t_miss;
@@ -459,8 +407,8 @@ function automatic hw_events_t get_cache_status(
     end
 endfunction
 
-function automatic hw_events_t get_bp_status(
-    input logic branch_inst, input logic hit );
+function automatic hw_events_t
+get_bp_status(input logic branch_inst, input logic hit);
     hw_events_t e;
     begin
         e.aref = branch_inst;
@@ -475,8 +423,8 @@ function automatic hw_events_t get_bp_status(
     end
 endfunction
 
-function automatic void add_up_events(
-    ref hw_counters_t cnt, input hw_events_t e);
+function automatic void
+add_up_events(ref hw_counters_t cnt, input hw_events_t e);
     cnt.aref += e.aref;
     cnt.hit += e.hit;
     cnt.miss += e.miss;
@@ -484,10 +432,10 @@ function automatic void add_up_events(
 endfunction
 
 `ifdef ENABLE_COSIM
-function automatic void add_trace_entry(
-    longint unsigned clk_cnt, byte ic_hm, byte dc_hm, byte bp_hm );
+function automatic void
+add_trace_entry(longint unsigned clk_cnt, byte ic_hm, byte dc_hm, byte bp_hm);
 
-    // NOTE: hw core_stats_all collected when they happen, inst when retired
+    // NOTE: hw stats collected when they happen, inst when retired
     bit imem2core, imem2mem, dmem2core_r, dmem2mem_r, dmem2core_w, dmem2mem_w;
     byte dmem2core_r_s, dmem2core_w_s; // transfer sizes
     // imem, only reads
@@ -495,7 +443,7 @@ function automatic void add_trace_entry(
     imem2mem = `ICACHE.rsp_mem.valid;
     // dmem reads
     dmem2core_r = `DCACHE.rsp_core.valid;
-    dmem2core_r_s = (`DCACHE.load_dw == DMEM_DTYPE_WORD) ? 4 : `DCACHE.load_dw;
+    dmem2core_r_s = (`DCACHE.load_dw == DMEM_DTYPE_WORD) ? 4 :`DCACHE.load_dw+1;
     dmem2mem_r = `DCACHE.rsp_mem.valid;
     // dmem writes
     dmem2core_w = (`DCACHE.store_req_pending || `DCACHE.store_req_hit);
@@ -522,7 +470,7 @@ function automatic void add_trace_entry(
     );
 endfunction
 
-function void sync_csrs(output csr_sync_t csr);
+function void cosim_sync_csrs(output csr_sync_t csr);
     csr.mtime = mtime_d[2];
     `IT((MHPMCOUNTERS+MHPM_OFFSET)) csr.mhpmcounter[i] = csr_d.mhpmcounter[i];
 endfunction
@@ -531,8 +479,9 @@ endfunction
 task automatic single_step();
     bit new_errors;
     hw_events_t e_ic, e_dc, e_bp;
+    byte dc_bytes;
 
-    core_stats_all.update(core_cnt_all, inst_retired);
+    core_stats::update(core_cnt_main, inst_retired);
     //`LOG_V($sformatf(
     //    "Core [F] %5h: %8h %0s",
     //    `CORE.pc.dec,
@@ -540,15 +489,35 @@ task automatic single_step();
     //    `CORE.fe_ctrl.bubble_dec ? ("(fe stalled)") : "")
     //);
 
-    e_ic = get_cache_status(
-        `ICACHE.new_core_req_d, `ICACHE.hit_d, 1'b0, `ICACHE.cr_pend.active);
+    // icache
+    // never dirty, always load, always 4 byte inst
+    e_ic = get_cache_status(`ICACHE.new_core_req, `ICACHE.hit, 1'b0, 1'b1, 4);
+
+    // dcache
+    if (`DCACHE.load_req) begin
+        dc_bytes = 0;
+        case (`DCACHE.cr.dtype)
+            DMEM_DTYPE_BYTE,
+            DMEM_DTYPE_UBYTE: dc_bytes = 1;
+            DMEM_DTYPE_HALF,
+            DMEM_DTYPE_UHALF: dc_bytes = 2;
+            DMEM_DTYPE_WORD: dc_bytes = 4;
+        endcase
+    end else begin
+        dc_bytes = $countones(`DCACHE.store_mask_q);
+    end
     e_dc = get_cache_status(
-        `DCACHE.new_core_req_d,
-        `DCACHE.hit_d,
-        `DCACHE.cr_victim_dirty_d,
-        `DCACHE.cr_pend.active
+        `DCACHE.new_core_req,
+        `DCACHE.hit,
+        `DCACHE.cr_victim_dirty,
+        `DCACHE.load_req,
+        dc_bytes
     );
+
+    // branch predictor
     e_bp = get_bp_status(`CORE_VIEW.r.branch_inst, `CORE_VIEW.r.bp_hit);
+
+    // add up collected events in their respective structs
     add_up_events(ic_stats, e_ic);
     add_up_events(dc_stats, e_dc);
     add_up_events(bp_stats, e_bp);
@@ -556,6 +525,7 @@ task automatic single_step();
     `ifdef ENABLE_COSIM
     // don't count time in reset
     add_trace_entry((clk_cnt - `RST_PULSES), e_ic.hm, e_dc.hm, e_bp.hm);
+    cosim_log_stats(e_ic, e_dc, e_bp);
     `endif
 
     // cosim advances only if rtl retires an instruction
@@ -613,6 +583,7 @@ endtask
 always #(`CLK_HALF_PERIOD) clk = ~clk;
 always @(posedge clk) clk_cnt += 1;
 
+// TODO: pipelining things from core, needs to be moved out to view or something
 // 3 clk delay between CSR access and inst ret
 `DFF_CI_RI_RVI(
     {`CSR.csr.mtime, mtime_d[0], mtime_d[1]},
@@ -678,14 +649,14 @@ initial begin
 end
 
 // perf counters
-assign events_gen = `CORE.perf_event;
+assign pe_gen = `CORE.perf_event;
 always_ff @(posedge clk) begin
-    tda.bad_spec += events_gen.bad_spec;
-    tda.fe_ic += events_gen.fe_ic;
-    tda.be_dc += events_gen.be_dc;
-    tda.fe += events_gen.fe;
-    tda.be += events_gen.be;
-    tda.ret_simd += events_gen.ret_simd;
+    tda.bad_spec += pe_gen.bad_spec;
+    tda.fe_ic += pe_gen.fe_ic;
+    tda.be_dc += pe_gen.be_dc;
+    tda.fe += pe_gen.fe;
+    tda.be += pe_gen.be;
+    tda.ret_simd += pe_gen.ret_simd;
     tda.cycles += 1;
 end
 
@@ -694,7 +665,7 @@ assign tohost_source = `CSR.csr.tohost[0];
 initial begin
     `LOGNT("");
     get_plusargs();
-    core_stats_all = new(core_cnt_all);
+    core_stats::reset(core_cnt_main);
 
     `LOG_I("Simulation started");
 
@@ -770,13 +741,15 @@ initial begin
     `LOGNT("=== UART END ===");
 
     check_test_status(1'b1);
+
     `ifdef ENABLE_COSIM
     if (args.cosim_chk_en) cosim_check_inst_cnt();
     cosim_finish();
-    `endif
-    `LOGNT(core_stats_all.get(core_cnt_all));
+    $display("");
+    if (args.cosim_en) $finish(); // using cosim stats for this run
 
-    // if (args.cosim_en) $finish(); // using cosim stats for this run
+    `else
+    `LOGNT(core_stats::get(core_cnt_main));
 
     // TODO: these really need to be consolidated like core core_stats
     tda.be_core = (tda.be - tda.be_dc);
@@ -801,7 +774,7 @@ initial begin
         (bp_stats.hit != 0) ?
             ((bp_stats.hit * 100.0) / bp_stats.aref) : 0.0,
         (bp_stats.miss != 0) ?
-            (bp_stats.miss / (core_stats_all.get_kinst(core_cnt_all))) :0.0
+            (bp_stats.miss / (core_stats::get_kinst(core_cnt_main))) : 0.0
     );
 
     $display(
@@ -809,8 +782,7 @@ initial begin
         ic_stats.aref,
         ic_stats.hit,
         ic_stats.miss,
-        (ic_stats.aref != 0) ?
-                ((ic_stats.hit * 100.0) / ic_stats.aref) : 0.0
+        (ic_stats.aref != 0) ? ((ic_stats.hit * 100.0) / ic_stats.aref) : 0.0
     );
 
     $display(
@@ -819,13 +791,13 @@ initial begin
         dc_stats.hit,
         dc_stats.miss,
         dc_stats.wb,
-        (dc_stats.aref != 0) ?
-            ((dc_stats.hit * 100.0) / dc_stats.aref) : 0.0
+        (dc_stats.aref != 0) ? ((dc_stats.hit * 100.0) / dc_stats.aref) : 0.0
     );
 
     $display("");
 
     $finish();
+    `endif
 end // test
 
 endmodule
