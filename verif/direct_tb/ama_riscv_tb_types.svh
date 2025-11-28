@@ -80,6 +80,15 @@ typedef struct {
 } hw_counters_t;
 
 typedef struct {
+    byte bad_spec = 'h0;
+    byte fe = 'h0;
+    byte fe_ic = 'h0;
+    byte be = 'h0;
+    byte be_dc = 'h0;
+    byte ret_simd = 'h0;
+} core_events_t;
+
+typedef struct {
     int unsigned cycles;
     int unsigned bad_spec;
     int unsigned be;
@@ -91,7 +100,7 @@ typedef struct {
     int unsigned ret_simd;
     int unsigned ret_int;
     int unsigned ret;
-} perf_event_cnt_t;
+} core_events_counters_t;
 
 // views
 typedef struct packed {

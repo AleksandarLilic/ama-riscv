@@ -2,6 +2,8 @@
 
 #include "defines.h"
 #include "hw_model_types.h"
+
+#include "core_stats.h"
 #include "cache_stats.h"
 #include "bp_stats.h"
 
@@ -12,13 +14,15 @@ class cosim_stats {
         cache_stats_t icache_stats;
         cache_stats_t dcache_stats;
         bp_stats_t bp_stats;
+        core_stats_t core_stats;
 
     public:
         cosim_stats() : bp_stats("rtl_defines") {};
         void profiling(bool enable);
+        void log_core_event(const core_events_t* ev);
         void log_icache_event(const hw_events_t* ev);
         void log_dcache_event(const hw_events_t* ev);
         void log_bp_event(const hw_events_t* ev);
-        void show(uint64_t total_insts);
+        void show();
         void log_hw_stats(std::string out_dir);
 };

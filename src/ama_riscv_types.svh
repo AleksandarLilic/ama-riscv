@@ -57,9 +57,9 @@ parameter unsigned CACHE_TO_MEM_OFFSET = $clog2(MEM_DATA_BUS_B); // 4 bits less 
 parameter unsigned MEM_ADDR_BUS = CORE_BYTE_ADDR_BUS - CACHE_TO_MEM_OFFSET; // 16 - 4 = 12
 
 parameter unsigned ICACHE_SETS = 4;
-parameter unsigned ICACHE_WAYS = 2;
+parameter unsigned ICACHE_WAYS = 4;
 parameter unsigned DCACHE_SETS = 8;
-parameter unsigned DCACHE_WAYS = 2;
+parameter unsigned DCACHE_WAYS = 4;
 
 // Core enums
 typedef enum logic [6:0] {

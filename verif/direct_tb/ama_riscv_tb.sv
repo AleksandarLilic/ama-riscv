@@ -53,10 +53,10 @@ import "DPI-C" function void cosim_add_te(
 );
 
 import "DPI-C" function void cosim_log_stats(
+    core_events_t core,
     hw_events_t icache,
     hw_events_t dcache,
     hw_events_t bp
-    // TODO: core events
 );
 
 `endif // ENABLE_COSIM
@@ -87,8 +87,8 @@ cosim_str_t cosim_str;
 
 // perf
 hw_counters_t ic_stats, dc_stats, bp_stats;
-perf_event_t pe_gen;
-perf_event_cnt_t tda;
+core_events_t core_events;
+core_events_counters_t tda;
 
 // works without probing core internally, needed for GLS
 core_counters_t core_cnt_main;
@@ -280,9 +280,11 @@ function void cosim_check_inst_cnt;
     int unsigned cosim_i, core_i;
     cosim_i = cosim_get_inst_cnt();
     core_i = core_stats::get_inst_cnt(core_cnt_main);
-    `LOGNT($sformatf("Cosim instruction count: %0d", cosim_i));
-    `LOGNT($sformatf("DUT instruction count: %0d", core_i));
-    if (cosim_i != core_i) `LOGNT($sformatf("Instruction count mismatch"));
+    if (cosim_i != core_i) begin
+        `LOGNT($sformatf("Instruction count mismatch"));
+        `LOGNT($sformatf("Cosim instruction count: %0d", cosim_i));
+        `LOGNT($sformatf("DUT instruction count: %0d", core_i));
+    end
 endfunction
 `endif
 
@@ -525,7 +527,7 @@ task automatic single_step();
     `ifdef ENABLE_COSIM
     // don't count time in reset
     add_trace_entry((clk_cnt - `RST_PULSES), e_ic.hm, e_dc.hm, e_bp.hm);
-    cosim_log_stats(e_ic, e_dc, e_bp);
+    cosim_log_stats(core_events, e_ic, e_dc, e_bp);
     `endif
 
     // cosim advances only if rtl retires an instruction
@@ -649,14 +651,22 @@ initial begin
 end
 
 // perf counters
-assign pe_gen = `CORE.perf_event;
+always_comb begin
+    core_events.bad_spec = `CORE.perf_event.bad_spec;
+    core_events.fe = `CORE.perf_event.fe;
+    core_events.fe_ic = `CORE.perf_event.fe_ic;
+    core_events.be = `CORE.perf_event.be;
+    core_events.be_dc = `CORE.perf_event.be_dc;
+    core_events.ret_simd = `CORE.perf_event.ret_simd;
+end
+
 always_ff @(posedge clk) begin
-    tda.bad_spec += pe_gen.bad_spec;
-    tda.fe_ic += pe_gen.fe_ic;
-    tda.be_dc += pe_gen.be_dc;
-    tda.fe += pe_gen.fe;
-    tda.be += pe_gen.be;
-    tda.ret_simd += pe_gen.ret_simd;
+    tda.bad_spec += core_events.bad_spec;
+    tda.fe_ic += core_events.fe_ic;
+    tda.be_dc += core_events.be_dc;
+    tda.fe += core_events.fe;
+    tda.be += core_events.be;
+    tda.ret_simd += core_events.ret_simd;
     tda.cycles += 1;
 end
 
@@ -745,10 +755,14 @@ initial begin
     `ifdef ENABLE_COSIM
     if (args.cosim_chk_en) cosim_check_inst_cnt();
     cosim_finish();
+    `endif
+
     $display("");
     if (args.cosim_en) $finish(); // using cosim stats for this run
 
-    `else
+    `LOGNT($sformatf(
+        "DUT instruction count: %0d", core_stats::get_inst_cnt(core_cnt_main)
+    ));
     `LOGNT(core_stats::get(core_cnt_main));
 
     // TODO: these really need to be consolidated like core core_stats
@@ -794,10 +808,8 @@ initial begin
         (dc_stats.aref != 0) ? ((dc_stats.hit * 100.0) / dc_stats.aref) : 0.0
     );
 
-    $display("");
-
     $finish();
-    `endif
+
 end // test
 
 endmodule

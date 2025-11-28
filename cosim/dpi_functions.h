@@ -94,6 +94,16 @@ DPI_LINKER_DECL DPI_DLLESPEC
 	char ct_dmem_mem_w);
 
 typedef struct {
+	char bad_spec;
+	char fe;
+	char fe_ic;
+	char be;
+	char be_dc;
+	char ret_simd;
+} core_events_t;
+
+
+typedef struct {
 	char aref;
 	char hit;
 	char miss;
@@ -108,6 +118,7 @@ typedef struct {
 /* Imported (by SV) function */
 DPI_LINKER_DECL DPI_DLLESPEC 
  void cosim_log_stats(
+	const core_events_t* core ,
 	const hw_events_t* icache ,
 	const hw_events_t* dcache ,
 	const hw_events_t* bp);

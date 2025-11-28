@@ -73,9 +73,8 @@ uint32_t cosim_get_inst_cnt() {
 DPI_LINKER_DECL DPI_DLLESPEC
 void cosim_finish() {
     rv32->finish(false);
-    stats.show(0ull); // TODO once core is also profiled, put profiled inst cnt
+    stats.show();
     stats.log_hw_stats(out_dir);
-    // TODO: print cycles execulted & profiled with core stats, and TDA
 }
 
 DPI_LINKER_DECL DPI_DLLESPEC
@@ -121,10 +120,12 @@ void cosim_add_te(
 
 DPI_LINKER_DECL DPI_DLLESPEC
 void cosim_log_stats(
+    const core_events_t* core,
     const hw_events_t* icache,
     const hw_events_t* dcache,
     const hw_events_t* bp)
 {
+    stats.log_core_event(core);
     stats.log_icache_event(icache);
     stats.log_dcache_event(dcache);
     stats.log_bp_event(bp);

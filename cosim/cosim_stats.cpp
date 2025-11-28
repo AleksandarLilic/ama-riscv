@@ -7,12 +7,16 @@ void cosim_stats::profiling(bool enable) {
     bp_stats.profiling(enable);
 }
 
-void cosim_stats::show(uint64_t total_insts) {
-    // TODO: new core uarch class
+void cosim_stats::show() {
+    std::cout << "Stats Summary\n";
+    std::cout << "core";
+    std::cout << "\n" << INDENT;
+    core_stats.show();
+    std::cout << "\n";
 
     std::cout << "bpred";
     std::cout << "\n" << INDENT;
-    bp_stats.summarize(total_insts);
+    bp_stats.summarize(core_stats.get_total_insts());
     bp_stats.show();
     std::cout << "\n";
 
@@ -24,7 +28,11 @@ void cosim_stats::show(uint64_t total_insts) {
     std::cout << "dcache";
     std::cout << "\n" << INDENT;
     dcache_stats.show(cache_type_t::data);
-    std::cout << "\n";
+    std::cout << "\n\n";
+}
+
+void cosim_stats::log_core_event(const core_events_t* ev) {
+    core_stats.add_events(ev);
 }
 
 void cosim_stats::log_icache_event(const hw_events_t* ev) {
@@ -59,13 +67,17 @@ void cosim_stats::log_hw_stats(std::string out_dir) {
     ofs.open(out_dir + "hw_stats.json");
     ofs << "{\n";
 
+    ofs << "\"" << "core" << "\"" << ": [";
+    core_stats.log(ofs);
+    ofs << "\n],\n";
+
     ofs << "\"" << "icache" << "\"" << ": {";
     icache_stats.log(ofs);
-    ofs << "\n}," << std::endl;
+    ofs << "\n},\n";
 
     ofs << "\"" << "dcache" << "\"" << ": {";
     dcache_stats.log(ofs);
-    ofs << "\n}," << std::endl;
+    ofs << "\n},\n";
 
     ofs << "\"" << "bpred" << "\"" << ": {";
     bp_stats.log(ofs);
