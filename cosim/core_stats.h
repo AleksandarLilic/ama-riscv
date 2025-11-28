@@ -55,6 +55,8 @@ struct core_stats_t {
             stalls = (bad_spec + be + fe);
             ret = (cycles - stalls);
             ret_int = (ret - ret_simd);
+            fe_core = (fe - fe_ic);
+            be_core = (be - be_dc);
             if ((cycles > 0) && (ret > 0)) {
                 ipc = (TO_F32(ret) / TO_F32(cycles));
                 cpi = (1/ipc);
