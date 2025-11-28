@@ -2,6 +2,7 @@
 #include "cosim_stats.h"
 
 void cosim_stats::profiling(bool enable) {
+    core_stats.profiling(enable);
     icache_stats.profiling(enable);
     dcache_stats.profiling(enable);
     bp_stats.profiling(enable);

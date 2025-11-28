@@ -61,7 +61,9 @@ struct core_stats_t {
             }
         };
     public:
+        void profiling(bool enable) { prof_active = enable; }
         void add_events(const core_events_t* ev) {
+            if (!prof_active) return;
             bad_spec += ev->bad_spec;
             fe += ev->fe;
             fe_ic += ev->fe_ic;
