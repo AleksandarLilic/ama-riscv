@@ -21,6 +21,13 @@
         ["sim/sw/baremetal/rv32i_zihpm", "basic.hex"]
     ],
 
+    "dcache": [
+        ["sim/sw/baremetal/dcache_set_thrashing", "basic.hex"],
+        ["sim/sw/baremetal/dcache_peak", "load.hex"],
+        ["sim/sw/baremetal/dcache_peak", "store.hex"],
+        ["sim/sw/baremetal/dcache_peak", "mixed.hex"]
+    ],
+
     "vector": [
         ["sim/sw/baremetal/vector_ew_basic", "add*.hex"],
         ["sim/sw/baremetal/vector_ew_basic", "sub*.hex"],
@@ -30,7 +37,12 @@
 
     "dot_product": [
         ["sim/sw/baremetal/dot_product", "int16.hex"],
-        ["sim/sw/baremetal/dot_product", "int8.hex"]
+        ["sim/sw/baremetal/dot_product", "int8.hex"],
+        ["sim/sw/baremetal/dot_product", "int16_int8.hex"],
+        ["sim/sw/baremetal/dot_product", "int16_int4.hex"],
+        ["sim/sw/baremetal/dot_product", "int8_int4.hex"],
+        ["sim/sw/baremetal/dot_product", "int8_int2.hex"],
+        ["sim/sw/baremetal/dot_product_peak", "int8.hex"]
     ],
 
     "uart": [
