@@ -93,6 +93,21 @@
         ["sim/sw/baremetal/embench/wikisort/", "bench.hex"]
     ],
 
+    "ustress": [
+        ["sim/sw/baremetal/ustress/branch_direct", "workload.hex"],
+        ["sim/sw/baremetal/ustress/branch_indirect", "workload.hex"],
+        ["sim/sw/baremetal/ustress/call_return", "workload.hex"],
+        ["sim/sw/baremetal/ustress/l1d_cache", "workload.hex"],
+        ["sim/sw/baremetal/ustress/l1i_cache", "workload.hex"],
+        ["sim/sw/baremetal/ustress/load_after_store", "workload.hex"],
+        ["sim/sw/baremetal/ustress/mac32", "workload.hex"],
+        ["sim/sw/baremetal/ustress/mac64", "workload.hex"],
+        ["sim/sw/baremetal/ustress/memcpy", "workload.hex"],
+        ["sim/sw/baremetal/ustress/mul32", "workload.hex"],
+        ["sim/sw/baremetal/ustress/mul64", "workload.hex"],
+        ["sim/sw/baremetal/ustress/store_buffer_full", "workload.hex"]
+    ],
+
     "aapg": [
         ["sim/sw/baremetal/aapg_static/rv32i", "aapg.hex"],
         ["sim/sw/baremetal/aapg_static/rv32i_zmmul", "aapg.hex"],
