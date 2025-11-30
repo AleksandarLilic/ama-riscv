@@ -50,6 +50,7 @@ struct core_stats_t {
         float_t cpi = -1.0;
         float_t ipc = -1.0;
         bool prof_active = false;
+        uint64_t cycles_all;
     private:
         void summarize() {
             stalls = (bad_spec + be + fe);
@@ -65,6 +66,7 @@ struct core_stats_t {
     public:
         void profiling(bool enable) { prof_active = enable; }
         void add_events(const core_events_t* ev) {
+            cycles_all++;
             if (!prof_active) return;
             bad_spec += ev->bad_spec;
             fe += ev->fe;
@@ -82,12 +84,13 @@ struct core_stats_t {
                       << std::fixed << std::setprecision(3)
                       << ", CPI: " <<  cpi
                       << " (IPC: " <<  ipc << ")"
-                      << "\n" << INDENT << "TDA\n" << INDENT << INDENT << "L1: "
+                      << "\n" << INDENT << "TDA:\n"
+                      << INDENT << INDENT << "L1: "
                       << "Bad Spec: " <<  bad_spec
                       << ", FE: " <<  fe
                       << ", BE: " <<  be
-                      << ", Retired: " <<  ret
-                      << "\n" << INDENT << INDENT << "L2: "
+                      << ", Retired: " <<  ret << "\n"
+                      << INDENT << INDENT << "L2: "
                       << "FE Mem: " <<  fe_ic
                       << ", FE Core: " << fe_core
                       << ", BE Mem: " <<  be_dc
@@ -100,5 +103,8 @@ struct core_stats_t {
         }
         uint64_t get_total_insts() const {
             return ret;
+        }
+        uint64_t get_cycles_all() const {
+            return cycles_all;
         }
 };
