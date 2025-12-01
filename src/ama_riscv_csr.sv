@@ -27,7 +27,6 @@ localparam unsigned MHPMEVENT_MASK_BITS = $clog2(MHPMEVENTS + MHPM_OFFSET);
 
 function automatic logic get_event(
     input perf_event_t pe, input logic [MHPMEVENTS-1:0] mhpmevent);
-    get_event = 1'b0;
     case (mhpmevent)
         MHPMEVENT_BAD_SPEC: get_event = pe.bad_spec;
         MHPMEVENT_BE: get_event = pe.be;
@@ -35,6 +34,7 @@ function automatic logic get_event(
         MHPMEVENT_FE: get_event = pe.fe;
         MHPMEVENT_FE_IC: get_event = pe.fe_ic;
         MHPMEVENT_RET_SIMD: get_event = pe.ret_simd;
+        default: get_event = 1'b0;
     endcase
 endfunction
 
@@ -94,11 +94,11 @@ end
 
 // csr write
 always_comb begin
-    wr_data = 'h0;
     case (ctrl.op)
         CSR_OP_RW: wr_data = wr_data_src;
         CSR_OP_RS: wr_data = out | wr_data_src;
         CSR_OP_RC: wr_data = out & ~wr_data_src;
+        default: wr_data = 'h0;
     endcase
 end
 

@@ -43,7 +43,6 @@ logic bp_hit;
 `endif
 
 always_comb begin
-    pc_mux_out = pc.fet;
     unique case (fe_ctrl.pc_sel)
         PC_SEL_PC: pc_mux_out = pc.fet;
         PC_SEL_INC4: pc_mux_out = pc_inc4;
@@ -51,6 +50,7 @@ always_comb begin
         `ifdef USE_BP
         PC_SEL_BP: pc_mux_out = bp_pc;
         `endif
+        default: pc_mux_out = pc.fet;
     endcase
 end
 assign imem_req.data = pc_mux_out[15:2];
@@ -280,22 +280,22 @@ ama_riscv_operand_forwarding ama_riscv_operand_forwarding_i (
 arch_width_t rs1_dec_be_fwd, rs2_dec_be_fwd;
 
 always_comb begin
-    rs1_dec_be_fwd = 'h0;
     unique case (fwd_be_rs1_dec)
         //FWD_BE_EWB: rs1_dec_be_fwd = e_writeback_mem;
         FWD_BE_WB: rs1_dec_be_fwd = writeback;
         //FWD_BE_EWB_P: rs1_dec_be_fwd = unpk_out_p_mem;
         FWD_BE_WB_P: rs1_dec_be_fwd = unpk_out_p_wbk;
+        default: rs1_dec_be_fwd = 'h0;
     endcase
 end
 
 always_comb begin
-    rs2_dec_be_fwd = 'h0;
     unique case (fwd_be_rs2_dec)
         //FWD_BE_EWB: rs2_dec_be_fwd = e_writeback_mem;
         FWD_BE_WB: rs2_dec_be_fwd = writeback;
         //FWD_BE_EWB_P: rs2_dec_be_fwd = unpk_out_p_mem;
         FWD_BE_WB_P: rs2_dec_be_fwd = unpk_out_p_wbk;
+        default: rs2_dec_be_fwd = 'h0;
     endcase
 end
 
@@ -406,20 +406,20 @@ end
 // ALU
 arch_width_t alu_in_a, alu_in_b;
 always_comb begin
-    alu_in_a = 'h0;
     unique case (alu_a_sel_fwd)
         ALU_A_SEL_RS1: alu_in_a = use_swb_rs1 ? swb_rs1 : rs1_data_exe;
         ALU_A_SEL_PC: alu_in_a = pc.exe;
         ALU_A_SEL_FWD: alu_in_a = rs1_exe_be_fwd;
+        default: alu_in_a = 'h0;
     endcase
 end
 
 always_comb begin
-    alu_in_b = 'h0;
     unique case (alu_b_sel_fwd)
         ALU_B_SEL_RS2: alu_in_b = use_swb_rs2 ? swb_rs2 : rs2_data_exe;
         ALU_B_SEL_IMM: alu_in_b = imm_gen_out_exe;
         ALU_B_SEL_FWD: alu_in_b = rs2_exe_be_fwd;
+        default: alu_in_b = 'h0;
     endcase
 end
 
@@ -570,11 +570,11 @@ assign ctrl_mem_wbk = '{
 //------------------------------------------------------------------------------
 // WBK stage
 always_comb begin
-    writeback = 'h0;
     unique case (wb_sel.wbk)
         WB_SEL_EWB: writeback = e_writeback_wbk;
         WB_SEL_DMEM: writeback = dmem_out_wbk;
         WB_SEL_SIMD: writeback = simd_out_wbk;
+        default: writeback = 'h0;
     endcase
 end
 

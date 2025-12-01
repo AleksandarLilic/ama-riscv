@@ -50,7 +50,6 @@ assign sll_res = (a << shamt);
 
 // outputs
 always_comb begin
-    s = 'h0; // invalid operation
     unique case (op)
         // add, sub, compares
         ALU_OP_ADD,
@@ -66,6 +65,7 @@ always_comb begin
         ALU_OP_OR: s = a | b;
         ALU_OP_AND: s = a & b;
         ALU_OP_PASS_B: s = b;
+        default: s = 'h0;
     endcase
 end
 

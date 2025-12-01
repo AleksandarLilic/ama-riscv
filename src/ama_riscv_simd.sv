@@ -141,12 +141,13 @@ simd_d_t [1:0] o_tree_f;
 csa_tree_8 #(.W(64)) csa_tree_8_f_i (.a (i_tree_f_d), .o(o_tree_f));
 
 simd_d_t tree_sum;
-assign tree_sum = o_tree_f[0] + o_tree_f[1];
+assign tree_sum = (o_tree_f[0] + o_tree_f[1]);
 
 // wrap up multiplication
+logic mul_s_cout;
 simd_d_t mul_u, mul_s;
 assign mul_u = tree_sum;
-assign mul_s = tree_sum + corr_d;
+assign {mul_s_cout, mul_s} = (tree_sum + corr_d);
 
 simd_t mul_su;
 assign mul_su = b_sign_bit_d ? (mul_s.w[1] + a_d) : mul_s.w[1];
@@ -161,7 +162,6 @@ localparam unsigned DOT8_SIGN = ARCH_WIDTH - DOT8_W; // sign pad, 15 bits
 
 // output assignment based on the operation
 always_comb begin
-    p = 'h0;
     unique case (op_d)
         MULT_OP_MUL: p = mul_s[ARCH_WIDTH-1:0];
         MULT_OP_MULH: p = mul_s[ARCH_WIDTH_D-1:ARCH_WIDTH];
@@ -169,6 +169,7 @@ always_comb begin
         MULT_OP_MULHU: p = mul_u[ARCH_WIDTH_D-1:ARCH_WIDTH];
         MULT_OP_DOT16: p = dot16[ARCH_WIDTH-1:0];
         MULT_OP_DOT8: p = {{DOT8_SIGN{dot8[DOT8_W-1]}}, dot8[DOT8_W-1:0]};
+        default: p = 'h0;
     endcase
 end
 

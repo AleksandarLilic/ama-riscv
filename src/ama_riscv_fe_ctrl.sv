@@ -394,6 +394,8 @@ always_comb begin
             end
         end
 
+        default: ;
+
     endcase
 end
 
