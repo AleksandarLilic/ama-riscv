@@ -134,11 +134,6 @@ assign rs1_addr_dec = get_rs1(inst.dec, decoded.has_reg.rs1);
 assign rs2_addr_dec = get_rs2(inst.dec, decoded.has_reg.rs2);
 assign rd_addr.dec = get_rd(inst.dec, decoded.has_reg.rd);
 
-// imm gen
-logic [24:0] imm_gen_in;
-arch_width_t imm_gen_out_dec;
-assign imm_gen_in = inst.dec[31:7];
-
 ama_riscv_reg_file ama_riscv_reg_file_i(
     .clk (clk),
     // inputs
@@ -154,19 +149,23 @@ ama_riscv_reg_file ama_riscv_reg_file_i(
     .data_b (rs2_data_dec)
 );
 
+// imm gen
+arch_width_t imm_gen_out_dec;
+`ifdef USE_BP
+arch_width_t imm_b;
+`endif
 ama_riscv_imm_gen ama_riscv_imm_gen_i(
-    .clk (clk),
-    .rst (rst),
-    // inputs
-    .sel_in (decoded.ig_sel),
-    .d_in (imm_gen_in),
-    // outputs
-    .d_out (imm_gen_out_dec)
+    .sel (decoded.ig_sel),
+    .in (inst.dec[31:7]),
+    `ifdef USE_BP
+    .out_b (imm_b),
+    `endif
+    .out (imm_gen_out_dec)
 );
 
 `ifdef USE_BP
-// all predictors use imm_gen right away, no BTB
-assign bp_pc = decoded.itype.branch ? (pc.dec + imm_gen_out_dec) : 'h0;
+// all predictors use imm_b right away, no BTB
+assign bp_pc = decoded.itype.branch ? (pc.dec + imm_b) : 'h0;
 
 if (BP_TYPE == BP_STATIC) begin: gen_bp_sttc
 
