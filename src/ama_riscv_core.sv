@@ -73,10 +73,10 @@ always_comb begin
         inst.dec = inst_dec_d;
         pc.dec = pc_dec_d;
     end else begin
+        pc.dec = pc.fet;
         // even if be in stall, take inst if imem_rsp.valid
         // happens when i$ missed before be stalled
-        inst.dec = imem_rsp.data;
-        pc.dec = pc.fet;
+        inst.dec = imem_rsp.valid ? imem_rsp.data : 'h0;
     end
 end
 

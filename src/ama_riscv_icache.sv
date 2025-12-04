@@ -287,10 +287,27 @@ assign hit_d_load = (hit_d && new_core_req_d);
 logic [IDX_RANGE_TOP-1:0] set_idx;
 logic [WAY_BITS-1:0] way_idx;
 logic [15:0] word_idx;
+
+always_comb begin
+    set_idx = 'h0;
+    word_idx = 'h0;
+    way_idx = 'h0;
+    if (serve_pending_load) begin
+        set_idx = get_idx(cr_pend.cr.addr);
+        word_idx = get_cl_word(cr_pend.cr.addr);
+        way_idx = cr_pend.cr.way_idx;
+    end else if (hit_d_load) begin
+        set_idx = get_idx(cr_d.addr);
+        word_idx = get_cl_word(cr_d.addr);
+        way_idx = cr_d.way_idx;
+    end
+    rsp_core.data = a_data[way_idx][set_idx].w[word_idx];
+    // `LOG_D($sformatf("icache data out: %8h", rsp_core.data));
+end
+
 // outputs
 always_comb begin
     // to/from core
-    rsp_core.data = 'h0;
     rsp_core.valid = 1'b0;
     req_core.ready = 1'b0;
     // to/from mem
@@ -300,9 +317,6 @@ always_comb begin
     // others
     save_pending = 1'b0;
     clear_pending = 1'b0;
-    set_idx = 'h0;
-    word_idx = 'h0;
-    way_idx = 'h0;
 
     case (state)
         IC_RESET: begin
@@ -317,18 +331,12 @@ always_comb begin
             if (serve_pending_load) begin
                 // service the pending request after miss
                 rsp_core.valid = 1'b1;
-                set_idx = get_idx(cr_pend.cr.addr);
-                word_idx = get_cl_word(cr_pend.cr.addr);
-                way_idx = cr_pend.cr.way_idx;
                 clear_pending = 1'b1;
                 // `LOG_D($sformatf("icache OUT complete pending request; cache at word %0d; core at byte 0x%5h; with output %8h", get_cl_word(cr_pend.cr.addr), cr_d.addr<<2, rsp_core.data));
 
             end else if (new_core_req_d) begin
                 if (hit_d) begin
                     rsp_core.valid = 1'b1;
-                    set_idx = get_idx(cr_d.addr);
-                    word_idx = get_cl_word(cr_d.addr);
-                    way_idx = cr_d.way_idx;
                     // `LOG_D($sformatf("icache OUT hit; cache at word %0d; core at byte 0x%5h; with output %8h", get_idx(cr_d.addr), cr_d.addr<<2, rsp_core.data));
 
                 end else if (!spec.wrong) begin
@@ -342,11 +350,6 @@ always_comb begin
                     save_pending = 1'b1;
                     // `LOG_D($sformatf("icache OUT H->M transition; core at byte 0x%5h; mem_start_addr_d: %0d 0x%5h", cr_d.addr<<2, mem_start_addr_d, mem_start_addr_d));
                 end
-            end
-
-            if (serve_pending_load || hit_d_load) begin
-                rsp_core.data = a_data[way_idx][set_idx].w[word_idx];
-                // `LOG_D($sformatf("dcache data out: %8h", rsp_core.data));
             end
         end
 
