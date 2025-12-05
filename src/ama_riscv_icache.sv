@@ -16,6 +16,9 @@ module ama_riscv_icache #(
     rv_if.RX rsp_mem
 );
 
+//------------------------------------------------------------------------------
+// setup
+
 // validate parameters
 if (SETS < 1) begin: check_sets_size_min
     $error("icache SETS < 1 - must be at least 1");
@@ -33,6 +36,7 @@ if (WAYS > 32) begin: check_ways_size
     $error("icache WAYS > 32 - currently not supported");
 end
 
+// params and defs
 localparam unsigned IDX_BITS = $clog2(SETS);
 localparam unsigned WAY_BITS = $clog2(WAYS);
 localparam unsigned TAG_W = CORE_BYTE_ADDR_BUS - CACHE_LINE_BYTE_ADDR -IDX_BITS;
@@ -83,7 +87,10 @@ get_cl_word(input logic [CORE_WORD_ADDR_BUS-1:0] addr);
     get_cl_word = addr[WORD_ADDR-1:0];
 endfunction
 
+//------------------------------------------------------------------------------
 // implementation
+
+logic bank_en [WAYS-1:0];
 logic bank_we [WAYS-1:0];
 logic [BANK_ADDR_BITS-1:0] bank_addr;
 logic [MEM_DATA_BUS-1:0] bank_data [WAYS-1:0];
@@ -97,7 +104,7 @@ generate
         .AW (BANK_ADDR_BITS)
     ) bank_i (
         .clk (clk),
-        .en (1'b1), // TODO: always enabled?
+        .en (bank_en[b]),
         .we ({MEM_DATA_BUS_B{bank_we[b]}}),
         .addr (bank_addr),
         .din (rsp_mem.data),
@@ -121,6 +128,9 @@ logic [WAY_BITS-1:0] way_victim_idx, way_victim_idx_d;
 logic new_core_req, new_core_req_d;
 logic hit, hit_d;
 logic load_req_hit, load_req_pending;
+
+//------------------------------------------------------------------------------
+// lookup and tag matching
 
 if (WAYS == 1) begin: gen_dmap_lookup
 
@@ -199,6 +209,9 @@ end
 
 end // gen_dmap/assoc
 
+//------------------------------------------------------------------------------
+// handling requests
+
 assign new_core_req = (req_core.valid && (req_core.ready || spec_wrong));
 `DFF_CI_RI_RVI(new_core_req, new_core_req_d)
 `DFF_CI_RI_RV_EN(`IC_CR_CLEAR, new_core_req, cr, cr_d)
@@ -237,13 +250,9 @@ assign load_req_hit = (hit && new_core_req);
 assign load_req_pending = (mem_transfer_done_d && cr_pend.active);
 
 logic [TAG_W-1:0] tag_pend;
-logic [IDX_RANGE_TOP-1:0] set_idx_cr_d, set_idx_pend;
+logic [IDX_RANGE_TOP-1:0] set_idx_pend;
 assign tag_pend = (cr_pend.mem_start_addr >> (2 + IDX_BITS));
 assign set_idx_pend = get_idx(cr_pend.cr.addr);
-assign set_idx_cr_d = get_idx(cr_d.addr);
-
-logic [BANK_ADDR_BITS-1:0] bank_addr_store, bank_addr_load;
-assign bank_addr_store = {set_idx_pend, mem_miss_cnt_d};
 
 logic [IDX_RANGE_TOP-1:0] set_idx;
 logic [WAY_BITS-1:0] way_idx, way_idx_d;
@@ -258,8 +267,34 @@ always_comb begin
     end
 end
 
+//------------------------------------------------------------------------------
+// addressing banks
+
+logic [BANK_ADDR_BITS-1:0] bank_addr_store, bank_addr_load;
+always_comb begin
+    set_idx = 'h0;
+    word_idx = 'h0;
+    way_idx = 'h0;
+    if (cr_pend.active && !clear_pending) begin
+        set_idx = get_idx(cr_pend.cr.addr);
+        word_idx = get_cl_word(cr_pend.cr.addr);
+        way_idx = cr_pend.cr.way_idx;
+    end else if (new_core_req && hit) begin
+        set_idx = get_idx(cr.addr);
+        word_idx = get_cl_word(cr.addr);
+        way_idx = cr.way_idx;
+    end
+    bank_addr_load = {set_idx, word_idx[3:2]};
+    `IT_P(w, WAYS) bank_en[w] = (w == way_idx);
+end
+
+assign bank_addr_store = {set_idx_pend, mem_miss_cnt_d};
 assign bank_addr = mem_to_cache_wr ? bank_addr_store : bank_addr_load;
 
+`DFF_CI_RI_RVI(way_idx, way_idx_d)
+`DFF_CI_RI_RVI(word_idx, word_idx_d)
+
+// tag and valid updates
 always_ff @(posedge clk) begin
     if (rst) begin
         `IT_P(w, WAYS) begin
@@ -278,6 +313,7 @@ always_ff @(posedge clk) begin
     end
 end
 
+//------------------------------------------------------------------------------
 // state transition
 `DFF_CI_RI_RV(IC_RESET, nx_state, state)
 
@@ -302,28 +338,10 @@ always_comb begin
     endcase
 end
 
-always_comb begin
-    set_idx = 'h0;
-    word_idx = 'h0;
-    way_idx = 'h0;
-    if (cr_pend.active && !clear_pending) begin
-        set_idx = get_idx(cr_pend.cr.addr);
-        word_idx = get_cl_word(cr_pend.cr.addr);
-        way_idx = cr_pend.cr.way_idx;
-    end else if (new_core_req && hit) begin
-        set_idx = get_idx(cr.addr);
-        word_idx = get_cl_word(cr.addr);
-        way_idx = cr.way_idx;
-    end
-    bank_addr_load = {set_idx, word_idx[3:2]};
-end
-
-`DFF_CI_RI_RVI(way_idx, way_idx_d)
-`DFF_CI_RI_RVI(word_idx, word_idx_d)
-
-assign rsp_core.data = bank_data[way_idx_d][(word_idx_d[1:0])*32 +: 32];
-
 // outputs
+assign rsp_core.data =
+    bank_data[way_idx_d][(word_idx_d[1:0])*INST_WIDTH +: INST_WIDTH];
+
 always_comb begin
     // to/from core
     rsp_core.valid = 1'b0;
@@ -384,6 +402,8 @@ always_comb begin
     endcase
 end
 
+//------------------------------------------------------------------------------
+// debug views
 `ifndef SYNT
 `ifdef DEBUG
 
