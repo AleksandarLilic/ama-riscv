@@ -109,7 +109,7 @@ always_ff @(posedge clk) begin
     if (rst) begin
         csr.tohost <= 'h0;
         csr.mscratch <= 'h0;
-        `IT2(MHPM_OFFSET, (MHPMCOUNTERS + MHPM_OFFSET)) begin
+        `IT_I(MHPM_OFFSET, (MHPMCOUNTERS + MHPM_OFFSET)) begin
             mhpmevent[i] <= MHPMEVENT_NONE;
         end
     end else if (ctrl.we) begin
@@ -196,7 +196,7 @@ assign am_h = {
 logic [1:0] am_mhpmcounter[`RANGE_C];
 genvar i;
 generate
-    `IT2_NT(MHPM_OFFSET, (MHPMCOUNTERS + MHPM_OFFSET)) begin: gen_mhpm_write
+    `IT_I_NT(MHPM_OFFSET, (MHPMCOUNTERS + MHPM_OFFSET)) begin: gen_mhpm_write
         assign am_mhpmcounter[i] = {(addr == am_h[i]), (addr == am_l[i])};
         always_ff @(posedge clk) begin
             if (rst) begin

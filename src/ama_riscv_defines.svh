@@ -37,11 +37,16 @@
 // `define IMEM_DELAY_CLK 1
 // `endif
 
+// IT - ITerator
+// _NT - No Type specified (e.g. for genvars)
+// _I - with provided Initial value (when not starting from 0)
+// _P - with Parametrized index name (for nested loops, or specific index name)
 `define IT(limit) for (int i = 0; i < limit; i++)
 `define IT_NT(limit) for (i = 0; i < limit; i++)
-`define IT2(init, limit) for (int i = init; i < limit; i++)
-`define IT2_NT(init, limit) for (i = init; i < limit; i++)
+`define IT_I(init, limit) for (int i = init; i < limit; i++)
+`define IT_I_NT(init, limit) for (i = init; i < limit; i++)
 `define IT_P(p, limit) for (int p = 0; p < limit; p++)
+`define IT_P_NT(p, limit) for (p = 0; p < limit; p++)
 
 `define FE_CTRL_RST_VAL \
     '{ \

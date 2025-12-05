@@ -10,7 +10,7 @@ module ama_riscv_core #(
     rv_if_dc.TX  dmem_req,
     rv_if.RX     dmem_rsp,
     uart_if.TX   uart_ch,
-    output spec_exec_t spec,
+    output logic spec_wrong,
     output logic inst_retired
 );
 
@@ -92,6 +92,7 @@ ama_riscv_decoder ama_riscv_decoder_i (
 logic dc_stalled;
 branch_t branch_resolution;
 hazard_t hazard;
+spec_exec_t spec;
 ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     .clk (clk),
     .rst (rst),
@@ -119,6 +120,8 @@ ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     .spec (spec), // tied to 0 when BP is not used
     .fe_ctrl (fe_ctrl)
 );
+
+assign spec_wrong = spec.wrong; // module output
 
 arch_width_t e_writeback_mem, unpk_out_p_mem; // from MEM stage
 arch_width_t writeback, unpk_out_p_wbk; // from WBK stage

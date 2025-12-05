@@ -9,11 +9,11 @@ module ama_riscv_icache #(
 )(
     input  logic clk,
     input  logic rst,
-    input  spec_exec_t spec,
-    rv_if.RX     req_core,
-    rv_if.TX     rsp_core,
-    rv_if.TX     req_mem,
-    rv_if.RX     rsp_mem
+    input  logic spec_wrong,
+    rv_if.RX req_core,
+    rv_if.TX rsp_core,
+    rv_if.TX req_mem,
+    rv_if.RX rsp_mem
 );
 
 // validate parameters
@@ -37,6 +37,9 @@ localparam unsigned IDX_BITS = $clog2(SETS);
 localparam unsigned WAY_BITS = $clog2(WAYS);
 localparam unsigned TAG_W = CORE_BYTE_ADDR_BUS - CACHE_LINE_BYTE_ADDR -IDX_BITS;
 localparam unsigned IDX_RANGE_TOP = (SETS == 1) ? 1: IDX_BITS;
+localparam unsigned WORD_ADDR = $clog2(CACHE_LINE_SIZE_B / 4); // to 32bit words
+localparam unsigned MEM_MISS_CNT_WIDTH = $clog2(MEM_TRANSFERS_PER_CL);
+localparam unsigned BANK_ADDR_BITS = (IDX_BITS + $clog2(MEM_TRANSFERS_PER_CL));
 
 `define IC_CR_CLEAR '{addr: 'h0, way_idx: 'h0}
 `define IC_CR_PEND_CLEAR '{active: 1'b0, mem_start_addr: 'h0, cr: `IC_CR_CLEAR}
@@ -75,16 +78,40 @@ get_idx(input logic [CORE_WORD_ADDR_BUS-1:0] addr);
     get_idx = (addr >> 4) & (SETS - 1);
 endfunction
 
-function automatic [CORE_WORD_ADDR_BUS-1:0]
+function automatic [WORD_ADDR-1:0]
 get_cl_word(input logic [CORE_WORD_ADDR_BUS-1:0] addr);
-    get_cl_word = addr & 4'hf;
+    get_cl_word = addr[WORD_ADDR-1:0];
 endfunction
 
 // implementation
+logic bank_we [WAYS-1:0];
+logic [BANK_ADDR_BITS-1:0] bank_addr;
+logic [MEM_DATA_BUS-1:0] bank_data [WAYS-1:0];
+
+// mem array
+genvar b;
+generate
+`IT_P_NT(b, WAYS) begin: gen_bank
+    mem #(
+        .DW (MEM_DATA_BUS),
+        .AW (BANK_ADDR_BITS)
+    ) bank_i (
+        .clk (clk),
+        .en (1'b1), // TODO: always enabled?
+        .we ({MEM_DATA_BUS_B{bank_we[b]}}),
+        .addr (bank_addr),
+        .din (rsp_mem.data),
+        .dout (bank_data[b])
+    );
+end
+endgenerate
+
+// tag & valid arrays
 logic a_valid [WAYS-1:0][SETS-1:0];
 logic [TAG_W-1:0] a_tag [WAYS-1:0][SETS-1:0];
-cache_line_data_t a_data [WAYS-1:0][SETS-1:0];
 
+// state, tag matching, lru logic
+icache_state_t state, nx_state;
 core_request_t cr, cr_d;
 core_request_pending_t cr_pend;
 logic tag_match;
@@ -95,7 +122,7 @@ logic new_core_req, new_core_req_d;
 logic hit, hit_d;
 logic load_req_hit, load_req_pending;
 
-if (WAYS == 1) begin: gen_dmap
+if (WAYS == 1) begin: gen_dmap_lookup
 
 // wrap in always_comb to force functions to evaluate first
 always_comb begin
@@ -111,7 +138,7 @@ always_comb begin
     hit = &{tag_match, new_core_req, a_valid[cr.way_idx][set_idx_cr]};
 end
 
-end else begin: gen_assoc
+end else begin: gen_assoc_lookup
 
 logic [WAY_BITS-1:0] a_lru [WAYS-1:0][SETS-1:0];
 localparam unsigned LRU_MAX_CNT = WAYS - 1;
@@ -149,8 +176,7 @@ always_comb begin
 end
 
 logic update_lru;
-assign update_lru = load_req_hit || load_req_pending;
-
+assign update_lru = (load_req_hit || load_req_pending);
 always_ff @(posedge clk) begin
     if (rst) begin
         `IT_P(w, WAYS) begin
@@ -173,17 +199,16 @@ end
 
 end // gen_dmap/assoc
 
-assign new_core_req = (req_core.valid && (req_core.ready || spec.wrong));
+assign new_core_req = (req_core.valid && (req_core.ready || spec_wrong));
 `DFF_CI_RI_RVI(new_core_req, new_core_req_d)
 `DFF_CI_RI_RV_EN(`IC_CR_CLEAR, new_core_req, cr, cr_d)
 `DFF_CI_RI_RVI_EN(new_core_req, hit, hit_d)
 
 // cache line (64B) to mem bus (16B) addressing, from core addr (4B)
 logic [MEM_ADDR_BUS-1:0] mem_start_addr_d; // address aligned to first mem block
-assign mem_start_addr_d = (cr_d.addr >> 2) & ~'b11;
+assign mem_start_addr_d = ((cr_d.addr >> 2) & (~'b11));
 
 logic save_pending, clear_pending;
-icache_state_t state, nx_state;
 always_ff @(posedge clk) begin
     if (rst) begin
         cr_pend <= `IC_CR_PEND_CLEAR;
@@ -193,17 +218,14 @@ always_ff @(posedge clk) begin
             mem_start_addr: mem_start_addr_d,
             cr: '{addr: cr_d.addr, way_idx: way_victim_idx_d}
         };
-        // `LOG_D($sformatf("saving pending request; with core addr byte at 0x%5h", cr.addr<<2));
     end else if (clear_pending) begin
         cr_pend <= `IC_CR_PEND_CLEAR;
     end
 end
 
-localparam unsigned CNT_WIDTH = $clog2(MEM_TRANSFERS_PER_CL);
-logic [CNT_WIDTH-1:0] mem_miss_cnt;
+logic [MEM_MISS_CNT_WIDTH-1:0] mem_miss_cnt, mem_miss_cnt_d;
 `DFF_CI_RI_RVI_CLR_CLRVI_EN(
-    spec.wrong, req_mem.valid, (mem_miss_cnt + 'h1), mem_miss_cnt)
-logic [CNT_WIDTH-1:0] mem_miss_cnt_d;
+    spec_wrong, req_mem.valid, (mem_miss_cnt + 'h1), mem_miss_cnt)
 `DFF_CI_RI_RVI(mem_miss_cnt, mem_miss_cnt_d)
 
 logic mem_transfer_done, mem_transfer_done_d;
@@ -214,14 +236,29 @@ assign mem_transfer_done =
 assign load_req_hit = (hit && new_core_req);
 assign load_req_pending = (mem_transfer_done_d && cr_pend.active);
 
-logic [IDX_RANGE_TOP-1:0] set_idx_pend;
-logic [IDX_RANGE_TOP-1:0] set_idx_cr_d;
-// no need to wrap with always_comb, outputs are used in always_ff only
+logic [TAG_W-1:0] tag_pend;
+logic [IDX_RANGE_TOP-1:0] set_idx_cr_d, set_idx_pend;
+assign tag_pend = (cr_pend.mem_start_addr >> (2 + IDX_BITS));
 assign set_idx_pend = get_idx(cr_pend.cr.addr);
 assign set_idx_cr_d = get_idx(cr_d.addr);
 
-logic [TAG_W-1:0] tag_pend;
-assign tag_pend = (cr_pend.mem_start_addr >> (2 + IDX_BITS));
+logic [BANK_ADDR_BITS-1:0] bank_addr_store, bank_addr_load;
+assign bank_addr_store = {set_idx_pend, mem_miss_cnt_d};
+
+logic [IDX_RANGE_TOP-1:0] set_idx;
+logic [WAY_BITS-1:0] way_idx, way_idx_d;
+logic [WORD_ADDR-1:0] word_idx, word_idx_d;
+
+logic mem_to_cache_wr;
+assign mem_to_cache_wr = (rsp_mem.valid && (state == IC_MISS) && !spec_wrong);
+always_comb begin
+    `IT_P(w, WAYS) begin
+        bank_we[w] = 1'b0;
+        if (mem_to_cache_wr) bank_we[w] = (w == cr_pend.cr.way_idx);
+    end
+end
+
+assign bank_addr = mem_to_cache_wr ? bank_addr_store : bank_addr_load;
 
 always_ff @(posedge clk) begin
     if (rst) begin
@@ -231,19 +268,13 @@ always_ff @(posedge clk) begin
                 a_tag[w][s] <= 'h0;
             end
         end
-    end else if (rsp_mem.valid && (state == IC_MISS)) begin
-        // loading cache line from mem
-        // but may be an already discarded request on wrong speculative miss
-        a_data[cr_pend.cr.way_idx][set_idx_pend].q[mem_miss_cnt_d] <=
-            rsp_mem.data;
+    end else if (mem_to_cache_wr && mem_transfer_done) begin
         // on the last transfer, update valid and tag
-        if (mem_transfer_done) begin
-            a_valid[cr_pend.cr.way_idx][set_idx_pend] <= 1'b1;
-            a_tag[cr_pend.cr.way_idx][set_idx_pend] <= tag_pend;
-        end
-    end else if (new_core_req && !hit) begin // invalidate line right away
+        a_valid[cr_pend.cr.way_idx][set_idx_pend] <= 1'b1;
+        a_tag[cr_pend.cr.way_idx][set_idx_pend] <= tag_pend;
+    end else if (new_core_req && !hit) begin
+        // invalidate line right away
         a_valid[way_victim_idx][set_idx_cr] = 1'b0;
-        //`LOG_D($sformatf("i$ invalidating way %0d, set %0d", way_victim_idx, set_idx_cr));
     end
 end
 
@@ -256,23 +287,14 @@ always_comb begin
     case (state)
         IC_RESET: begin
             nx_state = IC_READY;
-            // `LOG_D($sformatf(">> I$ STATE IC_RESET"));
         end
 
         IC_READY: begin
-            // `LOG_D($sformatf(">> I$ STATE IC_READY"));
-            if (new_core_req_d && (!hit_d) && (!spec.wrong)) begin
-                nx_state = IC_MISS;
-                // `LOG_D($sformatf(">> I$ next state: IC_MISS; missed on core addr byte: 0x%0h", cr.addr<<2));
-            end
+            if (new_core_req_d && (!hit_d) && (!spec_wrong)) nx_state = IC_MISS;
         end
 
         IC_MISS: begin
-            // `LOG_D($sformatf(">> I$ STATE IC_MISS"));
-            // `LOG_D($sformatf(">> I$ miss state; cnt %0d", mem_miss_cnt));
-            if (mem_transfer_done || spec.wrong) begin
-                nx_state = IC_READY;
-            end
+            if (mem_transfer_done_d || spec_wrong) nx_state = IC_READY;
         end
 
         default: ;
@@ -280,30 +302,26 @@ always_comb begin
     endcase
 end
 
-logic serve_pending_load, hit_d_load;
-assign serve_pending_load = (cr_pend.active && !new_core_req_d);
-assign hit_d_load = (hit_d && new_core_req_d);
-
-logic [IDX_RANGE_TOP-1:0] set_idx;
-logic [WAY_BITS-1:0] way_idx;
-logic [15:0] word_idx;
-
 always_comb begin
     set_idx = 'h0;
     word_idx = 'h0;
     way_idx = 'h0;
-    if (serve_pending_load) begin
+    if (cr_pend.active && !clear_pending) begin
         set_idx = get_idx(cr_pend.cr.addr);
         word_idx = get_cl_word(cr_pend.cr.addr);
         way_idx = cr_pend.cr.way_idx;
-    end else if (hit_d_load) begin
-        set_idx = get_idx(cr_d.addr);
-        word_idx = get_cl_word(cr_d.addr);
-        way_idx = cr_d.way_idx;
+    end else if (new_core_req && hit) begin
+        set_idx = get_idx(cr.addr);
+        word_idx = get_cl_word(cr.addr);
+        way_idx = cr.way_idx;
     end
-    rsp_core.data = a_data[way_idx][set_idx].w[word_idx];
-    // `LOG_D($sformatf("icache data out: %8h", rsp_core.data));
+    bank_addr_load = {set_idx, word_idx[3:2]};
 end
+
+`DFF_CI_RI_RVI(way_idx, way_idx_d)
+`DFF_CI_RI_RVI(word_idx, word_idx_d)
+
+assign rsp_core.data = bank_data[way_idx_d][(word_idx_d[1:0])*32 +: 32];
 
 // outputs
 always_comb begin
@@ -328,18 +346,15 @@ always_comb begin
 
         IC_READY: begin
             req_core.ready = 1'b1;
-            if (serve_pending_load) begin
-                // service the pending request after miss
+            if (cr_pend.active) begin
                 rsp_core.valid = 1'b1;
                 clear_pending = 1'b1;
-                // `LOG_D($sformatf("icache OUT complete pending request; cache at word %0d; core at byte 0x%5h; with output %8h", get_cl_word(cr_pend.cr.addr), cr_d.addr<<2, rsp_core.data));
 
             end else if (new_core_req_d) begin
                 if (hit_d) begin
                     rsp_core.valid = 1'b1;
-                    // `LOG_D($sformatf("icache OUT hit; cache at word %0d; core at byte 0x%5h; with output %8h", get_idx(cr_d.addr), cr_d.addr<<2, rsp_core.data));
-
-                end else if (!spec.wrong) begin
+                end else if (!spec_wrong) begin
+                    // TODO: move all miss handling to MISS state (for timing)?
                     // handle miss, initiate memory read
                     // NOTE: doesn't check for main mem ready
                     // main mem is currently always ready to take in new request
@@ -348,7 +363,6 @@ always_comb begin
                     req_mem.valid = 1'b1;
                     req_mem.data = mem_start_addr_d;
                     save_pending = 1'b1;
-                    // `LOG_D($sformatf("icache OUT H->M transition; core at byte 0x%5h; mem_start_addr_d: %0d 0x%5h", cr_d.addr<<2, mem_start_addr_d, mem_start_addr_d));
                 end
             end
         end
@@ -359,11 +373,10 @@ always_comb begin
                 rsp_mem.ready = 1'b1;
                 req_mem.valid = 1'b1;
                 req_mem.data = (cr_pend.mem_start_addr + mem_miss_cnt);
-                // `LOG_D($sformatf("icache miss OUT; bus packet: %0d", (cr_pend.mem_start_addr + mem_miss_cnt)));
             end
             // if at any point during a speculative miss this turns out to be
             // wrong path, clear wrong pending request and go to ready
-            clear_pending = spec.wrong;
+            clear_pending = spec_wrong;
         end
 
         default: ;
@@ -374,18 +387,16 @@ end
 `ifndef SYNT
 `ifdef DEBUG
 
-`include "ama_riscv_defines.svh"
-
 logic dbg_serving_pending_req;
 assign dbg_serving_pending_req =
-    (cr_pend.active && !new_core_req_d) && rsp_core.valid;
+    ((cr_pend.active && !new_core_req_d) && rsp_core.valid);
 
 logic [CORE_BYTE_ADDR_BUS-1:0] dbg_req_core_bytes;
 assign dbg_req_core_bytes = (cr.addr << 2);
 
 logic [CORE_BYTE_ADDR_BUS-1:0] dbg_req_core_bytes_valid;
-assign dbg_req_core_bytes_valid = (
-    (cr.addr << 2) & {CORE_BYTE_ADDR_BUS{req_core.valid}});
+assign dbg_req_core_bytes_valid =
+    ((cr.addr << 2) & {CORE_BYTE_ADDR_BUS{req_core.valid}});
 
 logic miss, miss_d;
 assign miss = (new_core_req && !hit);
@@ -401,14 +412,28 @@ typedef struct {
     cache_line_data_t data;
 } cache_line_t;
 
+// proxy for convenience, but not for wave
+cache_line_data_t d [WAYS-1:0][SETS-1:0];
+genvar gw, gs;
+`IT_P_NT(gw, WAYS) begin: gen_bank
+    `IT_P_NT(gs, SETS) begin
+        always_comb begin
+            d[gw][gs].q[0] = `ICACHE.gen_bank[gw].bank_i.m[gs + 0];
+            d[gw][gs].q[1] = `ICACHE.gen_bank[gw].bank_i.m[gs + 1];
+            d[gw][gs].q[2] = `ICACHE.gen_bank[gw].bank_i.m[gs + 2];
+            d[gw][gs].q[3] = `ICACHE.gen_bank[gw].bank_i.m[gs + 3];
+        end
+    end
+end
+
 cache_line_t data_view [WAYS-1:0][SETS-1:0];
 always_comb begin
     `IT_P(w, WAYS) begin
         `IT_P(s, SETS) begin
-            data_view[w][s].valid <= a_valid[w][s];
-            data_view[w][s].tag <= a_tag[w][s];
-            data_view[w][s].lru <= `ICACHE.gen_assoc.a_lru[w][s];
-            data_view[w][s].data <= a_data[w][s];
+            data_view[w][s].valid = a_valid[w][s];
+            data_view[w][s].tag = a_tag[w][s];
+            data_view[w][s].lru = `ICACHE.gen_assoc_lookup.a_lru[w][s];
+            data_view[w][s].data = d[w][s];
         end
     end
 end
@@ -432,14 +457,24 @@ typedef struct {
     cache_line_data_t data;
 } cache_line_t;
 
-cache_line_t data_view [WAYS-1:0][SETS-1:0];
+// proxy for convenience, but not for wave
+cache_line_data_t d [SETS-1:0];
+genvar gs;
+`IT_P_NT(gs, SETS) begin
+    always_comb begin
+        d[gs].q[0] = `ICACHE.gen_bank[0].bank_i.m[gs + 0];
+        d[gs].q[1] = `ICACHE.gen_bank[0].bank_i.m[gs + 1];
+        d[gs].q[2] = `ICACHE.gen_bank[0].bank_i.m[gs + 2];
+        d[gs].q[3] = `ICACHE.gen_bank[0].bank_i.m[gs + 3];
+    end
+end
+
+cache_line_t data_view [SETS-1:0];
 always_comb @(posedge clk) begin
-    `IT_P(w, WAYS) begin
-        `IT_P(s, SETS) begin
-            data_view[w][s].valid <= a_valid[w][s];
-            data_view[w][s].tag <= a_tag[w][s];
-            data_view[w][s].data <= a_data[w][s];
-        end
+    `IT_P(s, SETS) begin
+        data_view[s].valid = a_valid[0][s];
+        data_view[s].tag = a_tag[0][s];
+        data_view[s].data = d[s];
     end
 end
 

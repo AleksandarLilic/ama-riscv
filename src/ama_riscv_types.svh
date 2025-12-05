@@ -357,6 +357,11 @@ typedef union packed {
     logic [CACHE_LINE_SIZE/INST_WIDTH-1:0] [INST_WIDTH-1:0] w; // inst 32
 } cache_line_data_t;
 
+typedef union packed {
+    logic [MEM_DATA_BUS-1:0] q; // mem bus
+    logic [MEM_DATA_BUS/INST_WIDTH-1:0] [INST_WIDTH-1:0] w; // inst 32
+} cache_line_short_data_t;
+
 // CSRs
 typedef enum logic [11:0] {
     CSR_TOHOST = 12'h51E,
