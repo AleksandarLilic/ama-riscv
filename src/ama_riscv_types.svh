@@ -185,12 +185,12 @@ typedef enum logic [2:0] {
 } unpk_op_t;
 
 typedef enum logic [2:0] {
-    IG_DISABLED = 3'b000,
-    IG_I_TYPE = 3'b001,
-    IG_S_TYPE = 3'b010,
-    IG_B_TYPE = 3'b011,
-    IG_J_TYPE = 3'b100,
-    IG_U_TYPE = 3'b101
+    IG_DISABLED,
+    IG_I_TYPE,
+    IG_S_TYPE,
+    IG_B_TYPE,
+    //IG_J_TYPE,
+    IG_U_TYPE
 } ig_sel_t;
 
 typedef enum logic [4:0] {

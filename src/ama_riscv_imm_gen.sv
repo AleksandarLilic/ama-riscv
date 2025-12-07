@@ -23,15 +23,14 @@ always_comb begin
       IG_I_TYPE: out = i;
       IG_S_TYPE: out = s;
       IG_B_TYPE: out = b;
-      IG_J_TYPE: out = j;
+      //IG_J_TYPE: out = j;
       IG_U_TYPE: out = u;
    endcase
 end
 
+assign out_jal = j;
 `ifdef USE_BP
-// don't wait for decoder's sel, expose as standalone output
 assign out_b = b;
 `endif
-assign out_jal = j;
 
 endmodule
