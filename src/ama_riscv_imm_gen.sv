@@ -6,6 +6,7 @@ module ama_riscv_imm_gen (
    `ifdef USE_BP
    output arch_width_t out_b,
    `endif
+   output arch_width_t out_jal,
    output arch_width_t out
 );
 
@@ -31,5 +32,6 @@ end
 // don't wait for decoder's sel, expose as standalone output
 assign out_b = b;
 `endif
+assign out_jal = j;
 
 endmodule

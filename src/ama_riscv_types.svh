@@ -93,11 +93,12 @@ typedef enum logic {
     B_T = 1'b1
 } branch_t;
 
-typedef enum logic [1:0] {
-    PC_SEL_PC = 2'd0, // PC
-    PC_SEL_INC4 = 2'd1, // PC = PC + 4
-    PC_SEL_ALU = 2'd2, // ALU output, used for jump/branch
-    PC_SEL_BP = 2'd3 // PC = Branch prediction output
+typedef enum logic [2:0] {
+    PC_SEL_PC = 3'd0, // PC
+    PC_SEL_INC4 = 3'd1, // PC = PC + 4
+    PC_SEL_ALU = 3'd2, // ALU output, used for jalr & branch resolution
+    PC_SEL_BP = 3'd3, // PC = Branch prediction output
+    PC_SEL_JAL = 3'd4 // PC = JAL (direct jump destination)
 } pc_sel_t;
 
 typedef enum logic [1:0] {
@@ -247,7 +248,8 @@ typedef struct packed {
     logic load;
     logic store;
     logic branch;
-    logic jump;
+    logic jal;
+    logic jalr;
 } inst_type_t; // only types that backend cares about, add as needed
 
 typedef struct packed {

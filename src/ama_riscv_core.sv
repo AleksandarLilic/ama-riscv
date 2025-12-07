@@ -31,24 +31,31 @@ perf_event_t perf_event;
 
 //------------------------------------------------------------------------------
 // FET Stage
-arch_width_t pc_mux_out, pc_inc4, alu_out_exe; // pc mux inputs
+arch_width_t pc_mux_out, pc_inc4, pc_jal, pc_jalr_exe; // pc mux inputs
 fe_ctrl_t fe_ctrl;
 logic be_stalled_d;
+decoder_t decoded; // from decode
 
 `ifdef USE_BP
 arch_width_t pc_fet_cp; // checkpoint fetch PC before going to speculative
-arch_width_t bp_pc;
+arch_width_t pc_fet_use;
+assign pc_fet_use = fe_ctrl.use_cp ? pc_fet_cp : pc.fet;
+assign pc_inc4 = (pc_fet_use + 'd4);
+arch_width_t pc_bp;
 branch_t bp_pred;
 logic bp_hit;
+`else
+assign pc_inc4 = (pc.fet + 'd4);
 `endif
 
 always_comb begin
     unique case (fe_ctrl.pc_sel)
         PC_SEL_PC: pc_mux_out = pc.fet;
         PC_SEL_INC4: pc_mux_out = pc_inc4;
-        PC_SEL_ALU: pc_mux_out = alu_out_exe;
+        PC_SEL_ALU: pc_mux_out = pc_jalr_exe;
+        PC_SEL_JAL: pc_mux_out = pc_jal;
         `ifdef USE_BP
-        PC_SEL_BP: pc_mux_out = bp_pc;
+        PC_SEL_BP: pc_mux_out = pc_bp;
         `endif
         default: pc_mux_out = pc.fet;
     endcase
@@ -56,12 +63,6 @@ end
 assign imem_req.data = pc_mux_out[15:2];
 
 `DFF_CI_RI_RV_EN(`RESET_VECTOR, fe_ctrl.pc_we, pc_mux_out, pc.fet)
-
-`ifdef USE_BP
-assign pc_inc4 = fe_ctrl.use_cp ? pc_fet_cp + 'd4 : pc.fet + 'd4;
-`else
-assign pc_inc4 = pc.fet + 'd4;
-`endif
 
 //------------------------------------------------------------------------------
 // DEC Stage
@@ -83,12 +84,12 @@ end
 `DFF_CI_RI_RVI(inst.dec, inst_dec_d)
 `DFF_CI_RI_RVI(pc.dec, pc_dec_d)
 
-decoder_t decoded, decoded_exe;
 fe_ctrl_t decoded_fe_ctrl;
 ama_riscv_decoder ama_riscv_decoder_i (
     .inst_dec (inst.dec), .decoded (decoded), .fe_ctrl (decoded_fe_ctrl)
 );
 
+decoder_t decoded_exe;
 logic dc_stalled;
 branch_t branch_resolution;
 hazard_t hazard;
@@ -101,10 +102,10 @@ ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     // inputs
     .pc_dec (pc.dec),
     .pc_exe (pc.exe),
-    .branch_inst_dec (decoded.itype.branch),
-    .jump_inst_dec (decoded.itype.jump),
-    .branch_inst_exe (decoded_exe.itype.branch),
-    .jump_inst_exe (decoded_exe.itype.jump),
+    .branch_in_dec (decoded.itype.branch),
+    .jalr_in_dec (decoded.itype.jalr),
+    .branch_in_exe (decoded_exe.itype.branch),
+    .jalr_in_exe (decoded_exe.itype.jalr),
     `ifdef USE_BP
     .bp_pred (bp_pred),
     `endif
@@ -153,7 +154,7 @@ ama_riscv_reg_file ama_riscv_reg_file_i(
 );
 
 // imm gen
-arch_width_t imm_gen_out_dec;
+arch_width_t imm_gen_out_dec, imm_jal;
 `ifdef USE_BP
 arch_width_t imm_b;
 `endif
@@ -163,12 +164,15 @@ ama_riscv_imm_gen ama_riscv_imm_gen_i(
     `ifdef USE_BP
     .out_b (imm_b),
     `endif
+    .out_jal (imm_jal),
     .out (imm_gen_out_dec)
 );
 
+assign pc_jal = pc.dec + imm_jal;
+
 `ifdef USE_BP
 // all predictors use imm_b right away, no BTB
-assign bp_pc = decoded.itype.branch ? (pc.dec + imm_b) : 'h0;
+assign pc_bp = decoded.itype.branch ? (pc.dec + imm_b) : 'h0;
 
 if (BP_TYPE == BP_STATIC) begin: gen_bp_sttc
 
@@ -177,7 +181,7 @@ assign bp_pred = B_T;
 end else if (BP_STATIC_TYPE == BP_STATIC_ANT) begin: gen_bp_sttc_ant
 assign bp_pred = B_NT;
 end else if (BP_STATIC_TYPE == BP_STATIC_BTFN) begin: gen_bp_sttc_btfn
-assign bp_pred = branch_t'(decoded.itype.branch && (bp_pc < pc.dec));
+assign bp_pred = branch_t'(decoded.itype.branch && (pc_bp < pc.dec));
 end
 
 end else begin: gen_bp_dyn
@@ -425,9 +429,11 @@ always_comb begin
     endcase
 end
 
+arch_width_t alu_out_exe;
 ama_riscv_alu ama_riscv_alu_i (
     .op (decoded_exe.alu_op), .a (alu_in_a), .b (alu_in_b), .s (alu_out_exe)
 );
+assign pc_jalr_exe = alu_out_exe;
 
 simd_d_t unpk_out;
 ama_riscv_unpk ama_riscv_unpk_i (
@@ -599,9 +605,9 @@ assign inst_retired = (pc_ret != 'h0);
 // perf
 logic stall_flow;
 `ifdef USE_BP
-assign stall_flow = decoded.itype.jump;
+assign stall_flow = decoded.itype.jalr;
 `else
-assign stall_flow = decoded.itype.branch || decoded.itype.jump;
+assign stall_flow = decoded.itype.branch || decoded.itype.jalr;
 `endif
 
 perf_event_t get_pe;

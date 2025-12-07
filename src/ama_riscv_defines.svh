@@ -63,7 +63,8 @@
         load: 1'b0, \
         store: 1'b0, \
         branch: 1'b0, \
-        jump: 1'b0 \
+        jal: 1'b0, \
+        jalr: 1'b0 \
     }
 
 `define HAS_REG_RST_VAL \

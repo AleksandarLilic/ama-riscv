@@ -90,8 +90,7 @@ always_comb begin
         end
 
         OPC7_BRANCH: begin
-            fc.pc_sel = PC_SEL_INC4;
-            fc.pc_we = 1'b1;
+            // pc updated in fe_ctrl
             d.itype.branch = 1'b1;
             d.alu_op = ALU_OP_ADD;
             d.alu_a_sel = ALU_A_SEL_PC;
@@ -101,10 +100,19 @@ always_comb begin
             d.has_reg = '{rd: 1'b0, rs1: 1'b1, rs2: 1'b1};
         end
 
-        OPC7_JALR: begin
-            fc.pc_sel = PC_SEL_ALU;
+        OPC7_JAL: begin
+            fc.pc_sel = PC_SEL_JAL;
             fc.pc_we = 1'b1;
-            d.itype.jump = 1'b1;
+            d.itype.jal = 1'b1;
+            d.ewb_sel = EWB_SEL_PC_INC4;
+            d.wb_sel = WB_SEL_EWB;
+            d.rd_we = rd_nz;
+            d.has_reg = '{rd: 1'b1, rs1: 1'b0, rs2: 1'b0};
+        end
+
+        OPC7_JALR: begin
+            // pc updated in fe_ctrl
+            d.itype.jalr = 1'b1;
             d.alu_op = ALU_OP_ADD;
             d.alu_a_sel = ALU_A_SEL_RS1;
             d.alu_b_sel = ALU_B_SEL_IMM;
@@ -113,20 +121,6 @@ always_comb begin
             d.wb_sel = WB_SEL_EWB;
             d.rd_we = rd_nz;
             d.has_reg = '{rd: 1'b1, rs1: 1'b1, rs2: 1'b0};
-        end
-
-        OPC7_JAL: begin
-            fc.pc_sel = PC_SEL_ALU;
-            fc.pc_we = 1'b1;
-            d.itype.jump = 1'b1;
-            d.alu_op = ALU_OP_ADD;
-            d.alu_a_sel = ALU_A_SEL_PC;
-            d.alu_b_sel = ALU_B_SEL_IMM;
-            d.ig_sel = IG_J_TYPE;
-            d.ewb_sel = EWB_SEL_PC_INC4;
-            d.wb_sel = WB_SEL_EWB;
-            d.rd_we = rd_nz;
-            d.has_reg = '{rd: 1'b1, rs1: 1'b0, rs2: 1'b0};
         end
 
         OPC7_LUI: begin

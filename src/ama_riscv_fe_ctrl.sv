@@ -7,10 +7,10 @@ module ama_riscv_fe_ctrl (
     rv_if.RX imem_rsp,
     input  arch_width_t pc_dec,
     input  arch_width_t pc_exe,
-    input  logic branch_inst_dec,
-    input  logic jump_inst_dec,
-    input  logic branch_inst_exe,
-    input  logic jump_inst_exe,
+    input  logic branch_in_dec,
+    input  logic jalr_in_dec,
+    input  logic branch_in_exe,
+    input  logic jalr_in_exe,
     `ifdef USE_BP
     input  branch_t bp_pred,
     `endif
@@ -65,19 +65,19 @@ typedef struct packed {
 } spec_entry_t;
 
 // STALL control
-logic flow_changed;
+logic flow_update;
 logic branch_taken;
 logic save_stall_entry, clear_stall_entry;
 stalled_entry_t stalled_entry;
 stall_sources_t stall_act, stall_res;
 
-assign branch_taken = branch_inst_exe && (branch_resolution == B_T);
+assign branch_taken = (branch_in_exe && (branch_resolution == B_T));
 `ifdef USE_BP
-assign flow_changed = jump_inst_exe;
-assign stall_act.flow = jump_inst_dec;
+assign flow_update = jalr_in_exe;
+assign stall_act.flow = jalr_in_dec;
 `else
-assign flow_changed = branch_taken || jump_inst_exe;
-assign stall_act.flow = branch_inst_dec || jump_inst_dec;
+assign flow_update = (branch_taken || jalr_in_exe);
+assign stall_act.flow = (branch_in_dec || jalr_in_dec);
 assign spec = '{1'b0, 1'b0, 1'b0};
 `endif
 
@@ -97,7 +97,7 @@ logic stall_res_flow_d;
 `DFF_CI_RI_RVI(stall_res.flow, stall_res_flow_d)
 
 stall_inst_type_t stype_dec;
-assign stype_dec = branch_inst_dec ? STALL_BRANCH : STALL_JUMP;
+assign stype_dec = branch_in_dec ? STALL_BRANCH : STALL_JUMP;
 
 // stall FSM
 stall_state_t state, nx_state;
@@ -279,7 +279,7 @@ always_comb begin
             `endif
             if (stall_res.flow) begin
                 // flow change resolved
-                fe_ctrl.pc_sel = flow_changed ? PC_SEL_ALU : PC_SEL_INC4;
+                fe_ctrl.pc_sel = flow_update ? PC_SEL_ALU : PC_SEL_INC4;
                 fe_ctrl.pc_we = 1'b1;
                 imem_req.valid = 1'b1;
                 //imem_req.valid = !stall_src_dmem;
@@ -361,7 +361,7 @@ always_comb begin
                     imem_rsp.ready = 1'b0;
                 end else if (stall_res.flow && !stall_res_flow_d) begin
                     // flow change resolved just now
-                    fe_ctrl.pc_sel = flow_changed ? PC_SEL_ALU : PC_SEL_INC4;
+                    fe_ctrl.pc_sel = flow_update ? PC_SEL_ALU : PC_SEL_INC4;
 
                 `ifdef USE_BP
                 end else if (spec.enter) begin
@@ -407,10 +407,12 @@ spec_entry_t spec_entry, spec_entry_d;
 
 logic save_spec_entry, clear_spec_entry;
 assign spec.enter = (
-    branch_inst_dec && (!(stall_act.dcache || stall_act.hazard)));
-assign spec.resolve =
-    ((spec_entry.pc == pc_exe) && (pc_exe != 'h0) && (!hazard.to_exe));
-assign bp_hit = spec.resolve && (spec_entry.b_tnt == branch_resolution);
+    branch_in_dec && (!(stall_act.dcache || stall_act.hazard))
+);
+assign spec.resolve = (
+    (spec_entry.pc == pc_exe) && (pc_exe != 'h0) && (!hazard.to_exe)
+);
+assign bp_hit = (spec.resolve && (spec_entry.b_tnt == branch_resolution));
 assign spec.wrong = (spec.resolve && !bp_hit);
 
 // speculative execution FSM
