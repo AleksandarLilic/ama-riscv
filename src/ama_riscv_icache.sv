@@ -90,7 +90,7 @@ endfunction
 //------------------------------------------------------------------------------
 // implementation
 
-logic bank_en [WAYS-1:0];
+//logic bank_en [WAYS-1:0];
 logic bank_we [WAYS-1:0];
 logic [BANK_ADDR_BITS-1:0] bank_addr;
 logic [MEM_DATA_BUS-1:0] bank_data [WAYS-1:0];
@@ -104,7 +104,8 @@ generate
         .AW (BANK_ADDR_BITS)
     ) bank_i (
         .clk (clk),
-        .en (bank_en[b]),
+        .en (1'b1), // better timing
+        //.en (bank_en[b]), // lower power
         .we ({MEM_DATA_BUS_B{bank_we[b]}}),
         .addr (bank_addr),
         .din (rsp_mem.data),
@@ -285,7 +286,7 @@ always_comb begin
         way_idx = cr.way_idx;
     end
     bank_addr_load = {set_idx, word_idx[3:2]};
-    `IT_P(w, WAYS) bank_en[w] = (w == way_idx);
+    //`IT_P(w, WAYS) bank_en[w] = (w == way_idx);
 end
 
 assign bank_addr_store = {set_idx_pend, mem_miss_cnt_d};
