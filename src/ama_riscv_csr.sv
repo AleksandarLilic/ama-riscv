@@ -13,6 +13,7 @@ module ama_riscv_csr #(
     output arch_width_t out
 );
 
+//------------------------------------------------------------------------------
 // local params, helpers
 localparam unsigned CLOCKS_PER_US = (CLOCK_FREQ / 1_000_000);
 localparam unsigned CNT_WIDTH = $clog2(CLOCKS_PER_US);
@@ -22,8 +23,8 @@ localparam logic [MHPMEVENT_PAD_WIDTH-1:0] MHPMEVENT_PAD = 'h0;
 localparam unsigned MHPMCOUNTER_MASK_BITS = $clog2(MHPMCOUNTERS + MHPM_OFFSET);
 localparam unsigned MHPMEVENT_MASK_BITS = $clog2(MHPMEVENTS + MHPM_OFFSET);
 
-`define RANGE_C MHPM_OFFSET:MHPMCOUNTERS+MHPM_OFFSET-1
-`define RANGE_E MHPM_OFFSET:MHPMEVENTS+MHPM_OFFSET-1
+`define RANGE_C MHPM_OFFSET:(MHPMCOUNTERS + MHPM_OFFSET - 1)
+`define RANGE_E MHPM_OFFSET:(MHPMEVENTS + MHPM_OFFSET - 1)
 
 function automatic logic get_event(
     input perf_event_t pe, input logic [MHPMEVENTS-1:0] mhpmevent);
@@ -38,6 +39,7 @@ function automatic logic get_event(
     endcase
 endfunction
 
+//------------------------------------------------------------------------------
 // implementation
 csr_t csr; // regs
 csr_addr_t addr;
@@ -56,6 +58,7 @@ mhpmevent_t mhpmevent[`RANGE_E];
 logic [MHPMEVENT_MASK_BITS-1:0] mhpm_addr_e;
 assign mhpm_addr_e = (addr[MHPMEVENT_MASK_BITS-1:0]);
 
+//------------------------------------------------------------------------------
 // csr read
 always_comb begin
     out = 'h0;
@@ -92,16 +95,18 @@ always_comb begin
     end
 end
 
+//------------------------------------------------------------------------------
 // csr write
 always_comb begin
     case (ctrl.op)
         CSR_OP_RW: wr_data = wr_data_src;
-        CSR_OP_RS: wr_data = out | wr_data_src;
-        CSR_OP_RC: wr_data = out & ~wr_data_src;
+        CSR_OP_RS: wr_data = (out | wr_data_src);
+        CSR_OP_RC: wr_data = (out & ~wr_data_src);
         default: wr_data = 'h0;
     endcase
 end
 
+//------------------------------------------------------------------------------
 mhpmevent_t wr_mhpmevent;
 assign wr_mhpmevent = mhpmevent_t'(wr_data[MHPMEVENTS-1:0]);
 // generic
@@ -127,6 +132,8 @@ always_ff @(posedge clk) begin
     end
 end
 
+//------------------------------------------------------------------------------
+// dedicated counters
 
 // mcycle
 logic [1:0] am_mcycle;
@@ -138,7 +145,7 @@ always_ff @(posedge clk) begin
         if (am_mcycle[0]) csr.mcycle.r[CSR_LOW] <= wr_data;
         else csr.mcycle.r[CSR_HIGH] <= wr_data;
     end else begin
-        csr.mcycle <= csr.mcycle + 'h1;
+        csr.mcycle <= (csr.mcycle + 'h1);
     end
 end
 
@@ -152,7 +159,7 @@ always_ff @(posedge clk) begin
         if (am_minstret[0]) csr.minstret.r[CSR_LOW] <= wr_data;
         else csr.minstret.r[CSR_HIGH] <= wr_data;
     end else if (inst_to_be_retired) begin
-        csr.minstret <= csr.minstret + 64'h1;
+        csr.minstret <= (csr.minstret + 64'h1);
     end
 end
 
@@ -174,6 +181,7 @@ end
 
 `DFF_CI_RI_RVI_EN(tick_us, (csr.mtime + 64'h1), csr.mtime)
 
+//------------------------------------------------------------------------------
 // hardware performance monitors
 csr_addr_t am_l[`RANGE_C], am_h[`RANGE_C];
 assign am_l = {
@@ -205,7 +213,7 @@ generate
                 if (am_mhpmcounter[i][0]) mhpmcounter[i].r[CSR_LOW] <= wr_data;
                 else mhpmcounter[i].r[CSR_HIGH] <= wr_data;
             end else if (get_event(perf_event, mhpmevent[i])) begin
-                mhpmcounter[i] <= mhpmcounter[i] + 64'h1;
+                mhpmcounter[i] <= (mhpmcounter[i] + ARCH_WIDTH_D'(1));
             end
         end
     end
