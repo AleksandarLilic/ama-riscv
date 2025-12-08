@@ -64,7 +64,7 @@ always_comb begin
         ALU_OP_XOR: s = a ^ b;
         ALU_OP_OR: s = a | b;
         ALU_OP_AND: s = a & b;
-        ALU_OP_PASS_B: s = b;
+        ALU_OP_OFF: s = 'h0;
         default: s = 'h0;
     endcase
 end

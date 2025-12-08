@@ -399,7 +399,7 @@ always_comb begin
     endcase
 end
 
-`DFF_CI_RI_RV(`FE_CTRL_RST_VAL, decoded_fe_ctrl, decoded_fe_ctrl_d)
+`DFF_CI_RI_RV(`FE_CTRL_INIT_VAL, decoded_fe_ctrl, decoded_fe_ctrl_d)
 
 `ifdef USE_BP
 // SPECULATIVE EXEC control

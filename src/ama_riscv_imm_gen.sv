@@ -19,7 +19,7 @@ assign u = {in[31:12], 12'h0};
 
 always_comb begin
    unique case (sel)
-      IG_DISABLED: out = 'h0;
+      IG_OFF: out = 'h0;
       IG_I_TYPE: out = i;
       IG_S_TYPE: out = s;
       IG_B_TYPE: out = b;

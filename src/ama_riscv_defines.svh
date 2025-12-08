@@ -48,7 +48,7 @@
 `define IT_P(p, limit) for (int p = 0; p < limit; p++)
 `define IT_P_NT(p, limit) for (p = 0; p < limit; p++)
 
-`define FE_CTRL_RST_VAL \
+`define FE_CTRL_INIT_VAL \
     '{ \
         pc_sel: PC_SEL_INC4, \
         pc_we: 1'b0, \
@@ -56,7 +56,7 @@
         use_cp: 1'b0 \
     }
 
-`define INST_TYPE_RST_VAL \
+`define INST_TYPE_INIT_VAL \
     '{ \
         mult: 1'b0, \
         unpk: 1'b0, \
@@ -67,29 +67,30 @@
         jalr: 1'b0 \
     }
 
-`define HAS_REG_RST_VAL \
+`define HAS_REG_INIT_VAL \
     '{ \
         rd: 1'b0, \
         rs1: 1'b0, \
         rs2: 1'b0 \
     }
 
-`define DECODER_RST_VAL \
+`define DECODER_INIT_VAL \
     '{ \
-        itype: `INST_TYPE_RST_VAL, \
-        has_reg: `HAS_REG_RST_VAL, \
+        itype: `INST_TYPE_INIT_VAL, \
+        has_reg: `HAS_REG_INIT_VAL, \
         has_reg_p: 1'b0, \
         csr_ctrl: '{en: 1'b0, re: 1'b0, we: 1'b0, ui: 1'b0, op: CSR_OP_NONE}, \
-        alu_op: ALU_OP_ADD, \
+        alu_op: ALU_OP_OFF, \
         mult_op: MULT_OP_MUL, \
         unpk_op: UNPK_OP_16, \
-        alu_a_sel: ALU_A_SEL_RS1, \
-        alu_b_sel: ALU_B_SEL_RS2, \
-        ig_sel: IG_DISABLED, \
+        a_sel: A_SEL_RS1, \
+        b_sel: B_SEL_RS2, \
+        ig_sel: IG_OFF, \
         bc_uns: 1'b0, \
         dmem_en: 1'b0, \
-        ewb_sel: EWB_SEL_ALU, \
-        wb_sel: WB_SEL_EWB, \
+        e_res_sel: E_RES_SEL_ALU, \
+        m_res_sel: M_RES_SEL_E_RES, \
+        w_res_sel: W_RES_SEL_M_RES, \
         rd_we: 1'b0 \
     }
 

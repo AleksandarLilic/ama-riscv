@@ -5,6 +5,7 @@ parameter unsigned ARCH_WIDTH = 32;
 parameter unsigned ARCH_WIDTH_H = ARCH_WIDTH/2;
 parameter unsigned ARCH_WIDTH_D = ARCH_WIDTH*2;
 parameter unsigned INST_WIDTH = 32;
+parameter unsigned DMEM_ADDR_OFFSET_WIDTH = 12; // inst immediate bits in offset
 
 typedef logic [ARCH_WIDTH-1:0] arch_width_t;
 typedef logic [ARCH_WIDTH_D-1:0] arch_double_width_t;
@@ -93,6 +94,7 @@ typedef enum logic {
     B_T = 1'b1
 } branch_t;
 
+// PC mux
 typedef enum logic [2:0] {
     PC_SEL_PC = 3'd0, // PC
     PC_SEL_INC4 = 3'd1, // PC = PC + 4
@@ -101,38 +103,47 @@ typedef enum logic [2:0] {
     PC_SEL_JAL = 3'd4 // PC = JAL (direct jump destination)
 } pc_sel_t;
 
+// operand muxes in decode
 typedef enum logic [1:0] {
-    ALU_A_SEL_RS1 = 2'd0, // A = Reg[rs1]
-    ALU_A_SEL_PC = 2'd1, // A = PC
-    ALU_A_SEL_FWD = 2'd2 // forward A from backend
-} alu_a_sel_t;
+    A_SEL_RS1 = 2'd0, // A = Reg[rs1]
+    A_SEL_PC = 2'd1, // A = PC
+    A_SEL_FWD = 2'd2 // forward A from backend
+} a_sel_t;
 
 typedef enum logic [1:0] {
-    ALU_B_SEL_RS2 = 2'd0, // B = Reg[rs2]
-    ALU_B_SEL_IMM = 2'd1, // B = Immediate value; from Imm Gen
-    ALU_B_SEL_FWD = 2'd2 // forward B from backend
-} alu_b_sel_t;
+    B_SEL_RS2 = 2'd0, // B = Reg[rs2]
+    B_SEL_IMM = 2'd1, // B = Immediate value; from Imm Gen
+    B_SEL_FWD = 2'd2 // forward B from backend
+} b_sel_t;
 
+// forwarding muxes
 typedef enum logic [1:0] {
-    FWD_BE_EWB = 2'b00, // early writeback (mem)
-    FWD_BE_WB = 2'b01, // writeback (wbk)
-    FWD_BE_EWB_P = 2'b10, // early writeback rdp (mem)
-    FWD_BE_WB_P = 2'b11 // writeback rdp (wbk)
+    FWD_BE_M_RES = 2'd0, // result from mem stage
+    FWD_BE_W_RES = 2'd1, // from wbk
+    FWD_BE_M_RES_P = 2'd2, // paired from mem
+    FWD_BE_W_RES_P = 2'd3 // paired from wbk
 } fwd_be_t;
 
+// result muxes
 typedef enum logic [1:0] {
-    EWB_SEL_ALU = 2'd0,
-    EWB_SEL_PC_INC4 = 2'd1,
-    EWB_SEL_CSR = 2'd2,
-    EWB_SEL_UNPK = 2'd3
-} ewb_sel_t;
+    E_RES_SEL_ALU = 2'd0,
+    E_RES_SEL_IMM_U = 2'd1,
+    E_RES_SEL_PC_INC4 = 2'd2,
+    E_RES_SEL_UNPK = 2'd3
+} e_res_sel_t;
+
+typedef enum logic {
+    M_RES_SEL_E_RES = 1'b0,
+    M_RES_SEL_CSR = 1'b1
+} m_res_sel_t;
 
 typedef enum logic [1:0] {
-    WB_SEL_EWB = 2'd0,
-    WB_SEL_DMEM = 2'd1,
-    WB_SEL_SIMD = 2'd2
-} wb_sel_t;
+    W_RES_SEL_M_RES = 2'd0,
+    W_RES_SEL_DMEM = 2'd1,
+    W_RES_SEL_SIMD = 2'd2
+} w_res_sel_t;
 
+// module operation muxes
 typedef enum logic [1:0] {
     BRANCH_SEL_BEQ = 2'd0, // Branch Equal
     BRANCH_SEL_BNE = 2'd1, // Branch Not Equal
@@ -148,6 +159,11 @@ typedef enum logic [2:0] {
     DMEM_DTYPE_UHALF = 3'b101
 } dmem_dtype_t;
 
+typedef enum logic {
+    DMEM_READ = 1'b0,
+    DMEM_WRITE = 1'b1
+} dmem_rtype_t;
+
 typedef enum logic [3:0] {
     ALU_OP_ADD = 4'b0000,
     ALU_OP_SUB = 4'b1000,
@@ -159,7 +175,7 @@ typedef enum logic [3:0] {
     ALU_OP_XOR = 4'b0100,
     ALU_OP_OR = 4'b0110,
     ALU_OP_AND = 4'b0111,
-    ALU_OP_PASS_B = 4'b1111
+    ALU_OP_OFF = 4'b1111
 } alu_op_t;
 
 typedef enum logic [2:0] {
@@ -185,14 +201,15 @@ typedef enum logic [2:0] {
 } unpk_op_t;
 
 typedef enum logic [2:0] {
-    IG_DISABLED,
-    IG_I_TYPE,
-    IG_S_TYPE,
-    IG_B_TYPE,
-    //IG_J_TYPE,
-    IG_U_TYPE
+    IG_OFF = 3'd0,
+    IG_I_TYPE = 3'd1,
+    IG_S_TYPE = 3'd2,
+    IG_B_TYPE = 3'd3,
+    //IG_J_TYPE = 3'd4,
+    IG_U_TYPE = 3'd5
 } ig_sel_t;
 
+// RF addresses
 typedef enum logic [4:0] {
     RF_X0_ZERO = 5'd0, // hard-wired zero
     RF_X1_RA = 5'd1, // return address
@@ -227,11 +244,6 @@ typedef enum logic [4:0] {
     RF_X30_T5 = 5'd30, // temporary
     RF_X31_T6 = 5'd31 // temporary
 } rf_addr_t;
-
-typedef enum logic {
-    DMEM_READ = 0,
-    DMEM_WRITE = 1
-} dmem_rtype_t;
 
 // Core signal bundles
 typedef struct packed {
@@ -273,13 +285,14 @@ typedef struct packed {
     alu_op_t alu_op;
     mult_op_t mult_op;
     unpk_op_t unpk_op;
-    alu_a_sel_t alu_a_sel;
-    alu_b_sel_t alu_b_sel;
+    a_sel_t a_sel;
+    b_sel_t b_sel;
     ig_sel_t ig_sel;
     logic bc_uns;
     logic dmem_en;
-    ewb_sel_t ewb_sel;
-    wb_sel_t wb_sel;
+    e_res_sel_t e_res_sel;
+    m_res_sel_t m_res_sel;
+    w_res_sel_t w_res_sel;
     logic rd_we;
 } decoder_t;
 

@@ -19,21 +19,17 @@ module ama_riscv_operand_forwarding (
     input  logic rd_we_wbk,
     input  logic rdp_we_mem,
     input  logic rdp_we_wbk,
-    input  alu_a_sel_t alu_a_sel_dec,
-    input  alu_b_sel_t alu_b_sel_dec,
-    input  alu_a_sel_t alu_a_sel_exe,
-    input  alu_b_sel_t alu_b_sel_exe,
+    input  a_sel_t a_sel_dec,
+    input  b_sel_t b_sel_dec,
     // outputs
-    output fwd_be_t fwd_be_rs1_dec,
-    output fwd_be_t fwd_be_rs2_dec,
-    output fwd_be_t fwd_be_rs1_exe,
-    output fwd_be_t fwd_be_rs2_exe,
-    output alu_a_sel_t alu_a_sel_fwd,
-    output alu_b_sel_t alu_b_sel_fwd,
-    output logic bc_a_sel_fwd,
-    output logic bcs_b_sel_fwd,
-    output logic rf_a_sel_fwd,
-    output logic rf_b_sel_fwd,
+    output fwd_be_t fwd_src_sel_rs1_dec,
+    output fwd_be_t fwd_src_sel_rs2_dec,
+    output a_sel_t a_sel_dec_fwd,
+    output b_sel_t b_sel_dec_fwd,
+    output fwd_be_t fwd_src_sel_rs1_exe,
+    output fwd_be_t fwd_src_sel_rs2_exe,
+    output logic a_sel_fwd_exe,
+    output logic b_sel_fwd_exe,
     output hazard_t hazard
 );
 
@@ -123,39 +119,29 @@ assign d_rs1_exe.on_rdp = (d_rs1_exe.in_mem_on_rdp || d_rs1_exe.in_wbk_on_rdp);
 assign d_rs2_exe.on_rdp = (d_rs2_exe.in_mem_on_rdp || d_rs2_exe.in_wbk_on_rdp);
 
 // anywhere in the machine?
-assign d_rs1_dec.has = (/* d_rs1_dec.in_mem || */ d_rs1_dec.in_wbk);
-assign d_rs2_dec.has = (/* d_rs2_dec.in_mem || */ d_rs2_dec.in_wbk);
+assign d_rs1_dec.has = (d_rs1_dec.in_wbk);
+assign d_rs2_dec.has = (d_rs2_dec.in_wbk);
 assign d_rs1_exe.has = (d_rs1_exe.in_mem || d_rs1_exe.in_wbk);
 assign d_rs2_exe.has = (d_rs2_exe.in_mem || d_rs2_exe.in_wbk);
 
 // if it has, where to get the data from and which rd?
 // if it's found in both mem and wbk, prioritize mem as a later update to the rd
 // also set rd/rdp high bit
-assign fwd_be_rs1_dec = fwd_be_t'({d_rs1_dec.on_rdp,/*!d_rs1_dec.in_mem*/1'b1});
-assign fwd_be_rs2_dec = fwd_be_t'({d_rs2_dec.on_rdp,/*!d_rs2_dec.in_mem*/1'b1});
-assign fwd_be_rs1_exe = fwd_be_t'({d_rs1_exe.on_rdp, !d_rs1_exe.in_mem});
-assign fwd_be_rs2_exe = fwd_be_t'({d_rs2_exe.on_rdp, !d_rs2_exe.in_mem});
+assign fwd_src_sel_rs1_dec = fwd_be_t'({d_rs1_dec.on_rdp, 1'b1});
+assign fwd_src_sel_rs2_dec = fwd_be_t'({d_rs2_dec.on_rdp, 1'b1});
+assign fwd_src_sel_rs1_exe = fwd_be_t'({d_rs1_exe.on_rdp, !d_rs1_exe.in_mem});
+assign fwd_src_sel_rs2_exe = fwd_be_t'({d_rs2_exe.on_rdp, !d_rs2_exe.in_mem});
 
-// should ALU forward?
-assign alu_a_sel_fwd = (d_rs1_exe.has && (alu_a_sel_exe == ALU_A_SEL_RS1)) ?
-    ALU_A_SEL_FWD : alu_a_sel_exe;
+// should forward in exec?
+assign a_sel_fwd_exe = d_rs1_exe.has;
+assign b_sel_fwd_exe = d_rs2_exe.has;
 
-assign alu_b_sel_fwd = (d_rs2_exe.has && (alu_b_sel_exe == ALU_B_SEL_RS2)) ?
-    ALU_B_SEL_FWD : alu_b_sel_exe;
-
-// should branch compare and store forward?
-assign bc_a_sel_fwd = (d_rs1_exe.has && branch_inst_exe);
-assign bcs_b_sel_fwd = (d_rs2_exe.has && (store_inst_exe || branch_inst_exe));
-
-// should forward instead of rf read?
-assign rf_a_sel_fwd = (
-    d_rs1_dec.has &&
-    ((alu_a_sel_dec == ALU_A_SEL_RS1) || branch_inst_dec)
-);
-assign rf_b_sel_fwd = (
-    d_rs2_dec.has &&
-    ((alu_b_sel_dec == ALU_B_SEL_RS2) || branch_inst_dec || store_inst_dec)
-);
+// should forward in decode?
+// only if instruction is using rs1/rs2
+assign a_sel_dec_fwd = (d_rs1_dec.has && (a_sel_dec == A_SEL_RS1)) ?
+    A_SEL_FWD : a_sel_dec;
+assign b_sel_dec_fwd = (d_rs2_dec.has && (b_sel_dec == B_SEL_RS2)) ?
+    B_SEL_FWD : b_sel_dec;
 
 // hazards on 2 cycle execute instructions?
 logic two_clk_inst_mem;

@@ -136,6 +136,7 @@ slang_watch:
 
 SLANG_OPTS := -Wno-unconnected-port -Wno-duplicate-definition
 SLANG_OPTS += --std 1800-2017 --strict-driver-checking
+SLANG_OPTS += --error-limit=1000
 slang:
 	@slang -j 8 --top $(TOP) $(RTL_DEFINES_CS) $(SRC_VERIF) $(SRC_DESIGN) $(PLUS_INCDIR) $(SLANG_OPTS) $(SLANG_EXTRA)
 
