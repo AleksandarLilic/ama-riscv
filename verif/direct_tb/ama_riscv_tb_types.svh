@@ -150,6 +150,7 @@ typedef struct packed {
     opc7_t opc;
 } inst_u_t;
 
+/*
 typedef union packed {
     inst_width_t i;
     inst_r_t r_type;
@@ -159,6 +160,7 @@ typedef union packed {
     inst_j_t j_type;
     inst_u_t u_type;
 } inst_shadow_t;
+*/
 
 typedef struct packed {
     inst_r_t r_type;
@@ -167,6 +169,6 @@ typedef struct packed {
     inst_b_t b_type;
     inst_j_t j_type;
     inst_u_t u_type;
-} inst_t;
+} inst_shadow_t;
 
 `endif // AMA_RISCV_TB_TYPES

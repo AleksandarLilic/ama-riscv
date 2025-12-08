@@ -35,45 +35,49 @@ typedef struct {
     logic [3:0] dmem_size;
 } retired_t;
 
-pipeline_if_typed #(.T(inst_t)) inst_shadow ();
+pipeline_if_typed #(.T(inst_shadow_t)) inst_shadow ();
+inst_shadow_t inst_shadow_ret;
 pipeline_if_s nop ();
 pipeline_if_s flush ();
 retired_t r;
 
-function automatic inst_t classify_inst(input inst_width_t s);
-    inst_t d;
+function automatic inst_shadow_t classify_inst(input inst_width_t inst);
+    inst_shadow_t d;
     // d = 0; // to avoid X in wave, but Xs are easier to visually separate imo
-    unique case (get_opc7(s))
-        OPC7_R_TYPE: d.r_type = inst.dec;
+    unique case (get_opc7(inst))
+        OPC7_R_TYPE: d.r_type = inst;
         OPC7_I_TYPE,
         OPC7_LOAD,
         OPC7_JALR,
-        OPC7_SYSTEM: d.i_type = inst.dec;
-        OPC7_STORE: d.s_type = inst.dec;
-        OPC7_BRANCH: d.b_type = inst.dec;
-        OPC7_JAL: d.j_type = inst.dec;
+        OPC7_SYSTEM: d.i_type = inst;
+        OPC7_STORE: d.s_type = inst;
+        OPC7_BRANCH: d.b_type = inst;
+        OPC7_JAL: d.j_type = inst;
         OPC7_LUI,
-        OPC7_AUIPC: d.u_type = inst.dec;
+        OPC7_AUIPC: d.u_type = inst;
         // default: d = 0; // would catch flush as 0s inst ...
         default: ; // ... but make it Xs
     endcase
     return d;
 endfunction
 
-always_comb inst_shadow.dec = classify_inst(inst.dec);
-always_comb inst_shadow.exe = classify_inst(inst.exe);
-always_comb inst_shadow.mem = classify_inst(inst.mem);
-always_comb inst_shadow.wbk = classify_inst(inst.wbk);
+always_comb begin
+    inst_shadow.dec = classify_inst(inst.dec);
+    inst_shadow.exe = classify_inst(inst.exe);
+    inst_shadow.mem = classify_inst(inst.mem);
+    inst_shadow.wbk = classify_inst(inst.wbk);
+    inst_shadow_ret = classify_inst(inst_ret);
 
-assign nop.dec = (inst.dec == `NOP);
-assign nop.exe = (inst.exe == `NOP);
-assign nop.mem = (inst.mem == `NOP);
-assign nop.wbk = (inst.wbk == `NOP);
+    nop.dec = (inst.dec == `NOP);
+    nop.exe = (inst.exe == `NOP);
+    nop.mem = (inst.mem == `NOP);
+    nop.wbk = (inst.wbk == `NOP);
 
-assign flush.dec = (inst.dec == 'h0);
-assign flush.exe = (inst.exe == 'h0);
-assign flush.mem = (inst.mem == 'h0);
-assign flush.wbk = (inst.wbk == 'h0);
+    flush.dec = (inst.dec == 'h0);
+    flush.exe = (inst.exe == 'h0);
+    flush.mem = (inst.mem == 'h0);
+    flush.wbk = (inst.wbk == 'h0);
+end
 
 // signals for tracing
 
