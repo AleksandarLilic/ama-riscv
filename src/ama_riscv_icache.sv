@@ -37,13 +37,21 @@ if (WAYS > 32) begin: check_ways_size
 end
 
 // params and defs
-localparam unsigned IDX_BITS = $clog2(SETS);
-localparam unsigned WAY_BITS = $clog2(WAYS);
-localparam unsigned TAG_W = CORE_BYTE_ADDR_BUS - CACHE_LINE_BYTE_ADDR -IDX_BITS;
-localparam unsigned IDX_RANGE_TOP = (SETS == 1) ? 1: IDX_BITS;
-localparam unsigned WORD_ADDR = $clog2(CACHE_LINE_SIZE_B / 4); // to 32bit words
-localparam unsigned MEM_MISS_CNT_WIDTH = $clog2(MEM_TRANSFERS_PER_CL);
-localparam unsigned BANK_ADDR_BITS = (IDX_BITS + $clog2(MEM_TRANSFERS_PER_CL));
+`define LPU localparam unsigned
+// cache
+`LPU IDX_BITS = $clog2(SETS);
+`LPU WAY_BITS = $clog2(WAYS);
+`LPU TAG_W = (CORE_BYTE_ADDR_BUS - CACHE_LINE_BYTE_ADDR - IDX_BITS);
+`LPU IDX_RANGE_TOP = (SETS == 1) ? 1: IDX_BITS;
+`LPU WORD_ADDR = $clog2(CACHE_LINE_SIZE / INST_WIDTH); // 4, to 32bit words
+// cache banks
+`LPU BANK_LINE_SIZE = MEM_DATA_BUS; // 128-bit, rename for clarity
+`LPU BANK_ADDR = (IDX_BITS + $clog2(CACHE_LINE_SIZE / BANK_LINE_SIZE)); // i + 2
+`LPU WORD_TO_BANK_LINE_RATIO = (BANK_LINE_SIZE / INST_WIDTH); // 4, 128 -> 32
+`LPU WORD_IN_BANK_LINE_ADDR = $clog2(WORD_TO_BANK_LINE_RATIO); // 2
+`LPU BANK_LINE_ADDR = (WORD_ADDR - WORD_IN_BANK_LINE_ADDR); // 4 - 2
+// other
+`LPU MEM_MISS_CNT_WIDTH = $clog2(MEM_TRANSFERS_PER_CL);
 
 `define IC_CR_CLEAR '{addr: 'h0, way_idx: 'h0}
 `define IC_CR_PEND_CLEAR '{active: 1'b0, mem_start_addr: 'h0, cr: `IC_CR_CLEAR}
@@ -92,16 +100,16 @@ endfunction
 
 //logic bank_en [WAYS-1:0];
 logic bank_we [WAYS-1:0];
-logic [BANK_ADDR_BITS-1:0] bank_addr;
-logic [MEM_DATA_BUS-1:0] bank_data [WAYS-1:0];
+logic [BANK_ADDR-1:0] bank_addr;
+logic [BANK_LINE_SIZE-1:0] bank_data [WAYS-1:0];
 
 // mem array
 genvar b;
 generate
 `IT_P_NT(b, WAYS) begin: gen_bank
     mem #(
-        .DW (MEM_DATA_BUS),
-        .AW (BANK_ADDR_BITS)
+        .DW (BANK_LINE_SIZE),
+        .AW (BANK_ADDR)
     ) bank_i (
         .clk (clk),
         .en (1'b1), // better timing
@@ -271,7 +279,8 @@ end
 //------------------------------------------------------------------------------
 // addressing banks
 
-logic [BANK_ADDR_BITS-1:0] bank_addr_store, bank_addr_load;
+logic [BANK_ADDR-1:0] bank_addr_store, bank_addr_load;
+logic [BANK_LINE_ADDR-1:0] bank_line_addr_load;
 always_comb begin
     set_idx = 'h0;
     word_idx = 'h0;
@@ -285,12 +294,12 @@ always_comb begin
         word_idx = get_cl_word(cr.addr);
         way_idx = cr.way_idx;
     end
-    bank_addr_load = {set_idx, word_idx[3:2]};
+    bank_line_addr_load = word_idx[(WORD_ADDR-1) -: BANK_LINE_ADDR];
+    bank_addr_load = {set_idx, bank_line_addr_load};
+    bank_addr_store = {set_idx_pend, mem_miss_cnt_d};
+    bank_addr = mem_to_cache_wr ? bank_addr_store : bank_addr_load;
     //`IT_P(w, WAYS) bank_en[w] = (w == way_idx);
 end
-
-assign bank_addr_store = {set_idx_pend, mem_miss_cnt_d};
-assign bank_addr = mem_to_cache_wr ? bank_addr_store : bank_addr_load;
 
 `DFF_CI_RI_RVI(way_idx, way_idx_d)
 `DFF_CI_RI_RVI(word_idx, word_idx_d)
@@ -340,8 +349,10 @@ always_comb begin
 end
 
 // outputs
+logic [WORD_IN_BANK_LINE_ADDR-1:0] word_in_bank_line_addr;
+assign word_in_bank_line_addr = word_idx_d[WORD_IN_BANK_LINE_ADDR-1:0];
 assign rsp_core.data =
-    bank_data[way_idx_d][(word_idx_d[1:0])*INST_WIDTH +: INST_WIDTH];
+    bank_data[way_idx_d][(word_in_bank_line_addr*INST_WIDTH) +: INST_WIDTH];
 
 always_comb begin
     // to/from core
