@@ -13,16 +13,19 @@ module ama_riscv_bp #(
     output branch_t pred
 );
 
+//------------------------------------------------------------------------------
+// params
 localparam unsigned IDX_BITS =
     ((BP_TYPE_SEL == BP_BIMODAL) || (BP_TYPE_SEL == BP_COMBINED)) ? PC_BITS :
     (BP_TYPE_SEL == BP_GLOBAL) ? GR_BITS :
     (BP_TYPE_SEL == BP_GSELECT) ? (GR_BITS + PC_BITS) :
     (BP_TYPE_SEL == BP_GSHARE) ? `MAX(GR_BITS, PC_BITS) : 'h0;
-
-localparam unsigned CNT_ENTRIES = 2**IDX_BITS;
-localparam unsigned CNT_MAX = (2**CNT_BITS) - 1;
+localparam unsigned PHT_ENTRIES = (1 << IDX_BITS);
+localparam unsigned CNT_MAX = ((1 << CNT_BITS) - 1);
 localparam unsigned CNT_THR = (CNT_MAX == 1) ? CNT_MAX : (CNT_MAX >> 1);
 
+//------------------------------------------------------------------------------
+// PHT indexing (per BP type)
 logic taken;
 assign taken = (pipe_in.br_res == B_T);
 
@@ -36,88 +39,97 @@ always_ff @(posedge clk) begin
     else if (pipe_in.spec.resolve) gr <= {gr[GR_BITS-2:0], taken};
 end
 
-logic [IDX_BITS-1:0] cnt_idx, cnt_idx_up;
+logic [IDX_BITS-1:0] pht_idx, pht_idx_up;
 if ((BP_TYPE_SEL == BP_BIMODAL) || (BP_TYPE_SEL == BP_COMBINED))
 begin: gen_bimodal_idx
-assign cnt_idx = pc_dec_part;
-assign cnt_idx_up = pc_exe_part;
+assign pht_idx = pc_dec_part;
+assign pht_idx_up = pc_exe_part;
 end
 
 if (BP_TYPE_SEL == BP_GLOBAL) begin: gen_global_idx
-assign cnt_idx = gr;
-assign cnt_idx_up = gr; // gr updated in the same clk as cnt, so this is correct
+assign pht_idx = gr;
+assign pht_idx_up = gr; // gr updated in the same clk as pht, so this is correct
+
+/*
+// FIXME: perf bug
+// back to back branches update late, but this adds logic on critical path
+assign pht_idx = pipe_in.spec.resolve ? {gr[GR_BITS-2:0], taken} : gr;
+always_ff @(posedge clk) begin
+    if (rst) pht_idx_up <= 'h0;
+    else if (pipe_in.spec.enter) pht_idx_up <= pht_idx;
+end
+*/
+
 end
 
 if (BP_TYPE_SEL == BP_GSELECT) begin: gen_gselect_idx
-assign cnt_idx = {pc_dec_part, gr};
-assign cnt_idx_up = {pc_exe_part, gr};
+assign pht_idx = {pc_dec_part, gr};
+assign pht_idx_up = {pc_exe_part, gr};
 end
 
 if (BP_TYPE_SEL == BP_GSHARE) begin: gen_gshare_idx
-localparam GR_OFF = PC_BITS > GR_BITS ? PC_BITS - GR_BITS : 0;
-assign cnt_idx = (pc_dec_part ^ (gr << GR_OFF));
-assign cnt_idx_up = (pc_exe_part ^ (gr << GR_OFF));
+localparam GR_OFF = (PC_BITS > GR_BITS) ? (PC_BITS - GR_BITS) : 0;
+assign pht_idx = (pc_dec_part ^ (gr << GR_OFF));
+assign pht_idx_up = (pc_exe_part ^ (gr << GR_OFF));
 end
 
-logic [CNT_BITS-1:0] cnt [CNT_ENTRIES];
+//------------------------------------------------------------------------------
+// PHT structure & update
+logic [CNT_BITS-1:0] pht [PHT_ENTRIES];
 logic [CNT_BITS-1:0] inc, dec;
 
 if (CNT_BITS == 1) begin: gen_cnt_toggle_id
-assign inc = (cnt[cnt_idx_up] != 'h1);
-assign dec = (cnt[cnt_idx_up] != 'h0);
+assign inc = (!pht[pht_idx_up]); // inc if 0
+assign dec = pht[pht_idx_up]; // dec if 1
 end else begin: gen_cnt_wide_id
-assign inc = {{CNT_BITS-1{1'b0}}, cnt[cnt_idx_up] != CNT_MAX};
-assign dec = {{CNT_BITS-1{1'b0}}, cnt[cnt_idx_up] != 'h0};
+assign inc = {{CNT_BITS-1{1'b0}}, (pht[pht_idx_up] != CNT_MAX)};
+assign dec = {{CNT_BITS-1{1'b0}}, (pht[pht_idx_up] != 'h0)};
 end
 
-if (BP_TYPE_SEL != BP_COMBINED) begin: gen_cnt_up_1
-
+if (BP_TYPE_SEL != BP_COMBINED) begin: gen_pht_up
 always_ff @(posedge clk) begin
     if (rst) begin
-        // initialize to weakly taken
         /* verilator lint_off WIDTHTRUNC */
-        `IT_P(c, CNT_ENTRIES) cnt[c] <= CNT_THR;
+        `IT_P(c, PHT_ENTRIES) pht[c] <= CNT_THR; // init to weakly taken
         /* verilator lint_on WIDTHTRUNC */
     end else if (pipe_in.spec.resolve) begin
-        if (taken) cnt[cnt_idx_up] <= cnt[cnt_idx_up] + inc;
-        else cnt[cnt_idx_up] <= cnt[cnt_idx_up] - dec;
+        if (taken) pht[pht_idx_up] <= (pht[pht_idx_up] + inc);
+        else pht[pht_idx_up] <= (pht[pht_idx_up] - dec);
     end
 end
 /* verilator lint_off WIDTHEXPAND */
-assign pred = branch_t'(cnt[cnt_idx] >= CNT_THR);
+assign pred = branch_t'(pht[pht_idx] >= CNT_THR);
 /* verilator lint_on WIDTHEXPAND */
 
-end else begin: gen_cnt_up_comb
-
+end else begin: gen_pht_up_comb
 bp_comp_t pred_made;
 always_ff @(posedge clk) begin
     if (rst) pred_made <= '{B_NT, B_NT};
     else if (pipe_in.spec.enter) pred_made <= bp_comp_pred;
-    // TODO: no need to clear?
+    else if (pipe_in.spec.resolve) pred_made <= '{B_NT, B_NT};
 end
 
-logic bp_comp_diff, bp_1_hit;
+logic bp_comp_1_hit, bp_comp_diff;
+assign bp_comp_1_hit = (pred_made.bp_1_p == pipe_in.br_res);
 assign bp_comp_diff = (pred_made.bp_1_p != pred_made.bp_2_p);
-assign bp_1_hit = (pred_made.bp_1_p == pipe_in.br_res);
 
 // inc on bp1 hit, dec on bp2 hit, no change if both predict the same
 always_ff @(posedge clk) begin
     if (rst) begin
-        // initialize to slight bp1 prediction bias
         /* verilator lint_off WIDTHTRUNC */
-        `IT_P(c, CNT_ENTRIES) cnt[c] <= CNT_THR;
+        `IT_P(c, PHT_ENTRIES) pht[c] <= CNT_THR; // init to slight bp1 bias
         /* verilator lint_on WIDTHTRUNC */
     end else if (pipe_in.spec.resolve) begin
         if (bp_comp_diff) begin
-            if (bp_1_hit) cnt[cnt_idx_up] <= cnt[cnt_idx_up] + inc;
-            else cnt[cnt_idx_up] <= cnt[cnt_idx_up] - dec;
+            if (bp_comp_1_hit) pht[pht_idx_up] <= (pht[pht_idx_up] + inc);
+            else pht[pht_idx_up] <= (pht[pht_idx_up] - dec);
         end
     end
 end
 
 logic meta;
 /* verilator lint_off WIDTHEXPAND */
-assign meta = (cnt[cnt_idx] >= CNT_THR);
+assign meta = (pht[pht_idx] >= CNT_THR);
 /* verilator lint_on WIDTHEXPAND */
 assign pred = meta ? bp_comp_pred.bp_1_p : bp_comp_pred.bp_2_p;
 
