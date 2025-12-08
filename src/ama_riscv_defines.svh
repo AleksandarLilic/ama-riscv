@@ -88,9 +88,8 @@
         ig_sel: IG_OFF, \
         bc_uns: 1'b0, \
         dmem_en: 1'b0, \
-        e_res_sel: E_RES_SEL_ALU, \
-        m_res_sel: M_RES_SEL_E_RES, \
-        w_res_sel: W_RES_SEL_M_RES, \
+        ewb_sel: EWB_SEL_ALU, \
+        wb_sel: WB_SEL_EWB, \
         rd_we: 1'b0 \
     }
 

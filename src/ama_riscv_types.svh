@@ -118,30 +118,26 @@ typedef enum logic [1:0] {
 
 // forwarding muxes
 typedef enum logic [1:0] {
-    FWD_BE_M_RES = 2'd0, // result from mem stage
-    FWD_BE_W_RES = 2'd1, // from wbk
-    FWD_BE_M_RES_P = 2'd2, // paired from mem
-    FWD_BE_W_RES_P = 2'd3 // paired from wbk
+    FWD_BE_MEM = 2'd0, // result from mem stage
+    FWD_BE_WBK = 2'd1, // from wbk
+    FWD_BE_MEM_P = 2'd2, // paired from mem
+    FWD_BE_WBK_P = 2'd3 // paired from wbk
 } fwd_be_t;
 
 // result muxes
-typedef enum logic [1:0] {
-    E_RES_SEL_ALU = 2'd0,
-    E_RES_SEL_IMM_U = 2'd1,
-    E_RES_SEL_PC_INC4 = 2'd2,
-    E_RES_SEL_UNPK = 2'd3
-} e_res_sel_t;
-
-typedef enum logic {
-    M_RES_SEL_E_RES = 1'b0,
-    M_RES_SEL_CSR = 1'b1
-} m_res_sel_t;
+typedef enum logic [2:0] {
+    EWB_SEL_ALU = 3'd0,
+    EWB_SEL_IMM_U = 3'd1,
+    EWB_SEL_PC_INC4 = 3'd2,
+    EWB_SEL_CSR = 3'd3,
+    EWB_SEL_UNPK = 3'd4
+} ewb_sel_t;
 
 typedef enum logic [1:0] {
-    W_RES_SEL_M_RES = 2'd0,
-    W_RES_SEL_DMEM = 2'd1,
-    W_RES_SEL_SIMD = 2'd2
-} w_res_sel_t;
+    WB_SEL_EWB = 2'd0,
+    WB_SEL_DMEM = 2'd1,
+    WB_SEL_SIMD = 2'd2
+} wb_sel_t;
 
 // module operation muxes
 typedef enum logic [1:0] {
@@ -290,9 +286,8 @@ typedef struct packed {
     ig_sel_t ig_sel;
     logic bc_uns;
     logic dmem_en;
-    e_res_sel_t e_res_sel;
-    m_res_sel_t m_res_sel;
-    w_res_sel_t w_res_sel;
+    ewb_sel_t ewb_sel;
+    wb_sel_t wb_sel;
     logic rd_we;
 } decoder_t;
 
