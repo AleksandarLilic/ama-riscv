@@ -158,7 +158,10 @@
         ["sim/sw/riscv-isa-tests", "sub.hex"],
         ["sim/sw/riscv-isa-tests", "sw.hex"],
         ["sim/sw/riscv-isa-tests", "xor.hex"],
-        ["sim/sw/riscv-isa-tests", "xori.hex"],
+        ["sim/sw/riscv-isa-tests", "xori.hex"]
+    ],
+
+    "riscv_isa_rv32i_zicsr": [
         ["sim/sw/riscv-isa-tests", "csr.hex"]
     ],
 
