@@ -3,6 +3,7 @@
 module ama_riscv_simd (
     input  logic clk,
     input  logic rst,
+    input  logic en,
     input  stage_ctrl_t ctrl_exe_mem,
     input  mult_op_t op,
     input  simd_t a,
@@ -111,36 +112,32 @@ csa_tree_8 #(.W(64)) csa_tree_8_i1 (.a (ppv[15:8]), .o (o_tree_1));
 csa_tree_8 #(.W(64)) csa_tree_8_i2 (.a (ppv[23:16]), .o (o_tree_2));
 csa_tree_8 #(.W(64)) csa_tree_8_i3 (.a (ppv[31:24]), .o (o_tree_3));
 
-simd_d_t [7:0] i_tree_f, i_tree_f_d; // inputs to the final tree
-assign i_tree_f = {o_tree_3, o_tree_2, o_tree_1, o_tree_0};
-
-logic b_sign_bit;
-assign b_sign_bit = b[ARCH_WIDTH-1]; // b MSB
-
 simd_t a_d;
-logic b_sign_bit_d;
 mult_op_t op_d;
 simd_d_t corr_d;
+simd_d_t [1:0] o_tree_3_d, o_tree_2_d, o_tree_1_d, o_tree_0_d;
+logic b_sign_bit, b_sign_bit_d;
+assign b_sign_bit = b[ARCH_WIDTH-1]; // b MSB
 
-// in general case, simple FFs are fine
-//`DFF_CI_RI_RVI(i_tree_f, i_tree_f_d)
+// in general case, simple FFs are fine, e.g.
 //`DFF_CI_RI_RV(MULT_OP_MUL, op, op_d)
-//`DFF_CI_RI_RVI(corr, corr_d)
-//`DFF_CI_RI_RVI(b_sign_bit, b_sign_bit_d)
-//`DFF_CI_RI_RVI(a, a_d)
 
 // but, in CPU, make sure it's aligned with stage its using
-`STAGE(ctrl_exe_mem, i_tree_f, i_tree_f_d, 'h0)
-`STAGE(ctrl_exe_mem, op, op_d, MULT_OP_MUL)
-`STAGE(ctrl_exe_mem, corr, corr_d, 'h0)
-`STAGE(ctrl_exe_mem, b_sign_bit, b_sign_bit_d, 1'b0)
-`STAGE(ctrl_exe_mem, a, a_d, 'h0)
+`STAGE(ctrl_exe_mem, en, o_tree_0, o_tree_0_d, 'h0)
+`STAGE(ctrl_exe_mem, en, o_tree_1, o_tree_1_d, 'h0)
+`STAGE(ctrl_exe_mem, en, o_tree_2, o_tree_2_d, 'h0)
+`STAGE(ctrl_exe_mem, en, o_tree_3, o_tree_3_d, 'h0)
+`STAGE(ctrl_exe_mem, en, op, op_d, MULT_OP_MUL)
+`STAGE(ctrl_exe_mem, en, corr, corr_d, 'h0)
+`STAGE(ctrl_exe_mem, (en && !op_simd), b_sign_bit, b_sign_bit_d, 1'b0)
+`STAGE(ctrl_exe_mem, (en && !op_simd), a, a_d, 'h0)
 
 // final tree
+simd_d_t [7:0] i_tree_f_d;
 simd_d_t [1:0] o_tree_f;
-csa_tree_8 #(.W(64)) csa_tree_8_f_i (.a (i_tree_f_d), .o(o_tree_f));
-
 simd_d_t tree_sum;
+assign i_tree_f_d = {o_tree_3_d, o_tree_2_d, o_tree_1_d, o_tree_0_d};
+csa_tree_8 #(.W(64)) csa_tree_8_f_i (.a (i_tree_f_d), .o(o_tree_f));
 assign tree_sum = (o_tree_f[0] + o_tree_f[1]);
 
 // wrap up multiplication

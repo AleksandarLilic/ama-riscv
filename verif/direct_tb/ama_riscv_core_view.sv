@@ -87,23 +87,23 @@ assign r.pc = pc_ret & {ARCH_WIDTH{inst_retired}};
 
 // branches
 logic branch_inst_mem, branch_inst_wbk;
-`STAGE(ctrl_exe_mem, decoded_exe.itype.branch, branch_inst_mem, 'h0)
-`STAGE(ctrl_mem_wbk, branch_inst_mem, branch_inst_wbk, 'h0)
-`STAGE(ctrl_wbk_ret, branch_inst_wbk, r.branch_inst, 'h0)
+`STAGE(ctrl_exe_mem, 1'b1, decoded_exe.itype.branch, branch_inst_mem, 'h0)
+`STAGE(ctrl_mem_wbk, 1'b1, branch_inst_mem, branch_inst_wbk, 'h0)
+`STAGE(ctrl_wbk_ret, 1'b1, branch_inst_wbk, r.branch_inst, 'h0)
 
 logic branch_taken_exe, branch_taken_mem, branch_taken_wbk;
 assign branch_taken_exe =
     ((branch_resolution == B_T) && decoded_exe.itype.branch);
-`STAGE(ctrl_exe_mem, branch_taken_exe, branch_taken_mem, 'h0)
-`STAGE(ctrl_mem_wbk, branch_taken_mem, branch_taken_wbk, 'h0)
-`STAGE(ctrl_wbk_ret, branch_taken_wbk, r.branch_taken, 'h0)
+`STAGE(ctrl_exe_mem, 1'b1, branch_taken_exe, branch_taken_mem, 'h0)
+`STAGE(ctrl_mem_wbk, 1'b1, branch_taken_mem, branch_taken_wbk, 'h0)
+`STAGE(ctrl_wbk_ret, 1'b1, branch_taken_wbk, r.branch_taken, 'h0)
 
 `ifdef USE_BP
 logic bp_hit_exe, bp_hit_mem, bp_hit_wbk;
 assign bp_hit_exe = (decoded_exe.itype.branch && bp_hit);
-`STAGE(ctrl_exe_mem, bp_hit_exe, bp_hit_mem, 'h0)
-`STAGE(ctrl_mem_wbk, bp_hit_mem, bp_hit_wbk, 'h0)
-`STAGE(ctrl_wbk_ret, bp_hit_wbk, r.bp_hit, 'h0)
+`STAGE(ctrl_exe_mem, 1'b1, bp_hit_exe, bp_hit_mem, 'h0)
+`STAGE(ctrl_mem_wbk, 1'b1, bp_hit_mem, bp_hit_wbk, 'h0)
+`STAGE(ctrl_wbk_ret, 1'b1, bp_hit_wbk, r.bp_hit, 'h0)
 `else
 assign r.bp_hit = 1'b0; // just to make trace function happy
 `endif
@@ -127,13 +127,13 @@ logic [3:0] dmem_size_exe, dmem_size_mem, dmem_size_wbk;
 assign dmem_size = dmem_req.dtype | {dmem_req.rtype, 2'b00};
 assign dmem_size_exe = dmem_req.valid ? {1'b0, dmem_size} : DMEM_SIZE_NA;
 
-`STAGE(ctrl_exe_mem, dmem_addr_exe, dmem_addr_mem, 'h0)
-`STAGE(ctrl_mem_wbk, dmem_addr_mem, dmem_addr_wbk, 'h0)
-`STAGE(ctrl_wbk_ret, dmem_addr_wbk, r.dmem_addr, 'h0)
+`STAGE(ctrl_exe_mem, 1'b1, dmem_addr_exe, dmem_addr_mem, 'h0)
+`STAGE(ctrl_mem_wbk, 1'b1, dmem_addr_mem, dmem_addr_wbk, 'h0)
+`STAGE(ctrl_wbk_ret, 1'b1, dmem_addr_wbk, r.dmem_addr, 'h0)
 
-`STAGE(ctrl_exe_mem, dmem_size_exe, dmem_size_mem, 'h0)
-`STAGE(ctrl_mem_wbk, dmem_size_mem, dmem_size_wbk, DMEM_SIZE_NA)
-`STAGE(ctrl_wbk_ret, dmem_size_wbk, r.dmem_size, DMEM_SIZE_NA)
+`STAGE(ctrl_exe_mem, 1'b1, dmem_size_exe, dmem_size_mem, 'h0)
+`STAGE(ctrl_mem_wbk, 1'b1, dmem_size_mem, dmem_size_wbk, DMEM_SIZE_NA)
+`STAGE(ctrl_wbk_ret, 1'b1, dmem_size_wbk, r.dmem_size, DMEM_SIZE_NA)
 
 // track down bubble
 pipeline_if_s bubble ();

@@ -101,9 +101,9 @@
         else if (_en) _q <= _d; \
     end
 
-`define STAGE(_ctrl, _d, _q, _rstv) \
+`define STAGE(_ctrl, _en, _d, _q, _rstv) \
     `DFF_CI_RI_RV_CLR_CLRVI_EN_CLR2_CLR2VI( \
-        _rstv, _ctrl.flush, _ctrl.en, _ctrl.bubble, _d, _q)
+        _rstv, _ctrl.flush, (_ctrl.en && _en), _ctrl.bubble, _d, _q)
 
 // DFF macros
 `define DFF_CI_RI_RV(_rstv, _d, _q) \

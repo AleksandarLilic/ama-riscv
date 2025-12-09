@@ -324,6 +324,8 @@ end
 
 logic [DMEM_ADDR_OFFSET_WIDTH-1:0] dmem_offset_dec, dmem_offset_exe;
 assign dmem_offset_dec = imm_gen_out_dec[DMEM_ADDR_OFFSET_WIDTH-1:0];
+logic decoded_itype_dmem;
+assign decoded_itype_dmem = (decoded.itype.load || decoded.itype.store);
 
 logic en_dec_exe;
 assign en_dec_exe = ((!dc_stalled) && (!hazard.to_exe));
@@ -336,16 +338,16 @@ assign ctrl_dec_exe = '{
 arch_width_t op_a_exe, op_b_exe;
 arch_width_t pc_branch_exe;
 
-`STAGE(ctrl_dec_exe, pc.dec, pc.exe, 'h0)
-`STAGE(ctrl_dec_exe, inst.dec, inst.exe, 'h0)
-`STAGE(ctrl_dec_exe, rd_addr.dec, rd_addr.exe, RF_X0_ZERO)
-`STAGE(ctrl_dec_exe, rs1_addr_dec, rs1_addr_exe, RF_X0_ZERO)
-`STAGE(ctrl_dec_exe, rs2_addr_dec, rs2_addr_exe, RF_X0_ZERO)
-`STAGE(ctrl_dec_exe, op_a_dec, op_a_exe, 'h0)
-`STAGE(ctrl_dec_exe, op_b_dec, op_b_exe, 'h0)
-`STAGE(ctrl_dec_exe, pc_branch, pc_branch_exe, 'h0)
-`STAGE(ctrl_dec_exe, dmem_offset_dec, dmem_offset_exe, 'h0)
-`STAGE(ctrl_dec_exe, decoded, decoded_exe, `DECODER_INIT_VAL)
+`STAGE(ctrl_dec_exe, 1'b1, pc.dec, pc.exe, 'h0)
+`STAGE(ctrl_dec_exe, 1'b1, inst.dec, inst.exe, 'h0)
+`STAGE(ctrl_dec_exe, 1'b1, rd_addr.dec, rd_addr.exe, RF_X0_ZERO)
+`STAGE(ctrl_dec_exe, 1'b1, rs1_addr_dec, rs1_addr_exe, RF_X0_ZERO)
+`STAGE(ctrl_dec_exe, 1'b1, rs2_addr_dec, rs2_addr_exe, RF_X0_ZERO)
+`STAGE(ctrl_dec_exe, 1'b1, op_a_dec, op_a_exe, 'h0)
+`STAGE(ctrl_dec_exe, 1'b1, op_b_dec, op_b_exe, 'h0)
+`STAGE(ctrl_dec_exe, decoded.itype.branch, pc_branch, pc_branch_exe, 'h0)
+`STAGE(ctrl_dec_exe, decoded_itype_dmem, dmem_offset_dec, dmem_offset_exe, 'h0)
+`STAGE(ctrl_dec_exe, 1'b1, decoded, decoded_exe, `DECODER_INIT_VAL)
 
 //------------------------------------------------------------------------------
 // EXE stage
@@ -431,20 +433,23 @@ ama_riscv_unpk ama_riscv_unpk_i (
     .op (decoded_exe.unpk_op), .a (op_a_r), .s (unpk_out)
 );
 
+simd_t unpk_out_exe, unpk_out_p_exe;
+assign unpk_out_exe = unpk_out.w[0];
+assign unpk_out_p_exe = unpk_out.w[1];
+
+logic simd_en_exe;
+assign simd_en_exe = decoded_exe.itype.mult;
 simd_t simd_out_mem;
 ama_riscv_simd ama_riscv_simd_i (
     .clk (clk),
     .rst (rst),
+    .en (simd_en_exe),
     .ctrl_exe_mem (ctrl_exe_mem),
     .op (decoded_exe.mult_op),
     .a (op_a_r),
     .b (op_b_r),
     .p (simd_out_mem)
 );
-
-simd_t unpk_out_exe, unpk_out_p_exe;
-assign unpk_out_exe = unpk_out.w[0];
-assign unpk_out_p_exe = unpk_out.w[1];
 
 // CSR
 arch_width_t csr_out_exe;
@@ -505,11 +510,10 @@ assign uart_ch.send = op_b_r[7:0]; // uart is 1 byte wide
 
 //------------------------------------------------------------------------------
 // Pipeline FF EXE/MEM
+logic unpk_en_exe, unpk_en_mem;
+assign unpk_en_exe = decoded_exe.itype.unpk;
 logic simd_inst_exe, simd_inst_mem;
-assign simd_inst_exe =
-    (decoded_exe.itype.unpk ||
-    (decoded_exe.itype.mult && decoded_exe.mult_op[2])
-);
+assign simd_inst_exe = (unpk_en_exe || (simd_en_exe && decoded_exe.mult_op[2]));
 
 pipeline_if_typed #(.T(wb_sel_t)) wb_sel ();
 assign wb_sel.exe = decoded_exe.wb_sel;
@@ -523,18 +527,19 @@ assign ctrl_exe_mem = '{
 
 logic map_uart_mem;
 
-`STAGE(ctrl_exe_mem, pc.exe, pc.mem, 'h0)
-`STAGE(ctrl_exe_mem, inst.exe, inst.mem, 'h0)
-`STAGE(ctrl_exe_mem, e_writeback_exe, e_writeback_mem, 'h0)
-`STAGE(ctrl_exe_mem, unpk_out_p_exe, unpk_out_p_mem, 'h0)
-`STAGE(ctrl_exe_mem, wb_sel.exe, wb_sel.mem, WB_SEL_EWB)
-`STAGE(ctrl_exe_mem, rd_addr.exe, rd_addr.mem, RF_X0_ZERO)
-`STAGE(ctrl_exe_mem, rd_we.exe, rd_we.mem, 'h0)
-`STAGE(ctrl_exe_mem, rdp_we.exe, rdp_we.mem, 'h0)
-`STAGE(ctrl_exe_mem, decoded_exe.itype.load, load_inst_mem, 'h0)
-`STAGE(ctrl_exe_mem, decoded_exe.itype.mult, mult_inst_mem, 'h0)
-`STAGE(ctrl_exe_mem, simd_inst_exe, simd_inst_mem, 'b0)
-`STAGE(ctrl_exe_mem, map_uart_exe, map_uart_mem, 'h0)
+`STAGE(ctrl_exe_mem, 1'b1, pc.exe, pc.mem, 'h0)
+`STAGE(ctrl_exe_mem, 1'b1, inst.exe, inst.mem, 'h0)
+`STAGE(ctrl_exe_mem, rd_we.exe, e_writeback_exe, e_writeback_mem, 'h0)
+`STAGE(ctrl_exe_mem, unpk_en_exe, unpk_out_p_exe, unpk_out_p_mem, 'h0)
+`STAGE(ctrl_exe_mem, unpk_en_exe, unpk_en_exe, unpk_en_mem, 'h0)
+`STAGE(ctrl_exe_mem, rd_we.exe, wb_sel.exe, wb_sel.mem, WB_SEL_EWB)
+`STAGE(ctrl_exe_mem, 1'b1, rd_addr.exe, rd_addr.mem, RF_X0_ZERO)
+`STAGE(ctrl_exe_mem, 1'b1, rd_we.exe, rd_we.mem, 'h0)
+`STAGE(ctrl_exe_mem, 1'b1, rdp_we.exe, rdp_we.mem, 'h0)
+`STAGE(ctrl_exe_mem, 1'b1, decoded_exe.itype.load, load_inst_mem, 'h0)
+`STAGE(ctrl_exe_mem, 1'b1, decoded_exe.itype.mult, mult_inst_mem, 'h0)
+`STAGE(ctrl_exe_mem, 1'b1, simd_inst_exe, simd_inst_mem, 'b0)
+`STAGE(ctrl_exe_mem, 1'b1, map_uart_exe, map_uart_mem, 'h0)
 
 `DFF_CI_RI_RVI((dc_stalled /*|| hazard.to_dec*/ || hazard.to_exe), be_stalled_d)
 
@@ -543,6 +548,9 @@ logic map_uart_mem;
 
 arch_width_t dmem_out_mem;
 assign dmem_out_mem = map_uart_mem ? uart_ch.recv : dmem_rsp.data;
+
+logic simd_or_mult_en_mem;
+assign simd_or_mult_en_mem = (mult_inst_mem || simd_inst_mem);
 
 //------------------------------------------------------------------------------
 // Pipeline FF MEM/WBK
@@ -555,17 +563,17 @@ assign ctrl_mem_wbk = '{
 logic simd_inst_wbk;
 arch_width_t e_writeback_wbk, dmem_out_wbk, simd_out_wbk;
 
-`STAGE(ctrl_mem_wbk, pc.mem, pc.wbk, 'h0)
-`STAGE(ctrl_mem_wbk, inst.mem, inst.wbk, 'h0)
-`STAGE(ctrl_mem_wbk, dmem_out_mem, dmem_out_wbk, 'h0)
-`STAGE(ctrl_mem_wbk, simd_out_mem, simd_out_wbk, 'h0)
-`STAGE(ctrl_mem_wbk, e_writeback_mem, e_writeback_wbk, 'h0)
-`STAGE(ctrl_mem_wbk, unpk_out_p_mem, unpk_out_p_wbk, 'h0)
-`STAGE(ctrl_mem_wbk, wb_sel.mem, wb_sel.wbk, WB_SEL_EWB)
-`STAGE(ctrl_mem_wbk, rd_addr.mem, rd_addr.wbk, RF_X0_ZERO)
-`STAGE(ctrl_mem_wbk, rd_we.mem, rd_we.wbk, 'h0)
-`STAGE(ctrl_mem_wbk, rdp_we.mem, rdp_we.wbk, 'h0)
-`STAGE(ctrl_mem_wbk, simd_inst_mem, simd_inst_wbk, 'h0)
+`STAGE(ctrl_mem_wbk, 1'b1, pc.mem, pc.wbk, 'h0)
+`STAGE(ctrl_mem_wbk, 1'b1, inst.mem, inst.wbk, 'h0)
+`STAGE(ctrl_mem_wbk, load_inst_mem, dmem_out_mem, dmem_out_wbk, 'h0)
+`STAGE(ctrl_mem_wbk, simd_or_mult_en_mem, simd_out_mem, simd_out_wbk, 'h0)
+`STAGE(ctrl_mem_wbk, rd_we.mem, e_writeback_mem, e_writeback_wbk, 'h0)
+`STAGE(ctrl_mem_wbk, unpk_en_mem, unpk_out_p_mem, unpk_out_p_wbk, 'h0)
+`STAGE(ctrl_mem_wbk, rd_we.mem, wb_sel.mem, wb_sel.wbk, WB_SEL_EWB)
+`STAGE(ctrl_mem_wbk, 1'b1, rd_addr.mem, rd_addr.wbk, RF_X0_ZERO)
+`STAGE(ctrl_mem_wbk, 1'b1, rd_we.mem, rd_we.wbk, 'h0)
+`STAGE(ctrl_mem_wbk, 1'b1, rdp_we.mem, rdp_we.wbk, 'h0)
+`STAGE(ctrl_mem_wbk, 1'b1, simd_inst_mem, simd_inst_wbk, 'h0)
 
 //------------------------------------------------------------------------------
 // WBK stage
@@ -588,9 +596,9 @@ inst_width_t inst_ret;
 arch_width_t pc_ret;
 logic simd_inst_ret;
 
-`STAGE(ctrl_wbk_ret, inst.wbk, inst_ret, 'h0)
-`STAGE(ctrl_wbk_ret, pc.wbk, pc_ret, 'h0)
-`STAGE(ctrl_wbk_ret, simd_inst_wbk, simd_inst_ret, 'h0)
+`STAGE(ctrl_wbk_ret, 1'b1, inst.wbk, inst_ret, 'h0)
+`STAGE(ctrl_wbk_ret, 1'b1, pc.wbk, pc_ret, 'h0)
+`STAGE(ctrl_wbk_ret, 1'b1, simd_inst_wbk, simd_inst_ret, 'h0)
 
 assign inst_retired = (pc_ret != 'h0);
 
