@@ -360,9 +360,9 @@ def main():
 
     except KeyboardInterrupt:
         print("KeyboardInterrupt received. Terminating.")
-        # __exit__ in Pool should handle these
-        #pool.terminate()
-        #pool.join() # wait for them to actually exit
+        # __exit__ in Pool should handle these, but it doesn't always...
+        pool.terminate()
+        pool.join() # wait for them to actually exit
         sys.exit(1)
 
     print_runtime(start_time, "Simulation")
