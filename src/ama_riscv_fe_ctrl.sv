@@ -3,8 +3,8 @@
 module ama_riscv_fe_ctrl (
     input  logic clk,
     input  logic rst,
-    rv_if.TX imem_req,
-    rv_if.RX imem_rsp,
+    rv_ctrl_if.TX imem_req,
+    rv_ctrl_if.RX imem_rsp,
     input  arch_width_t pc_dec,
     input  arch_width_t pc_exe,
     input  logic branch_in_dec,

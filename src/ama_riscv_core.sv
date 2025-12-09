@@ -94,11 +94,17 @@ logic dc_stalled;
 branch_t branch_resolution;
 hazard_t hazard;
 spec_exec_t spec;
+rv_ctrl_if imem_req_rv ();
+rv_ctrl_if imem_rsp_rv ();
+assign imem_req_rv.ready = imem_req.ready;
+assign imem_req.valid = imem_req_rv.valid;
+assign imem_rsp.ready = imem_rsp_rv.ready;
+assign imem_rsp_rv.valid = imem_rsp.valid;
 ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     .clk (clk),
     .rst (rst),
-    .imem_req (imem_req),
-    .imem_rsp (imem_rsp),
+    .imem_req (imem_req_rv),
+    .imem_rsp (imem_rsp_rv),
     // inputs
     .pc_dec (pc.dec),
     .pc_exe (pc.exe),
@@ -248,11 +254,6 @@ logic a_sel_fwd_exe, b_sel_fwd_exe;
 
 ama_riscv_operand_forwarding ama_riscv_operand_forwarding_i (
     // inputs
-    .store_inst_dec (decoded.itype.store),
-    .branch_inst_dec (decoded.itype.branch),
-    .store_inst_exe (decoded_exe.itype.store),
-    .load_inst_exe (decoded_exe.itype.load),
-    .branch_inst_exe (decoded_exe.itype.branch),
     .load_inst_mem (load_inst_mem),
     .mult_inst_mem (mult_inst_mem),
     .rs1_dec (rs1_addr_dec),
@@ -461,7 +462,8 @@ ama_riscv_csr #(
     .rst (rst),
     .ctrl (decoded_exe.csr_ctrl),
     .in (op_a_r),
-    .inst_exe (inst.exe),
+    .imm5 (inst.exe[19:15]),
+    .addr (csr_addr_t'(inst.exe[31:20])),
     .inst_to_be_retired (inst_to_be_retired),
     .perf_event (perf_event),
     .out (csr_out_exe)

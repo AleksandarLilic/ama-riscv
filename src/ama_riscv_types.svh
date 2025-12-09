@@ -521,6 +521,14 @@ interface rv_if_dc #(parameter AW = ARCH_WIDTH, parameter DW = ARCH_WIDTH) ();
     );
 endinterface
 
+// rv ctrl only
+interface rv_ctrl_if ();
+    logic valid;
+    logic ready;
+    modport TX (output valid, input  ready); // producer
+    modport RX (input  valid, output ready); // consumer
+endinterface
+
 interface uart_if ();
     uart_ctrl_t ctrl;
     logic [7:0] send;

@@ -2,11 +2,6 @@
 
 module ama_riscv_operand_forwarding (
     // inputs
-    input  logic store_inst_dec,
-    input  logic branch_inst_dec,
-    input  logic store_inst_exe,
-    input  logic load_inst_exe,
-    input  logic branch_inst_exe,
     input  logic load_inst_mem,
     input  logic mult_inst_mem,
     input  rf_addr_t rs1_dec,

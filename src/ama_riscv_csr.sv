@@ -7,7 +7,8 @@ module ama_riscv_csr #(
     input  logic rst,
     input  csr_ctrl_t ctrl,
     input  arch_width_t in,
-    input  arch_width_t inst_exe,
+    input  logic [4:0] imm5,
+    input  csr_addr_t addr,
     input  logic inst_to_be_retired,
     input  perf_event_t perf_event,
     output arch_width_t out
@@ -42,28 +43,26 @@ endfunction
 //------------------------------------------------------------------------------
 // implementation
 csr_t csr; // regs
-csr_addr_t addr;
-logic [4:0] imm5;
+csr_addr_t addr_en;
 arch_width_t imm, wr_data_src, wr_data;
-assign imm5 = inst_exe[19:15];
 assign imm = {27'h0, imm5}; // zero-extend
 assign wr_data_src = ctrl.ui ? imm : in;
-assign addr = csr_addr_t'(inst_exe[31:20] & {12{ctrl.en}});
+assign addr_en = csr_addr_t'(addr & {12{ctrl.en}});
 
 csr_dw_t mhpmcounter[`RANGE_C];
 logic [MHPMCOUNTER_MASK_BITS-1:0] mhpm_addr_c;
-assign mhpm_addr_c = (addr[MHPMCOUNTER_MASK_BITS-1:0]);
+assign mhpm_addr_c = (addr_en[MHPMCOUNTER_MASK_BITS-1:0]);
 
 mhpmevent_t mhpmevent[`RANGE_E];
 logic [MHPMEVENT_MASK_BITS-1:0] mhpm_addr_e;
-assign mhpm_addr_e = (addr[MHPMEVENT_MASK_BITS-1:0]);
+assign mhpm_addr_e = (addr_en[MHPMEVENT_MASK_BITS-1:0]);
 
 //------------------------------------------------------------------------------
 // csr read
 always_comb begin
     out = 'h0;
     if (ctrl.re) begin
-        case (addr)
+        case (addr_en)
             CSR_TOHOST: out = csr.tohost;
             CSR_MCYCLE: out = csr.mcycle.r[CSR_LOW];
             CSR_MCYCLEH: out = csr.mcycle.r[CSR_HIGH];
@@ -118,7 +117,7 @@ always_ff @(posedge clk) begin
             mhpmevent[i] <= MHPMEVENT_NONE;
         end
     end else if (ctrl.we) begin
-        case (addr)
+        case (addr_en)
             CSR_TOHOST: csr.tohost <= wr_data;
             CSR_MSCRATCH: csr.mscratch <= wr_data;
             CSR_MHPMEVENT3,
@@ -137,7 +136,7 @@ end
 
 // mcycle
 logic [1:0] am_mcycle;
-assign am_mcycle = {(addr == CSR_MCYCLEH), (addr == CSR_MCYCLE)};
+assign am_mcycle = {(addr_en == CSR_MCYCLEH), (addr_en == CSR_MCYCLE)};
 always_ff @(posedge clk) begin
     if (rst) begin
         csr.mcycle <= 'h0;
@@ -151,7 +150,7 @@ end
 
 // minstret
 logic [1:0] am_minstret;
-assign am_minstret = {(addr == CSR_MINSTRETH), (addr == CSR_MINSTRET)};
+assign am_minstret = {(addr_en == CSR_MINSTRETH), (addr_en == CSR_MINSTRET)};
 always_ff @(posedge clk) begin
     if (rst) begin
         csr.minstret <= 'h0;
@@ -205,7 +204,7 @@ logic [1:0] am_mhpmcounter[`RANGE_C];
 genvar i;
 generate
     `IT_I_NT(MHPM_OFFSET, (MHPMCOUNTERS + MHPM_OFFSET)) begin: gen_mhpm_write
-        assign am_mhpmcounter[i] = {(addr == am_h[i]), (addr == am_l[i])};
+        assign am_mhpmcounter[i] = {(addr_en == am_h[i]), (addr_en == am_l[i])};
         always_ff @(posedge clk) begin
             if (rst) begin
                 mhpmcounter[i] <= 'h0;
