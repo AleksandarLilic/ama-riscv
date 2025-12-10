@@ -133,11 +133,11 @@ assign b_sign_bit = b[ARCH_WIDTH-1]; // b MSB
 `STAGE(ctrl_exe_mem, (en && !op_simd), a, a_d, 'h0)
 
 // final tree
-simd_d_t [7:0] i_tree_f_d;
+simd_d_t [7:0] i_tree_f;
 simd_d_t [1:0] o_tree_f;
 simd_d_t tree_sum;
-assign i_tree_f_d = {o_tree_3_d, o_tree_2_d, o_tree_1_d, o_tree_0_d};
-csa_tree_8 #(.W(64)) csa_tree_8_f_i (.a (i_tree_f_d), .o(o_tree_f));
+assign i_tree_f = {o_tree_3_d, o_tree_2_d, o_tree_1_d, o_tree_0_d};
+csa_tree_8 #(.W(64)) csa_tree_8_f_i (.a (i_tree_f), .o(o_tree_f));
 assign tree_sum = (o_tree_f[0] + o_tree_f[1]);
 
 // wrap up multiplication
