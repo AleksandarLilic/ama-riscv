@@ -3,7 +3,7 @@
 module ama_riscv_bp #(
     parameter unsigned PC_BITS = 5,
     parameter unsigned CNT_BITS = 3,
-    parameter unsigned GR_BITS = 5,
+    parameter unsigned GHR_BITS = 5,
     parameter bp_t BP_TYPE_SEL = BP_BIMODAL
 )(
     input  logic clk,
@@ -17,9 +17,9 @@ module ama_riscv_bp #(
 // params
 localparam unsigned IDX_BITS =
     ((BP_TYPE_SEL == BP_BIMODAL) || (BP_TYPE_SEL == BP_COMBINED)) ? PC_BITS :
-    (BP_TYPE_SEL == BP_GLOBAL) ? GR_BITS :
-    (BP_TYPE_SEL == BP_GSELECT) ? (GR_BITS + PC_BITS) :
-    (BP_TYPE_SEL == BP_GSHARE) ? `MAX(GR_BITS, PC_BITS) : 'h0;
+    (BP_TYPE_SEL == BP_GLOBAL) ? GHR_BITS :
+    (BP_TYPE_SEL == BP_GSELECT) ? (GHR_BITS + PC_BITS) :
+    (BP_TYPE_SEL == BP_GSHARE) ? `MAX(GHR_BITS, PC_BITS) : 'h0;
 localparam unsigned PHT_ENTRIES = (1 << IDX_BITS);
 localparam unsigned CNT_MAX = ((1 << CNT_BITS) - 1);
 localparam unsigned CNT_THR = (CNT_MAX == 1) ? CNT_MAX : (CNT_MAX >> 1);
@@ -33,10 +33,10 @@ logic [PC_BITS-1:0] pc_dec_part, pc_exe_part;
 assign pc_dec_part = pipe_in.pc_dec[PC_BITS-1:0];
 assign pc_exe_part = pipe_in.pc_exe[PC_BITS-1:0];
 
-logic [GR_BITS-1:0] gr;
+logic [GHR_BITS-1:0] ghr;
 always_ff @(posedge clk) begin
-    if (rst) gr <= 'h0;
-    else if (pipe_in.spec.resolve) gr <= {gr[GR_BITS-2:0], taken};
+    if (rst) ghr <= 'h0;
+    else if (pipe_in.spec.resolve) ghr <= {ghr[GHR_BITS-2:0], taken};
 end
 
 logic [IDX_BITS-1:0] pht_idx, pht_idx_up;
@@ -47,13 +47,13 @@ assign pht_idx_up = pc_exe_part;
 end
 
 if (BP_TYPE_SEL == BP_GLOBAL) begin: gen_global_idx
-assign pht_idx = gr;
-assign pht_idx_up = gr; // gr updated in the same clk as pht, so this is correct
+assign pht_idx = ghr;
+assign pht_idx_up = ghr; // ghr updated in the same clk as pht
 
 /*
 // FIXME: perf bug
 // back to back branches update late, but this adds logic on critical path
-assign pht_idx = pipe_in.spec.resolve ? {gr[GR_BITS-2:0], taken} : gr;
+assign pht_idx = pipe_in.spec.resolve ? {ghr[GHR_BITS-2:0], taken} : ghr;
 always_ff @(posedge clk) begin
     if (rst) pht_idx_up <= 'h0;
     else if (pipe_in.spec.enter) pht_idx_up <= pht_idx;
@@ -63,14 +63,14 @@ end
 end
 
 if (BP_TYPE_SEL == BP_GSELECT) begin: gen_gselect_idx
-assign pht_idx = {pc_dec_part, gr};
-assign pht_idx_up = {pc_exe_part, gr};
+assign pht_idx = {pc_dec_part, ghr};
+assign pht_idx_up = {pc_exe_part, ghr};
 end
 
 if (BP_TYPE_SEL == BP_GSHARE) begin: gen_gshare_idx
-localparam GR_OFF = (PC_BITS > GR_BITS) ? (PC_BITS - GR_BITS) : 0;
-assign pht_idx = (pc_dec_part ^ (gr << GR_OFF));
-assign pht_idx_up = (pc_exe_part ^ (gr << GR_OFF));
+localparam GHR_OFF = (PC_BITS > GHR_BITS) ? (PC_BITS - GHR_BITS) : 0;
+assign pht_idx = (pc_dec_part ^ (ghr << GHR_OFF));
+assign pht_idx_up = (pc_exe_part ^ (ghr << GHR_OFF));
 end
 
 //------------------------------------------------------------------------------

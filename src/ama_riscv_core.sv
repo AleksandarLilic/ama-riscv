@@ -214,7 +214,7 @@ end else begin: gen_bp_dyn_comb
 branch_t bp_pred_2, bp_pred_meta;
 
 ama_riscv_bp #(
-    .GR_BITS (BP_2_GR_BITS),
+    .GHR_BITS (BP_2_GHR_BITS),
     .CNT_BITS (BP_2_CNT_BITS),
     .BP_TYPE_SEL (BP_2_TYPE)
 ) ama_riscv_bp_c2_i (
