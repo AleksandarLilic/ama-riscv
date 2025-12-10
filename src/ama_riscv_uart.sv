@@ -45,8 +45,7 @@ assign uart_rv_ctrl_in = '{
 
 arch_width_t read;
 assign read = uart_ch.ctrl.load_signed ?
-    {{24{recv_rsp_ch.data[7]}}, recv_rsp_ch.data} :
-    {24'd0, recv_rsp_ch.data};
+    {{24{recv_rsp_ch.data[7]}}, recv_rsp_ch.data} : {24'd0, recv_rsp_ch.data};
 
 always_ff @(posedge clk) begin
     if (rst) begin

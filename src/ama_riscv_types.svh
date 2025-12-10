@@ -309,6 +309,14 @@ typedef struct packed {
 } hazard_t;
 
 typedef struct packed {
+    dmem_rtype_t rtype;
+    dmem_dtype_t dtype;
+    logic [CORE_BYTE_ADDR_BUS-1:0] addr;
+    logic [ARCH_WIDTH-1:0] wdata;
+    logic en;
+} dmem_req_side_t;
+
+typedef struct packed {
     logic bad_spec;
     logic fe;
     logic fe_ic;
@@ -453,6 +461,12 @@ typedef struct packed {
     logic load_signed;
     uart_addr_t addr;
 } uart_ctrl_t;
+
+
+typedef struct packed {
+    uart_ctrl_t ctrl;
+    logic [7:0] send;
+} uart_ch_side_t;
 
 typedef enum int unsigned {
     BR_9600 = 9600,

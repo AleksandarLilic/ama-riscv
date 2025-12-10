@@ -31,17 +31,16 @@ perf_event_t perf_event;
 
 //------------------------------------------------------------------------------
 // FET Stage
-arch_width_t pc_mux_out, pc_inc4, pc_jal, pc_new_exe; // pc mux inputs
-arch_width_t pc_branch;
+arch_width_t imem_addr, pc_inc4, pc_jal, pc_new_exe, pc_branch;
 fe_ctrl_t fe_ctrl;
 logic be_stalled_d;
 decoder_t decoded; // from decode
 
 `ifdef USE_BP
 arch_width_t pc_fet_cp; // checkpoint fetch PC before going to speculative
-arch_width_t pc_fet_use;
-assign pc_fet_use = fe_ctrl.use_cp ? pc_fet_cp : pc.fet;
-assign pc_inc4 = (pc_fet_use + 'd4);
+arch_width_t pc_fet_cp_get;
+assign pc_fet_cp_get = fe_ctrl.use_cp ? pc_fet_cp : pc.fet;
+assign pc_inc4 = (pc_fet_cp_get + 'd4);
 branch_t bp_pred;
 logic bp_hit;
 `else
@@ -50,19 +49,19 @@ assign pc_inc4 = (pc.fet + 'd4);
 
 always_comb begin
     unique case (fe_ctrl.pc_sel)
-        PC_SEL_PC: pc_mux_out = pc.fet;
-        PC_SEL_INC4: pc_mux_out = pc_inc4;
-        PC_SEL_ALU: pc_mux_out = pc_new_exe;
-        PC_SEL_JAL: pc_mux_out = pc_jal;
+        PC_SEL_PC: imem_addr = pc.fet;
+        PC_SEL_INC4: imem_addr = pc_inc4;
+        PC_SEL_ALU: imem_addr = pc_new_exe;
+        PC_SEL_JAL: imem_addr = pc_jal;
         `ifdef USE_BP
-        PC_SEL_BP: pc_mux_out = pc_branch;
+        PC_SEL_BP: imem_addr = pc_branch;
         `endif
-        default: pc_mux_out = pc.fet;
+        default: imem_addr = pc.fet;
     endcase
 end
-assign imem_req.data = pc_mux_out[15:2];
+assign imem_req.data = imem_addr[15:2];
 
-`DFF_CI_RI_RV_EN(`RESET_VECTOR, fe_ctrl.pc_we, pc_mux_out, pc.fet)
+`DFF_CI_RI_RV_EN(`RESET_VECTOR, fe_ctrl.pc_we, imem_addr, pc.fet)
 
 //------------------------------------------------------------------------------
 // DEC Stage
@@ -244,7 +243,7 @@ end // gen_bp_sttc/gen_bp_dyn
 `endif // USE_BP
 
 rf_addr_t rs1_addr_exe, rs2_addr_exe;
-logic load_inst_mem, mult_inst_mem;
+logic load_inst_mem, load_inst_wbk, mult_inst_mem;
 
 fwd_be_t fwd_src_sel_rs1_dec, fwd_src_sel_rs2_dec;
 fwd_be_t fwd_src_sel_rs1_exe, fwd_src_sel_rs2_exe;
@@ -255,6 +254,8 @@ logic a_sel_fwd_exe, b_sel_fwd_exe;
 ama_riscv_operand_forwarding ama_riscv_operand_forwarding_i (
     // inputs
     .load_inst_mem (load_inst_mem),
+    .load_inst_wbk (load_inst_wbk),
+    .dc_stalled (dc_stalled),
     .mult_inst_mem (mult_inst_mem),
     .rs1_dec (rs1_addr_dec),
     .rs2_dec (rs2_addr_dec),
@@ -492,23 +493,24 @@ assign map_dmem_exe = (dmem_addr[19:16] == `DMEM_RANGE);
 assign map_uart_exe = (dmem_addr[19:16] == `MMIO_RANGE);
 
 // DMEM
-dmem_dtype_t dmem_dtype, dmem_dtype_mem;
+dmem_req_side_t dmem_req_exe;
+dmem_dtype_t dmem_dtype;
 assign dmem_dtype = dmem_dtype_t'(get_fn3(inst.exe));
-assign dmem_req.valid =
-    map_dmem_exe && decoded_exe.dmem_en && (!dc_stalled) && (!hazard.to_exe);
-assign dmem_req.wdata = op_b_r;
-assign dmem_req.addr = dmem_addr[CORE_BYTE_ADDR_BUS-1:0];
-assign dmem_req.dtype = dmem_dtype;
-assign dmem_req.rtype = decoded_exe.itype.store ? DMEM_WRITE : DMEM_READ;
-assign dc_stalled = !dmem_req.ready;
+assign dmem_req_exe.wdata = op_b_r;
+assign dmem_req_exe.addr = dmem_addr[CORE_BYTE_ADDR_BUS-1:0];
+assign dmem_req_exe.dtype = dmem_dtype;
+assign dmem_req_exe.rtype = decoded_exe.itype.store ? DMEM_WRITE : DMEM_READ;
+assign dmem_req_exe.en =
+    (map_dmem_exe && decoded_exe.dmem_en && (!hazard.to_exe));
 
 // UART
-assign uart_ch.ctrl.en = map_uart_exe && decoded_exe.dmem_en;
-assign uart_ch.ctrl.we = uart_ch.ctrl.en && decoded_exe.itype.store;
-assign uart_ch.ctrl.addr = uart_addr_t'(dmem_addr[4:2]);
-assign uart_ch.ctrl.load_signed = (dmem_dtype == DMEM_DTYPE_BYTE);
-assign uart_ch.send = op_b_r[7:0]; // uart is 1 byte wide
-// uart_ch.recv aligned with mem stage
+uart_ch_side_t uart_ch_exe;
+assign uart_ch_exe.ctrl.en =
+    (map_uart_exe && decoded_exe.dmem_en && (!hazard.to_exe));
+assign uart_ch_exe.ctrl.we = (uart_ch_exe.ctrl.en && decoded_exe.itype.store);
+assign uart_ch_exe.ctrl.addr = uart_addr_t'(dmem_addr[4:2]);
+assign uart_ch_exe.ctrl.load_signed = (dmem_dtype == DMEM_DTYPE_BYTE);
+assign uart_ch_exe.send = op_b_r[7:0]; // uart is 1 byte wide
 
 //------------------------------------------------------------------------------
 // Pipeline FF EXE/MEM
@@ -527,7 +529,9 @@ assign ctrl_exe_mem = '{
     bubble: (!ctrl_dec_exe.en || hazard.to_exe)
 };
 
-logic map_uart_mem;
+logic map_uart_mem, dmem_en_mem;
+dmem_req_side_t dmem_req_mem;
+uart_ch_side_t uart_ch_mem;
 
 `STAGE(ctrl_exe_mem, 1'b1, pc.exe, pc.mem, 'h0)
 `STAGE(ctrl_exe_mem, 1'b1, inst.exe, inst.mem, 'h0)
@@ -539,6 +543,8 @@ logic map_uart_mem;
 `STAGE(ctrl_exe_mem, 1'b1, rd_we.exe, rd_we.mem, 'h0)
 `STAGE(ctrl_exe_mem, 1'b1, rdp_we.exe, rdp_we.mem, 'h0)
 `STAGE(ctrl_exe_mem, 1'b1, decoded_exe.itype.load, load_inst_mem, 'h0)
+`STAGE(ctrl_exe_mem, 1'b1, dmem_req_exe, dmem_req_mem, 'h0)
+`STAGE(ctrl_exe_mem, 1'b1, uart_ch_exe, uart_ch_mem, 'h0)
 `STAGE(ctrl_exe_mem, 1'b1, decoded_exe.itype.mult, mult_inst_mem, 'h0)
 `STAGE(ctrl_exe_mem, 1'b1, simd_inst_exe, simd_inst_mem, 'b0)
 `STAGE(ctrl_exe_mem, 1'b1, map_uart_exe, map_uart_mem, 'h0)
@@ -548,26 +554,38 @@ logic map_uart_mem;
 //------------------------------------------------------------------------------
 // MEM stage
 
-arch_width_t dmem_out_mem;
-assign dmem_out_mem = map_uart_mem ? uart_ch.recv : dmem_rsp.data;
+// DMEM
+assign dmem_req.wdata = dmem_req_mem.wdata;
+assign dmem_req.addr = dmem_req_mem.addr;
+assign dmem_req.dtype = dmem_req_mem.dtype;
+assign dmem_req.rtype = dmem_req_mem.rtype;
+assign dmem_req.valid = (dmem_req_mem.en && (!dc_stalled));
+assign dc_stalled = !dmem_req.ready;
 
-logic simd_or_mult_en_mem;
-assign simd_or_mult_en_mem = (mult_inst_mem || simd_inst_mem);
+// UART
+assign uart_ch.ctrl.en = uart_ch_mem.ctrl.en;
+assign uart_ch.ctrl.we = uart_ch_mem.ctrl.we;
+assign uart_ch.ctrl.addr = uart_ch_mem.ctrl.addr;
+assign uart_ch.ctrl.load_signed = uart_ch_mem.ctrl.load_signed;
+assign uart_ch.send = uart_ch_mem.send;
+// uart_ch.recv arrives in the next cycle
 
 //------------------------------------------------------------------------------
 // Pipeline FF MEM/WBK
 assign ctrl_mem_wbk = '{
     flush: flush.exe,
-    en: 1'b1,
+    en: (!dc_stalled),
     bubble: (!ctrl_exe_mem.en)
 };
 
-logic simd_inst_wbk;
-arch_width_t e_writeback_wbk, dmem_out_wbk, simd_out_wbk;
+logic simd_or_mult_en_mem;
+assign simd_or_mult_en_mem = (mult_inst_mem || simd_inst_mem);
+
+logic simd_inst_wbk, map_uart_wbk;
+arch_width_t e_writeback_wbk, simd_out_wbk;
 
 `STAGE(ctrl_mem_wbk, 1'b1, pc.mem, pc.wbk, 'h0)
 `STAGE(ctrl_mem_wbk, 1'b1, inst.mem, inst.wbk, 'h0)
-`STAGE(ctrl_mem_wbk, load_inst_mem, dmem_out_mem, dmem_out_wbk, 'h0)
 `STAGE(ctrl_mem_wbk, simd_or_mult_en_mem, simd_out_mem, simd_out_wbk, 'h0)
 `STAGE(ctrl_mem_wbk, rd_we.mem, e_writeback_mem, e_writeback_wbk, 'h0)
 `STAGE(ctrl_mem_wbk, unpk_en_mem, unpk_out_p_mem, unpk_out_p_wbk, 'h0)
@@ -575,10 +593,16 @@ arch_width_t e_writeback_wbk, dmem_out_wbk, simd_out_wbk;
 `STAGE(ctrl_mem_wbk, 1'b1, rd_addr.mem, rd_addr.wbk, RF_X0_ZERO)
 `STAGE(ctrl_mem_wbk, 1'b1, rd_we.mem, rd_we.wbk, 'h0)
 `STAGE(ctrl_mem_wbk, 1'b1, rdp_we.mem, rdp_we.wbk, 'h0)
+`STAGE(ctrl_mem_wbk, 1'b1, load_inst_mem, load_inst_wbk, 'h0)
 `STAGE(ctrl_mem_wbk, 1'b1, simd_inst_mem, simd_inst_wbk, 'h0)
+`STAGE(ctrl_mem_wbk, 1'b1, map_uart_mem, map_uart_wbk, 'h0)
 
 //------------------------------------------------------------------------------
 // WBK stage
+
+arch_width_t dmem_out_wbk;
+assign dmem_out_wbk = map_uart_wbk ? uart_ch.recv : dmem_rsp.data;
+
 always_comb begin
     unique case (wb_sel.wbk)
         WB_SEL_EWB: writeback = e_writeback_wbk;

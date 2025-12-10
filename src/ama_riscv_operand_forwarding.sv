@@ -3,6 +3,8 @@
 module ama_riscv_operand_forwarding (
     // inputs
     input  logic load_inst_mem,
+    input  logic load_inst_wbk,
+    input  logic dc_stalled,
     input  logic mult_inst_mem,
     input  rf_addr_t rs1_dec,
     input  rf_addr_t rs2_dec,
@@ -139,12 +141,13 @@ assign b_sel_dec_fwd = (d_rs2_dec.has && (b_sel_dec == B_SEL_RS2)) ?
     B_SEL_FWD : b_sel_dec;
 
 // hazards on 2 cycle execute instructions?
-logic two_clk_inst_mem;
-assign two_clk_inst_mem = (load_inst_mem || mult_inst_mem);
-//assign hazard.to_dec = 1'b0;
-//assign hazard_be.to_dec =
-//    (two_clk_inst && (d_rs1_dec.in_mem || d_rs2_dec.in_mem));
-assign hazard.to_exe =
-    (two_clk_inst_mem && (d_rs1_exe.in_mem || d_rs2_exe.in_mem));
+logic hazard_from_mem, hazard_from_wbk;
+assign hazard_from_mem = (
+    (load_inst_mem || mult_inst_mem) && (d_rs1_exe.in_mem || d_rs2_exe.in_mem)
+);
+assign hazard_from_wbk = (
+    load_inst_wbk && dc_stalled && (d_rs1_exe.in_wbk || d_rs2_exe.in_wbk)
+);
+assign hazard.to_exe = (hazard_from_mem || hazard_from_wbk);
 
 endmodule
