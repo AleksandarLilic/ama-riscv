@@ -97,8 +97,10 @@
     always_ff @(posedge clk) begin \
         if (rst) _q <= _rstv; \
         else if (_clr) _q <= _rstv; \
-        else if (_en && _clr2) _q <= _rstv; \
-        else if (_en) _q <= _d; \
+        else if (_en) begin \
+            if (_clr2) _q <= _rstv; \
+            else _q <= _d; \
+        end \
     end
 
 `define STAGE(_ctrl, _en, _d, _q, _rstv) \

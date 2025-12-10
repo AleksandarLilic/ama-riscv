@@ -345,11 +345,27 @@ arch_width_t pc_branch_exe;
 `STAGE(ctrl_dec_exe, 1'b1, rd_addr.dec, rd_addr.exe, RF_X0_ZERO)
 `STAGE(ctrl_dec_exe, 1'b1, rs1_addr_dec, rs1_addr_exe, RF_X0_ZERO)
 `STAGE(ctrl_dec_exe, 1'b1, rs2_addr_dec, rs2_addr_exe, RF_X0_ZERO)
-`STAGE(ctrl_dec_exe, 1'b1, op_a_dec, op_a_exe, 'h0)
-`STAGE(ctrl_dec_exe, 1'b1, op_b_dec, op_b_exe, 'h0)
 `STAGE(ctrl_dec_exe, decoded.itype.branch, pc_branch, pc_branch_exe, 'h0)
 `STAGE(ctrl_dec_exe, decoded_itype_dmem, dmem_offset_dec, dmem_offset_exe, 'h0)
 `STAGE(ctrl_dec_exe, 1'b1, decoded, decoded_exe, `DECODER_INIT_VAL)
+
+// special case for two operands, to save (writeback fwd) values on stall
+arch_width_t op_a_r, op_b_r; // resolved operands from exe stage (fwd decl.)
+always_ff @(posedge clk) begin
+    if (rst) begin
+        {op_a_exe, op_b_exe} <= {ARCH_WIDTH'(0), ARCH_WIDTH'(0)};
+    end else if (ctrl_dec_exe.flush) begin
+        {op_a_exe, op_b_exe} <= {ARCH_WIDTH'(0), ARCH_WIDTH'(0)};
+    end else if (ctrl_exe_mem.bubble) begin // saved operands
+        {op_a_exe, op_b_exe} <= {op_a_r, op_b_r};
+    end else if (ctrl_dec_exe.en) begin
+        if (ctrl_dec_exe.bubble) begin
+            {op_a_exe, op_b_exe} <= {ARCH_WIDTH'(0), ARCH_WIDTH'(0)};
+        end else begin
+            {op_a_exe, op_b_exe} <= {op_a_dec, op_b_dec};
+        end
+    end
+end
 
 //------------------------------------------------------------------------------
 // EXE stage
@@ -374,36 +390,8 @@ always_comb begin
     endcase
 end
 
-// save wb in case inst in mem stalls, while exe inst needs forwarded value
-logic use_swb_rs1, use_swb_rs2; // saved writeback
-arch_width_t swb_rs1, swb_rs2;
-always_ff @(posedge clk) begin
-    if (rst) begin
-        {use_swb_rs1, use_swb_rs2} = 2'b00;
-    end else if (ctrl_exe_mem.bubble) begin
-        if (a_sel_fwd_exe) {swb_rs1, use_swb_rs1} = {rs1_exe_be_fwd, 1'b1};
-        if (b_sel_fwd_exe) {swb_rs2, use_swb_rs2} = {rs2_exe_be_fwd, 1'b1};
-    end else if (!ctrl_exe_mem.bubble) begin
-        {use_swb_rs1, use_swb_rs2} = 2'b00;
-    end
-end
-
-arch_width_t op_a_r, op_b_r; // resolved operands
-always_comb begin
-    case (1'b1)
-        a_sel_fwd_exe: op_a_r = rs1_exe_be_fwd;
-        use_swb_rs1: op_a_r = swb_rs1;
-        default: op_a_r = op_a_exe;
-    endcase
-end
-
-always_comb begin
-    case (1'b1)
-        b_sel_fwd_exe: op_b_r = rs2_exe_be_fwd;
-        use_swb_rs2: op_b_r = swb_rs2;
-        default: op_b_r = op_b_exe;
-    endcase
-end
+assign op_a_r = a_sel_fwd_exe ? rs1_exe_be_fwd : op_a_exe;
+assign op_b_r = b_sel_fwd_exe ? rs2_exe_be_fwd : op_b_exe;
 
 // branch compare & resolution
 logic bc_a_eq_b, bc_a_lt_b;
