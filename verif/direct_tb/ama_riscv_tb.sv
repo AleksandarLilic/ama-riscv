@@ -122,8 +122,6 @@ bind `CORE ama_riscv_core_view ama_riscv_core_view_i (
     .ctrl_exe_mem (ctrl_exe_mem),
     .ctrl_mem_wbk (ctrl_mem_wbk),
     .ctrl_wbk_ret (ctrl_wbk_ret),
-    .inst_ret (inst_ret),
-    .pc_ret (pc_ret),
     .decoded_exe (decoded_exe),
     .branch_resolution (branch_resolution),
     .csr_tohost (`CSR.csr.tohost), // this
@@ -260,8 +258,8 @@ function bit cosim_run_checkers;
     int unsigned checker_errors_prev;
     begin
         checker_errors_prev = errors;
-        checker_t("pc", `CHK_ACT, `CORE.pc_ret, cosim.pc);
-        checker_t("inst", `CHK_ACT, `CORE.inst_ret, cosim.inst);
+        checker_t("pc", `CHK_ACT, `CORE.pc.ret, cosim.pc);
+        checker_t("inst", `CHK_ACT, `CORE.inst.ret, cosim.inst);
         checker_t("tohost", `CHK_ACT, `CORE_VIEW.csr_tohost_wbk, cosim.tohost);
         for (int unsigned i = 1; i < RF_NUM; i = i + 1) begin
             checker_t(
@@ -538,7 +536,7 @@ task automatic single_step();
         return;
     end
 
-    core_ret = $sformatf("Core [R] %5h: %8h", `CORE.pc_ret, `CORE.inst_ret);
+    core_ret = $sformatf("Core [R] %5h: %8h", `CORE.pc.ret, `CORE.inst.ret);
     `LOG_V(core_ret);
 
     `ifdef ENABLE_COSIM

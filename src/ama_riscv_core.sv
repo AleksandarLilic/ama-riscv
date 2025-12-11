@@ -26,7 +26,7 @@ logic [PIPE_STAGES-1:0] reset_seq;
 `DFF_CI_RI_RV(RST_INIT, {reset_seq[PIPE_STAGES-2:0], 1'b0}, reset_seq)
 
 // pipe stage controls
-stage_ctrl_t ctrl_exe_mem, ctrl_dec_exe, ctrl_mem_wbk, ctrl_wbk_ret;
+stage_ctrl_t ctrl_dec_exe, ctrl_exe_mem, ctrl_mem_wbk, ctrl_wbk_ret;
 perf_event_t perf_event;
 
 //------------------------------------------------------------------------------
@@ -324,30 +324,42 @@ end
 //------------------------------------------------------------------------------
 // Pipeline FF DEC/EXE
 
+arch_width_t op_a_exe, op_b_exe, pc_branch_exe;
+branch_sel_t branch_sel_dec, branch_sel_exe;
+assign branch_sel_dec = get_branch_sel(inst.dec);
+
 logic [DMEM_ADDR_OFFSET_WIDTH-1:0] dmem_offset_dec, dmem_offset_exe;
 assign dmem_offset_dec = imm_gen_out_dec[DMEM_ADDR_OFFSET_WIDTH-1:0];
 logic decoded_itype_dmem;
 assign decoded_itype_dmem = (decoded.itype.load || decoded.itype.store);
+dmem_dtype_t dmem_dtype_dec, dmem_dtype_exe;
+assign dmem_dtype_dec = dmem_dtype_t'(get_fn3(inst.dec));
 
-logic en_dec_exe;
-assign en_dec_exe = ((!dc_stalled) && (!hazard.to_exe));
+logic [4:0] csr_imm5_dec, csr_imm5_exe;
+assign csr_imm5_dec = inst.dec[19:15];
+csr_addr_t csr_addr_dec, csr_addr_exe;
+assign csr_addr_dec = csr_addr_t'(inst.dec[31:20]);
+
 assign ctrl_dec_exe = '{
     flush: flush.dec,
-    en: en_dec_exe,
+    en: ((!dc_stalled) && (!hazard.to_exe)),
     bubble: (fe_ctrl.bubble_dec /*|| hazard.to_dec*/)
 };
 
-arch_width_t op_a_exe, op_b_exe;
-arch_width_t pc_branch_exe;
-
-`STAGE(ctrl_dec_exe, 1'b1, pc.dec, pc.exe, 'h0)
-`STAGE(ctrl_dec_exe, 1'b1, inst.dec, inst.exe, 'h0)
-`STAGE(ctrl_dec_exe, 1'b1, rd_addr.dec, rd_addr.exe, RF_X0_ZERO)
-`STAGE(ctrl_dec_exe, 1'b1, rs1_addr_dec, rs1_addr_exe, RF_X0_ZERO)
-`STAGE(ctrl_dec_exe, 1'b1, rs2_addr_dec, rs2_addr_exe, RF_X0_ZERO)
-`STAGE(ctrl_dec_exe, decoded.itype.branch, pc_branch, pc_branch_exe, 'h0)
-`STAGE(ctrl_dec_exe, decoded_itype_dmem, dmem_offset_dec, dmem_offset_exe, 'h0)
-`STAGE(ctrl_dec_exe, 1'b1, decoded, decoded_exe, `DECODER_INIT_VAL)
+`ifndef SYNT
+`STAGE_D_E(1'b1, inst.dec, inst.exe, 'h0)
+`endif
+`STAGE_D_E(1'b1, pc.dec, pc.exe, 'h0)
+`STAGE_D_E(1'b1, rd_addr.dec, rd_addr.exe, RF_X0_ZERO)
+`STAGE_D_E(1'b1, rs1_addr_dec, rs1_addr_exe, RF_X0_ZERO)
+`STAGE_D_E(1'b1, rs2_addr_dec, rs2_addr_exe, RF_X0_ZERO)
+`STAGE_D_E(decoded.itype.branch, pc_branch, pc_branch_exe, 'h0)
+`STAGE_D_E(decoded.itype.branch, branch_sel_dec, branch_sel_exe, BRANCH_SEL_BEQ)
+`STAGE_D_E(decoded_itype_dmem, dmem_offset_dec, dmem_offset_exe, 'h0)
+`STAGE_D_E(decoded_itype_dmem, dmem_dtype_dec, dmem_dtype_exe, DMEM_DTYPE_BYTE)
+`STAGE_D_E(decoded.csr_ctrl.en, csr_imm5_dec, csr_imm5_exe, 'h0)
+`STAGE_D_E(decoded.csr_ctrl.en, csr_addr_dec, csr_addr_exe, csr_addr_t'('h0))
+`STAGE_D_E(1'b1, decoded, decoded_exe, `DECODER_INIT_VAL)
 
 // special case for two operands, to save (writeback fwd) values on stall
 arch_width_t op_a_r, op_b_r; // resolved operands from exe stage (fwd decl.)
@@ -399,9 +411,6 @@ assign bc_a_eq_b = (op_a_r == op_b_r);
 assign bc_a_lt_b = (decoded_exe.bc_uns) ?
         (op_a_r < op_b_r) : ($signed(op_a_r) < $signed(op_b_r));
 
-branch_sel_t branch_sel_exe;
-assign branch_sel_exe = get_branch_sel(inst.exe);
-
 always_comb begin
     unique case (branch_sel_exe)
         BRANCH_SEL_BEQ: branch_resolution = branch_t'(bc_a_eq_b);
@@ -451,8 +460,8 @@ ama_riscv_csr #(
     .rst (rst),
     .ctrl (decoded_exe.csr_ctrl),
     .in (op_a_r),
-    .imm5 (inst.exe[19:15]),
-    .addr (csr_addr_t'(inst.exe[31:20])),
+    .imm5 (csr_imm5_exe),
+    .addr (csr_addr_exe),
     .inst_to_be_retired (inst_to_be_retired),
     .perf_event (perf_event),
     .out (csr_out_exe)
@@ -482,11 +491,9 @@ assign map_uart_exe = (dmem_addr[19:16] == `MMIO_RANGE);
 
 // DMEM
 dmem_req_side_t dmem_req_exe;
-dmem_dtype_t dmem_dtype;
-assign dmem_dtype = dmem_dtype_t'(get_fn3(inst.exe));
 assign dmem_req_exe.wdata = op_b_r;
 assign dmem_req_exe.addr = dmem_addr[CORE_BYTE_ADDR_BUS-1:0];
-assign dmem_req_exe.dtype = dmem_dtype;
+assign dmem_req_exe.dtype = dmem_dtype_exe;
 assign dmem_req_exe.rtype = decoded_exe.itype.store ? DMEM_WRITE : DMEM_READ;
 assign dmem_req_exe.en =
     (map_dmem_exe && decoded_exe.dmem_en && (!hazard.to_exe));
@@ -497,7 +504,7 @@ assign uart_ch_exe.ctrl.en =
     (map_uart_exe && decoded_exe.dmem_en && (!hazard.to_exe));
 assign uart_ch_exe.ctrl.we = (uart_ch_exe.ctrl.en && decoded_exe.itype.store);
 assign uart_ch_exe.ctrl.addr = uart_addr_t'(dmem_addr[4:2]);
-assign uart_ch_exe.ctrl.load_signed = (dmem_dtype == DMEM_DTYPE_BYTE);
+assign uart_ch_exe.ctrl.load_signed = (dmem_dtype_exe == DMEM_DTYPE_BYTE);
 assign uart_ch_exe.send = op_b_r[7:0]; // uart is 1 byte wide
 
 //------------------------------------------------------------------------------
@@ -507,10 +514,14 @@ assign unpk_en_exe = decoded_exe.itype.unpk;
 logic simd_inst_exe, simd_inst_mem;
 assign simd_inst_exe = (unpk_en_exe || (simd_en_exe && decoded_exe.mult_op[2]));
 
+pipeline_if_s pc_nz ();
+assign pc_nz.exe = (pc.exe != 'h0);
+
 pipeline_if_typed #(.T(wb_sel_t)) wb_sel ();
 assign wb_sel.exe = decoded_exe.wb_sel;
 assign rd_we.exe = decoded_exe.rd_we;
 assign rdp_we.exe = decoded_exe.itype.unpk;
+
 assign ctrl_exe_mem = '{
     flush: flush.exe,
     en: (!dc_stalled),
@@ -521,21 +532,24 @@ logic map_uart_mem, dmem_en_mem;
 dmem_req_side_t dmem_req_mem;
 uart_ch_side_t uart_ch_mem;
 
-`STAGE(ctrl_exe_mem, 1'b1, pc.exe, pc.mem, 'h0)
-`STAGE(ctrl_exe_mem, 1'b1, inst.exe, inst.mem, 'h0)
-`STAGE(ctrl_exe_mem, rd_we.exe, e_writeback_exe, e_writeback_mem, 'h0)
-`STAGE(ctrl_exe_mem, unpk_en_exe, unpk_out_p_exe, unpk_out_p_mem, 'h0)
-`STAGE(ctrl_exe_mem, unpk_en_exe, unpk_en_exe, unpk_en_mem, 'h0)
-`STAGE(ctrl_exe_mem, rd_we.exe, wb_sel.exe, wb_sel.mem, WB_SEL_EWB)
-`STAGE(ctrl_exe_mem, 1'b1, rd_addr.exe, rd_addr.mem, RF_X0_ZERO)
-`STAGE(ctrl_exe_mem, 1'b1, rd_we.exe, rd_we.mem, 'h0)
-`STAGE(ctrl_exe_mem, 1'b1, rdp_we.exe, rdp_we.mem, 'h0)
-`STAGE(ctrl_exe_mem, 1'b1, decoded_exe.itype.load, load_inst_mem, 'h0)
-`STAGE(ctrl_exe_mem, 1'b1, dmem_req_exe, dmem_req_mem, 'h0)
-`STAGE(ctrl_exe_mem, 1'b1, uart_ch_exe, uart_ch_mem, 'h0)
-`STAGE(ctrl_exe_mem, 1'b1, decoded_exe.itype.mult, mult_inst_mem, 'h0)
-`STAGE(ctrl_exe_mem, 1'b1, simd_inst_exe, simd_inst_mem, 'b0)
-`STAGE(ctrl_exe_mem, 1'b1, map_uart_exe, map_uart_mem, 'h0)
+`ifndef SYNT
+`STAGE_E_M(1'b1, inst.exe, inst.mem, 'h0)
+`STAGE_E_M(1'b1, pc.exe, pc.mem, 'h0)
+`endif
+`STAGE_E_M(1'b1, pc_nz.exe, pc_nz.mem, 'h0)
+`STAGE_E_M(rd_we.exe, e_writeback_exe, e_writeback_mem, 'h0)
+`STAGE_E_M(unpk_en_exe, unpk_out_p_exe, unpk_out_p_mem, 'h0)
+`STAGE_E_M(unpk_en_exe, unpk_en_exe, unpk_en_mem, 'h0)
+`STAGE_E_M(rd_we.exe, wb_sel.exe, wb_sel.mem, WB_SEL_EWB)
+`STAGE_E_M(1'b1, rd_addr.exe, rd_addr.mem, RF_X0_ZERO)
+`STAGE_E_M(1'b1, rd_we.exe, rd_we.mem, 'h0)
+`STAGE_E_M(1'b1, rdp_we.exe, rdp_we.mem, 'h0)
+`STAGE_E_M(1'b1, decoded_exe.itype.load, load_inst_mem, 'h0)
+`STAGE_E_M(1'b1, dmem_req_exe, dmem_req_mem, 'h0)
+`STAGE_E_M(1'b1, uart_ch_exe, uart_ch_mem, 'h0)
+`STAGE_E_M(1'b1, decoded_exe.itype.mult, mult_inst_mem, 'h0)
+`STAGE_E_M(1'b1, simd_inst_exe, simd_inst_mem, 'b0)
+`STAGE_E_M(1'b1, map_uart_exe, map_uart_mem, 'h0)
 
 `DFF_CI_RI_RVI((dc_stalled /*|| hazard.to_dec*/ || hazard.to_exe), be_stalled_d)
 
@@ -572,18 +586,21 @@ assign simd_or_mult_en_mem = (mult_inst_mem || simd_inst_mem);
 logic simd_inst_wbk, map_uart_wbk;
 arch_width_t e_writeback_wbk, simd_out_wbk;
 
-`STAGE(ctrl_mem_wbk, 1'b1, pc.mem, pc.wbk, 'h0)
-`STAGE(ctrl_mem_wbk, 1'b1, inst.mem, inst.wbk, 'h0)
-`STAGE(ctrl_mem_wbk, simd_or_mult_en_mem, simd_out_mem, simd_out_wbk, 'h0)
-`STAGE(ctrl_mem_wbk, rd_we.mem, e_writeback_mem, e_writeback_wbk, 'h0)
-`STAGE(ctrl_mem_wbk, unpk_en_mem, unpk_out_p_mem, unpk_out_p_wbk, 'h0)
-`STAGE(ctrl_mem_wbk, rd_we.mem, wb_sel.mem, wb_sel.wbk, WB_SEL_EWB)
-`STAGE(ctrl_mem_wbk, 1'b1, rd_addr.mem, rd_addr.wbk, RF_X0_ZERO)
-`STAGE(ctrl_mem_wbk, 1'b1, rd_we.mem, rd_we.wbk, 'h0)
-`STAGE(ctrl_mem_wbk, 1'b1, rdp_we.mem, rdp_we.wbk, 'h0)
-`STAGE(ctrl_mem_wbk, 1'b1, load_inst_mem, load_inst_wbk, 'h0)
-`STAGE(ctrl_mem_wbk, 1'b1, simd_inst_mem, simd_inst_wbk, 'h0)
-`STAGE(ctrl_mem_wbk, 1'b1, map_uart_mem, map_uart_wbk, 'h0)
+`ifndef SYNT
+`STAGE_M_W(1'b1, inst.mem, inst.wbk, 'h0)
+`STAGE_M_W(1'b1, pc.mem, pc.wbk, 'h0)
+`endif
+`STAGE_M_W(1'b1, pc_nz.mem, pc_nz.wbk, 2'h0)
+`STAGE_M_W(simd_or_mult_en_mem, simd_out_mem, simd_out_wbk, 'h0)
+`STAGE_M_W(rd_we.mem, e_writeback_mem, e_writeback_wbk, 'h0)
+`STAGE_M_W(unpk_en_mem, unpk_out_p_mem, unpk_out_p_wbk, 'h0)
+`STAGE_M_W(rd_we.mem, wb_sel.mem, wb_sel.wbk, WB_SEL_EWB)
+`STAGE_M_W(1'b1, rd_addr.mem, rd_addr.wbk, RF_X0_ZERO)
+`STAGE_M_W(1'b1, rd_we.mem, rd_we.wbk, 'h0)
+`STAGE_M_W(1'b1, rdp_we.mem, rdp_we.wbk, 'h0)
+`STAGE_M_W(1'b1, load_inst_mem, load_inst_wbk, 'h0)
+`STAGE_M_W(1'b1, simd_inst_mem, simd_inst_wbk, 'h0)
+`STAGE_M_W(1'b1, map_uart_mem, map_uart_wbk, 'h0)
 
 //------------------------------------------------------------------------------
 // WBK stage
@@ -600,21 +617,22 @@ always_comb begin
     endcase
 end
 
-assign inst_to_be_retired = (pc.wbk != 'h0) && (!flush.wbk);
+assign inst_to_be_retired = (pc_nz.wbk && (!flush.wbk));
 
 //------------------------------------------------------------------------------
 // retire
 assign ctrl_wbk_ret = '{flush: flush.wbk, en: 1'b1, bubble: (!ctrl_mem_wbk.en)};
 
-inst_width_t inst_ret;
-arch_width_t pc_ret;
 logic simd_inst_ret;
 
-`STAGE(ctrl_wbk_ret, 1'b1, inst.wbk, inst_ret, 'h0)
-`STAGE(ctrl_wbk_ret, 1'b1, pc.wbk, pc_ret, 'h0)
-`STAGE(ctrl_wbk_ret, 1'b1, simd_inst_wbk, simd_inst_ret, 'h0)
+`ifndef SYNT
+`STAGE_W_R(1'b1, inst.wbk, inst.ret, 'h0)
+`STAGE_W_R(1'b1, pc.wbk, pc.ret, 'h0)
+`endif
+`STAGE_W_R(1'b1, pc_nz.wbk, pc_nz.ret, 2'h0)
+`STAGE_W_R(1'b1, simd_inst_wbk, simd_inst_ret, 'h0)
 
-assign inst_retired = (pc_ret != 'h0);
+assign inst_retired = pc_nz.ret;
 
 //------------------------------------------------------------------------------
 // perf

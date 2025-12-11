@@ -107,6 +107,22 @@
     `DFF_CI_RI_RV_CLR_CLRVI_EN_CLR2_CLR2VI( \
         _rstv, _ctrl.flush, (_ctrl.en && _en), _ctrl.bubble, _d, _q)
 
+`define STAGE_D_E(_en, _d, _q, _rstv) \
+    `DFF_CI_RI_RV_CLR_CLRVI_EN_CLR2_CLR2VI( \
+        _rstv, ctrl_dec_exe.flush, (ctrl_dec_exe.en && _en), ctrl_dec_exe.bubble, _d, _q)
+
+`define STAGE_E_M(_en, _d, _q, _rstv) \
+    `DFF_CI_RI_RV_CLR_CLRVI_EN_CLR2_CLR2VI( \
+        _rstv, ctrl_exe_mem.flush, (ctrl_exe_mem.en && _en), ctrl_exe_mem.bubble, _d, _q)
+
+`define STAGE_M_W(_en, _d, _q, _rstv) \
+    `DFF_CI_RI_RV_CLR_CLRVI_EN_CLR2_CLR2VI( \
+        _rstv, ctrl_mem_wbk.flush, (ctrl_mem_wbk.en && _en), ctrl_mem_wbk.bubble, _d, _q)
+
+`define STAGE_W_R(_en, _d, _q, _rstv) \
+    `DFF_CI_RI_RV_CLR_CLRVI_EN_CLR2_CLR2VI( \
+        _rstv, ctrl_wbk_ret.flush, (ctrl_wbk_ret.en && _en), ctrl_wbk_ret.bubble, _d, _q)
+
 // DFF macros
 `define DFF_CI_RI_RV(_rstv, _d, _q) \
     always_ff @(posedge clk) begin \

@@ -13,8 +13,6 @@ module ama_riscv_core_view (
     input stage_ctrl_t ctrl_exe_mem,
     input stage_ctrl_t ctrl_mem_wbk,
     input stage_ctrl_t ctrl_wbk_ret,
-    input inst_width_t inst_ret,
-    input arch_width_t pc_ret,
     input decoder_t decoded_exe,
     input branch_t branch_resolution,
     input arch_width_t csr_tohost,
@@ -66,7 +64,7 @@ always_comb begin
     inst_shadow.exe = classify_inst(inst.exe);
     inst_shadow.mem = classify_inst(inst.mem);
     inst_shadow.wbk = classify_inst(inst.wbk);
-    inst_shadow_ret = classify_inst(inst_ret);
+    inst_shadow_ret = classify_inst(inst.ret);
 
     nop.dec = (inst.dec == `NOP);
     nop.exe = (inst.exe == `NOP);
@@ -82,8 +80,8 @@ end
 // signals for tracing
 
 // inst, pc
-assign r.inst = inst_ret & {INST_WIDTH{inst_retired}};
-assign r.pc = pc_ret & {ARCH_WIDTH{inst_retired}};
+assign r.inst = inst.ret & {INST_WIDTH{inst_retired}};
+assign r.pc = pc.ret & {ARCH_WIDTH{inst_retired}};
 
 // branches
 logic branch_inst_mem, branch_inst_wbk;
