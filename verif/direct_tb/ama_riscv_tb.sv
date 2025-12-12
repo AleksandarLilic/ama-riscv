@@ -472,7 +472,7 @@ endfunction
 
 function void cosim_sync_csrs(output csr_sync_t csr);
     csr.mtime = mtime_d[2];
-    `IT((MHPMCOUNTERS+MHPM_OFFSET)) begin
+    `IT((MHPMCOUNTERS+MHPM_IDX_L)) begin
         csr.mhpmcounter[i] = csr_d[1].mhpmcounter[i];
     end
 endfunction
@@ -599,7 +599,7 @@ always @(posedge clk) clk_cnt += 1;
 
 // perf counters only 1 clk delay
 always_ff @(posedge clk) begin
-    `IT((MHPMCOUNTERS+MHPM_OFFSET)) begin
+    `IT((MHPMCOUNTERS+MHPM_IDX_L)) begin
         csr_d[0].mhpmcounter[i] <= `CSR.mhpmcounter[i];
         csr_d[1].mhpmcounter[i] <= csr_d[0].mhpmcounter[i];
     end

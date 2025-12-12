@@ -21,11 +21,11 @@ localparam unsigned CNT_WIDTH = $clog2(CLOCKS_PER_US);
 
 localparam unsigned MHPMEVENT_PAD_WIDTH = (ARCH_WIDTH - MHPMEVENTS);
 localparam logic [MHPMEVENT_PAD_WIDTH-1:0] MHPMEVENT_PAD = 'h0;
-localparam unsigned MHPMCOUNTER_MASK_BITS = $clog2(MHPMCOUNTERS + MHPM_OFFSET);
-localparam unsigned MHPMEVENT_MASK_BITS = $clog2(MHPMEVENTS + MHPM_OFFSET);
+localparam unsigned MHPMCOUNTER_MASK_BITS = $clog2(MHPMCOUNTERS + MHPM_IDX_L);
+localparam unsigned MHPMEVENT_MASK_BITS = $clog2(MHPMEVENTS + MHPM_IDX_L);
 
-`define RANGE_C MHPM_OFFSET:(MHPMCOUNTERS + MHPM_OFFSET - 1)
-`define RANGE_E MHPM_OFFSET:(MHPMEVENTS + MHPM_OFFSET - 1)
+`define RANGE_C MHPM_IDX_L:(MHPMCOUNTERS + MHPM_IDX_L - 1)
+`define RANGE_E MHPM_IDX_L:(MHPMEVENTS + MHPM_IDX_L - 1)
 
 function automatic logic get_event(
     input perf_event_t pe, input logic [MHPMEVENTS-1:0] mhpmevent);
@@ -113,7 +113,7 @@ always_ff @(posedge clk) begin
     if (rst) begin
         csr.tohost <= 'h0;
         csr.mscratch <= 'h0;
-        `IT_I(MHPM_OFFSET, (MHPMCOUNTERS + MHPM_OFFSET)) begin
+        `IT_I(MHPM_IDX_L, (MHPMCOUNTERS + MHPM_IDX_L)) begin
             mhpmevent[i] <= MHPMEVENT_NONE;
         end
     end else if (ctrl.we) begin
@@ -203,7 +203,7 @@ assign am_h = {
 logic [1:0] am_mhpmcounter[`RANGE_C];
 genvar i;
 generate
-    `IT_I_NT(MHPM_OFFSET, (MHPMCOUNTERS + MHPM_OFFSET)) begin: gen_mhpm_write
+    `IT_I_NT(MHPM_IDX_L, (MHPMCOUNTERS + MHPM_IDX_L)) begin: gen_mhpm_write
         assign am_mhpmcounter[i] = {(addr_en == am_h[i]), (addr_en == am_l[i])};
         always_ff @(posedge clk) begin
             if (rst) begin

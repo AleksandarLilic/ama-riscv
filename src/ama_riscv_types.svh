@@ -420,7 +420,7 @@ typedef union packed {
     arch_width_t [1:0] r; // reg
 } csr_dw_t;
 
-parameter unsigned MHPM_OFFSET = 3; // starts at idx 3
+parameter unsigned MHPM_IDX_L = 3; // index low, starts at idx 3
 parameter unsigned MHPMCOUNTERS = 6;
 parameter unsigned MHPMEVENTS = 6;
 

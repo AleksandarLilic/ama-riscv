@@ -49,7 +49,7 @@ typedef struct {
 
 typedef struct {
     longint unsigned mtime;
-    longint unsigned mhpmcounter[MHPMCOUNTERS+MHPM_OFFSET];
+    longint unsigned mhpmcounter[MHPMCOUNTERS+MHPM_IDX_L];
 } csr_sync_t;
 
 // profiling from isa sim
