@@ -136,7 +136,7 @@ logic [IDX_RANGE_TOP-1:0] set_idx_cr;
 logic [WAY_BITS-1:0] way_victim_idx, way_victim_idx_d;
 logic new_core_req, new_core_req_d;
 logic hit, hit_d;
-logic load_req_hit, load_req_pending;
+logic load_req_hit, load_req_pend;
 
 //------------------------------------------------------------------------------
 // lookup and tag matching
@@ -183,19 +183,15 @@ end
 // lru
 lru_cnt_access_t lca;
 always_comb begin
-    if (load_req_pending) begin
-        lca.way_idx = cr_pend.cr.way_idx;
-        lca.set_idx = get_idx(cr_pend.cr.addr);
-    end else if (load_req_hit) begin
-        lca.way_idx = cr.way_idx;
-        lca.set_idx = get_idx(cr.addr);
-    end else begin
-        lca = '{'h0, 'h0};
-    end
+    unique case (1'b1)
+        load_req_pend: lca = '{cr_pend.cr.way_idx, get_idx(cr_pend.cr.addr)};
+        load_req_hit: lca = '{cr.way_idx, get_idx(cr.addr)};
+        default: lca = '{'h0, 'h0};
+    endcase
 end
 
 logic update_lru;
-assign update_lru = (load_req_hit || load_req_pending);
+assign update_lru = (load_req_hit || load_req_pend);
 always_ff @(posedge clk) begin
     if (rst) begin
         `IT_P(w, WAYS) begin
@@ -208,7 +204,7 @@ always_ff @(posedge clk) begin
             // if LRU counter is less than the one that hit, increment it
             // no need to make cnt saturating - can't increment last lru
             if (a_lru[w][lca.set_idx] < a_lru[lca.way_idx][lca.set_idx]) begin
-                a_lru[w][lca.set_idx] <= a_lru[w][lca.set_idx] + 1;
+                a_lru[w][lca.set_idx] <= (a_lru[w][lca.set_idx] + 1);
             end
         end
         // hit way becomes LRU 0
@@ -256,16 +252,13 @@ assign mem_transfer_done =
 `DFF_CI_RI_RVI(mem_transfer_done, mem_transfer_done_d)
 
 assign load_req_hit = (hit && new_core_req);
-assign load_req_pending = (mem_transfer_done_d && cr_pend.active);
+assign load_req_pend = (mem_transfer_done_d && cr_pend.active);
+
+//------------------------------------------------------------------------------
+// addressing banks
 
 logic [TAG_W-1:0] tag_pend;
-logic [IDX_RANGE_TOP-1:0] set_idx_pend;
 assign tag_pend = (cr_pend.mem_start_addr >> (2 + IDX_BITS));
-assign set_idx_pend = get_idx(cr_pend.cr.addr);
-
-logic [IDX_RANGE_TOP-1:0] set_idx;
-logic [WAY_BITS-1:0] way_idx, way_idx_d;
-logic [WORD_ADDR-1:0] word_idx, word_idx_d;
 
 logic mem_to_cache_wr;
 assign mem_to_cache_wr = (rsp_mem.valid && (state == IC_MISS) && !spec_wrong);
@@ -276,26 +269,24 @@ always_comb begin
     end
 end
 
-//------------------------------------------------------------------------------
-// addressing banks
+logic [IDX_RANGE_TOP-1:0] set_idx, set_idx_pend;
+logic [WAY_BITS-1:0] way_idx, way_idx_d;
+logic [WORD_ADDR-1:0] word_idx, word_idx_d;
 
 logic [BANK_ADDR-1:0] bank_addr_store, bank_addr_load;
 logic [BANK_LINE_ADDR-1:0] bank_line_addr_load;
 always_comb begin
-    set_idx = 'h0;
-    word_idx = 'h0;
-    way_idx = 'h0;
+    set_idx = get_idx(cr.addr);
+    word_idx = get_cl_word(cr.addr);
+    way_idx = cr.way_idx;
     if (cr_pend.active && !clear_pending) begin
         set_idx = get_idx(cr_pend.cr.addr);
         word_idx = get_cl_word(cr_pend.cr.addr);
         way_idx = cr_pend.cr.way_idx;
-    end else if (new_core_req && hit) begin
-        set_idx = get_idx(cr.addr);
-        word_idx = get_cl_word(cr.addr);
-        way_idx = cr.way_idx;
     end
     bank_line_addr_load = word_idx[(WORD_ADDR-1) -: BANK_LINE_ADDR];
     bank_addr_load = {set_idx, bank_line_addr_load};
+    set_idx_pend = get_idx(cr_pend.cr.addr);
     bank_addr_store = {set_idx_pend, mem_miss_cnt_d};
     bank_addr = mem_to_cache_wr ? bank_addr_store : bank_addr_load;
     //`IT_P(w, WAYS) bank_en[w] = (w == way_idx);
@@ -304,6 +295,7 @@ end
 `DFF_CI_RI_RVI(way_idx, way_idx_d)
 `DFF_CI_RI_RVI(word_idx, word_idx_d)
 
+//------------------------------------------------------------------------------
 // tag and valid updates
 always_ff @(posedge clk) begin
     if (rst) begin
