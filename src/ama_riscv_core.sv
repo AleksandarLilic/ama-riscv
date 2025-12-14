@@ -31,7 +31,7 @@ perf_event_t perf_event;
 
 //------------------------------------------------------------------------------
 // FET Stage
-arch_width_t imem_addr, pc_inc4, pc_jal, pc_new_exe, pc_branch;
+arch_width_t imem_addr, pc_inc4, pc_branch_jal, pc_new_exe;
 fe_ctrl_t fe_ctrl;
 logic be_stalled_d;
 decoder_t decoded; // from decode
@@ -52,10 +52,7 @@ always_comb begin
         PC_SEL_PC: imem_addr = pc.fet;
         PC_SEL_INC4: imem_addr = pc_inc4;
         PC_SEL_ALU: imem_addr = pc_new_exe;
-        PC_SEL_JAL: imem_addr = pc_jal;
-        `ifdef USE_BP
-        PC_SEL_BP: imem_addr = pc_branch;
-        `endif
+        PC_SEL_JAL_BP: imem_addr = pc_branch_jal;
         default: imem_addr = pc.fet;
     endcase
 end
@@ -173,8 +170,9 @@ ama_riscv_imm_gen ama_riscv_imm_gen_i(
     .out (imm_gen_out_dec)
 );
 
-assign pc_jal = (pc.dec + imm_jal);
-assign pc_branch = decoded.itype.branch ? (pc.dec + imm_b) : 'h0;
+arch_width_t imm_branch_jal;
+assign imm_branch_jal = decoded.itype.branch ? imm_b : imm_jal;
+assign pc_branch_jal = (pc.dec + imm_branch_jal);
 
 `ifdef USE_BP
 // all predictors use imm_b right away, no BTB
@@ -186,7 +184,7 @@ assign bp_pred = B_T;
 end else if (BP_STATIC_TYPE == BP_STATIC_ANT) begin: gen_bp_sttc_ant
 assign bp_pred = B_NT;
 end else if (BP_STATIC_TYPE == BP_STATIC_BTFN) begin: gen_bp_sttc_btfn
-assign bp_pred = branch_t'(decoded.itype.branch && (pc_branch < pc.dec));
+assign bp_pred = branch_t'(decoded.itype.branch && (pc_branch_jal < pc.dec));
 end
 
 end else begin: gen_bp_dyn
@@ -353,7 +351,7 @@ assign ctrl_dec_exe = '{
 `STAGE_D_E(1'b1, rd_addr.dec, rd_addr.exe, RF_X0_ZERO)
 `STAGE_D_E(1'b1, rs1_addr_dec, rs1_addr_exe, RF_X0_ZERO)
 `STAGE_D_E(1'b1, rs2_addr_dec, rs2_addr_exe, RF_X0_ZERO)
-`STAGE_D_E(decoded.itype.branch, pc_branch, pc_branch_exe, 'h0)
+`STAGE_D_E(decoded.itype.branch, pc_branch_jal, pc_branch_exe, 'h0)
 `STAGE_D_E(decoded.itype.branch, branch_sel_dec, branch_sel_exe, BRANCH_SEL_BEQ)
 `STAGE_D_E(decoded_itype_dmem, dmem_offset_dec, dmem_offset_exe, 'h0)
 `STAGE_D_E(decoded_itype_dmem, dmem_dtype_dec, dmem_dtype_exe, DMEM_DTYPE_BYTE)

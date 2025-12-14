@@ -75,6 +75,8 @@ assign branch_taken = (branch_in_exe && (branch_resolution == B_T));
 `ifdef USE_BP
 assign flow_update = jalr_in_exe;
 assign stall_act.flow = jalr_in_dec;
+logic bp_taken;
+assign bp_taken = (bp_pred == B_T);
 `else
 assign flow_update = (branch_taken || jalr_in_exe);
 assign stall_act.flow = (branch_in_dec || jalr_in_dec);
@@ -243,7 +245,7 @@ always_comb begin
             `ifdef USE_BP
             end else if (spec.enter) begin
                 // enter speculative only if not blocked by others
-                fe_ctrl.pc_sel = (bp_pred == B_T) ? PC_SEL_BP : PC_SEL_INC4;
+                fe_ctrl.pc_sel = bp_taken ? PC_SEL_JAL_BP : PC_SEL_INC4;
                 fe_ctrl.pc_we = 1'b1;
                 fe_ctrl.bubble_dec = 1'b0;
                 imem_req.valid = 1'b1;
@@ -311,7 +313,7 @@ always_comb begin
                 `ifdef USE_BP
                 end else if (spec.enter) begin
                     // current inst inst is branch, fingers crossed
-                    fe_ctrl.pc_sel = (bp_pred == B_T) ? PC_SEL_BP : PC_SEL_INC4;
+                    fe_ctrl.pc_sel = bp_taken ? PC_SEL_JAL_BP : PC_SEL_INC4;
                     fe_ctrl.pc_we = 1'b1;
                     fe_ctrl.bubble_dec = 1'b0;
                     imem_req.valid = 1'b1;
@@ -366,8 +368,7 @@ always_comb begin
                 `ifdef USE_BP
                 end else if (spec.enter) begin
                     // current inst inst is branch, fingers crossed
-                    fe_ctrl.pc_sel = (bp_pred == B_T) ? PC_SEL_BP : PC_SEL_INC4;
-                    //fe_ctrl.pc_sel = (spec_entry.b_tnt == B_T) ? PC_SEL_BP : PC_SEL_INC4;
+                    fe_ctrl.pc_sel = bp_taken ? PC_SEL_JAL_BP : PC_SEL_INC4;
                     fe_ctrl.pc_we = 1'b1;
                     fe_ctrl.bubble_dec = 1'b0;
                     imem_req.valid = 1'b1;

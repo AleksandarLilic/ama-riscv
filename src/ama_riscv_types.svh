@@ -99,8 +99,7 @@ typedef enum logic [2:0] {
     PC_SEL_PC = 3'd0, // PC
     PC_SEL_INC4 = 3'd1, // PC = PC + 4
     PC_SEL_ALU = 3'd2, // ALU output, used for jalr & branch resolution
-    PC_SEL_BP = 3'd3, // PC = Branch prediction output
-    PC_SEL_JAL = 3'd4 // PC = JAL (direct jump destination)
+    PC_SEL_JAL_BP = 3'd3 // PC = Branch prediction PC / JAL (direct jump dest.)
 } pc_sel_t;
 
 // operand muxes in decode

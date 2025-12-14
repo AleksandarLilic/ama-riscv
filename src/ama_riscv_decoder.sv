@@ -90,7 +90,7 @@ always_comb begin
         end
 
         OPC7_JAL: begin
-            fc.pc_sel = PC_SEL_JAL;
+            fc.pc_sel = PC_SEL_JAL_BP;
             fc.pc_we = 1'b1;
             d.itype.jal = 1'b1;
             d.ewb_sel = EWB_SEL_PC_INC4;
