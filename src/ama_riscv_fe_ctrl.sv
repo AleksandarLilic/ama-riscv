@@ -35,6 +35,7 @@ typedef enum logic [2:0] {
     STALL_BE
 } stall_state_t;
 
+/*
 typedef enum logic [1:0] {
     STALL_NONE = 2'b00,
     STALL_BRANCH = 2'b01,
@@ -45,6 +46,7 @@ typedef struct packed {
     stall_inst_type_t stype;
     arch_width_t pc;
 } stalled_entry_t;
+*/
 
 typedef struct packed {
     logic flow;
@@ -68,7 +70,7 @@ typedef struct packed {
 logic flow_update;
 logic branch_taken;
 logic save_stall_entry, clear_stall_entry;
-stalled_entry_t stalled_entry;
+arch_width_t stalled_pc;
 stall_sources_t stall_act, stall_res;
 
 assign branch_taken = (branch_in_exe && (branch_resolution == B_T));
@@ -89,7 +91,7 @@ assign stall_act.hazard = (/* hazard.to_dec || */hazard.to_exe);
 assign stall_act.be = (stall_act.dcache || stall_act.hazard);
 
 assign stall_res.flow =
-    ((stalled_entry.pc == pc_exe) && (pc_exe != 'h0) && (!hazard.to_exe));
+    ((stalled_pc == pc_exe) && (pc_exe != 'h0) && (!hazard.to_exe));
 assign stall_res.icache = imem_req.ready;
 assign stall_res.dcache = !dc_stalled;
 assign stall_res.hazard = !(/* hazard.to_dec || */ hazard.to_exe);
@@ -97,9 +99,6 @@ assign stall_res.be = (stall_res.dcache && stall_res.hazard);
 
 logic stall_res_flow_d;
 `DFF_CI_RI_RVI(stall_res.flow, stall_res_flow_d)
-
-stall_inst_type_t stype_dec;
-assign stype_dec = branch_in_dec ? STALL_BRANCH : STALL_JUMP;
 
 // stall FSM
 stall_state_t state, nx_state;
@@ -192,13 +191,15 @@ always_comb begin
 end
 
 always_ff @(posedge clk) begin
-    if (rst) stalled_entry = '{stype: STALL_NONE, pc: 'h0};
-    else if (save_stall_entry) stalled_entry = '{stype: stype_dec, pc: pc_dec};
-    else if (clear_stall_entry) stalled_entry = '{stype: STALL_NONE, pc: 'h0};
+    if (rst) stalled_pc <= 'h0;
+    else if (save_stall_entry) stalled_pc <= pc_dec;
+    else if (clear_stall_entry) stalled_pc <= 'h0;
 end
 
 // outputs
-fe_ctrl_t decoded_fe_ctrl_d;
+/* verilator lint_off UNUSEDSIGNAL */
+fe_ctrl_t decoded_fe_ctrl_d; // bubble_dec, use_cp unused
+/* verilator lint_on UNUSEDSIGNAL */
 always_comb begin
     fe_ctrl.pc_sel = decoded_fe_ctrl_d.pc_sel;
     fe_ctrl.pc_we = decoded_fe_ctrl_d.pc_we;
@@ -404,7 +405,7 @@ end
 
 `ifdef USE_BP
 // SPECULATIVE EXEC control
-spec_entry_t spec_entry, spec_entry_d;
+spec_entry_t spec_entry;
 
 logic save_spec_entry, clear_spec_entry;
 assign spec.enter = (
@@ -456,9 +457,9 @@ always_comb begin
 end
 
 always_ff @(posedge clk) begin
-    if (rst) spec_entry = '{pc: 'h0, b_tnt: B_NT};
-    else if (save_spec_entry) spec_entry = '{pc: pc_dec, b_tnt: bp_pred};
-    else if (clear_spec_entry) spec_entry = '{pc: 'h0, b_tnt: B_NT};
+    if (rst) spec_entry <= '{pc: 'h0, b_tnt: B_NT};
+    else if (save_spec_entry) spec_entry <= '{pc: pc_dec, b_tnt: bp_pred};
+    else if (clear_spec_entry) spec_entry <= '{pc: 'h0, b_tnt: B_NT};
 end
 
 assign pc_cp = spec_entry.pc;

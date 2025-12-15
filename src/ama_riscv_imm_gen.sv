@@ -25,6 +25,7 @@ always_comb begin
       IG_B_TYPE: out = b;
       //IG_J_TYPE: out = j;
       IG_U_TYPE: out = u;
+      default: out = 'h0;
    endcase
 end
 

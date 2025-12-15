@@ -40,6 +40,7 @@ parameter unsigned RF_NUM = 32;
 // *_Q - quadword,   128-bit
 // *_L - line (module-specific)
 
+/* verilator lint_off UNUSEDPARAM */
 parameter unsigned MEM_SIZE_W = 16384; // words, 64KB
 parameter unsigned MEM_SIZE_Q = MEM_SIZE_W >> 2;
 parameter unsigned CORE_WORD_ADDR_BUS = $clog2(MEM_SIZE_W); // 14
@@ -56,6 +57,7 @@ parameter unsigned MEM_TRANSFERS_PER_CL = CACHE_LINE_SIZE/MEM_DATA_BUS; // 4
 parameter unsigned CACHE_LINE_BYTE_ADDR = $clog2(CACHE_LINE_SIZE_B); // 6
 parameter unsigned CACHE_TO_MEM_OFFSET = $clog2(MEM_DATA_BUS_B); // 4 bits less -> 128 (mem) vs 32 bits ($)
 parameter unsigned MEM_ADDR_BUS = CORE_BYTE_ADDR_BUS - CACHE_TO_MEM_OFFSET; // 16 - 4 = 12
+/* verilator lint_on UNUSEDPARAM */
 
 parameter unsigned ICACHE_SETS = 4;
 parameter unsigned ICACHE_WAYS = 4;

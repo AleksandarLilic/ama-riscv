@@ -73,7 +73,10 @@ assign rs2_exe_nz = (rs2_exe != RF_X0_ZERO);
 
 // has any source reg anywhere in the machine?
 // anywhere in the mem stage?
-dep_t d_rs1_dec, d_rs2_dec, d_rs1_exe, d_rs2_exe;
+/* verilator lint_off UNUSEDSIGNAL */
+dep_t d_rs1_dec, d_rs2_dec;
+/* verilator lint_on UNUSEDSIGNAL */
+dep_t d_rs1_exe, d_rs2_exe;
 always_comb begin
     d_rs1_dec.in_mem_on_rd = (rs1_dec_nz && in_mem(rs1_dec));
     d_rs2_dec.in_mem_on_rd = (rs2_dec_nz && in_mem(rs2_dec));

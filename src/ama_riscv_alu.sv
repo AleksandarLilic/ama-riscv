@@ -41,9 +41,7 @@ logic [SHAMT_BITS-1:0] shamt;
 assign shamt = b[SHAMT_BITS-1:0];
 
 arch_width_t srla_res;
-arch_double_width_t sr_temp;
-assign sr_temp = ({{32{sr_fill}}, a} >> shamt);
-assign srla_res = sr_temp[31:0];
+assign srla_res = arch_width_t'({{32{sr_fill}}, a} >> shamt); // low 32bits only
 
 arch_width_t sll_res;
 assign sll_res = (a << shamt);
