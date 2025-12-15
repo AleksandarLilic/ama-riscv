@@ -141,18 +141,18 @@ csa_tree_8 #(.W(64)) csa_tree_8_f_i (.a (i_tree_f), .o(o_tree_f));
 assign tree_sum = (o_tree_f[0] + o_tree_f[1]);
 
 // wrap up multiplication
-logic mul_s_cout;
-simd_d_t mul_u, mul_s;
-assign mul_u = tree_sum;
-assign {mul_s_cout, mul_s} = (tree_sum + corr_d);
+simd_t mul_hu;
+assign mul_hu = tree_sum.w[1];
+simd_d_t mul_s;
+assign mul_s = (tree_sum + corr_d);
 
-simd_t mul_su;
-assign mul_su = b_sign_bit_d ? (mul_s.w[1] + a_d) : mul_s.w[1];
+simd_t mul_hsu;
+assign mul_hsu = b_sign_bit_d ? (mul_s.w[1] + a_d) : mul_s.w[1];
 
 // wrap up simd
-simd_d_t dot16, dot8;
-assign dot16 = mul_s; // same operations, input matrix & corr were different
-assign dot8 = mul_s; // same as above, but input & corr different yet again
+simd_t dot16, dot8;
+assign dot16 = mul_s.w[0]; // same operations, input matrix & corr different
+assign dot8 = mul_s.w[0]; // same as above, but input & corr different yet again
 
 localparam unsigned DOT8_W = ARCH_WIDTH_H + 1; // dot8 result width, 17 bits
 localparam unsigned DOT8_SIGN = ARCH_WIDTH - DOT8_W; // sign pad, 15 bits
@@ -162,8 +162,8 @@ always_comb begin
     unique case (op_d)
         MULT_OP_MUL: p = mul_s[ARCH_WIDTH-1:0];
         MULT_OP_MULH: p = mul_s[ARCH_WIDTH_D-1:ARCH_WIDTH];
-        MULT_OP_MULHSU: p = mul_su;
-        MULT_OP_MULHU: p = mul_u[ARCH_WIDTH_D-1:ARCH_WIDTH];
+        MULT_OP_MULHSU: p = mul_hsu;
+        MULT_OP_MULHU: p = mul_hu;
         MULT_OP_DOT16: p = dot16[ARCH_WIDTH-1:0];
         MULT_OP_DOT8: p = {{DOT8_SIGN{dot8[DOT8_W-1]}}, dot8[DOT8_W-1:0]};
         default: p = 'h0;
