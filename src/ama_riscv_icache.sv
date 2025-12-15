@@ -79,7 +79,14 @@ typedef struct packed {
     logic [IDX_RANGE_TOP-1:0] set_idx;
 } lru_cnt_access_t;
 
+typedef logic [MEM_MISS_CNT_WIDTH-1:0] mem_miss_cnt_t;
+localparam mem_miss_cnt_t
+    MEM_TRANSFER_MATCH_DONE = mem_miss_cnt_t'(MEM_TRANSFERS_PER_CL - 1);
+
+typedef logic [WAY_BITS-1:0] lru_cnt_t;
+
 // helper functions
+/* verilator lint_off UNUSEDSIGNAL */
 function automatic [TAG_W-1:0]
 get_tag(input logic [CORE_WORD_ADDR_BUS-1:0] addr);
     get_tag = addr[CORE_WORD_ADDR_BUS-1 -: TAG_W]; // get top TAG_W bits
@@ -87,13 +94,16 @@ endfunction
 
 function automatic [IDX_RANGE_TOP-1:0]
 get_idx(input logic [CORE_WORD_ADDR_BUS-1:0] addr);
-    get_idx = (addr >> 4) & (SETS - 1);
+    logic [CORE_WORD_ADDR_BUS-1:0] masked;
+    masked = (addr >> 4) & (SETS - 1);
+    get_idx = masked[IDX_RANGE_TOP-1:0];
 endfunction
 
 function automatic [WORD_ADDR-1:0]
 get_cl_word(input logic [CORE_WORD_ADDR_BUS-1:0] addr);
     get_cl_word = addr[WORD_ADDR-1:0];
 endfunction
+/* verilator lint_on UNUSEDSIGNAL */
 
 //------------------------------------------------------------------------------
 // implementation
@@ -128,7 +138,8 @@ logic [TAG_W-1:0] a_tag [WAYS-1:0][SETS-1:0];
 
 // state, tag matching, lru logic
 icache_state_t state, nx_state;
-core_request_t cr, cr_d;
+core_request_t cr;
+logic [CORE_WORD_ADDR_BUS-1:0] cr_d_addr;
 core_request_pending_t cr_pend;
 logic tag_match;
 logic [TAG_W-1:0] tag_cr;
@@ -159,8 +170,8 @@ end
 
 end else begin: gen_assoc_lookup
 
-logic [WAY_BITS-1:0] a_lru [WAYS-1:0][SETS-1:0];
-localparam unsigned LRU_MAX_CNT = WAYS - 1;
+lru_cnt_t a_lru [WAYS-1:0][SETS-1:0];
+localparam [WAY_BITS-1:0] LRU_MAX_CNT = lru_cnt_t'(WAYS - 1);
 always_comb begin
     cr.addr = req_core.data;
     cr.way_idx = '0;
@@ -171,9 +182,9 @@ always_comb begin
     `IT_P(w, WAYS) begin
         if (a_valid[w][set_idx_cr] && (a_tag[w][set_idx_cr] == tag_cr)) begin
             tag_match = 1'b1;
-            cr.way_idx = w;
+            cr.way_idx = w[WAY_BITS-1:0];
         end else if (a_lru[w][set_idx_cr] == LRU_MAX_CNT) begin
-            way_victim_idx = w;
+            way_victim_idx = w[WAY_BITS-1:0];
         end
     end
     hit = &{tag_match, new_core_req, a_valid[cr.way_idx][set_idx_cr]};
@@ -196,7 +207,7 @@ always_ff @(posedge clk) begin
     if (rst) begin
         `IT_P(w, WAYS) begin
             `IT_P(s, SETS) begin
-                a_lru[w][s] <= w; // init LRU to way idx
+                a_lru[w][s] <= w[WAY_BITS-1:0]; // init LRU to way idx
             end
         end
     end else if (update_lru) begin
@@ -219,12 +230,13 @@ end // gen_dmap/assoc
 
 assign new_core_req = (req_core.valid && (req_core.ready || spec_wrong));
 `DFF_CI_RI_RVI(new_core_req, new_core_req_d)
-`DFF_CI_RI_RV_EN(`IC_CR_CLEAR, new_core_req, cr, cr_d)
+`DFF_CI_RI_RVI_EN(new_core_req, cr.addr, cr_d_addr)
 `DFF_CI_RI_RVI_EN(new_core_req, hit, hit_d)
 
 // cache line (64B) to mem bus (16B) addressing, from core addr (4B)
 logic [MEM_ADDR_BUS-1:0] mem_start_addr_d; // address aligned to first mem block
-assign mem_start_addr_d = ((cr_d.addr >> 2) & (~'b11));
+//assign mem_start_addr_d = ((cr_d_addr >> 2) & (~'b11));
+assign mem_start_addr_d = (cr_d_addr[CORE_WORD_ADDR_BUS-1 -: MEM_ADDR_BUS] & (~'b11));
 
 logic save_pending, clear_pending;
 always_ff @(posedge clk) begin
@@ -234,21 +246,26 @@ always_ff @(posedge clk) begin
         cr_pend <= '{
             active: 1'b1,
             mem_start_addr: mem_start_addr_d,
-            cr: '{addr: cr_d.addr, way_idx: way_victim_idx_d}
+            cr: '{addr: cr_d_addr, way_idx: way_victim_idx_d}
         };
     end else if (clear_pending) begin
         cr_pend <= `IC_CR_PEND_CLEAR;
     end
 end
 
-logic [MEM_MISS_CNT_WIDTH-1:0] mem_miss_cnt, mem_miss_cnt_d;
+mem_miss_cnt_t mem_miss_cnt, mem_miss_cnt_d;
 `DFF_CI_RI_RVI_CLR_CLRVI_EN(
     spec_wrong, req_mem.valid, (mem_miss_cnt + 'h1), mem_miss_cnt)
+
+logic [MEM_ADDR_BUS-1:0] mem_miss_cnt_pad;
+assign mem_miss_cnt_pad =
+    {{MEM_ADDR_BUS-MEM_MISS_CNT_WIDTH{1'b0}}, mem_miss_cnt};
+
 `DFF_CI_RI_RVI(mem_miss_cnt, mem_miss_cnt_d)
 
 logic mem_transfer_done, mem_transfer_done_d;
 assign mem_transfer_done =
-    (rsp_mem.valid && (mem_miss_cnt_d == (MEM_TRANSFERS_PER_CL - 1)));
+    (rsp_mem.valid && (mem_miss_cnt_d == MEM_TRANSFER_MATCH_DONE));
 `DFF_CI_RI_RVI(mem_transfer_done, mem_transfer_done_d)
 
 assign load_req_hit = (hit && new_core_req);
@@ -258,20 +275,21 @@ assign load_req_pend = (mem_transfer_done_d && cr_pend.active);
 // addressing banks
 
 logic [TAG_W-1:0] tag_pend;
-assign tag_pend = (cr_pend.mem_start_addr >> (2 + IDX_BITS));
+assign tag_pend = cr_pend.mem_start_addr[MEM_ADDR_BUS-1 -: TAG_W];
 
 logic mem_to_cache_wr;
 assign mem_to_cache_wr = (rsp_mem.valid && (state == IC_MISS) && !spec_wrong);
 always_comb begin
     `IT_P(w, WAYS) begin
-        bank_we[w] = 1'b0;
-        if (mem_to_cache_wr) bank_we[w] = (w == cr_pend.cr.way_idx);
+        bank_we[w] = (
+            mem_to_cache_wr && (w[WAY_BITS-1:0] == cr_pend.cr.way_idx)
+        );
     end
 end
 
 logic [IDX_RANGE_TOP-1:0] set_idx, set_idx_pend;
 logic [WAY_BITS-1:0] way_idx, way_idx_d;
-logic [WORD_ADDR-1:0] word_idx, word_idx_d;
+logic [WORD_ADDR-1:0] word_idx;
 
 logic [BANK_ADDR-1:0] bank_addr_store, bank_addr_load;
 logic [BANK_LINE_ADDR-1:0] bank_line_addr_load;
@@ -293,7 +311,9 @@ always_comb begin
 end
 
 `DFF_CI_RI_RVI(way_idx, way_idx_d)
-`DFF_CI_RI_RVI(word_idx, word_idx_d)
+
+logic [WORD_IN_BANK_LINE_ADDR-1:0] word_in_bank_line_addr;
+`DFF_CI_RI_RVI(word_idx[WORD_IN_BANK_LINE_ADDR-1:0], word_in_bank_line_addr)
 
 //------------------------------------------------------------------------------
 // tag and valid updates
@@ -311,7 +331,7 @@ always_ff @(posedge clk) begin
         a_tag[cr_pend.cr.way_idx][set_idx_pend] <= tag_pend;
     end else if (new_core_req && !hit) begin
         // invalidate line right away
-        a_valid[way_victim_idx][set_idx_cr] = 1'b0;
+        a_valid[way_victim_idx][set_idx_cr] <= 1'b0;
     end
 end
 
@@ -341,8 +361,6 @@ always_comb begin
 end
 
 // outputs
-logic [WORD_IN_BANK_LINE_ADDR-1:0] word_in_bank_line_addr;
-assign word_in_bank_line_addr = word_idx_d[WORD_IN_BANK_LINE_ADDR-1:0];
 assign rsp_core.data =
     bank_data[way_idx_d][(word_in_bank_line_addr*INST_WIDTH) +: INST_WIDTH];
 
@@ -394,7 +412,8 @@ always_comb begin
             if (mem_miss_cnt > 0) begin
                 rsp_mem.ready = 1'b1;
                 req_mem.valid = 1'b1;
-                req_mem.data = (cr_pend.mem_start_addr + mem_miss_cnt);
+                //req_mem.data = (cr_pend.mem_start_addr + mem_miss_cnt);
+                req_mem.data = (cr_pend.mem_start_addr + mem_miss_cnt_pad);
             end
             // if at any point during a speculative miss this turns out to be
             // wrong path, clear wrong pending request and go to ready
@@ -411,8 +430,8 @@ end
 `ifndef SYNT
 `ifdef DEBUG
 
-logic dbg_serving_pending_req;
-assign dbg_serving_pending_req =
+logic dbg_servicing_pending_req;
+assign dbg_servicing_pending_req =
     ((cr_pend.active && !new_core_req_d) && rsp_core.valid);
 
 logic [CORE_BYTE_ADDR_BUS-1:0] dbg_req_core_bytes;
