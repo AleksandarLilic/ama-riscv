@@ -480,6 +480,28 @@ always_comb begin
     end
 end
 
+// asserts
+always_comb begin
+    `IT_P(as, SETS) begin
+        `IT_P(aw0, WAYS) begin
+            `IT_P_I(aw1, (aw0+1), WAYS) begin
+                if (data_view[aw0][as].valid && data_view[aw1][as].valid) begin
+                    // tag check
+                    assert (data_view[aw0][as].tag != data_view[aw1][as].tag)
+                    else $fatal(1,
+                        "ICACHE TAG DUPLICATE: set=%0d ways=%0d,%0d tag=0x%0h",
+                        as, aw0, aw1, data_view[aw0][as].tag);
+                    // lru check
+                    assert (data_view[aw0][as].lru != data_view[aw1][as].lru)
+                    else $fatal(1,
+                        "ICACHE LRU DUPLICATE: set=%0d ways=%0d,%0d lru=%0d",
+                        as, aw0, aw1, data_view[aw0][as].lru);
+                end
+            end
+        end
+    end
+end
+
 // address breakdown
 typedef struct packed {
     logic [TAG_W-1:0] tag;
