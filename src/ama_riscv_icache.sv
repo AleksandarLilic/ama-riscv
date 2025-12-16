@@ -238,8 +238,10 @@ assign miss_d = (new_core_req_d && !hit_d);
 
 // cache line (64B) to mem bus (16B) addressing, from core addr (4B)
 logic [MEM_ADDR_BUS-1:0] mem_start_addr_d; // address aligned to first mem block
-//assign mem_start_addr_d = ((cr_d_addr >> 2) & (~'b11));
-assign mem_start_addr_d = (cr_d_addr[CORE_WORD_ADDR_BUS-1 -: MEM_ADDR_BUS] & (~'b11));
+// take top MEM_ADDR_BUS bits and align to 1st out of 4 packets
+assign mem_start_addr_d = (
+    cr_d_addr[CORE_WORD_ADDR_BUS-1 -: MEM_ADDR_BUS] & (~'b11)
+);
 
 logic save_pending, clear_pending;
 always_ff @(posedge clk) begin
@@ -364,9 +366,6 @@ always_comb begin
 end
 
 // outputs
-assign rsp_core.data =
-    bank_data[way_idx_d][(word_in_bank_line_addr*INST_WIDTH) +: INST_WIDTH];
-
 always_comb begin
     // to/from core
     rsp_core.valid = 1'b0;
@@ -427,6 +426,9 @@ always_comb begin
 
     endcase
 end
+
+assign rsp_core.data =
+    bank_data[way_idx_d][(word_in_bank_line_addr*INST_WIDTH) +: INST_WIDTH];
 
 //------------------------------------------------------------------------------
 // debug views
