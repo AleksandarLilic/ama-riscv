@@ -460,10 +460,10 @@ genvar gw, gs;
 `IT_P_NT(gw, WAYS) begin: gen_bank
     `IT_P_NT(gs, SETS) begin
         always_comb begin
-            d[gw][gs].q[0] = `ICACHE.gen_bank[gw].bank_i.m[gs + 0];
-            d[gw][gs].q[1] = `ICACHE.gen_bank[gw].bank_i.m[gs + 1];
-            d[gw][gs].q[2] = `ICACHE.gen_bank[gw].bank_i.m[gs + 2];
-            d[gw][gs].q[3] = `ICACHE.gen_bank[gw].bank_i.m[gs + 3];
+            d[gw][gs].q[0] = `ICACHE.gen_bank[gw].bank_i.m[(gs*4) + 0];
+            d[gw][gs].q[1] = `ICACHE.gen_bank[gw].bank_i.m[(gs*4) + 1];
+            d[gw][gs].q[2] = `ICACHE.gen_bank[gw].bank_i.m[(gs*4) + 2];
+            d[gw][gs].q[3] = `ICACHE.gen_bank[gw].bank_i.m[(gs*4) + 3];
         end
     end
 end
@@ -526,10 +526,10 @@ cache_line_data_t d [SETS-1:0];
 genvar gs;
 `IT_P_NT(gs, SETS) begin
     always_comb begin
-        d[gs].q[0] = `ICACHE.gen_bank[0].bank_i.m[gs + 0];
-        d[gs].q[1] = `ICACHE.gen_bank[0].bank_i.m[gs + 1];
-        d[gs].q[2] = `ICACHE.gen_bank[0].bank_i.m[gs + 2];
-        d[gs].q[3] = `ICACHE.gen_bank[0].bank_i.m[gs + 3];
+        d[gs].q[0] = `ICACHE.gen_bank[0].bank_i.m[(gs*4) + 0];
+        d[gs].q[1] = `ICACHE.gen_bank[0].bank_i.m[(gs*4) + 1];
+        d[gs].q[2] = `ICACHE.gen_bank[0].bank_i.m[(gs*4) + 2];
+        d[gs].q[3] = `ICACHE.gen_bank[0].bank_i.m[(gs*4) + 3];
     end
 end
 
