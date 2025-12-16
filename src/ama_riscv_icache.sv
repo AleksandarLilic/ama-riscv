@@ -146,7 +146,7 @@ logic [TAG_W-1:0] tag_cr;
 logic [IDX_RANGE_TOP-1:0] set_idx_cr;
 logic [WAY_BITS-1:0] way_victim_idx, way_victim_idx_d;
 logic new_core_req, new_core_req_d;
-logic hit, hit_d;
+logic hit, hit_d, miss, miss_d;
 logic load_req_hit, load_req_pend;
 
 //------------------------------------------------------------------------------
@@ -166,6 +166,7 @@ always_comb begin
     // tag search
     tag_match = (a_tag[cr.way_idx][set_idx_cr] == tag_cr);
     hit = &{tag_match, new_core_req, a_valid[cr.way_idx][set_idx_cr]};
+    miss = (new_core_req && !hit);
 end
 
 end else begin: gen_assoc_lookup
@@ -188,6 +189,7 @@ always_comb begin
         end
     end
     hit = &{tag_match, new_core_req, a_valid[cr.way_idx][set_idx_cr]};
+    miss = (new_core_req && !hit);
 end
 `DFF_CI_RI_RVI(way_victim_idx, way_victim_idx_d)
 
@@ -232,6 +234,7 @@ assign new_core_req = (req_core.valid && (req_core.ready || spec_wrong));
 `DFF_CI_RI_RVI(new_core_req, new_core_req_d)
 `DFF_CI_RI_RVI_EN(new_core_req, cr.addr, cr_d_addr)
 `DFF_CI_RI_RVI_EN(new_core_req, hit, hit_d)
+assign miss_d = (new_core_req_d && !hit_d);
 
 // cache line (64B) to mem bus (16B) addressing, from core addr (4B)
 logic [MEM_ADDR_BUS-1:0] mem_start_addr_d; // address aligned to first mem block
@@ -329,7 +332,7 @@ always_ff @(posedge clk) begin
         // on the last transfer, update valid and tag
         a_valid[cr_pend.cr.way_idx][set_idx_pend] <= 1'b1;
         a_tag[cr_pend.cr.way_idx][set_idx_pend] <= tag_pend;
-    end else if (new_core_req && !hit) begin
+    end else if (miss) begin
         // invalidate line right away
         a_valid[way_victim_idx][set_idx_cr] <= 1'b0;
     end
@@ -348,7 +351,7 @@ always_comb begin
         end
 
         IC_READY: begin
-            if (new_core_req_d && (!hit_d) && (!spec_wrong)) nx_state = IC_MISS;
+            if (miss_d && (!spec_wrong)) nx_state = IC_MISS;
         end
 
         IC_MISS: begin
@@ -440,10 +443,6 @@ assign dbg_req_core_bytes = (cr.addr << 2);
 logic [CORE_BYTE_ADDR_BUS-1:0] dbg_req_core_bytes_valid;
 assign dbg_req_core_bytes_valid =
     ((cr.addr << 2) & {CORE_BYTE_ADDR_BUS{req_core.valid}});
-
-logic miss, miss_d;
-assign miss = (new_core_req && !hit);
-assign miss_d = (new_core_req_d && !hit_d);
 
 if (WAYS > 1) begin: dbg_assoc // set-associative views
 

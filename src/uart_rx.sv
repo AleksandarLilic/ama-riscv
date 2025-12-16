@@ -18,20 +18,22 @@ module  uart_rx #(
 
 localparam unsigned FPGA_OFFSET = 5; // 0
 localparam unsigned SYMBOL_EDGE_TIME = (CLOCK_FREQ / BAUD_RATE) - FPGA_OFFSET;
-localparam unsigned SAMPLE_TIME = SYMBOL_EDGE_TIME / 2;
+//localparam unsigned SAMPLE_TIME = SYMBOL_EDGE_TIME / 2;
 localparam unsigned CLOCK_COUNTER_WIDTH = $clog2(SYMBOL_EDGE_TIME);
 
 typedef logic [CLOCK_COUNTER_WIDTH-1:0] cnt_t;
 localparam cnt_t SYMBOL_EDGE_TIME_M = cnt_t'(SYMBOL_EDGE_TIME - 1);
 localparam cnt_t SAMPLE_TIME_M = cnt_t'(SYMBOL_EDGE_TIME / 2);
 
-logic        symbol_edge;
-logic        sample;
-logic        start;
-logic        rx_running;
-logic        has_byte;
-logic  [9:0] rx_shift;
-logic  [3:0] bit_counter;
+logic symbol_edge;
+logic sample;
+logic start;
+logic rx_running;
+logic has_byte;
+/* verilator lint_off UNUSEDSIGNAL */
+logic [9:0] rx_shift; // LSB never read
+/* verilator lint_off UNUSEDSIGNAL */
+logic [3:0] bit_counter;
 cnt_t clock_counter;
 
 // Goes high when it is time to start receiving a new character

@@ -19,7 +19,6 @@ module ama_riscv_fe_ctrl (
     input  hazard_t hazard,
     input  fe_ctrl_t decoded_fe_ctrl,
     `ifdef USE_BP
-    output logic bp_hit,
     output arch_width_t pc_cp,
     `endif
     output spec_exec_t spec,
@@ -77,7 +76,7 @@ assign branch_taken = (branch_in_exe && (branch_resolution == B_T));
 `ifdef USE_BP
 assign flow_update = jalr_in_exe;
 assign stall_act.flow = jalr_in_dec;
-logic bp_taken;
+logic bp_hit, bp_taken;
 assign bp_taken = (bp_pred == B_T);
 `else
 assign flow_update = (branch_taken || jalr_in_exe);

@@ -42,7 +42,6 @@ arch_width_t pc_fet_cp_get;
 assign pc_fet_cp_get = fe_ctrl.use_cp ? pc_fet_cp : pc.fet;
 assign pc_inc4 = (pc_fet_cp_get + 'd4);
 branch_t bp_pred;
-logic bp_hit;
 `else
 assign pc_inc4 = (pc.fet + 'd4);
 `endif
@@ -85,7 +84,9 @@ ama_riscv_decoder ama_riscv_decoder_i (
     .inst_dec (inst.dec), .decoded (decoded), .fe_ctrl (decoded_fe_ctrl)
 );
 
-decoder_t decoded_exe;
+/* verilator lint_off UNUSEDSIGNAL */
+decoder_t decoded_exe; // some bits are not always used
+/* verilator lint_on UNUSEDSIGNAL */
 logic dc_stalled;
 branch_t branch_resolution;
 hazard_t hazard;
@@ -117,7 +118,6 @@ ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     .dc_stalled (dc_stalled),
     // outputs
     `ifdef USE_BP
-    .bp_hit (bp_hit),
     .pc_cp (pc_fet_cp),
     `endif
     .spec (spec), // tied to 0 when BP is not used
@@ -479,7 +479,9 @@ always_comb begin
 end
 
 // AGU
-arch_width_t dmem_addr;
+/* verilator lint_off UNUSEDSIGNAL */
+arch_width_t dmem_addr; // depending on the memory map, some top bits are unused
+/* verilator lint_on UNUSEDSIGNAL */
 assign dmem_addr = (op_a_r + {{20{dmem_offset_exe[11]}}, dmem_offset_exe});
 
 // memory map
@@ -526,7 +528,7 @@ assign ctrl_exe_mem = '{
     bubble: (!ctrl_dec_exe.en || hazard.to_exe)
 };
 
-logic map_uart_mem, dmem_en_mem;
+logic map_uart_mem;
 dmem_req_side_t dmem_req_mem;
 uart_ch_side_t uart_ch_mem;
 
@@ -588,7 +590,7 @@ arch_width_t e_writeback_wbk, simd_out_wbk;
 `STAGE_M_W(1'b1, inst.mem, inst.wbk, 'h0)
 `STAGE_M_W(1'b1, pc.mem, pc.wbk, 'h0)
 `endif
-`STAGE_M_W(1'b1, pc_nz.mem, pc_nz.wbk, 2'h0)
+`STAGE_M_W(1'b1, pc_nz.mem, pc_nz.wbk, 1'b0)
 `STAGE_M_W(simd_or_mult_en_mem, simd_out_mem, simd_out_wbk, 'h0)
 `STAGE_M_W(rd_we.mem, e_writeback_mem, e_writeback_wbk, 'h0)
 `STAGE_M_W(unpk_en_mem, unpk_out_p_mem, unpk_out_p_wbk, 'h0)
@@ -627,7 +629,7 @@ logic simd_inst_ret;
 `STAGE_W_R(1'b1, inst.wbk, inst.ret, 'h0)
 `STAGE_W_R(1'b1, pc.wbk, pc.ret, 'h0)
 `endif
-`STAGE_W_R(1'b1, pc_nz.wbk, pc_nz.ret, 2'h0)
+`STAGE_W_R(1'b1, pc_nz.wbk, pc_nz.ret, 1'b0)
 `STAGE_W_R(1'b1, simd_inst_wbk, simd_inst_ret, 'h0)
 
 assign inst_retired = pc_nz.ret;

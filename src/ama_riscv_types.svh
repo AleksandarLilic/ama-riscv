@@ -41,7 +41,8 @@ parameter unsigned RF_NUM = 32;
 // *_L - line (module-specific)
 
 /* verilator lint_off UNUSEDPARAM */
-parameter unsigned MEM_SIZE_W = 16384; // words, 64KB
+parameter unsigned MEM_SIZE_B = 65536;
+parameter unsigned MEM_SIZE_W = MEM_SIZE_B >> 2;
 parameter unsigned MEM_SIZE_Q = MEM_SIZE_W >> 2;
 parameter unsigned CORE_WORD_ADDR_BUS = $clog2(MEM_SIZE_W); // 14
 parameter unsigned CORE_BYTE_ADDR_BUS = CORE_WORD_ADDR_BUS + 2; // 16
@@ -547,7 +548,7 @@ endinterface
 interface uart_if ();
     uart_ctrl_t ctrl;
     logic [7:0] send;
-    logic [7:0] recv;
+    logic [31:0] recv;
     modport TX (output ctrl, output send, input recv); // core
     modport RX (input ctrl, input send, output recv); // uart
 endinterface

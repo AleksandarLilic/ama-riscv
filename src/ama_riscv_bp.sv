@@ -9,7 +9,9 @@ module ama_riscv_bp #(
     input  logic clk,
     input  logic rst,
     input  bp_pipe_t pipe_in,
-    input  bp_comp_t bp_comp_pred,
+    /* verilator lint_off UNUSEDSIGNAL */
+    input  bp_comp_t bp_comp_pred, // component predictors, only for combined
+    /* verilator lint_on UNUSEDSIGNAL */
     output branch_t pred
 );
 
@@ -29,11 +31,15 @@ localparam unsigned CNT_THR = (CNT_MAX == 1) ? CNT_MAX : (CNT_MAX >> 1);
 logic taken;
 assign taken = (pipe_in.br_res == B_T);
 
+// due to parametrization, pc or ghr might not be used for a given config
+/* verilator lint_off UNUSEDSIGNAL */
 logic [PC_BITS-1:0] pc_dec_part, pc_exe_part;
+logic [GHR_BITS-1:0] ghr;
+/* verilator lint_on UNUSEDSIGNAL */
+
 assign pc_dec_part = pipe_in.pc_dec[PC_BITS-1:0];
 assign pc_exe_part = pipe_in.pc_exe[PC_BITS-1:0];
 
-logic [GHR_BITS-1:0] ghr;
 always_ff @(posedge clk) begin
     if (rst) ghr <= 'h0;
     else if (pipe_in.spec.resolve) ghr <= {ghr[GHR_BITS-2:0], taken};
