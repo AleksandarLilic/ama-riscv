@@ -286,7 +286,7 @@ typedef struct packed {
     a_sel_t a_sel;
     b_sel_t b_sel;
     ig_sel_t ig_sel;
-    logic bc_uns;
+    logic branch_u;
     logic dmem_en;
     ewb_sel_t ewb_sel;
     wb_sel_t wb_sel;

@@ -87,7 +87,7 @@
         a_sel: A_SEL_RS1, \
         b_sel: B_SEL_RS2, \
         ig_sel: IG_OFF, \
-        bc_uns: 1'b0, \
+        branch_u: 1'b0, \
         dmem_en: 1'b0, \
         ewb_sel: EWB_SEL_ALU, \
         wb_sel: WB_SEL_EWB, \

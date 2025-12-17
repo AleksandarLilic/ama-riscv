@@ -85,7 +85,7 @@ always_comb begin
             d.b_sel = B_SEL_RS2;
             d.alu_op = ALU_OP_ADD;
             d.ig_sel = IG_B_TYPE;
-            d.bc_uns = fn3[1];
+            d.branch_u = fn3[1];
             d.has_reg = '{rd: 1'b0, rs1: 1'b1, rs2: 1'b1};
         end
 

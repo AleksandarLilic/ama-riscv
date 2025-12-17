@@ -403,25 +403,17 @@ end
 assign op_a_r = a_sel_fwd_exe ? rs1_exe_be_fwd : op_a_exe;
 assign op_b_r = b_sel_fwd_exe ? rs2_exe_be_fwd : op_b_exe;
 
-// branch compare & resolution
-logic bc_a_eq_b, bc_a_lt_b;
-assign bc_a_eq_b = (op_a_r == op_b_r);
-assign bc_a_lt_b = (decoded_exe.bc_uns) ?
-        (op_a_r < op_b_r) : ($signed(op_a_r) < $signed(op_b_r));
-
-always_comb begin
-    unique case (branch_sel_exe)
-        BRANCH_SEL_BEQ: branch_resolution = branch_t'(bc_a_eq_b);
-        BRANCH_SEL_BNE: branch_resolution = branch_t'(!bc_a_eq_b);
-        BRANCH_SEL_BLT: branch_resolution = branch_t'(bc_a_lt_b);
-        BRANCH_SEL_BGE: branch_resolution = branch_t'(bc_a_eq_b || !bc_a_lt_b);
-    endcase
-end
-
 // ALU
 arch_width_t alu_out_exe;
 ama_riscv_alu ama_riscv_alu_i (
-    .op (decoded_exe.alu_op), .a (op_a_r), .b (op_b_r), .s (alu_out_exe)
+    .op (decoded_exe.alu_op),
+    .a (op_a_r),
+    .b (op_b_r),
+    .s (alu_out_exe),
+    .is_branch(decoded_exe.itype.branch),
+    .branch_u(decoded_exe.branch_u),
+    .branch_sel(branch_sel_exe),
+    .branch_res(branch_resolution)
 );
 assign pc_new_exe = decoded_exe.itype.branch ? pc_branch_exe : alu_out_exe;
 
