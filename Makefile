@@ -123,7 +123,7 @@ sim: .elab.touchfile
 	@rm xsim.jou
 	@touch .sim.touchfile
 	@if [ "$(TO_LOG)" -eq 1 ]; then \
-		tail -n 30 $(LOG_NAME) | grep -A30 "^Test" | tee >(grep --color=always "===="); \
+		tail -n 50 $(LOG_NAME) | grep -A30 "^Test" | tee >(grep --color=always "===="); \
 	fi
 
 # run target in terminal once; it will watch for any file save and re-run slang
