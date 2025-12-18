@@ -51,6 +51,7 @@ struct core_stats_t {
         float_t ipc = -1.0;
         bool prof_active = false;
         uint64_t cycles_all;
+        static constexpr uint64_t bad_spec_penalty = 2;
     private:
         void summarize() {
             stalls = (bad_spec + be + fe);
@@ -68,7 +69,7 @@ struct core_stats_t {
         void add_events(const core_events_t* ev) {
             cycles_all++;
             if (!prof_active) return;
-            bad_spec += ev->bad_spec;
+            bad_spec += (ev->bad_spec * bad_spec_penalty);
             fe += ev->fe;
             fe_ic += ev->fe_ic;
             be += ev->be;

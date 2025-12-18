@@ -10,7 +10,7 @@ void cosim_stats::profiling(bool enable) {
 
 void cosim_stats::show() {
     std::cout << "Simulation cycles: " << core_stats.get_cycles_all() << "\n";
-    std::cout << "Stats Summary:\n";
+    std::cout << "Stats - Profiling Summary (approx.):\n";
     std::cout << "core";
     std::cout << "\n" << INDENT;
     core_stats.show();

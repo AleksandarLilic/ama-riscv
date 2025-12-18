@@ -31,7 +31,7 @@ virtual class core_stats;
         ipc = 1/cpi;
         s = "Core stats: \n";
         s = {s, $sformatf(
-                {"    Cycles: %0d, Instr: %0d, Stall cycles: %0d,",
+                {"    Cycles: %0d, Inst: %0d, Stalls: %0d,",
                  " CPI: %0.3f (IPC: %0.3f)"},
                 cnt.cycle, cnt.inst, cnt.hw_stall, cpi, ipc)
             };

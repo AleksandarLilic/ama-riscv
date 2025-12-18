@@ -123,7 +123,7 @@ bind `CORE ama_riscv_core_view ama_riscv_core_view_i (
     .ctrl_mem_wbk (ctrl_mem_wbk),
     .ctrl_wbk_ret (ctrl_wbk_ret),
     .decoded_exe (decoded_exe),
-    .branch_resolution (branch_resolution),
+    .branch_resolution_mem (branch_resolution_mem),
     .csr_tohost (`CSR.csr.tohost), // this
     `ifdef USE_BP
     .bp_hit (bp_hit),
@@ -478,9 +478,9 @@ function void cosim_sync_csrs(output csr_sync_t csr);
 endfunction
 `endif
 
+hw_events_t e_ic, e_dc, e_bp; // so they are available for wave
 task automatic single_step();
     bit new_errors;
-    hw_events_t e_ic, e_dc, e_bp;
     byte dc_bytes;
 
     core_stats::update(core_cnt_main, inst_retired);
@@ -756,17 +756,17 @@ initial begin
     check_test_status(1'b1);
 
     `ifdef ENABLE_COSIM
+    `LOGNT($sformatf(
+        "DUT instruction count: %0d", core_stats::get_inst_cnt(core_cnt_main)
+    ));
+    `LOGNT(core_stats::get(core_cnt_main));
+
     if (args.cosim_chk_en) cosim_check_inst_cnt();
     cosim_finish();
     `endif
 
     $display("");
     if (args.cosim_en) $finish(); // using cosim stats for this run
-
-    `LOGNT($sformatf(
-        "DUT instruction count: %0d", core_stats::get_inst_cnt(core_cnt_main)
-    ));
-    `LOGNT(core_stats::get(core_cnt_main));
 
     // TODO: these really need to be consolidated like core core_stats
     tda.be_core = (tda.be - tda.be_dc);

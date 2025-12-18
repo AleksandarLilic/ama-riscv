@@ -54,6 +54,7 @@
         pc_sel: PC_SEL_INC4, \
         pc_we: 1'b0, \
         bubble_dec: 1'b1, \
+        bubble_exe: 1'b0, \
         use_cp: 1'b0 \
     }
 

@@ -33,12 +33,12 @@ assign taken = (pipe_in.br_res == B_T);
 
 // due to parametrization, pc or ghr might not be used for a given config
 /* verilator lint_off UNUSEDSIGNAL */
-logic [PC_BITS-1:0] pc_dec_part, pc_exe_part;
+logic [PC_BITS-1:0] pc_dec_part, pc_mem_part;
 logic [GHR_BITS-1:0] ghr;
 /* verilator lint_on UNUSEDSIGNAL */
 
 assign pc_dec_part = pipe_in.pc_dec[PC_BITS-1:0];
-assign pc_exe_part = pipe_in.pc_exe[PC_BITS-1:0];
+assign pc_mem_part = pipe_in.pc_mem[PC_BITS-1:0];
 
 always_ff @(posedge clk) begin
     if (rst) ghr <= 'h0;
@@ -49,7 +49,7 @@ logic [IDX_BITS-1:0] pht_idx, pht_idx_up;
 if ((BP_TYPE_SEL == BP_BIMODAL) || (BP_TYPE_SEL == BP_COMBINED))
 begin: gen_bimodal_idx
 assign pht_idx = pc_dec_part;
-assign pht_idx_up = pc_exe_part;
+assign pht_idx_up = pc_mem_part;
 end
 
 if (BP_TYPE_SEL == BP_GLOBAL) begin: gen_global_idx
@@ -70,13 +70,13 @@ end
 
 if (BP_TYPE_SEL == BP_GSELECT) begin: gen_gselect_idx
 assign pht_idx = {pc_dec_part, ghr};
-assign pht_idx_up = {pc_exe_part, ghr};
+assign pht_idx_up = {pc_mem_part, ghr};
 end
 
 if (BP_TYPE_SEL == BP_GSHARE) begin: gen_gshare_idx
 localparam GHR_OFF = (PC_BITS > GHR_BITS) ? (PC_BITS - GHR_BITS) : 0;
 assign pht_idx = (pc_dec_part ^ (ghr << GHR_OFF));
-assign pht_idx_up = (pc_exe_part ^ (ghr << GHR_OFF));
+assign pht_idx_up = (pc_mem_part ^ (ghr << GHR_OFF));
 end
 
 //------------------------------------------------------------------------------

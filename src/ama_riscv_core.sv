@@ -28,10 +28,11 @@ logic [PIPE_STAGES-1:0] reset_seq;
 // pipe stage controls
 stage_ctrl_t ctrl_dec_exe, ctrl_exe_mem, ctrl_mem_wbk, ctrl_wbk_ret;
 perf_event_t perf_event;
+logic stall_act_flow;
 
 //------------------------------------------------------------------------------
 // FET Stage
-arch_width_t imem_addr, pc_inc4, pc_branch_jal, pc_new_exe;
+arch_width_t imem_addr, pc_inc4, pc_branch_jal, pc_new_mem;
 fe_ctrl_t fe_ctrl;
 logic be_stalled_d;
 decoder_t decoded; // from decode
@@ -50,7 +51,7 @@ always_comb begin
     unique case (fe_ctrl.pc_sel)
         PC_SEL_PC: imem_addr = pc.fet;
         PC_SEL_INC4: imem_addr = pc_inc4;
-        PC_SEL_ALU: imem_addr = pc_new_exe;
+        PC_SEL_ALU: imem_addr = pc_new_mem;
         PC_SEL_JAL_BP: imem_addr = pc_branch_jal;
         default: imem_addr = pc.fet;
     endcase
@@ -88,7 +89,8 @@ ama_riscv_decoder ama_riscv_decoder_i (
 decoder_t decoded_exe; // some bits are not always used
 /* verilator lint_on UNUSEDSIGNAL */
 logic dc_stalled;
-branch_t branch_resolution;
+logic branch_inst_mem, jalr_inst_mem;
+branch_t branch_resolution_mem;
 hazard_t hazard;
 spec_exec_t spec;
 rv_ctrl_if imem_req_rv ();
@@ -104,15 +106,16 @@ ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     .imem_rsp (imem_rsp_rv),
     // inputs
     .pc_dec (pc.dec),
-    .pc_exe (pc.exe),
+    .pc_mem (pc.mem),
     .branch_in_dec (decoded.itype.branch),
+    .branch_in_mem (branch_inst_mem),
     .jalr_in_dec (decoded.itype.jalr),
-    .branch_in_exe (decoded_exe.itype.branch),
     .jalr_in_exe (decoded_exe.itype.jalr),
+    .jalr_in_mem (jalr_inst_mem),
     `ifdef USE_BP
     .bp_pred (bp_pred),
     `endif
-    .branch_resolution (branch_resolution),
+    .branch_resolution (branch_resolution_mem),
     .decoded_fe_ctrl (decoded_fe_ctrl),
     .hazard (hazard),
     .dc_stalled (dc_stalled),
@@ -120,6 +123,7 @@ ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     `ifdef USE_BP
     .pc_cp (pc_fet_cp),
     `endif
+    .stall_act_flow (stall_act_flow),
     .spec (spec), // tied to 0 when BP is not used
     .fe_ctrl (fe_ctrl)
 );
@@ -190,8 +194,12 @@ end
 end else begin: gen_bp_dyn
 branch_t bp_pred_1;
 bp_pipe_t pipe_to_bp;
-assign pipe_to_bp =
-    '{pc_dec: pc.dec, pc_exe: pc.exe, spec: spec, br_res: branch_resolution};
+assign pipe_to_bp = '{
+    pc_dec: pc.dec,
+    pc_mem: pc.mem,
+    spec: spec,
+    br_res: branch_resolution_mem
+};
 
 ama_riscv_bp #(
     .PC_BITS (BP_1_PC_BITS),
@@ -339,7 +347,7 @@ csr_addr_t csr_addr_dec, csr_addr_exe;
 assign csr_addr_dec = csr_addr_t'(inst.dec[31:20]);
 
 assign ctrl_dec_exe = '{
-    flush: flush.dec,
+    flush: (flush.dec || fe_ctrl.bubble_exe),
     en: ((!dc_stalled) && (!hazard.to_exe)),
     bubble: (fe_ctrl.bubble_dec /*|| hazard.to_dec*/)
 };
@@ -404,7 +412,8 @@ assign op_a_r = a_sel_fwd_exe ? rs1_exe_be_fwd : op_a_exe;
 assign op_b_r = b_sel_fwd_exe ? rs2_exe_be_fwd : op_b_exe;
 
 // ALU
-arch_width_t alu_out_exe;
+arch_width_t alu_out_exe, pc_new_exe;
+branch_t branch_resolution_exe;
 ama_riscv_alu ama_riscv_alu_i (
     .op (decoded_exe.alu_op),
     .a (op_a_r),
@@ -413,7 +422,7 @@ ama_riscv_alu ama_riscv_alu_i (
     .is_branch(decoded_exe.itype.branch),
     .branch_u(decoded_exe.branch_u),
     .branch_sel(branch_sel_exe),
-    .branch_res(branch_resolution)
+    .branch_res(branch_resolution_exe)
 );
 assign pc_new_exe = decoded_exe.itype.branch ? pc_branch_exe : alu_out_exe;
 
@@ -517,7 +526,7 @@ assign rdp_we.exe = decoded_exe.itype.unpk;
 assign ctrl_exe_mem = '{
     flush: flush.exe,
     en: (!dc_stalled),
-    bubble: (!ctrl_dec_exe.en || hazard.to_exe)
+    bubble: (!ctrl_dec_exe.en || hazard.to_exe || fe_ctrl.bubble_exe)
 };
 
 logic map_uart_mem;
@@ -526,8 +535,8 @@ uart_ch_side_t uart_ch_mem;
 
 `ifndef SYNT
 `STAGE_E_M(1'b1, inst.exe, inst.mem, 'h0)
-`STAGE_E_M(1'b1, pc.exe, pc.mem, 'h0)
 `endif
+`STAGE_E_M(1'b1, pc.exe, pc.mem, 'h0)
 `STAGE_E_M(1'b1, pc_nz.exe, pc_nz.mem, 'h0)
 `STAGE_E_M(rd_we.exe, e_writeback_exe, e_writeback_mem, 'h0)
 `STAGE_E_M(unpk_en_exe, unpk_out_p_exe, unpk_out_p_mem, 'h0)
@@ -536,11 +545,15 @@ uart_ch_side_t uart_ch_mem;
 `STAGE_E_M(1'b1, rd_addr.exe, rd_addr.mem, RF_X0_ZERO)
 `STAGE_E_M(1'b1, rd_we.exe, rd_we.mem, 'h0)
 `STAGE_E_M(1'b1, rdp_we.exe, rdp_we.mem, 'h0)
+`STAGE_E_M(1'b1, pc_new_exe, pc_new_mem, 'h0)
+`STAGE_E_M(1'b1, branch_resolution_exe, branch_resolution_mem, B_NT)
+`STAGE_E_M(1'b1, decoded_exe.itype.branch, branch_inst_mem, 'h0)
+`STAGE_E_M(1'b1, decoded_exe.itype.jalr, jalr_inst_mem, 'h0)
 `STAGE_E_M(1'b1, decoded_exe.itype.load, load_inst_mem, 'h0)
-`STAGE_E_M(1'b1, dmem_req_exe, dmem_req_mem, 'h0)
-`STAGE_E_M(1'b1, uart_ch_exe, uart_ch_mem, 'h0)
 `STAGE_E_M(1'b1, decoded_exe.itype.mult, mult_inst_mem, 'h0)
 `STAGE_E_M(1'b1, simd_inst_exe, simd_inst_mem, 'b0)
+`STAGE_E_M(1'b1, dmem_req_exe, dmem_req_mem, 'h0)
+`STAGE_E_M(1'b1, uart_ch_exe, uart_ch_mem, 'h0)
 `STAGE_E_M(1'b1, map_uart_exe, map_uart_mem, 'h0)
 
 `DFF_CI_RI_RVI((dc_stalled /*|| hazard.to_dec*/ || hazard.to_exe), be_stalled_d)
@@ -628,22 +641,15 @@ assign inst_retired = pc_nz.ret;
 
 //------------------------------------------------------------------------------
 // perf
-logic stall_flow;
-`ifdef USE_BP
-assign stall_flow = decoded.itype.jalr;
-`else
-assign stall_flow = decoded.itype.branch || decoded.itype.jalr;
-`endif
-
 perf_event_t get_pe;
 always_comb begin
     get_pe = '{0, 0, 0, 0, 0, 0};
     get_pe.bad_spec = spec.wrong;
     get_pe.ret_simd = (inst_retired && simd_inst_ret);
-    if (!spec.wrong) begin
+    if (!get_pe.bad_spec) begin
         get_pe.be = (dc_stalled || hazard.to_exe);
         get_pe.be_dc = dc_stalled;
-        get_pe.fe = (!get_pe.be && (stall_flow || !imem_req.ready));
+        get_pe.fe = (!get_pe.be && (stall_act_flow || !imem_req.ready));
         get_pe.fe_ic = (!get_pe.be && (!imem_req.ready));
     end
 end

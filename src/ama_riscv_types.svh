@@ -272,6 +272,7 @@ typedef struct packed {
     pc_sel_t pc_sel;
     logic pc_we;
     logic bubble_dec;
+    logic bubble_exe;
     logic use_cp;
 } fe_ctrl_t;
 
@@ -351,7 +352,7 @@ typedef struct packed {
 
 typedef struct packed {
     arch_width_t pc_dec;
-    arch_width_t pc_exe;
+    arch_width_t pc_mem;
     spec_exec_t spec;
     branch_t br_res;
 } bp_pipe_t; // pipeline signals to branch predictor

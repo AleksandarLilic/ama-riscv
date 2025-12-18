@@ -6,11 +6,12 @@ module ama_riscv_fe_ctrl (
     rv_ctrl_if.TX imem_req,
     rv_ctrl_if.RX imem_rsp,
     input  arch_width_t pc_dec,
-    input  arch_width_t pc_exe,
+    input  arch_width_t pc_mem,
     input  logic branch_in_dec,
+    input  logic branch_in_mem,
     input  logic jalr_in_dec,
-    input  logic branch_in_exe,
     input  logic jalr_in_exe,
+    input  logic jalr_in_mem,
     `ifdef USE_BP
     input  branch_t bp_pred,
     `endif
@@ -21,6 +22,7 @@ module ama_riscv_fe_ctrl (
     `ifdef USE_BP
     output arch_width_t pc_cp,
     `endif
+    output logic stall_act_flow,
     output spec_exec_t spec,
     output fe_ctrl_t fe_ctrl
 );
@@ -72,25 +74,26 @@ logic save_stall_entry, clear_stall_entry;
 arch_width_t stalled_pc;
 stall_sources_t stall_act, stall_res;
 
-assign branch_taken = (branch_in_exe && (branch_resolution == B_T));
+assign branch_taken = (branch_in_mem && (branch_resolution == B_T));
 `ifdef USE_BP
-assign flow_update = jalr_in_exe;
-assign stall_act.flow = jalr_in_dec;
-logic bp_hit, bp_taken;
+assign flow_update = jalr_in_mem;
+assign stall_act.flow = (jalr_in_dec || jalr_in_exe);
+logic bp_hit, bp_miss, bp_taken;
 assign bp_taken = (bp_pred == B_T);
 `else
-assign flow_update = (branch_taken || jalr_in_exe);
-assign stall_act.flow = (branch_in_dec || jalr_in_dec);
+assign flow_update = (branch_taken || jalr_in_mem);
+assign stall_act.flow = (branch_in_dec || jalr_in_dec || jalr_in_exe);
 assign spec = '{1'b0, 1'b0, 1'b0};
 `endif
+
+assign stall_act_flow = stall_act.flow;
 
 assign stall_act.icache = !imem_req.ready;
 assign stall_act.dcache = dc_stalled;
 assign stall_act.hazard = (/* hazard.to_dec || */hazard.to_exe);
 assign stall_act.be = (stall_act.dcache || stall_act.hazard);
 
-assign stall_res.flow =
-    ((stalled_pc == pc_exe) && (pc_exe != 'h0) && (!hazard.to_exe));
+assign stall_res.flow = ((stalled_pc == pc_mem) && (pc_mem != 'h0));
 assign stall_res.icache = imem_req.ready;
 assign stall_res.dcache = !dc_stalled;
 assign stall_res.hazard = !(/* hazard.to_dec || */ hazard.to_exe);
@@ -203,6 +206,7 @@ always_comb begin
     fe_ctrl.pc_sel = decoded_fe_ctrl_d.pc_sel;
     fe_ctrl.pc_we = decoded_fe_ctrl_d.pc_we;
     fe_ctrl.bubble_dec = 1'b0;
+    fe_ctrl.bubble_exe = 1'b0;
     fe_ctrl.use_cp = 1'b0;
     imem_req.valid = 1'b0;
     imem_rsp.ready = 1'b0;
@@ -259,6 +263,7 @@ always_comb begin
                 fe_ctrl.pc_sel = branch_taken ? PC_SEL_ALU : PC_SEL_INC4;
                 fe_ctrl.pc_we = 1'b1;
                 fe_ctrl.bubble_dec = 1'b1;
+                fe_ctrl.bubble_exe = 1'b1;
                 fe_ctrl.use_cp = 1'b1;
                 imem_req.valid = 1'b1;
                 imem_rsp.ready = 1'b1;
@@ -274,6 +279,7 @@ always_comb begin
                 fe_ctrl.pc_sel = branch_taken ? PC_SEL_ALU : PC_SEL_INC4;
                 fe_ctrl.pc_we = 1'b1;
                 fe_ctrl.bubble_dec = 1'b1;
+                fe_ctrl.bubble_exe = 1'b1;
                 fe_ctrl.use_cp = 1'b1;
                 imem_req.valid = 1'b1;
                 imem_rsp.ready = 1'b1;
@@ -336,6 +342,7 @@ always_comb begin
                 fe_ctrl.pc_sel = branch_taken ? PC_SEL_ALU : PC_SEL_INC4;
                 fe_ctrl.pc_we = 1'b1;
                 fe_ctrl.bubble_dec = 1'b1;
+                fe_ctrl.bubble_exe = 1'b1;
                 fe_ctrl.use_cp = 1'b1;
                 imem_req.valid = 1'b1;
                 imem_rsp.ready = 1'b1;
@@ -387,6 +394,7 @@ always_comb begin
                     fe_ctrl.pc_sel = branch_taken ? PC_SEL_ALU : PC_SEL_INC4;
                     fe_ctrl.pc_we = 1'b1;
                     fe_ctrl.bubble_dec = 1'b1;
+                    fe_ctrl.bubble_exe = 1'b1;
                     fe_ctrl.use_cp = 1'b1;
                     imem_req.valid = 1'b1;
                     imem_rsp.ready = 1'b1;
@@ -404,17 +412,22 @@ end
 
 `ifdef USE_BP
 // SPECULATIVE EXEC control
-spec_entry_t spec_entry;
+spec_entry_t spec_entry[2];
+logic se_ptr_h, se_ptr_t; // head and tail pointers for speculative entry
+logic double_branch;
 
 logic save_spec_entry, clear_spec_entry;
 assign spec.enter = (
-    branch_in_dec && (!(stall_act.dcache || stall_act.hazard))
+    branch_in_dec && (!(stall_act.dcache || stall_act.hazard || spec.wrong))
 );
 assign spec.resolve = (
-    (spec_entry.pc == pc_exe) && (pc_exe != 'h0) && (!hazard.to_exe)
+    (spec_entry[se_ptr_t].pc == pc_mem) && (pc_mem != 'h0)
 );
-assign bp_hit = (spec.resolve && (spec_entry.b_tnt == branch_resolution));
-assign spec.wrong = (spec.resolve && !bp_hit);
+assign bp_hit = (
+    spec.resolve && (spec_entry[se_ptr_t].b_tnt == branch_resolution)
+);
+assign bp_miss = (spec.resolve && !bp_hit);
+assign spec.wrong = bp_miss;
 
 // speculative execution FSM
 exec_state_t state_e, nx_state_e;
@@ -437,6 +450,9 @@ always_comb begin
         end
 
         SPEC_E: begin
+            if (spec.enter) begin // branch again
+                save_spec_entry = 1'b1;
+            end
             if (spec.resolve) begin
                 clear_spec_entry = 1'b1;
                 if (spec.wrong) begin // missed, whantever you have is wrong
@@ -445,7 +461,8 @@ always_comb begin
                     if (spec.enter) begin // branch in dec again
                         nx_state_e = SPEC_E;
                         save_spec_entry = 1'b1;
-                    end else begin // next inst is not branch
+                    end else if (!double_branch) begin
+                        // next inst is not branch, and not double branched
                         nx_state_e = NS_E;
                     end
                 end
@@ -456,12 +473,34 @@ always_comb begin
 end
 
 always_ff @(posedge clk) begin
-    if (rst) spec_entry <= '{pc: 'h0, b_tnt: B_NT};
-    else if (save_spec_entry) spec_entry <= '{pc: pc_dec, b_tnt: bp_pred};
-    else if (clear_spec_entry) spec_entry <= '{pc: 'h0, b_tnt: B_NT};
+    if (rst) begin
+        spec_entry[0] <= '{pc: 'h0, b_tnt: B_NT};
+        spec_entry[1] <= '{pc: 'h0, b_tnt: B_NT};
+        se_ptr_h <= 1'b0;
+        se_ptr_t <= 1'b0;
+    end else if (spec.wrong) begin // missed, whantever you have is wrong
+        spec_entry[0] <= '{pc: 'h0, b_tnt: B_NT};
+        spec_entry[1] <= '{pc: 'h0, b_tnt: B_NT};
+        se_ptr_h <= 1'b0;
+        se_ptr_t <= 1'b0;
+    end else begin
+        if (save_spec_entry) begin
+            se_ptr_h <= (!se_ptr_h);
+            spec_entry[se_ptr_h] <= '{pc: pc_dec, b_tnt: bp_pred};
+        end
+        if (clear_spec_entry) begin
+            se_ptr_t <= (!se_ptr_t);
+            if (se_ptr_t != se_ptr_h) begin
+                // written by another entry if both ptrs are the same (3rd br)
+                spec_entry[se_ptr_t] <= '{pc: 'h0, b_tnt: B_NT};
+            end
+        end
+    end
 end
 
-assign pc_cp = spec_entry.pc;
+assign double_branch = (spec_entry[se_ptr_h].pc != 'h0);
+assign pc_cp = spec_entry[se_ptr_t].pc;
+
 `endif
 
 endmodule

@@ -10,7 +10,7 @@
 #include "dpi_functions.h"
 
 class cosim_stats {
-    public: // TEMP: revert to private, make functions
+    private:
         cache_stats_t icache_stats;
         cache_stats_t dcache_stats;
         bp_stats_t bp_stats;
