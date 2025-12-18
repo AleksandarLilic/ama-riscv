@@ -132,7 +132,7 @@ assign b_sign_bit = b[ARCH_WIDTH-1]; // b MSB
 `STAGE(ctrl_exe_mem, (en && !op_simd), b_sign_bit, b_sign_bit_d, 1'b0)
 `STAGE(ctrl_exe_mem, (en && !op_simd), a, a_d, 'h0)
 
-// final tree
+// final tree (multiplication)
 simd_d_t [7:0] i_tree_f;
 simd_d_t [1:0] o_tree_f;
 simd_d_t tree_sum;
@@ -143,19 +143,43 @@ assign tree_sum = (o_tree_f[0] + o_tree_f[1]);
 // wrap up multiplication
 simd_t mul_hu;
 assign mul_hu = tree_sum.w[1];
-simd_d_t mul_s;
-assign mul_s = (tree_sum + corr_d);
+
+simd_d_t [1:0] mul_s_tree;
+csa #(.W(64)) csa_i_mul_s (
+    .x(o_tree_f[0]),
+    .y(o_tree_f[1]),
+    .z(corr_d),
+    .s(mul_s_tree[0]),
+    .c(mul_s_tree[1])
+);
+
+simd_d_t mul_s_tree_1_aligned, mul_s;
+assign mul_s_tree_1_aligned = (mul_s_tree[1] << 1);
+assign mul_s = (mul_s_tree[0] + mul_s_tree_1_aligned);
+
+simd_d_t [1:0] mul_hsu_tree;
+csa #(.W(64)) csa_i_mul_hsu (
+    .x(mul_s_tree[0]),
+    .y(mul_s_tree_1_aligned),
+    .z({a_d, 32'h0}),
+    .s(mul_hsu_tree[0]),
+    .c(mul_hsu_tree[1])
+);
+
+simd_d_t mul_hsu_tree_1_aligned, mul_hsu_signed;
+assign mul_hsu_tree_1_aligned = (mul_hsu_tree[1] << 1);
+assign mul_hsu_signed = (mul_hsu_tree[0] + mul_hsu_tree_1_aligned);
 
 simd_t mul_hsu;
-assign mul_hsu = b_sign_bit_d ? (mul_s.w[1] + a_d) : mul_s.w[1];
+assign mul_hsu = b_sign_bit_d ? mul_hsu_signed.w[1] : mul_s.w[1];
 
 // wrap up simd
 simd_t dot16, dot8;
 assign dot16 = mul_s.w[0]; // same operations, input matrix & corr different
 assign dot8 = mul_s.w[0]; // same as above, but input & corr different yet again
 
-localparam unsigned DOT8_W = ARCH_WIDTH_H + 1; // dot8 result width, 17 bits
-localparam unsigned DOT8_SIGN = ARCH_WIDTH - DOT8_W; // sign pad, 15 bits
+localparam unsigned DOT8_W = (ARCH_WIDTH_H + 1); // dot8 result width, 17 bits
+localparam unsigned DOT8_SIGN = (ARCH_WIDTH - DOT8_W); // sign pad, 15 bits
 
 // output assignment based on the operation
 always_comb begin
