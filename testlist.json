@@ -1,6 +1,7 @@
 {
     "simple": [
         ["sim/sw/baremetal/asm_rv32i", "basic.hex"],
+        ["sim/sw/baremetal/asm_rv32i_branches", "basic.hex"],
         ["sim/sw/baremetal/asm_rv32i_zicsr", "basic.hex"],
         ["sim/sw/baremetal/asm_rv32im", "basic.hex"],
 
