@@ -125,9 +125,6 @@ bind `CORE ama_riscv_core_view ama_riscv_core_view_i (
     .decoded_exe (decoded_exe),
     .branch_resolution_mem (branch_resolution_mem),
     .csr_tohost (`CSR.csr.tohost), // this
-    `ifdef USE_BP
-    .bp_hit (bp_hit),
-    `endif
     .dc_stalled (dc_stalled)
 );
 

@@ -95,9 +95,8 @@ assign branch_taken_mem = ((branch_resolution_mem == B_T) && branch_inst_mem);
 `STAGE(ctrl_wbk_ret, 1'b1, branch_taken_wbk, r.branch_taken, 'h0)
 
 `ifdef USE_BP
-logic bp_hit_exe, bp_hit_mem, bp_hit_wbk;
-assign bp_hit_exe = (decoded_exe.itype.branch && bp_hit);
-`STAGE(ctrl_exe_mem, 1'b1, bp_hit_exe, bp_hit_mem, 'h0)
+logic bp_hit_mem, bp_hit_wbk;
+assign bp_hit_mem = (branch_inst_mem && `FE_CTRL.bp_hit);
 `STAGE(ctrl_mem_wbk, 1'b1, bp_hit_mem, bp_hit_wbk, 'h0)
 `STAGE(ctrl_wbk_ret, 1'b1, bp_hit_wbk, r.bp_hit, 'h0)
 `else
