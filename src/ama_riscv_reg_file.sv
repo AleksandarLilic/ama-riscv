@@ -19,9 +19,24 @@ arch_width_t rf [1:RF_NUM-1];
 rf_addr_t addr_dp;
 assign addr_dp = get_rdp(addr_d);
 
+logic rd_we, rdp_we;
+assign rd_we = (we && (addr_d != RF_X0_ZERO));
+assign rdp_we = (we_p && (addr_dp != RF_X0_ZERO));
+
+`ifndef SYNT
+always_comb begin
+    if (we_p) begin
+        assert (addr_d != RF_X31_T6)
+        else $fatal(1, "rd=x31, illegal for rdp write");
+    end
+end
+`endif
+
 always @ (posedge clk) begin
-    if (we && (addr_d != RF_X0_ZERO)) rf[addr_d] <= data_d;
-    if (we_p && (addr_dp != RF_X0_ZERO)) rf[addr_dp] <= data_dp;
+    if (rd_we) begin
+        rf[addr_d] <= data_d;
+        if (rdp_we) rf[addr_dp] <= data_dp;
+    end
 end
 
 // asynchronous register read
