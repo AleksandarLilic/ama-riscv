@@ -109,12 +109,33 @@
         ["sim/sw/baremetal/ustress/store_buffer_full", "workload.hex"]
     ],
 
+    "aapg_short": [
+        ["sim/sw/baremetal/aapg/aapg_rv32_generic", "test_s47.hex"],
+        ["sim/sw/baremetal/aapg/aapg_rv32_all", "test_s47.hex"],
+        ["sim/sw/baremetal/aapg/aapg_rv32_branches", "test_s47.hex"],
+        ["sim/sw/baremetal/aapg/aapg_rv32_mem", "test_s47.hex"],
+        ["sim/sw/baremetal/aapg/aapg_rv32_zmmul", "test_s47.hex"],
+        ["sim/sw/baremetal/aapg/aapg_rv32_custom-simd-dot", "test_s47.hex"]
+    ],
+
     "aapg": [
-        ["sim/sw/baremetal/aapg_static/rv32i", "aapg.hex"],
-        ["sim/sw/baremetal/aapg_static/rv32i_zmmul", "aapg.hex"],
-        ["sim/sw/baremetal/aapg_static/rv32i_branches", "aapg.hex"],
-        ["sim/sw/baremetal/aapg_static/rv32i_branches_short", "aapg.hex"],
-        ["sim/sw/baremetal/aapg_static/rv32i_mem", "aapg.hex"]
+        ["sim/sw/baremetal/aapg/aapg_rv32_all", "*hex"],
+        ["sim/sw/baremetal/aapg/aapg_rv32_all2", "*hex"],
+        ["sim/sw/baremetal/aapg/aapg_rv32_generic", "*hex"],
+        ["sim/sw/baremetal/aapg/aapg_rv32_branches", "*hex"],
+        ["sim/sw/baremetal/aapg/aapg_rv32_branches_short", "*hex"],
+        ["sim/sw/baremetal/aapg/aapg_rv32_mem", "*hex"],
+        ["sim/sw/baremetal/aapg/aapg_rv32_zmmul", "*hex"],
+        ["sim/sw/baremetal/aapg/aapg_rv32_zmmul_mem", "*hex"],
+        ["sim/sw/baremetal/aapg/aapg_rv32_zmmul_mem_ctrl", "*hex"],
+        ["sim/sw/baremetal/aapg/aapg_rv32_zmmul_mem_ctrl2", "*hex"],
+        ["sim/sw/baremetal/aapg/aapg_rv32_zmmul_mem_ctrl_short", "*hex"],
+        ["sim/sw/baremetal/aapg/aapg_rv32_custom-simd-dot", "*hex"],
+        ["sim/sw/baremetal/aapg/aapg_rv32_custom-simd-dot_mem", "*hex"],
+        ["sim/sw/baremetal/aapg/aapg_rv32_custom-simd-dot_mem_zmmul", "*hex"],
+        ["sim/sw/baremetal/aapg/aapg_rv32_custom-simd-dot_mem_zmmul_ctrl", "*hex"],
+        ["sim/sw/baremetal/aapg/aapg_rv32_custom-simd-dot_mem_zmmul_ctrl_short", "*hex"],
+        ["sim/sw/baremetal/aapg/aapg_rv32_custom-simd-dot_zmmul", "*hex"]
     ],
 
     "imperas_riscv": [
