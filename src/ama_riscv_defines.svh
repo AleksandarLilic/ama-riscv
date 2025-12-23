@@ -61,7 +61,7 @@
 `define INST_TYPE_INIT_VAL \
     '{ \
         mult: 1'b0, \
-        unpk: 1'b0, \
+        data_fmt: 1'b0, \
         load: 1'b0, \
         store: 1'b0, \
         branch: 1'b0, \
@@ -84,7 +84,7 @@
         csr_ctrl: '{en: 1'b0, re: 1'b0, we: 1'b0, ui: 1'b0, op: CSR_OP_NONE}, \
         alu_op: ALU_OP_OFF, \
         mult_op: MULT_OP_MUL, \
-        unpk_op: UNPK_OP_16, \
+        widen_op: WIDEN_OP_16, \
         a_sel: A_SEL_RS1, \
         b_sel: B_SEL_RS2, \
         ig_sel: IG_OFF, \

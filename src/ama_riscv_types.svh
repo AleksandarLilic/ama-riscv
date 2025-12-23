@@ -82,7 +82,7 @@ typedef enum logic [6:0] {
 
 typedef enum logic {
     CUSTOM_SIMD_DOT,
-    CUSTOM_SIMD_UNPK
+    CUSTOM_SIMD_WIDEN
 } custom_isa_t;
 
 typedef enum logic [1:0] {
@@ -132,7 +132,7 @@ typedef enum logic [2:0] {
     EWB_SEL_IMM_U = 3'd1,
     EWB_SEL_PC_INC4 = 3'd2,
     EWB_SEL_CSR = 3'd3,
-    EWB_SEL_UNPK = 3'd4
+    EWB_SEL_DATA_FMT = 3'd4
 } ewb_sel_t;
 
 typedef enum logic [1:0] {
@@ -188,15 +188,15 @@ typedef enum logic [2:0] {
 } mult_op_t;
 
 typedef enum logic [2:0] {
-    UNPK_OP_16 = 3'b000,
-    UNPK_OP_16U = 3'b010,
-    UNPK_OP_8 = 3'b001,
-    UNPK_OP_8U = 3'b011,
-    UNPK_OP_4 = 3'b100,
-    UNPK_OP_4U = 3'b110,
-    UNPK_OP_2 = 3'b101,
-    UNPK_OP_2U = 3'b111
-} unpk_op_t;
+    WIDEN_OP_16 = 3'b000,
+    WIDEN_OP_16U = 3'b010,
+    WIDEN_OP_8 = 3'b001,
+    WIDEN_OP_8U = 3'b011,
+    WIDEN_OP_4 = 3'b100,
+    WIDEN_OP_4U = 3'b110,
+    WIDEN_OP_2 = 3'b101,
+    WIDEN_OP_2U = 3'b111
+} widen_op_t;
 
 typedef enum logic [2:0] {
     IG_OFF = 3'd0,
@@ -254,7 +254,7 @@ typedef struct packed {
 
 typedef struct packed {
     logic mult;
-    logic unpk;
+    logic data_fmt;
     logic load;
     logic store;
     logic branch;
@@ -283,7 +283,7 @@ typedef struct packed {
     csr_ctrl_t csr_ctrl;
     alu_op_t alu_op;
     mult_op_t mult_op;
-    unpk_op_t unpk_op;
+    widen_op_t widen_op;
     a_sel_t a_sel;
     b_sel_t b_sel;
     ig_sel_t ig_sel;

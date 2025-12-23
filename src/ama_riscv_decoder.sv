@@ -130,7 +130,6 @@ always_comb begin
         end
 
         OPC7_CUSTOM: begin
-            // [SIMD, UNPAK]
             unique case (custom_isa_t'(fn3[0]))
                 CUSTOM_SIMD_DOT: begin
                     fc.pc_we = 1'b1;
@@ -140,11 +139,11 @@ always_comb begin
                     d.rd_we = rd_nz;
                     d.has_reg = '{rd: 1'b1, rs1: 1'b1, rs2: 1'b1};
                 end
-                CUSTOM_SIMD_UNPK: begin
+                CUSTOM_SIMD_WIDEN: begin
                     fc.pc_we = 1'b1;
-                    d.itype.unpk = 1'b1;
-                    d.unpk_op = unpk_op_t'({fn7_b6, fn7_b5, fn7_b0});
-                    d.ewb_sel = EWB_SEL_UNPK;
+                    d.itype.data_fmt = 1'b1;
+                    d.widen_op = widen_op_t'({fn7_b6, fn7_b5, fn7_b0});
+                    d.ewb_sel = EWB_SEL_DATA_FMT;
                     d.rd_we = rd_nz;
                     d.has_reg = '{rd: 1'b1, rs1: 1'b1, rs2: 1'b1};
                     d.has_reg_p = 1'b1;
