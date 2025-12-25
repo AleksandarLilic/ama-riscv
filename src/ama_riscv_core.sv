@@ -249,14 +249,19 @@ end // gen_bp_dyn_single/gen_bp_dyn_comb
 end // gen_bp_sttc/gen_bp_dyn
 `endif // USE_BP
 
-rf_addr_t rs1_addr_exe, rs2_addr_exe, rs3_addr_exe;
+// instructions that can cause a hazard
 logic load_inst_mem, load_inst_wbk, mult_inst_mem;
+// decoded reg src addresses
+rf_addr_t rs1_addr_exe, rs2_addr_exe, rs3_addr_exe, rs3_addr_mem;
+// forwarding sources
 fwd_be_t fwd_src_sel_rs1_dec, fwd_src_sel_rs2_dec, fwd_src_sel_rs3_dec;
 fwd_be_t fwd_src_sel_rs1_exe, fwd_src_sel_rs2_exe, fwd_src_sel_rs3_exe;
+fwd_be_t fwd_src_sel_rs3_mem;
+// forwarding selects
 a_sel_t a_sel_dec_fwd;
 b_sel_t b_sel_dec_fwd;
 logic c_sel_dec_fwd;
-logic a_sel_fwd_exe, b_sel_fwd_exe, c_sel_fwd_exe;
+logic a_sel_fwd_exe, b_sel_fwd_exe, c_sel_fwd_exe, c_sel_fwd_mem;
 
 ama_riscv_operand_forwarding ama_riscv_operand_forwarding_i (
     // inputs
@@ -270,6 +275,7 @@ ama_riscv_operand_forwarding ama_riscv_operand_forwarding_i (
     .rs1_exe (rs1_addr_exe),
     .rs2_exe (rs2_addr_exe),
     .rs3_exe (rs3_addr_exe),
+    .rs3_mem (rs3_addr_mem),
     .rd_mem (rd_addr.mem),
     .rd_wbk (rd_addr.wbk),
     .rf_we_mem (rf_we.mem),
@@ -290,6 +296,9 @@ ama_riscv_operand_forwarding ama_riscv_operand_forwarding_i (
     .a_sel_fwd_exe (a_sel_fwd_exe),
     .b_sel_fwd_exe (b_sel_fwd_exe),
     .c_sel_fwd_exe (c_sel_fwd_exe),
+    // outputs to mem
+    .fwd_src_sel_rs3_mem (fwd_src_sel_rs3_mem),
+    .c_sel_fwd_mem (c_sel_fwd_mem),
     // hazard detection
     .hazard (hazard)
 );
@@ -384,14 +393,14 @@ assign ctrl_dec_exe = '{
 `STAGE_D_E(1'b1, decoded, decoded_exe, `DECODER_INIT_VAL)
 
 // special case for two operands, to save (writeback fwd) values on stall
-arch_width_t op_a_r, op_b_r, op_c_r; // resolved operands from exe stage (decl.)
+arch_width_t op_a_r, op_b_r, rs3_exe; // resolved operands from exe stage (decl.)
 always_ff @(posedge clk) begin
     if (rst) begin
         {op_a_exe, op_b_exe, op_c_exe} <= {3{ARCH_WIDTH'(0)}};
     end else if (ctrl_dec_exe.flush) begin
         {op_a_exe, op_b_exe, op_c_exe} <= {3{ARCH_WIDTH'(0)}};
     end else if (ctrl_exe_mem.bubble) begin // saved operands
-        {op_a_exe, op_b_exe, op_c_exe} <= {op_a_r, op_b_r, op_c_r};
+        {op_a_exe, op_b_exe, op_c_exe} <= {op_a_r, op_b_r, rs3_exe};
     end else if (ctrl_dec_exe.en) begin
         if (ctrl_dec_exe.bubble) begin
             {op_a_exe, op_b_exe, op_c_exe} <= {3{ARCH_WIDTH'(0)}};;
@@ -438,7 +447,7 @@ end
 
 assign op_a_r = a_sel_fwd_exe ? rs1_exe_be_fwd : op_a_exe;
 assign op_b_r = b_sel_fwd_exe ? rs2_exe_be_fwd : op_b_exe;
-assign op_c_r = c_sel_fwd_exe ? rs3_exe_be_fwd : op_c_exe;
+assign rs3_exe = c_sel_fwd_exe ? rs3_exe_be_fwd : op_c_exe;
 
 // ALU
 arch_width_t alu_out_exe, pc_new_exe;
@@ -466,7 +475,7 @@ assign data_fmt_out_p_exe = data_fmt_out.w[1];
 
 logic simd_en_exe;
 assign simd_en_exe = decoded_exe.itype.mult;
-simd_t op_c_r_mem;
+simd_t op_c_r;
 simd_t simd_out_mem;
 ama_riscv_simd ama_riscv_simd_i (
     .clk (clk),
@@ -476,7 +485,7 @@ ama_riscv_simd ama_riscv_simd_i (
     .op (decoded_exe.mult_op),
     .a (op_a_r),
     .b (op_b_r),
-    .c_late (op_c_r_mem),
+    .c_late (op_c_r),
     .p (simd_out_mem)
 );
 
@@ -566,6 +575,7 @@ assign ctrl_exe_mem = '{
 logic map_uart_mem;
 dmem_req_side_t dmem_req_mem;
 uart_ch_side_t uart_ch_mem;
+arch_width_t rs3_mem;
 
 `ifndef SYNT
 `STAGE_E_M(1'b1, inst.exe, inst.mem, 'h0)
@@ -577,9 +587,10 @@ uart_ch_side_t uart_ch_mem;
 `STAGE_E_M(data_fmt_en_exe, data_fmt_en_exe, data_fmt_en_mem, 'h0)
 `STAGE_E_M(rf_we.exe.rd, wb_sel.exe, wb_sel.mem, WB_SEL_EWB)
 `STAGE_E_M(1'b1, rd_addr.exe, rd_addr.mem, RF_X0_ZERO)
+`STAGE_E_M(1'b1, rs3_addr_exe, rs3_addr_mem, RF_X0_ZERO)
 `STAGE_E_M(1'b1, rf_we.exe, rf_we.mem, 'h0)
 `STAGE_E_M(1'b1, pc_new_exe, pc_new_mem, 'h0)
-`STAGE_E_M(1'b1, op_c_r, op_c_r_mem, 'h0)
+`STAGE_E_M(1'b1, rs3_exe, rs3_mem, 'h0)
 `STAGE_E_M(1'b1, branch_resolution_exe, branch_resolution_mem, B_NT)
 `STAGE_E_M(1'b1, decoded_exe.itype.branch, branch_inst_mem, 'h0)
 `STAGE_E_M(1'b1, decoded_exe.itype.jalr, jalr_inst_mem, 'h0)
@@ -594,6 +605,17 @@ uart_ch_side_t uart_ch_mem;
 
 //------------------------------------------------------------------------------
 // MEM stage
+
+arch_width_t rs3_mem_be_fwd;
+always_comb begin
+    unique case (fwd_src_sel_rs3_mem)
+        FWD_BE_WBK: rs3_mem_be_fwd = writeback;
+        FWD_BE_WBK_P: rs3_mem_be_fwd = data_fmt_out_p_wbk;
+        default: rs3_mem_be_fwd = 'h0;
+    endcase
+end
+
+assign op_c_r = c_sel_fwd_mem ? rs3_mem_be_fwd : rs3_mem;
 
 // DMEM
 assign dmem_req.wdata = dmem_req_mem.wdata;

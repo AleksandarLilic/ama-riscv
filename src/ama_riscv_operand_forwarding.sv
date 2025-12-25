@@ -12,6 +12,7 @@ module ama_riscv_operand_forwarding (
     input  rf_addr_t rs1_exe,
     input  rf_addr_t rs2_exe,
     input  rf_addr_t rs3_exe,
+    input  rf_addr_t rs3_mem,
     input  rf_addr_t rd_mem,
     input  rf_addr_t rd_wbk,
     input  rf_we_t rf_we_mem,
@@ -31,8 +32,13 @@ module ama_riscv_operand_forwarding (
     output logic a_sel_fwd_exe,
     output logic b_sel_fwd_exe,
     output logic c_sel_fwd_exe,
+    output fwd_be_t fwd_src_sel_rs3_mem,
+    output logic c_sel_fwd_mem,
     output hazard_t hazard
 );
+
+//------------------------------------------------------------------------------
+// setup
 
 typedef struct packed {
     logic has;
@@ -68,18 +74,22 @@ function automatic logic in_wbk_p (input rf_addr_t rs);
     in_wbk_p = ((rs == rdp_wbk) && rf_we_wbk.rdp);
 endfunction
 
+//------------------------------------------------------------------------------
+// track down dependencies
+
 // are source regs non-zeros
 logic rs1_dec_nz, rs2_dec_nz, rs3_dec_nz, rs1_exe_nz, rs2_exe_nz, rs3_exe_nz;
+logic rs3_mem_nz;
 assign rs1_dec_nz = (rs1_dec != RF_X0_ZERO);
 assign rs2_dec_nz = (rs2_dec != RF_X0_ZERO);
 assign rs3_dec_nz = (rs3_dec != RF_X0_ZERO);
 assign rs1_exe_nz = (rs1_exe != RF_X0_ZERO);
 assign rs2_exe_nz = (rs2_exe != RF_X0_ZERO);
 assign rs3_exe_nz = (rs3_exe != RF_X0_ZERO);
-
+assign rs3_mem_nz = (rs3_mem != RF_X0_ZERO);
 
 /* verilator lint_off UNUSEDSIGNAL */
-dep_t d_rs1_dec, d_rs2_dec, d_rs3_dec;
+dep_t d_rs1_dec, d_rs2_dec, d_rs3_dec, d_rs3_mem;
 /* verilator lint_on UNUSEDSIGNAL */
 dep_t d_rs1_exe, d_rs2_exe, d_rs3_exe;
 
@@ -92,6 +102,7 @@ always_comb begin
     d_rs1_exe.in_mem_on_rd = (rs1_exe_nz && in_mem(rs1_exe));
     d_rs2_exe.in_mem_on_rd = (rs2_exe_nz && in_mem(rs2_exe));
     d_rs3_exe.in_mem_on_rd = (rs3_exe_nz && in_mem(rs3_exe));
+    d_rs3_mem.in_mem_on_rd = 1'b0;
 
     d_rs1_dec.in_mem_on_rdp = (rs1_dec_nz && in_mem_p(rs1_dec));
     d_rs2_dec.in_mem_on_rdp = (rs2_dec_nz && in_mem_p(rs2_dec));
@@ -99,6 +110,7 @@ always_comb begin
     d_rs1_exe.in_mem_on_rdp = (rs1_exe_nz && in_mem_p(rs1_exe));
     d_rs2_exe.in_mem_on_rdp = (rs2_exe_nz && in_mem_p(rs2_exe));
     d_rs3_exe.in_mem_on_rdp = (rs3_exe_nz && in_mem_p(rs3_exe));
+    d_rs3_mem.in_mem_on_rdp = 1'b0;
 
     d_rs1_dec.in_mem = (d_rs1_dec.in_mem_on_rd || d_rs1_dec.in_mem_on_rdp);
     d_rs2_dec.in_mem = (d_rs2_dec.in_mem_on_rd || d_rs2_dec.in_mem_on_rdp);
@@ -116,6 +128,7 @@ always_comb begin
     d_rs1_exe.in_wbk_on_rd = (rs1_exe_nz && in_wbk(rs1_exe));
     d_rs2_exe.in_wbk_on_rd = (rs2_exe_nz && in_wbk(rs2_exe));
     d_rs3_exe.in_wbk_on_rd = (rs3_exe_nz && in_wbk(rs3_exe));
+    d_rs3_mem.in_wbk_on_rd = (rs3_mem_nz && in_wbk(rs3_mem));
 
     d_rs1_dec.in_wbk_on_rdp = (rs1_dec_nz && in_wbk_p(rs1_dec));
     d_rs2_dec.in_wbk_on_rdp = (rs2_dec_nz && in_wbk_p(rs2_dec));
@@ -123,6 +136,7 @@ always_comb begin
     d_rs1_exe.in_wbk_on_rdp = (rs1_exe_nz && in_wbk_p(rs1_exe));
     d_rs2_exe.in_wbk_on_rdp = (rs2_exe_nz && in_wbk_p(rs2_exe));
     d_rs3_exe.in_wbk_on_rdp = (rs3_exe_nz && in_wbk_p(rs3_exe));
+    d_rs3_mem.in_wbk_on_rdp = (rs3_mem_nz && in_wbk_p(rs3_mem));
 
     d_rs1_dec.in_wbk = (d_rs1_dec.in_wbk_on_rd || d_rs1_dec.in_wbk_on_rdp);
     d_rs2_dec.in_wbk = (d_rs2_dec.in_wbk_on_rd || d_rs2_dec.in_wbk_on_rdp);
@@ -130,15 +144,17 @@ always_comb begin
     d_rs1_exe.in_wbk = (d_rs1_exe.in_wbk_on_rd || d_rs1_exe.in_wbk_on_rdp);
     d_rs2_exe.in_wbk = (d_rs2_exe.in_wbk_on_rd || d_rs2_exe.in_wbk_on_rdp);
     d_rs3_exe.in_wbk = (d_rs3_exe.in_wbk_on_rd || d_rs3_exe.in_wbk_on_rdp);
+    d_rs3_mem.in_wbk = (d_rs3_mem.in_wbk_on_rd || d_rs3_mem.in_wbk_on_rdp);
 end
 
 // on paired register?
-assign d_rs1_dec.on_rdp = (d_rs1_dec.in_mem_on_rdp || d_rs1_dec.in_wbk_on_rdp);
-assign d_rs2_dec.on_rdp = (d_rs2_dec.in_mem_on_rdp || d_rs2_dec.in_wbk_on_rdp);
-assign d_rs3_dec.on_rdp = (d_rs3_dec.in_mem_on_rdp || d_rs3_dec.in_wbk_on_rdp);
+assign d_rs1_dec.on_rdp = (d_rs1_dec.in_wbk_on_rdp);
+assign d_rs2_dec.on_rdp = (d_rs2_dec.in_wbk_on_rdp);
+assign d_rs3_dec.on_rdp = (d_rs3_dec.in_wbk_on_rdp);
 assign d_rs1_exe.on_rdp = (d_rs1_exe.in_mem_on_rdp || d_rs1_exe.in_wbk_on_rdp);
 assign d_rs2_exe.on_rdp = (d_rs2_exe.in_mem_on_rdp || d_rs2_exe.in_wbk_on_rdp);
 assign d_rs3_exe.on_rdp = (d_rs3_exe.in_mem_on_rdp || d_rs3_exe.in_wbk_on_rdp);
+assign d_rs3_mem.on_rdp = (d_rs3_mem.in_wbk_on_rdp);
 
 // anywhere in the machine?
 assign d_rs1_dec.has = (d_rs1_dec.in_wbk);
@@ -147,6 +163,7 @@ assign d_rs3_dec.has = (d_rs3_dec.in_wbk);
 assign d_rs1_exe.has = (d_rs1_exe.in_mem || d_rs1_exe.in_wbk);
 assign d_rs2_exe.has = (d_rs2_exe.in_mem || d_rs2_exe.in_wbk);
 assign d_rs3_exe.has = (d_rs3_exe.in_mem || d_rs3_exe.in_wbk);
+assign d_rs3_mem.has = (d_rs3_mem.in_wbk);
 
 // if it has, where to get the data from and which rd?
 // if it's found in both mem and wbk, prioritize mem as a later update to the rd
@@ -157,6 +174,13 @@ assign fwd_src_sel_rs3_dec = fwd_be_t'({d_rs3_dec.on_rdp, 1'b1});
 assign fwd_src_sel_rs1_exe = fwd_be_t'({d_rs1_exe.on_rdp, !d_rs1_exe.in_mem});
 assign fwd_src_sel_rs2_exe = fwd_be_t'({d_rs2_exe.on_rdp, !d_rs2_exe.in_mem});
 assign fwd_src_sel_rs3_exe = fwd_be_t'({d_rs3_exe.on_rdp, !d_rs3_exe.in_mem});
+assign fwd_src_sel_rs3_mem = fwd_be_t'({d_rs3_mem.on_rdp, 1'b1});
+
+//------------------------------------------------------------------------------
+// forward or not
+
+// should forward in mem?
+assign c_sel_fwd_mem = d_rs3_mem.has;
 
 // should forward in exec?
 assign a_sel_fwd_exe = d_rs1_exe.has;
@@ -164,24 +188,22 @@ assign b_sel_fwd_exe = d_rs2_exe.has;
 assign c_sel_fwd_exe = d_rs3_exe.has;
 
 // should forward in decode?
-// only if instruction is using rs1/rs2
+// for a/b. only if instruction is using rs1/rs2 and not alternatives
 assign a_sel_dec_fwd = (d_rs1_dec.has && (a_sel_dec == A_SEL_RS1)) ?
     A_SEL_FWD : a_sel_dec;
 assign b_sel_dec_fwd = (d_rs2_dec.has && (b_sel_dec == B_SEL_RS2)) ?
     B_SEL_FWD : b_sel_dec;
 assign c_sel_dec_fwd = d_rs3_dec.has;
 
-// hazards on 2 cycle execute instructions?
+//------------------------------------------------------------------------------
+// hazards on 2+ cycle execute instructions? used to stall the machine
+
 logic hazard_from_mem, hazard_from_wbk;
-assign hazard_from_mem = (
-    (load_inst_mem || mult_inst_mem) &&
-    (d_rs1_exe.in_mem || d_rs2_exe.in_mem || d_rs3_exe.in_mem)
+assign hazard_from_mem = (load_inst_mem || mult_inst_mem);
+assign hazard_from_wbk = (load_inst_wbk && dc_stalled);
+assign hazard.to_exe = (
+    (hazard_from_mem && (d_rs1_exe.in_mem || d_rs2_exe.in_mem)) ||
+    (hazard_from_wbk && (d_rs1_exe.in_wbk || d_rs2_exe.in_wbk))
 );
-assign hazard_from_wbk = (
-    load_inst_wbk &&
-    dc_stalled &&
-    (d_rs1_exe.in_wbk || d_rs2_exe.in_wbk || d_rs3_exe.in_wbk)
-);
-assign hazard.to_exe = (hazard_from_mem || hazard_from_wbk);
 
 endmodule
