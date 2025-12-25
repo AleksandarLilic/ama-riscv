@@ -144,7 +144,7 @@ def check_test_status(test_log_path, test_name):
         errors = []
         last_lines = deque(open(test_log_path, 'r'), maxlen=100)
         for line in last_lines:
-            if "ERROR" in line:
+            if "ERROR" in line or "'tohost' failed #" in line:
                 errors.append(f"\n{INDENT}{line.strip()}")
             if MSG_PASS in line:
                 return f"Test <{test_name}> PASSED."
