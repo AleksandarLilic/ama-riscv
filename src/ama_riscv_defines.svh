@@ -72,15 +72,16 @@
 `define HAS_REG_INIT_VAL \
     '{ \
         rd: 1'b0, \
+        rdp: 1'b0, \
         rs1: 1'b0, \
-        rs2: 1'b0 \
+        rs2: 1'b0, \
+        rs3: 1'b0 \
     }
 
 `define DECODER_INIT_VAL \
     '{ \
         itype: `INST_TYPE_INIT_VAL, \
         has_reg: `HAS_REG_INIT_VAL, \
-        has_reg_p: 1'b0, \
         csr_ctrl: '{en: 1'b0, re: 1'b0, we: 1'b0, ui: 1'b0, op: CSR_OP_NONE}, \
         alu_op: ALU_OP_OFF, \
         mult_op: MULT_OP_MUL, \

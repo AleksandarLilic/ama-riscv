@@ -44,7 +44,7 @@ always_comb begin
             d.mult_op = mult_op_t'({1'b0, fn3[1:0]});
             d.wb_sel = d.itype.mult ? WB_SEL_SIMD : WB_SEL_EWB;
             d.rd_we = rd_nz;
-            d.has_reg = '{rd: 1'b1, rs1: 1'b1, rs2: 1'b1};
+            d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 0};
         end
 
         OPC7_I_TYPE: begin
@@ -55,7 +55,7 @@ always_comb begin
                 alu_op_t'({fn7_b5, fn3}) : alu_op_t'({1'b0, fn3});
             d.ig_sel = IG_I_TYPE;
             d.rd_we = rd_nz;
-            d.has_reg = '{rd: 1'b1, rs1: 1'b1, rs2: 1'b0};
+            d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 0, rs3: 0};
         end
 
         OPC7_LOAD: begin
@@ -66,7 +66,7 @@ always_comb begin
             d.dmem_en = 1'b1;
             d.wb_sel = WB_SEL_DMEM;
             d.rd_we = rd_nz;
-            d.has_reg = '{rd: 1'b1, rs1: 1'b1, rs2: 1'b0};
+            d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 0, rs3: 0};
         end
 
         OPC7_STORE: begin
@@ -75,7 +75,7 @@ always_comb begin
             d.a_sel = A_SEL_RS1;
             d.ig_sel = IG_S_TYPE;
             d.dmem_en = 1'b1;
-            d.has_reg = '{rd: 1'b0, rs1: 1'b1, rs2: 1'b1};
+            d.has_reg = '{rd: 0, rdp: 0, rs1: 1, rs2: 1, rs3: 0};
         end
 
         OPC7_BRANCH: begin
@@ -86,7 +86,7 @@ always_comb begin
             d.alu_op = ALU_OP_ADD;
             d.ig_sel = IG_B_TYPE;
             d.branch_u = fn3[1];
-            d.has_reg = '{rd: 1'b0, rs1: 1'b1, rs2: 1'b1};
+            d.has_reg = '{rd: 0, rdp: 0, rs1: 1, rs2: 1, rs3: 0};
         end
 
         OPC7_JAL: begin
@@ -95,7 +95,7 @@ always_comb begin
             d.itype.jal = 1'b1;
             d.ewb_sel = EWB_SEL_PC_INC4;
             d.rd_we = rd_nz;
-            d.has_reg = '{rd: 1'b1, rs1: 1'b0, rs2: 1'b0};
+            d.has_reg = '{rd: 1, rdp: 0, rs1: 0, rs2: 0, rs3: 0};
         end
 
         OPC7_JALR: begin
@@ -107,7 +107,7 @@ always_comb begin
             d.ig_sel = IG_I_TYPE;
             d.ewb_sel = EWB_SEL_PC_INC4;
             d.rd_we = rd_nz;
-            d.has_reg = '{rd: 1'b1, rs1: 1'b1, rs2: 1'b0};
+            d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 0, rs3: 0};
         end
 
         OPC7_LUI: begin
@@ -116,7 +116,7 @@ always_comb begin
             d.ig_sel = IG_U_TYPE;
             d.ewb_sel = EWB_SEL_IMM_U;
             d.rd_we = rd_nz;
-            d.has_reg = '{rd: 1'b1, rs1: 1'b0, rs2: 1'b0};
+            d.has_reg = '{rd: 1, rdp: 0, rs1: 0, rs2: 0, rs3: 0};
         end
 
         OPC7_AUIPC: begin
@@ -126,7 +126,7 @@ always_comb begin
             d.alu_op = ALU_OP_ADD;
             d.ig_sel = IG_U_TYPE;
             d.rd_we = rd_nz;
-            d.has_reg = '{rd: 1'b1, rs1: 1'b0, rs2: 1'b0};
+            d.has_reg = '{rd: 1, rdp: 0, rs1: 0, rs2: 0, rs3: 0};
         end
 
         OPC7_CUSTOM: begin
@@ -137,7 +137,7 @@ always_comb begin
                     d.mult_op = mult_op_t'({1'b1, fn7_b6, fn7_b0});
                     d.wb_sel = WB_SEL_SIMD;
                     d.rd_we = rd_nz;
-                    d.has_reg = '{rd: 1'b1, rs1: 1'b1, rs2: 1'b1};
+                    d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 1};
                 end
                 CUSTOM_SIMD_WIDEN: begin
                     fc.pc_we = 1'b1;
@@ -145,8 +145,7 @@ always_comb begin
                     d.widen_op = widen_op_t'({fn7_b6, fn7_b5, fn7_b0});
                     d.ewb_sel = EWB_SEL_DATA_FMT;
                     d.rd_we = rd_nz;
-                    d.has_reg = '{rd: 1'b1, rs1: 1'b1, rs2: 1'b1};
-                    d.has_reg_p = 1'b1;
+                    d.has_reg = '{rd: 1, rdp: 1, rs1: 1, rs2: 1, rs3: 0};
                 end
             endcase
         end
@@ -162,7 +161,7 @@ always_comb begin
             d.csr_ctrl.op = csr_op_t'(fn3[1:0]);
             d.ewb_sel = EWB_SEL_CSR;
             d.rd_we = rd_nz;
-            d.has_reg = '{rd: 1'b1, rs1: !fn3[2], rs2: 1'b0};
+            d.has_reg = '{rd: 1, rdp: 0 , rs1: !fn3[2], rs2: 0, rs3: 0};
         end
 
         default: begin

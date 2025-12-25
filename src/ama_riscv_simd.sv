@@ -8,6 +8,7 @@ module ama_riscv_simd (
     input  mult_op_t op,
     input  simd_t a,
     input  simd_t b,
+    input  simd_t c_late,
     output simd_t p
 );
 
@@ -174,12 +175,15 @@ simd_t mul_hsu;
 assign mul_hsu = b_sign_bit_d ? mul_hsu_signed.w[1] : mul_s.w[1];
 
 // wrap up simd
-simd_t dot16, dot8;
-assign dot16 = mul_s.w[0]; // same operations, input matrix & corr different
-assign dot8 = mul_s.w[0]; // same as above, but input & corr different yet again
-
 localparam unsigned DOT8_W = (ARCH_WIDTH_H + 1); // dot8 result width, 17 bits
 localparam unsigned DOT8_SIGN = (ARCH_WIDTH - DOT8_W); // sign pad, 15 bits
+
+simd_t dot_r, dot16_r, dot8_r, dot_acc_in, dot_acc_out;
+assign dot_r = mul_s.w[0];
+assign dot16_r = dot_r[ARCH_WIDTH-1:0];
+assign dot8_r = {{DOT8_SIGN{dot_r[DOT8_W-1]}}, dot_r[DOT8_W-1:0]};
+assign dot_acc_in = (op_d == MULT_OP_DOT16) ? dot16_r : dot8_r;
+assign dot_acc_out = (dot_acc_in + c_late);
 
 // output assignment based on the operation
 always_comb begin
@@ -188,8 +192,8 @@ always_comb begin
         MULT_OP_MULH: p = mul_s[ARCH_WIDTH_D-1:ARCH_WIDTH];
         MULT_OP_MULHSU: p = mul_hsu;
         MULT_OP_MULHU: p = mul_hu;
-        MULT_OP_DOT16: p = dot16[ARCH_WIDTH-1:0];
-        MULT_OP_DOT8: p = {{DOT8_SIGN{dot8[DOT8_W-1]}}, dot8[DOT8_W-1:0]};
+        MULT_OP_DOT16,
+        MULT_OP_DOT8: p = dot_acc_out;
         default: p = 'h0;
     endcase
 end

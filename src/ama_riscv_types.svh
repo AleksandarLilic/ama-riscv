@@ -243,6 +243,11 @@ typedef enum logic [4:0] {
     RF_X31_T6 = 5'd31 // temporary
 } rf_addr_t;
 
+typedef struct packed {
+    logic rd;
+    logic rdp;
+} rf_we_t;
+
 // Core signal bundles
 typedef struct packed {
     logic en;
@@ -264,8 +269,10 @@ typedef struct packed {
 
 typedef struct packed {
     logic rd;
+    logic rdp;
     logic rs1;
     logic rs2;
+    logic rs3;
 } has_reg_t;
 
 typedef struct packed {
@@ -279,7 +286,6 @@ typedef struct packed {
 typedef struct packed {
     inst_type_t itype;
     has_reg_t has_reg;
-    logic has_reg_p;
     csr_ctrl_t csr_ctrl;
     alu_op_t alu_op;
     mult_op_t mult_op;
