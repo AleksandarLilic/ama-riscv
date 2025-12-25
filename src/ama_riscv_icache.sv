@@ -40,7 +40,7 @@ end
 `define LPU localparam unsigned
 // cache
 `LPU IDX_BITS = $clog2(SETS);
-`LPU WAY_BITS = $clog2(WAYS);
+`LPU WAY_BITS = `MAX(1, $clog2(WAYS));
 `LPU TAG_W = (CORE_BYTE_ADDR_BUS - CACHE_LINE_BYTE_ADDR - IDX_BITS);
 `LPU IDX_RANGE_TOP = (SETS == 1) ? 1: IDX_BITS;
 `LPU WORD_ADDR = $clog2(CACHE_LINE_SIZE / INST_WIDTH); // 4, to 32bit words
@@ -147,7 +147,9 @@ logic [IDX_RANGE_TOP-1:0] set_idx_cr;
 logic [WAY_BITS-1:0] way_victim_idx, way_victim_idx_d;
 logic new_core_req, new_core_req_d;
 logic hit, hit_d, miss, miss_d;
+/* verilator lint_off UNUSEDSIGNAL */ // some may be unused for dmapped cache
 logic load_req_hit, load_req_pend;
+/* verilator lint_on UNUSEDSIGNAL */
 
 //------------------------------------------------------------------------------
 // lookup and tag matching

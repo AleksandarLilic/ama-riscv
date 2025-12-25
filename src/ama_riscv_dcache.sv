@@ -39,7 +39,7 @@ end
 // params and defs
 `define LPU localparam unsigned
 `LPU IDX_BITS = $clog2(SETS);
-`LPU WAY_BITS = $clog2(WAYS);
+`LPU WAY_BITS = `MAX(1, $clog2(WAYS));
 `LPU TAG_W = CORE_BYTE_ADDR_BUS - CACHE_LINE_BYTE_ADDR -IDX_BITS;
 `LPU IDX_RANGE_TOP = (SETS == 1) ? 1: IDX_BITS;
 `LPU WORD_ADDR = $clog2(CACHE_LINE_SIZE_B / 4); // to 32bit words
@@ -208,7 +208,9 @@ logic [WAY_BITS-1:0] way_victim_idx;
 logic new_core_req, new_core_req_d;
 logic hit, hit_d, miss, miss_d;
 logic cr_victim_dirty, cr_victim_dirty_d;
+/* verilator lint_off UNUSEDSIGNAL */ // some may be unused for dmapped cache
 logic load_req_hit, store_req_hit, load_req_pending, store_req_pending;
+/* verilator lint_on UNUSEDSIGNAL */
 
 //------------------------------------------------------------------------------
 // lookup and tag matching
@@ -777,7 +779,7 @@ genvar gs;
 end
 
 cache_line_t data_view [SETS-1:0];
-always_comb @(posedge clk) begin
+always_comb begin
     `IT_P(s, SETS) begin
         data_view[s].valid <= a_valid[0][s];
         data_view[s].dirty <= a_dirty[0][s];
