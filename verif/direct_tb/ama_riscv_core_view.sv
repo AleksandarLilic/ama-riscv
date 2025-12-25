@@ -16,9 +16,6 @@ module ama_riscv_core_view (
     input decoder_t decoded_exe,
     input branch_t branch_resolution_mem,
     input arch_width_t csr_tohost,
-    `ifdef USE_BP
-    input logic bp_hit,
-    `endif
     input logic dc_stalled
 );
 
