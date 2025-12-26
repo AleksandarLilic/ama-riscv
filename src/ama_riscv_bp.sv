@@ -22,7 +22,6 @@ localparam unsigned IDX_BITS =
     (BP_TYPE_SEL == BP_GLOBAL) ? GHR_BITS :
     (BP_TYPE_SEL == BP_GSELECT) ? (GHR_BITS + PC_BITS) :
     (BP_TYPE_SEL == BP_GSHARE) ? `MAX(GHR_BITS, PC_BITS) : 'h0;
-localparam unsigned PHT_ENTRIES = (1 << IDX_BITS);
 localparam unsigned CNT_MAX = ((1 << CNT_BITS) - 1);
 localparam unsigned CNT_THR = (CNT_MAX == 1) ? CNT_MAX : (CNT_MAX >> 1);
 
@@ -81,33 +80,43 @@ end
 
 //------------------------------------------------------------------------------
 // PHT structure & update
-logic [CNT_BITS-1:0] pht [PHT_ENTRIES];
 logic [CNT_BITS-1:0] inc, dec;
+logic [CNT_BITS-1:0] pht_read, pht_read_up, pht_update_val;
+logic pht_update_en;
+
+ama_riscv_pht #(
+    .IDX_BITS (IDX_BITS),
+    .CNT_BITS (CNT_BITS),
+    .CNT_THR (CNT_THR)
+) ama_riscv_pht_i(
+    .clk (clk),
+    .rst (rst),
+    // inputs
+    .idx (pht_idx),
+    .idx_up (pht_idx_up),
+    .update_en (pht_update_en),
+    .update_val (pht_update_val),
+    // outputs
+    .read (pht_read),
+    .read_up (pht_read_up)
+);
 
 if (CNT_BITS == 1) begin: gen_cnt_toggle_id
-assign inc = (!pht[pht_idx_up]); // inc if 0
-assign dec = pht[pht_idx_up]; // dec if 1
+assign inc = (!pht_read_up); // inc if 0
+assign dec = pht_read_up; // dec if 1
 end else begin: gen_cnt_wide_id
-assign inc = {{CNT_BITS-1{1'b0}}, (pht[pht_idx_up] != CNT_MAX)};
-assign dec = {{CNT_BITS-1{1'b0}}, (pht[pht_idx_up] != 'h0)};
+assign inc = {{CNT_BITS-1{1'b0}}, (pht_read_up != CNT_MAX)};
+assign dec = {{CNT_BITS-1{1'b0}}, (pht_read_up != 'h0)};
 end
 
 if (BP_TYPE_SEL != BP_COMBINED) begin: gen_pht_up
-always_ff @(posedge clk) begin
-    if (rst) begin
-        /* verilator lint_off WIDTHTRUNC */
-        `IT_P(c, PHT_ENTRIES) pht[c] <= CNT_THR; // init to weakly taken
-        /* verilator lint_on WIDTHTRUNC */
-    end else if (pipe_in.spec.resolve) begin
-        if (taken) pht[pht_idx_up] <= (pht[pht_idx_up] + inc);
-        else pht[pht_idx_up] <= (pht[pht_idx_up] - dec);
-    end
-end
-/* verilator lint_off WIDTHEXPAND */
-assign pred = branch_t'(pht[pht_idx] >= CNT_THR);
-/* verilator lint_on WIDTHEXPAND */
+
+assign pht_update_val = taken ? (pht_read_up + inc) : (pht_read_up - dec);
+assign pht_update_en = pipe_in.spec.resolve;
+assign pred = branch_t'(pht_read >= CNT_THR);
 
 end else begin: gen_pht_up_comb
+
 bp_comp_t pred_made;
 always_ff @(posedge clk) begin
     if (rst) pred_made <= '{B_NT, B_NT};
@@ -118,25 +127,12 @@ end
 logic bp_comp_1_hit, bp_comp_diff;
 assign bp_comp_1_hit = (pred_made.bp_1_p == pipe_in.br_res);
 assign bp_comp_diff = (pred_made.bp_1_p != pred_made.bp_2_p);
-
 // inc on bp1 hit, dec on bp2 hit, no change if both predict the same
-always_ff @(posedge clk) begin
-    if (rst) begin
-        /* verilator lint_off WIDTHTRUNC */
-        `IT_P(c, PHT_ENTRIES) pht[c] <= CNT_THR; // init to slight bp1 bias
-        /* verilator lint_on WIDTHTRUNC */
-    end else if (pipe_in.spec.resolve) begin
-        if (bp_comp_diff) begin
-            if (bp_comp_1_hit) pht[pht_idx_up] <= (pht[pht_idx_up] + inc);
-            else pht[pht_idx_up] <= (pht[pht_idx_up] - dec);
-        end
-    end
-end
+assign pht_update_val = bp_comp_1_hit ? (pht_read_up+inc) : (pht_read_up-dec);
+assign pht_update_en = (pipe_in.spec.resolve && bp_comp_diff);
 
 logic meta;
-/* verilator lint_off WIDTHEXPAND */
-assign meta = (pht[pht_idx] >= CNT_THR);
-/* verilator lint_on WIDTHEXPAND */
+assign meta = (pht_read >= CNT_THR);
 assign pred = meta ? bp_comp_pred.bp_1_p : bp_comp_pred.bp_2_p;
 
 end

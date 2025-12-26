@@ -10,6 +10,7 @@ sv work \
 "$REPO_ROOT/src/ama_riscv_decoder.sv" \
 "$REPO_ROOT/src/ama_riscv_imm_gen.sv" \
 "$REPO_ROOT/src/ama_riscv_bp.sv" \
+"$REPO_ROOT/src/ama_riscv_pht.sv" \
 "$REPO_ROOT/src/ama_riscv_operand_forwarding.sv" \
 "$REPO_ROOT/src/ama_riscv_reg_file.sv" \
 "$REPO_ROOT/src/ama_riscv_alu.sv" \
