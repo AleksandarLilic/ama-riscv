@@ -90,8 +90,8 @@ assign rs3_mem_nz = (rs3_mem != RF_X0_ZERO);
 
 /* verilator lint_off UNUSEDSIGNAL */
 dep_t d_rs1_dec, d_rs2_dec, d_rs3_dec, d_rs3_mem;
-/* verilator lint_on UNUSEDSIGNAL */
 dep_t d_rs1_exe, d_rs2_exe, d_rs3_exe;
+/* verilator lint_on UNUSEDSIGNAL */
 
 // has any source reg anywhere in the machine?
 // anywhere in the mem stage?
@@ -118,6 +118,7 @@ always_comb begin
     d_rs1_exe.in_mem = (d_rs1_exe.in_mem_on_rd || d_rs1_exe.in_mem_on_rdp);
     d_rs2_exe.in_mem = (d_rs2_exe.in_mem_on_rd || d_rs2_exe.in_mem_on_rdp);
     d_rs3_exe.in_mem = (d_rs3_exe.in_mem_on_rd || d_rs3_exe.in_mem_on_rdp);
+    d_rs3_mem.in_mem = 1'b0;
 end
 
 // anywhere in the writeback stage?
@@ -171,9 +172,27 @@ assign d_rs3_mem.has = (d_rs3_mem.in_wbk);
 assign fwd_src_sel_rs1_dec = fwd_be_t'({d_rs1_dec.on_rdp, 1'b1});
 assign fwd_src_sel_rs2_dec = fwd_be_t'({d_rs2_dec.on_rdp, 1'b1});
 assign fwd_src_sel_rs3_dec = fwd_be_t'({d_rs3_dec.on_rdp, 1'b1});
-assign fwd_src_sel_rs1_exe = fwd_be_t'({d_rs1_exe.on_rdp, !d_rs1_exe.in_mem});
-assign fwd_src_sel_rs2_exe = fwd_be_t'({d_rs2_exe.on_rdp, !d_rs2_exe.in_mem});
-assign fwd_src_sel_rs3_exe = fwd_be_t'({d_rs3_exe.on_rdp, !d_rs3_exe.in_mem});
+always_comb begin
+    if (d_rs1_exe.in_mem) begin
+        fwd_src_sel_rs1_exe = fwd_be_t'({d_rs1_exe.in_mem_on_rdp, 1'b0});
+    end else begin
+        fwd_src_sel_rs1_exe = fwd_be_t'({d_rs1_exe.in_wbk_on_rdp, 1'b1});
+    end
+end
+always_comb begin
+    if (d_rs2_exe.in_mem) begin
+        fwd_src_sel_rs2_exe = fwd_be_t'({d_rs2_exe.in_mem_on_rdp, 1'b0});
+    end else begin
+        fwd_src_sel_rs2_exe = fwd_be_t'({d_rs2_exe.in_wbk_on_rdp, 1'b1});
+    end
+end
+always_comb begin
+    if (d_rs3_exe.in_mem) begin
+        fwd_src_sel_rs3_exe = fwd_be_t'({d_rs3_exe.in_mem_on_rdp, 1'b0});
+    end else begin
+        fwd_src_sel_rs3_exe = fwd_be_t'({d_rs3_exe.in_wbk_on_rdp, 1'b1});
+    end
+end
 assign fwd_src_sel_rs3_mem = fwd_be_t'({d_rs3_mem.on_rdp, 1'b1});
 
 //------------------------------------------------------------------------------
