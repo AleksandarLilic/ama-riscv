@@ -137,7 +137,7 @@ def find_all_tests(test_list, filters=[]):
             print("Proceeding with the valid tests")
             time.sleep(3)
 
-    return valid_tests
+    return list(set(valid_tests)) # deduplicate after globbing
 
 def check_test_status(test_log_path, test_name):
     if os.path.exists(test_log_path):
