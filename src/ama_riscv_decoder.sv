@@ -15,10 +15,11 @@ assign rd_nz = (rd_addr != RF_X0_ZERO);
 
 opc7_t opc7;
 logic [2:0] fn3;
-logic fn7_b6, fn7_b5, fn7_b0;
+logic [6:0] fn7;
+logic fn7_b5, fn7_b0;
 assign opc7 = get_opc7(inst_dec);
 assign fn3 = get_fn3(inst_dec);
-assign fn7_b6 = get_fn7_b6(inst_dec);
+assign fn7 = get_fn7(inst_dec);
 assign fn7_b5 = get_fn7_b5(inst_dec);
 assign fn7_b0 = get_fn7_b0(inst_dec);
 
@@ -41,7 +42,7 @@ always_comb begin
             d.a_sel = A_SEL_RS1;
             d.b_sel = B_SEL_RS2;
             d.alu_op = alu_op_t'({fn7_b5, fn3});
-            d.mult_op = mult_op_t'({1'b0, fn3[1:0]});
+            d.simd_arith_op = simd_arith_op_t'({1'b0, fn3});
             d.wb_sel = d.itype.mult ? WB_SEL_SIMD : WB_SEL_EWB;
             d.rd_we = rd_nz;
             d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 0};
@@ -130,23 +131,24 @@ always_comb begin
         end
 
         OPC7_CUSTOM: begin
-            unique case (custom_isa_t'(fn3[0]))
-                CUSTOM_SIMD_DOT: begin
+            unique case (fn7)
+                CUSTOM_ISA_FN7_SIMD_DOT: begin
                     fc.pc_we = 1'b1;
-                    d.itype.mult = 1'b1;
-                    d.mult_op = mult_op_t'({1'b1, fn7_b6, fn7_b0});
+                    d.itype.simd_dot = 1'b1;
+                    d.simd_arith_op = simd_arith_op_t'({1'b1, fn3});
                     d.wb_sel = WB_SEL_SIMD;
                     d.rd_we = rd_nz;
                     d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 1};
                 end
-                CUSTOM_SIMD_WIDEN: begin
+                CUSTOM_ISA_FN7_SIMD_WIDEN: begin
                     fc.pc_we = 1'b1;
-                    d.itype.data_fmt = 1'b1;
-                    d.widen_op = widen_op_t'({fn7_b6, fn7_b5, fn7_b0});
+                    d.itype.simd_data_fmt = 1'b1;
+                    d.simd_widen_op = simd_widen_op_t'(fn3);
                     d.ewb_sel = EWB_SEL_DATA_FMT;
                     d.rd_we = rd_nz;
                     d.has_reg = '{rd: 1, rdp: 1, rs1: 1, rs2: 1, rs3: 0};
                 end
+                default: ;
             endcase
         end
 

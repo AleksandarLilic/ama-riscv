@@ -250,7 +250,7 @@ end // gen_bp_sttc/gen_bp_dyn
 `endif // USE_BP
 
 // instructions that can cause a hazard
-logic load_inst_mem, load_inst_wbk, mult_inst_mem;
+logic load_inst_mem, load_inst_wbk, simd_arith_mem;
 // decoded reg src addresses
 rf_addr_t rs1_addr_exe, rs2_addr_exe, rs3_addr_exe, rs3_addr_mem;
 // forwarding sources
@@ -268,7 +268,7 @@ ama_riscv_operand_forwarding ama_riscv_operand_forwarding_i (
     .load_inst_mem (load_inst_mem),
     .load_inst_wbk (load_inst_wbk),
     .dc_stalled (dc_stalled),
-    .mult_inst_mem (mult_inst_mem),
+    .simd_arith_mem (simd_arith_mem),
     .rs1_dec (rs1_addr_dec),
     .rs2_dec (rs2_addr_dec),
     .rs3_dec (rs3_addr_dec),
@@ -466,23 +466,23 @@ assign pc_new_exe = decoded_exe.itype.branch ? pc_branch_exe : alu_out_exe;
 
 simd_d_t data_fmt_out;
 ama_riscv_data_fmt ama_riscv_data_fmt_i (
-    .op (decoded_exe.widen_op), .a (op_a_r), .s (data_fmt_out)
+    .op (decoded_exe.simd_widen_op), .a (op_a_r), .s (data_fmt_out)
 );
 
 simd_t data_fmt_out_exe, data_fmt_out_p_exe;
 assign data_fmt_out_exe = data_fmt_out.w[0];
 assign data_fmt_out_p_exe = data_fmt_out.w[1];
 
-logic simd_en_exe;
-assign simd_en_exe = decoded_exe.itype.mult;
+logic simd_arith_exe;
+assign simd_arith_exe = (decoded_exe.itype.mult || decoded_exe.itype.simd_dot);
 simd_t op_c_r;
 simd_t simd_out_mem;
 ama_riscv_simd ama_riscv_simd_i (
     .clk (clk),
     .rst (rst),
-    .en (simd_en_exe),
+    .en (simd_arith_exe),
     .ctrl_exe_mem (ctrl_exe_mem),
-    .op (decoded_exe.mult_op),
+    .op (decoded_exe.simd_arith_op),
     .a (op_a_r),
     .b (op_b_r),
     .c_late (op_c_r),
@@ -551,11 +551,9 @@ assign uart_ch_exe.send = op_b_r[7:0]; // uart is 1 byte wide
 //------------------------------------------------------------------------------
 // Pipeline FF EXE/MEM
 logic data_fmt_en_exe, data_fmt_en_mem;
-assign data_fmt_en_exe = decoded_exe.itype.data_fmt;
+assign data_fmt_en_exe = decoded_exe.itype.simd_data_fmt;
 logic simd_inst_exe, simd_inst_mem;
-assign simd_inst_exe = (
-    data_fmt_en_exe || (simd_en_exe && decoded_exe.mult_op[2])
-);
+assign simd_inst_exe = (data_fmt_en_exe || decoded_exe.itype.simd_dot);
 
 pipeline_if_s pc_nz ();
 pipeline_if_typed #(.T(wb_sel_t)) wb_sel ();
@@ -595,7 +593,7 @@ arch_width_t rs3_mem;
 `STAGE_E_M(1'b1, decoded_exe.itype.branch, branch_inst_mem, 'h0)
 `STAGE_E_M(1'b1, decoded_exe.itype.jalr, jalr_inst_mem, 'h0)
 `STAGE_E_M(1'b1, decoded_exe.itype.load, load_inst_mem, 'h0)
-`STAGE_E_M(1'b1, decoded_exe.itype.mult, mult_inst_mem, 'h0)
+`STAGE_E_M(1'b1, simd_arith_exe, simd_arith_mem, 'h0)
 `STAGE_E_M(1'b1, simd_inst_exe, simd_inst_mem, 'b0)
 `STAGE_E_M(1'b1, dmem_req_exe, dmem_req_mem, 'h0)
 `STAGE_E_M(1'b1, uart_ch_exe, uart_ch_mem, 'h0)
@@ -641,9 +639,6 @@ assign ctrl_mem_wbk = '{
     bubble: (!ctrl_exe_mem.en)
 };
 
-logic simd_or_mult_en_mem;
-assign simd_or_mult_en_mem = (mult_inst_mem || simd_inst_mem);
-
 logic simd_inst_wbk, map_uart_wbk;
 arch_width_t e_writeback_wbk, simd_out_wbk;
 
@@ -652,7 +647,7 @@ arch_width_t e_writeback_wbk, simd_out_wbk;
 `STAGE_M_W(1'b1, pc.mem, pc.wbk, 'h0)
 `endif
 `STAGE_M_W(1'b1, pc_nz.mem, pc_nz.wbk, 1'b0)
-`STAGE_M_W(simd_or_mult_en_mem, simd_out_mem, simd_out_wbk, 'h0)
+`STAGE_M_W(simd_arith_mem, simd_out_mem, simd_out_wbk, 'h0)
 `STAGE_M_W(rf_we.mem.rd, e_writeback_mem, e_writeback_wbk, 'h0)
 `STAGE_M_W(data_fmt_en_mem, data_fmt_out_p_mem, data_fmt_out_p_wbk, 'h0)
 `STAGE_M_W(rf_we.mem.rd, wb_sel.mem, wb_sel.wbk, WB_SEL_EWB)

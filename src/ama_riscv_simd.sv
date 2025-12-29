@@ -5,7 +5,7 @@ module ama_riscv_simd (
     input  logic rst,
     input  logic en,
     input  stage_ctrl_t ctrl_exe_mem,
-    input  mult_op_t op,
+    input  simd_arith_op_t op,
     input  simd_t a,
     input  simd_t b,
     input  simd_t c_late,
@@ -31,9 +31,9 @@ always_comb begin
 end
 
 logic op_dot16, op_dot8, op_simd;
-assign op_dot16 = (op == MULT_OP_DOT16);
-assign op_dot8 = (op == MULT_OP_DOT8);
-assign op_simd = op[2];
+assign op_dot16 = (op == SIMD_ARITH_OP_DOT16);
+assign op_dot8 = (op == SIMD_ARITH_OP_DOT8);
+assign op_simd = (op_dot16 || op_dot8);
 
 // AND matrix for signed multiply using lane-aware Baugh–Wooley
 simd_t [W-1:0] pp; // partial products matrix
@@ -55,7 +55,7 @@ always_comb begin
             // Baugh–Wooley rule per lane:
             // flip last row / last col, except 'sign × sign' intersection
             flip = 1'b0;
-            if (op != MULT_OP_MULHU) begin // the only unsigned multiplication
+            if (op != SIMD_ARITH_OP_MULHU) begin // the only unsigned mult
                 flip = (
                     ((li == lane_sz-1) && (lj != lane_sz-1)) || // "row sign"
                     ((lj == lane_sz-1) && (li != lane_sz-1)) // "col sign"
@@ -114,21 +114,21 @@ csa_tree_8 #(.W(64)) csa_tree_8_i2 (.a (ppv[23:16]), .o (o_tree_2));
 csa_tree_8 #(.W(64)) csa_tree_8_i3 (.a (ppv[31:24]), .o (o_tree_3));
 
 simd_t a_d;
-mult_op_t op_d;
+simd_arith_op_t op_d;
 simd_d_t corr_d;
 simd_d_t [1:0] o_tree_3_d, o_tree_2_d, o_tree_1_d, o_tree_0_d;
 logic b_sign_bit, b_sign_bit_d;
 assign b_sign_bit = b[ARCH_WIDTH-1]; // b MSB
 
 // in general case, simple FFs are fine, e.g.
-//`DFF_CI_RI_RV(MULT_OP_MUL, op, op_d)
+//`DFF_CI_RI_RV(SIMD_ARITH_OP_MUL, op, op_d)
 
 // but, in CPU, make sure it's aligned with stage its using
 `STAGE(ctrl_exe_mem, en, o_tree_0, o_tree_0_d, 'h0)
 `STAGE(ctrl_exe_mem, en, o_tree_1, o_tree_1_d, 'h0)
 `STAGE(ctrl_exe_mem, en, o_tree_2, o_tree_2_d, 'h0)
 `STAGE(ctrl_exe_mem, en, o_tree_3, o_tree_3_d, 'h0)
-`STAGE(ctrl_exe_mem, en, op, op_d, MULT_OP_MUL)
+`STAGE(ctrl_exe_mem, en, op, op_d, SIMD_ARITH_OP_MUL)
 `STAGE(ctrl_exe_mem, en, corr, corr_d, 'h0)
 `STAGE(ctrl_exe_mem, (en && !op_simd), b_sign_bit, b_sign_bit_d, 1'b0)
 `STAGE(ctrl_exe_mem, (en && !op_simd), a, a_d, 'h0)
@@ -182,18 +182,18 @@ simd_t dot_r, dot16_r, dot8_r, dot_acc_in, dot_acc_out;
 assign dot_r = mul_s.w[0];
 assign dot16_r = dot_r[ARCH_WIDTH-1:0];
 assign dot8_r = {{DOT8_SIGN{dot_r[DOT8_W-1]}}, dot_r[DOT8_W-1:0]};
-assign dot_acc_in = (op_d == MULT_OP_DOT16) ? dot16_r : dot8_r;
+assign dot_acc_in = (op_d == SIMD_ARITH_OP_DOT16) ? dot16_r : dot8_r;
 assign dot_acc_out = (dot_acc_in + c_late);
 
 // output assignment based on the operation
 always_comb begin
     unique case (op_d)
-        MULT_OP_MUL: p = mul_s[ARCH_WIDTH-1:0];
-        MULT_OP_MULH: p = mul_s[ARCH_WIDTH_D-1:ARCH_WIDTH];
-        MULT_OP_MULHSU: p = mul_hsu;
-        MULT_OP_MULHU: p = mul_hu;
-        MULT_OP_DOT16,
-        MULT_OP_DOT8: p = dot_acc_out;
+        SIMD_ARITH_OP_MUL: p = mul_s[ARCH_WIDTH-1:0];
+        SIMD_ARITH_OP_MULH: p = mul_s[ARCH_WIDTH_D-1:ARCH_WIDTH];
+        SIMD_ARITH_OP_MULHSU: p = mul_hsu;
+        SIMD_ARITH_OP_MULHU: p = mul_hu;
+        SIMD_ARITH_OP_DOT16,
+        SIMD_ARITH_OP_DOT8: p = dot_acc_out;
         default: p = 'h0;
     endcase
 end

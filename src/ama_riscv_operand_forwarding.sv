@@ -5,7 +5,7 @@ module ama_riscv_operand_forwarding (
     input  logic load_inst_mem,
     input  logic load_inst_wbk,
     input  logic dc_stalled,
-    input  logic mult_inst_mem,
+    input  logic simd_arith_mem,
     input  rf_addr_t rs1_dec,
     input  rf_addr_t rs2_dec,
     input  rf_addr_t rs3_dec,
@@ -218,7 +218,7 @@ assign c_sel_dec_fwd = d_rs3_dec.has;
 // hazards on 2+ cycle execute instructions? used to stall the machine
 
 logic hazard_from_mem, hazard_from_wbk;
-assign hazard_from_mem = (load_inst_mem || mult_inst_mem);
+assign hazard_from_mem = (load_inst_mem || simd_arith_mem);
 assign hazard_from_wbk = (load_inst_wbk && dc_stalled);
 assign hazard.to_exe = (
     (hazard_from_mem && (d_rs1_exe.in_mem || d_rs2_exe.in_mem)) ||

@@ -80,10 +80,10 @@ typedef enum logic [6:0] {
     OPC7_SYSTEM = 7'b111_0011
 } opc7_t;
 
-typedef enum logic {
-    CUSTOM_SIMD_DOT,
-    CUSTOM_SIMD_WIDEN
-} custom_isa_t;
+typedef enum logic [6:0] {
+    CUSTOM_ISA_FN7_SIMD_DOT = 7'h03,
+    CUSTOM_ISA_FN7_SIMD_WIDEN = 7'h20
+} custom_isa_fn7_t;
 
 typedef enum logic [1:0] {
     CSR_OP_NONE = 2'b00,
@@ -176,27 +176,27 @@ typedef enum logic [3:0] {
     ALU_OP_OFF = 4'b1111
 } alu_op_t;
 
-typedef enum logic [2:0] {
-    MULT_OP_MUL = 3'b000,
-    MULT_OP_MULH = 3'b001,
-    MULT_OP_MULHSU = 3'b010,
-    MULT_OP_MULHU = 3'b011,
-    MULT_OP_DOT16 = 3'b100,
-    MULT_OP_DOT8 = 3'b101
-    // MULT_OP_DOT4 = 3'b110
-    // MULT_OP_DOT2 = 3'b111
-} mult_op_t;
+typedef enum logic [3:0] {
+    SIMD_ARITH_OP_MUL = 4'h0,
+    SIMD_ARITH_OP_MULH = 4'h1,
+    SIMD_ARITH_OP_MULHSU = 4'h2,
+    SIMD_ARITH_OP_MULHU = 4'h3,
+    SIMD_ARITH_OP_DOT16 = (4'h8 + 4'h0),
+    SIMD_ARITH_OP_DOT8 = (4'h8 + 4'h2)
+    // SIMD_ARITH_OP_DOT4 = (4'h8 + 4'h4),
+    // SIMD_ARITH_OP_DOT2 = (4'h8 + 4'h6),
+} simd_arith_op_t;
 
 typedef enum logic [2:0] {
-    WIDEN_OP_16 = 3'b000,
-    WIDEN_OP_16U = 3'b010,
-    WIDEN_OP_8 = 3'b001,
-    WIDEN_OP_8U = 3'b011,
-    WIDEN_OP_4 = 3'b100,
-    WIDEN_OP_4U = 3'b110,
-    WIDEN_OP_2 = 3'b101,
-    WIDEN_OP_2U = 3'b111
-} widen_op_t;
+    SIMD_WIDEN_OP_16 = 3'h0,
+    SIMD_WIDEN_OP_16U = 3'h1,
+    SIMD_WIDEN_OP_8 = 3'h2,
+    SIMD_WIDEN_OP_8U = 3'h3,
+    SIMD_WIDEN_OP_4 = 3'h4,
+    SIMD_WIDEN_OP_4U = 3'h5,
+    SIMD_WIDEN_OP_2 = 3'h6,
+    SIMD_WIDEN_OP_2U = 3'h7
+} simd_widen_op_t;
 
 typedef enum logic [2:0] {
     IG_OFF = 3'd0,
@@ -259,7 +259,8 @@ typedef struct packed {
 
 typedef struct packed {
     logic mult;
-    logic data_fmt;
+    logic simd_dot;
+    logic simd_data_fmt;
     logic load;
     logic store;
     logic branch;
@@ -288,8 +289,8 @@ typedef struct packed {
     has_reg_t has_reg;
     csr_ctrl_t csr_ctrl;
     alu_op_t alu_op;
-    mult_op_t mult_op;
-    widen_op_t widen_op;
+    simd_arith_op_t simd_arith_op;
+    simd_widen_op_t simd_widen_op;
     a_sel_t a_sel;
     b_sel_t b_sel;
     ig_sel_t ig_sel;
