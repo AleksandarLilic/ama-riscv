@@ -54,7 +54,7 @@ end
 localparam [STORE_PAD_WIDTH-1:0] STORE_PAD = {STORE_PAD_WIDTH{1'b0}};
 localparam [MEM_DATA_BUS_B-1:0] MEM_DATA_BUS_B_MASK = {MEM_DATA_BUS_B{1'b1}};
 // other
-`LPU MEM_MISS_CNT_WIDTH = $clog2(MEM_TRANSFERS_PER_CL);
+`LPU MEM_CNT_WIDTH = $clog2(MEM_TRANSFERS_PER_CL);
 
 // just rename for clarity
 `define DC_CR_ASSIGN \
@@ -121,11 +121,10 @@ typedef struct packed {
     logic [IDX_RANGE_TOP-1:0] set_idx;
 } lru_cnt_access_t;
 
-typedef logic [MEM_MISS_CNT_WIDTH-1:0] mem_miss_cnt_t;
-localparam mem_miss_cnt_t
-    MEM_TRANSFER_MATCH_DONE = mem_miss_cnt_t'(MEM_TRANSFERS_PER_CL - 1);
-
 typedef logic [WAY_BITS-1:0] lru_cnt_t;
+
+typedef logic [MEM_CNT_WIDTH-1:0] mem_cnt_t;
+localparam mem_cnt_t MEM_TRANSFER_MATCH = mem_cnt_t'(MEM_TRANSFERS_PER_CL - 1);
 
 // helper functions
 /* verilator lint_off UNUSEDSIGNAL */
@@ -333,23 +332,21 @@ always_ff @(posedge clk) begin
     end
 end
 
-mem_miss_cnt_t mem_miss_cnt, mem_miss_cnt_d, mem_evict_cnt;
-`DFF_CI_RI_RVI_EN(req_mem_r.valid, (mem_miss_cnt + 'h1), mem_miss_cnt)
-`DFF_CI_RI_RVI(mem_miss_cnt, mem_miss_cnt_d)
-`DFF_CI_RI_RVI_EN(req_mem_w.valid, (mem_evict_cnt + 'h1), mem_evict_cnt)
+mem_cnt_t mem_cnt, mem_cnt_d;
+`DFF_CI_RI_RVI_EN((req_mem_r.valid || req_mem_w.valid), (mem_cnt+'h1), mem_cnt)
+`DFF_CI_RI_RVI(mem_cnt, mem_cnt_d)
 
-logic [MEM_ADDR_BUS-1:0] mem_miss_cnt_pad, mem_evict_cnt_pad;
-assign mem_miss_cnt_pad =
-    {{MEM_ADDR_BUS-MEM_MISS_CNT_WIDTH{1'b0}}, mem_miss_cnt};
-assign mem_evict_cnt_pad =
-    {{MEM_ADDR_BUS-MEM_MISS_CNT_WIDTH{1'b0}}, mem_evict_cnt};
+logic [MEM_ADDR_BUS-1:0] mem_cnt_pad;
+assign mem_cnt_pad = {{MEM_ADDR_BUS-MEM_CNT_WIDTH{1'b0}}, mem_cnt};
 
+logic mem_cnt_done;
+assign mem_cnt_done = (mem_cnt_d == MEM_TRANSFER_MATCH);
 logic mem_r_transfer_done;
 logic [1:0] mem_r_transfer_done_d;
-assign mem_r_transfer_done =
-    (rsp_mem.valid && (mem_miss_cnt_d == MEM_TRANSFER_MATCH_DONE));
+assign mem_r_transfer_done = (rsp_mem.valid && mem_cnt_done);
 `DFF_CI_RI_RVI(
-    {mem_r_transfer_done_d[0], mem_r_transfer_done}, mem_r_transfer_done_d)
+    {mem_r_transfer_done_d[0], mem_r_transfer_done}, mem_r_transfer_done_d
+)
 
 logic load_req, store_req;
 assign load_req = (new_core_req && (cr.rtype == DMEM_READ));
@@ -390,7 +387,7 @@ always_comb begin
         stc.byte_idx = byte_idx_cr;
         stc.wdata = cr.wdata;
     end
-    stc_byte_idx_top = rsp_mem.valid ? mem_miss_cnt_d : stc.byte_idx[5:4];
+    stc_byte_idx_top = rsp_mem.valid ? mem_cnt_d : stc.byte_idx[5:4];
     bank_addr_store = {stc.set_idx, stc_byte_idx_top};
     bank_addr = cache_store ? bank_addr_store : bank_addr_load;
 end
@@ -417,7 +414,7 @@ always_comb begin
     end
 end
 
-mem_miss_cnt_t bank_evict_cnt;
+mem_cnt_t bank_evict_cnt;
 always_ff @(posedge clk) begin
     if (rst) bank_evict_cnt <= 'h0;
     else if (state == DC_MISS && nx_state == DC_READY) bank_evict_cnt <= 'h0;
@@ -511,14 +508,14 @@ always_comb begin
                 if (clear_pending_on_write) nx_state = DC_READY;
             end else begin
                 // extra cycle at the end so banks can read on that clk edge
-                if ((mem_miss_cnt == 'h0) && (mem_miss_cnt_d == 'h0)) begin
+                if ((mem_cnt == 'h0) && (mem_cnt_d == 'h0)) begin
                     nx_state = DC_READY;
                 end
             end
         end
 
         DC_EVICT: begin
-            if (mem_evict_cnt == MEM_TRANSFER_MATCH_DONE) nx_state = DC_MISS;
+            if (mem_cnt_done) nx_state = DC_MISS;
         end
 
         default: ;
@@ -582,18 +579,19 @@ always_comb begin
 
         DC_MISS: begin
             // 1 clk at the end to wait in DC_MISS for last mem response
-            if (mem_miss_cnt > 0) begin
+            if (mem_cnt > 0) begin
                 rsp_mem.ready = 1'b1;
                 req_mem_r.valid = 1'b1;
-                req_mem_r.data = (cr_pend.mem_start_addr + mem_miss_cnt_pad);
+                req_mem_r.data = (cr_pend.mem_start_addr + mem_cnt_pad);
             end
         end
 
         DC_EVICT: begin
-            req_mem_w.valid = 1'b1;
-            req_mem_w.addr = (victim_wb_start_addr + mem_evict_cnt_pad);
-            if (mem_evict_cnt == MEM_TRANSFER_MATCH_DONE) begin
-                // initiate miss with the last writeback
+            if (mem_cnt_d != MEM_TRANSFER_MATCH) begin
+                req_mem_w.valid = 1'b1;
+                req_mem_w.addr = (victim_wb_start_addr + mem_cnt_pad);
+            end else begin
+                // initiate miss after last writeback
                 rsp_mem.ready = 1'b1;
                 req_mem_r.valid = 1'b1;
                 req_mem_r.data = cr_pend.mem_start_addr;

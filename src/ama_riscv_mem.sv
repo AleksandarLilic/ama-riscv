@@ -26,30 +26,33 @@ initial begin
 end
 `endif
 
-// imem read
+// imem read port
 `DFF_CI_RI_RVI(1'b1, req_imem.ready) // always ready for new request out of rst
+`DFF_CI_RI_RVI(req_imem.valid, rsp_imem.valid)
+
 always_ff @(posedge clk) begin
-    if (req_imem.valid) begin
-        rsp_imem.data <= mem[req_imem.data];
-        rsp_imem.valid <= 1'b1;
-    end else begin
-        // don't change rsp_imem.data bus
-        rsp_imem.valid <= 1'b0;
-    end
+    if (req_imem.valid) rsp_imem.data <= mem[req_imem.data];
 end
 
-// dmem read
+// dmem r/w port
 `DFF_CI_RI_RVI(1'b1, req_dmem_r.ready)
+`DFF_CI_RI_RVI(1'b1, req_dmem_w.ready)
+`DFF_CI_RI_RVI(req_dmem_r.valid, rsp_dmem.valid)
+
+logic [MEM_ADDR_BUS-1:0] addr_dmem;
+assign addr_dmem = req_dmem_w.valid ? req_dmem_w.addr : req_dmem_r.data;
+
 always_ff @(posedge clk) begin
-    if (req_dmem_r.valid) begin
-        rsp_dmem.data <= mem[req_dmem_r.data];
-        rsp_dmem.valid <= 1'b1;
-    end else begin
-        rsp_dmem.valid <= 1'b0;
-        // don't change rsp_dmem.data bus at the end of transfer
-        //rsp_dmem.data <= 'h0;
-    end
+    if (req_dmem_w.valid) mem[addr_dmem] <= req_dmem_w.wdata;
+    else if (req_dmem_r.valid) rsp_dmem.data <= mem[addr_dmem];
 end
+
+`ifndef SYNT
+always_ff @(posedge clk) begin
+    assert(!(req_dmem_r.valid && req_dmem_w.valid))
+        else $fatal(1, "D$ read+write same cycle");
+end
+`endif
 
 `ifndef SYNT
     task randomize_mem;
@@ -69,15 +72,6 @@ end
         pattern_mem;
     end
 `endif
-
-// dmem write
-`DFF_CI_RI_RVI(1'b1, req_dmem_w.ready)
-always_ff @(posedge clk) begin
-    if (req_dmem_w.valid) begin
-        //`LOG_D($sformatf("DMEM write: addr=0x%08h, wdata=0x%32h", req_dmem_w.addr, req_dmem_w.wdata));
-        mem[req_dmem_w.addr] <= req_dmem_w.wdata;
-    end
-end
 
 /*
 // readback for debug
