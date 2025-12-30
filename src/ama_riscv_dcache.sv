@@ -341,12 +341,9 @@ assign mem_cnt_pad = {{MEM_ADDR_BUS-MEM_CNT_WIDTH{1'b0}}, mem_cnt};
 
 logic mem_cnt_done;
 assign mem_cnt_done = (mem_cnt_d == MEM_TRANSFER_MATCH);
-logic mem_r_transfer_done;
-logic [1:0] mem_r_transfer_done_d;
+logic mem_r_transfer_done, mem_r_transfer_done_d;
 assign mem_r_transfer_done = (rsp_mem.valid && mem_cnt_done);
-`DFF_CI_RI_RVI(
-    {mem_r_transfer_done_d[0], mem_r_transfer_done}, mem_r_transfer_done_d
-)
+`DFF_CI_RI_RVI(mem_r_transfer_done, mem_r_transfer_done_d)
 
 logic load_req, store_req;
 assign load_req = (new_core_req && (cr.rtype == DMEM_READ));
@@ -355,7 +352,7 @@ assign load_req_hit = (hit && load_req);
 assign store_req_hit = (hit && store_req);
 
 logic req_pending;
-assign req_pending = (mem_r_transfer_done_d[1] && cr_pend.active);
+assign req_pending = (mem_r_transfer_done_d && cr_pend.active);
 assign load_req_pending = (req_pending && (cr_pend.cr.rtype == DMEM_READ));
 assign store_req_pending = (req_pending && (cr_pend.cr.rtype == DMEM_WRITE));
 
@@ -478,11 +475,8 @@ always_ff @(posedge clk) begin
     end
 end
 
-always_ff @(posedge clk) begin
-    if (rst) clear_pending_on_write <= 1'b0;
-    else if (store_req_pending) clear_pending_on_write <= 1'b1;
-    else clear_pending_on_write <= 1'b0;
-end
+assign clear_pending_on_write = store_req_pending;
+`DFF_CI_RI_RVI(load_req_pending, clear_pending_on_read)
 
 //------------------------------------------------------------------------------
 // state transition
@@ -505,12 +499,9 @@ always_comb begin
 
         DC_MISS: begin
             if (cr_pend.cr.rtype == DMEM_WRITE) begin
-                if (clear_pending_on_write) nx_state = DC_READY;
+                if (store_req_pending) nx_state = DC_READY;
             end else begin
-                // extra cycle at the end so banks can read on that clk edge
-                if ((mem_cnt == 'h0) && (mem_cnt_d == 'h0)) begin
-                    nx_state = DC_READY;
-                end
+                if (load_req_pending) nx_state = DC_READY;
             end
         end
 
@@ -539,8 +530,6 @@ always_comb begin
     // write to mem
     req_mem_w.valid = 1'b0;
     req_mem_w.addr = 'h0;
-    // others
-    clear_pending_on_read = 1'b0;
 
     case (state)
         DC_RESET: begin
@@ -555,7 +544,6 @@ always_comb begin
             if (load_req_pending) begin
                 // service the pending request after miss
                 rsp_core.valid = 1'b1;
-                clear_pending_on_read = 1'b1;
             end else if (new_core_req_d) begin
                 if (hit_d_load) begin
                     rsp_core.valid = 1'b1;
