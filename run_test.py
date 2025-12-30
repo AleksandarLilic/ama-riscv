@@ -269,11 +269,11 @@ def print_runtime(start_time, process_name, end='\n'):
     end_time = datetime.datetime.now()
     elapsed_time = end_time - start_time
     hours, remainder = divmod(elapsed_time.seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
+    minutes, seconds = divmod(remainder+1, 60) # rounds down, correct +1 for sec
     print(
         f"{process_name} runtime:",
         f"{hours}h" if hours else "",
-        f"{minutes}m {seconds+1}s", # rounds down, correct +1 for sec here
+        f"{minutes}m {seconds}s",
         end=end
     )
 
