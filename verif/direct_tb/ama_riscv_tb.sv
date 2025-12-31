@@ -262,7 +262,7 @@ function bit cosim_run_checkers;
             checker_t(
                 $sformatf("x%0d", i),
                 (`CHK_ACT && rf_chk_act[i]),
-                `RF.rf[i],
+                `RF.rf_v[i],
                 cosim.rf[i]
             );
         end
@@ -451,7 +451,7 @@ add_trace_entry(longint unsigned clk_cnt, byte ic_hm, byte dc_hm, byte bp_hm);
         clk_cnt,
         `CORE_VIEW.r.inst,
         `CORE_VIEW.r.pc,
-        `RF.rf[RF_X2_SP],
+        `RF.rf_v[RF_X2_SP],
         `CORE_VIEW.r.dmem_addr,
         `CORE_VIEW.r.dmem_size,
         `CORE_VIEW.r.branch_taken,

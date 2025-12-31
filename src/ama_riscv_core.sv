@@ -144,7 +144,9 @@ assign rs2_addr_dec = get_rs2(inst.dec, decoded.has_reg.rs2);
 assign rs3_addr_dec = get_rd(inst.dec, decoded.has_reg.rs3);
 assign rd_addr.dec = get_rd(inst.dec, decoded.has_reg.rd);
 
-ama_riscv_reg_file ama_riscv_reg_file_i(
+ama_riscv_reg_file #(
+    .BANKED (RF_BANKED)
+) ama_riscv_reg_file_i(
     .clk (clk),
     // inputs
     .we (rf_we.wbk),
