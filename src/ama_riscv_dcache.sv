@@ -541,7 +541,7 @@ always_comb begin
 
         DC_READY: begin
             req_core.ready = 1'b1;
-            if (load_req_pending) begin
+            if (clear_pending_on_read) begin
                 // service the pending request after miss
                 rsp_core.valid = 1'b1;
             end else if (new_core_req_d) begin

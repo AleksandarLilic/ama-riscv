@@ -660,8 +660,9 @@ arch_width_t e_writeback_wbk, simd_out_wbk;
 //------------------------------------------------------------------------------
 // WBK stage
 
-arch_width_t dmem_out_wbk;
-assign dmem_out_wbk = map_uart_wbk ? uart_ch.recv : dmem_rsp.data;
+arch_width_t dmem_rsp_data_v, dmem_out_wbk;
+assign dmem_rsp_data_v = (load_inst_wbk && dmem_rsp.valid) ? dmem_rsp.data :'h0;
+assign dmem_out_wbk = map_uart_wbk ? uart_ch.recv : dmem_rsp_data_v;
 
 always_comb begin
     unique case (wb_sel.wbk)
