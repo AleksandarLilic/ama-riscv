@@ -163,18 +163,25 @@ typedef enum logic {
     DMEM_WRITE = 1'b1
 } dmem_rtype_t;
 
-typedef enum logic [3:0] {
-    ALU_OP_ADD = 4'b0000,
-    ALU_OP_SUB = 4'b1000,
-    ALU_OP_SLL = 4'b0001,
-    ALU_OP_SRL = 4'b0101,
-    ALU_OP_SRA = 4'b1101,
-    ALU_OP_SLT = 4'b0010,
-    ALU_OP_SLTU = 4'b0011,
-    ALU_OP_XOR = 4'b0100,
-    ALU_OP_OR = 4'b0110,
-    ALU_OP_AND = 4'b0111,
-    ALU_OP_OFF = 4'b1111
+typedef enum logic [4:0] {
+    //               b7    b2   fn3
+    // rv32i
+    ALU_OP_ADD =  {1'b0, 1'b0, 3'h0},
+    ALU_OP_SUB =  {1'b1, 1'b0, 3'h0},
+    ALU_OP_SLL =  {1'b0, 1'b0, 3'h1},
+    ALU_OP_SRL =  {1'b0, 1'b0, 3'h5},
+    ALU_OP_SRA =  {1'b1, 1'b0, 3'h5},
+    ALU_OP_SLT =  {1'b0, 1'b0, 3'h2},
+    ALU_OP_SLTU = {1'b0, 1'b0, 3'h3},
+    ALU_OP_XOR =  {1'b0, 1'b0, 3'h4},
+    ALU_OP_OR =   {1'b0, 1'b0, 3'h6},
+    ALU_OP_AND =  {1'b0, 1'b0, 3'h7},
+    // zbb partial
+    ALU_OP_MIN =  {1'b0, 1'b1, 3'h4},
+    ALU_OP_MINU = {1'b0, 1'b1, 3'h5},
+    ALU_OP_MAX =  {1'b0, 1'b1, 3'h6},
+    ALU_OP_MAXU = {1'b0, 1'b1, 3'h7},
+    ALU_OP_OFF =  {5{1'b1}}
 } alu_op_t;
 
 typedef enum logic [3:0] {
@@ -613,16 +620,20 @@ function automatic logic [6:0] get_fn7(input inst_width_t inst);
     get_fn7 = inst[31:25];
 endfunction
 
-function automatic logic get_fn7_b6(input inst_width_t inst);
-    get_fn7_b6 = inst[31];
+function automatic logic get_fn7_b0(input inst_width_t inst);
+    get_fn7_b0 = inst[25];
+endfunction
+
+function automatic logic get_fn7_b2(input inst_width_t inst);
+    get_fn7_b2 = inst[27];
 endfunction
 
 function automatic logic get_fn7_b5(input inst_width_t inst);
     get_fn7_b5 = inst[30];
 endfunction
 
-function automatic logic get_fn7_b0(input inst_width_t inst);
-    get_fn7_b0 = inst[25];
+function automatic logic get_fn7_b6(input inst_width_t inst);
+    get_fn7_b6 = inst[31];
 endfunction
 
 function automatic rf_addr_t get_rs1(input inst_width_t inst, input logic has);

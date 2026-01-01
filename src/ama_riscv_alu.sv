@@ -16,9 +16,17 @@ module ama_riscv_alu (
 localparam SHAMT_BITS = $clog2(ARCH_WIDTH); // 5 for 32-bit arch
 
 // adder, subtractor, comparator
+logic is_min, is_max, is_unsigned_zbb;
+assign is_min = ((op == ALU_OP_MIN) || (op == ALU_OP_MINU));
+assign is_max = ((op == ALU_OP_MAX) || (op == ALU_OP_MAXU));
+assign is_unsigned_zbb = ((op == ALU_OP_MINU) || (op == ALU_OP_MAXU));
+
 logic is_sub;
 assign is_sub = (
-    (op == ALU_OP_SUB) || (op == ALU_OP_SLT) || (op == ALU_OP_SLTU) || is_branch
+    (op == ALU_OP_SUB) ||
+    (op == ALU_OP_SLT) || (op == ALU_OP_SLTU) ||
+    is_min || is_max ||
+    is_branch
 );
 
 logic cout, slt_res, sltu_res;
@@ -26,10 +34,10 @@ arch_width_t adder_b, adder_out;
 assign adder_b = is_sub ? ~b : b;
 assign {cout, adder_out} = (a + adder_b + {31'b0, is_sub});
 
-// sltu logic: in (a + ~b + 1), cout=0 indicates a borrow (a < b)
+// --- sltu logic: in (a + ~b + 1), cout=0 indicates a borrow (a < b)
 assign sltu_res = ~cout;
 
-// slt logic (signbit xor overflow)
+// --- slt logic (signbit xor overflow)
 // overflow happens if
 //   1. operands have different signs (a vs b)
 //   2. result sign matches b
@@ -39,7 +47,19 @@ assign v_flag = ((a[31] != b[31]) && (adder_out[31] != a[31]));
 assign n_flag = adder_out[31];
 assign slt_res = (n_flag ^ v_flag);
 
-// shift opt (srl and sra) reuse the right shifter
+// --- min/max selection logic
+// determine if doing signed or unsigned comparison
+logic cmp_lt;
+assign cmp_lt = ((op == ALU_OP_SLTU) || is_unsigned_zbb) ? sltu_res : slt_res;
+
+logic pick_a;
+// MIN: keep A if A < B. MAX: keep A if A >= B (which is !cmp_lt)
+assign pick_a = is_min ? cmp_lt : !cmp_lt;
+
+arch_width_t minmax_res;
+assign minmax_res = pick_a ? a : b;
+
+// --- shift opt (srl and sra) reuse the right shifter
 logic sr_fill;
 assign sr_fill = (op == ALU_OP_SRA) ? a[31] : 1'b0;
 
@@ -71,6 +91,10 @@ always_comb begin
         ALU_OP_XOR: s = a_xor_b;
         ALU_OP_OR: s = (a | b);
         ALU_OP_AND: s = (a & b);
+        ALU_OP_MIN,
+        ALU_OP_MINU,
+        ALU_OP_MAX,
+        ALU_OP_MAXU: s = minmax_res;
         ALU_OP_OFF: s = 'h0;
         default: s = 'h0;
     endcase

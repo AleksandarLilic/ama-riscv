@@ -16,12 +16,13 @@ assign rd_nz = (rd_addr != RF_X0_ZERO);
 opc7_t opc7;
 logic [2:0] fn3;
 logic [6:0] fn7;
-logic fn7_b5, fn7_b0;
+logic fn7_b5, fn7_b2, fn7_b0;
 assign opc7 = get_opc7(inst_dec);
 assign fn3 = get_fn3(inst_dec);
 assign fn7 = get_fn7(inst_dec);
-assign fn7_b5 = get_fn7_b5(inst_dec);
 assign fn7_b0 = get_fn7_b0(inst_dec);
+assign fn7_b2 = get_fn7_b2(inst_dec);
+assign fn7_b5 = get_fn7_b5(inst_dec);
 
 // shorthands
 decoder_t d;
@@ -38,11 +39,11 @@ always_comb begin
     case (opc7)
         OPC7_R_TYPE: begin
             fc.pc_we = 1'b1;
-            d.itype.mult = fn7_b0;
+            d.itype.mult = (fn7_b0 && !fn7_b2);
             d.a_sel = A_SEL_RS1;
             d.b_sel = B_SEL_RS2;
-            d.alu_op = alu_op_t'({fn7_b5, fn3});
-            d.simd_arith_op = simd_arith_op_t'({1'b0, fn3});
+            d.alu_op = alu_op_t'({fn7_b5, fn7_b2, fn3});
+            d.simd_arith_op = simd_arith_op_t'({2'h0, fn3});
             d.wb_sel = d.itype.mult ? WB_SEL_SIMD : WB_SEL_EWB;
             d.rd_we = rd_nz;
             d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 0};
@@ -53,7 +54,7 @@ always_comb begin
             d.a_sel = A_SEL_RS1;
             d.b_sel = B_SEL_IMM;
             d.alu_op = (fn3[1:0] == 2'b01) ? // shift : immediate
-                alu_op_t'({fn7_b5, fn3}) : alu_op_t'({1'b0, fn3});
+                alu_op_t'({fn7_b5, 1'b0, fn3}) : alu_op_t'({2'h0, fn3});
             d.ig_sel = IG_I_TYPE;
             d.rd_we = rd_nz;
             d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 0, rs3: 0};

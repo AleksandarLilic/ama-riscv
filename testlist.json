@@ -4,6 +4,7 @@
         ["sim/sw/baremetal/asm_rv32i_branches", "basic.hex"],
         ["sim/sw/baremetal/asm_rv32i_zicsr", "basic.hex"],
         ["sim/sw/baremetal/asm_rv32im", "basic.hex"],
+        ["sim/sw/baremetal/asm_rv32i_zbb_min-max", "basic.hex"],
 
         ["sim/sw/baremetal/asm_rv32i_custom-simd-dot", "basic.hex"],
         ["sim/sw/baremetal/asm_rv32i_custom-simd-widen", "basic.hex"],
