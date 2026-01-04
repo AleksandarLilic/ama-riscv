@@ -24,12 +24,9 @@ localparam logic [MHPMEVENT_PAD_WIDTH-1:0] MHPMEVENT_PAD = 'h0;
 localparam unsigned MHPMCOUNTER_MASK_BITS = $clog2(MHPMCOUNTERS + MHPM_IDX_L);
 localparam unsigned MHPMEVENT_MASK_BITS = $clog2(MHPMEVENTS + MHPM_IDX_L);
 
-`define RANGE_C MHPM_IDX_L:(MHPMCOUNTERS + MHPM_IDX_L - 1)
-`define RANGE_E MHPM_IDX_L:(MHPMEVENTS + MHPM_IDX_L - 1)
-
 function automatic logic get_event(
-    input perf_event_t pe, input logic [MHPMEVENTS-1:0] mhpmevent);
-    case (mhpmevent)
+    input perf_event_t pe, input mhpmevent_t ev);
+    case (ev)
         MHPMEVENT_BAD_SPEC: get_event = pe.bad_spec;
         MHPMEVENT_BE: get_event = pe.be;
         MHPMEVENT_BE_DC: get_event = pe.be_dc;
@@ -49,11 +46,8 @@ assign imm = {27'h0, imm5}; // zero-extend
 assign wr_data_src = ctrl.ui ? imm : in;
 assign addr_en = csr_addr_t'(addr & {12{ctrl.en}});
 
-csr_dw_t mhpmcounter[`RANGE_C];
 logic [MHPMCOUNTER_MASK_BITS-1:0] mhpm_addr_c;
 assign mhpm_addr_c = (addr_en[MHPMCOUNTER_MASK_BITS-1:0]);
-
-mhpmevent_t mhpmevent[`RANGE_E];
 logic [MHPMEVENT_MASK_BITS-1:0] mhpm_addr_e;
 assign mhpm_addr_e = (addr_en[MHPMEVENT_MASK_BITS-1:0]);
 
@@ -76,19 +70,22 @@ always_comb begin
             CSR_MHPMCOUNTER5,
             CSR_MHPMCOUNTER6,
             CSR_MHPMCOUNTER7,
-            CSR_MHPMCOUNTER8: out = mhpmcounter[mhpm_addr_c].r[CSR_LOW];
+            CSR_MHPMCOUNTER8:
+                out = csr.mhpmcounter[mhpm_addr_c].f.lo;
             CSR_MHPMCOUNTER3H,
             CSR_MHPMCOUNTER4H,
             CSR_MHPMCOUNTER5H,
             CSR_MHPMCOUNTER6H,
             CSR_MHPMCOUNTER7H,
-            CSR_MHPMCOUNTER8H: out = mhpmcounter[mhpm_addr_c].r[CSR_HIGH];
+            CSR_MHPMCOUNTER8H:
+                out = {MHPMCOUNTER_PAD, csr.mhpmcounter[mhpm_addr_c].f.hi};
             CSR_MHPMEVENT3,
             CSR_MHPMEVENT4,
             CSR_MHPMEVENT5,
             CSR_MHPMEVENT6,
             CSR_MHPMEVENT7,
-            CSR_MHPMEVENT8: out = {MHPMEVENT_PAD, mhpmevent[mhpm_addr_e]};
+            CSR_MHPMEVENT8:
+                out = {MHPMEVENT_PAD, csr.mhpmevent[mhpm_addr_e]};
             default: ;
         endcase
     end
@@ -114,7 +111,7 @@ always_ff @(posedge clk) begin
         csr.tohost <= 'h0;
         csr.mscratch <= 'h0;
         `IT_I(MHPM_IDX_L, (MHPMCOUNTERS + MHPM_IDX_L)) begin
-            mhpmevent[i] <= MHPMEVENT_NONE;
+            csr.mhpmevent[i] <= MHPMEVENT_NONE;
         end
     end else if (ctrl.we) begin
         case (addr_en)
@@ -125,7 +122,7 @@ always_ff @(posedge clk) begin
             CSR_MHPMEVENT5,
             CSR_MHPMEVENT6,
             CSR_MHPMEVENT7,
-            CSR_MHPMEVENT8: mhpmevent[mhpm_addr_e] <= wr_mhpmevent;
+            CSR_MHPMEVENT8: csr.mhpmevent[mhpm_addr_e] <= wr_mhpmevent;
             default: ;
         endcase
     end
@@ -165,24 +162,13 @@ end
 // mtime
 logic tick_us;
 logic [CNT_WIDTH-1:0] cnt_us; // 1 microsecond cnt
-always_ff @(posedge clk) begin
-    if (rst) begin
-        cnt_us <= 'h0;
-        tick_us <= 1'b0;
-    end else if (cnt_us == CNT_WIDTH'(CLOCKS_PER_US - 1)) begin
-        cnt_us <= 'h0;
-        tick_us <= 1'b1;
-    end else begin
-        cnt_us <= cnt_us + 'h1;
-        tick_us <= 1'b0;
-    end
-end
-
+assign tick_us = (cnt_us == CNT_WIDTH'(CLOCKS_PER_US - 1));
+`DFF_CI_RI_RVI_CLR_CLRVI(tick_us, (cnt_us + 'h1), cnt_us)
 `DFF_CI_RI_RVI_EN(tick_us, (csr.mtime + 64'h1), csr.mtime)
 
 //------------------------------------------------------------------------------
 // hardware performance monitors
-csr_addr_t am_l[`RANGE_C], am_h[`RANGE_C];
+csr_addr_t am_l[`MHPM_RANGE_C], am_h[`MHPM_RANGE_C];
 assign am_l = {
     CSR_MHPMCOUNTER3,
     CSR_MHPMCOUNTER4,
@@ -200,22 +186,25 @@ assign am_h = {
     CSR_MHPMCOUNTER8H
 };
 
-logic [1:0] am_mhpmcounter[`RANGE_C];
+logic [1:0] am_mhpmcounter[`MHPM_RANGE_C];
 genvar i;
 generate
-    `IT_I_NT(MHPM_IDX_L, (MHPMCOUNTERS + MHPM_IDX_L)) begin: gen_mhpm_write
-        assign am_mhpmcounter[i] = {(addr_en == am_h[i]), (addr_en == am_l[i])};
-        always_ff @(posedge clk) begin
-            if (rst) begin
-                mhpmcounter[i] <= 'h0;
-            end else if (ctrl.we && (|am_mhpmcounter[i])) begin
-                if (am_mhpmcounter[i][0]) mhpmcounter[i].r[CSR_LOW] <= wr_data;
-                else mhpmcounter[i].r[CSR_HIGH] <= wr_data;
-            end else if (get_event(perf_event, mhpmevent[i])) begin
-                mhpmcounter[i] <= (mhpmcounter[i] + ARCH_WIDTH_D'(1));
+`IT_I_NT(MHPM_IDX_L, (MHPMCOUNTERS + MHPM_IDX_L)) begin: gen_mhpm_write
+    assign am_mhpmcounter[i] = {(addr_en == am_h[i]), (addr_en == am_l[i])};
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            csr.mhpmcounter[i] <= 'h0;
+        end else if (ctrl.we && (|am_mhpmcounter[i])) begin
+            if (am_mhpmcounter[i][0]) begin
+                csr.mhpmcounter[i].f.lo <= wr_data;
+            end else begin
+                csr.mhpmcounter[i].f.hi <= wr_data[MHPMCOUNTER_PAD_WIDTH-1:0];
             end
+        end else if (get_event(perf_event, csr.mhpmevent[i])) begin
+            csr.mhpmcounter[i] <= (csr.mhpmcounter[i] + MHPMCOUNTER_WIDTH'(1));
         end
     end
+end
 endgenerate
 
 endmodule

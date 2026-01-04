@@ -152,6 +152,13 @@
         else if (_en) _q <= _d; \
     end
 
+`define DFF_CI_RI_RVI_CLR_CLRVI(_clr, _d, _q) \
+    always_ff @(posedge clk) begin \
+        if (rst) _q <= 'h0; \
+        else if (_clr) _q <= 'h0; \
+        else _q <= _d; \
+    end
+
 `define DFF_CI_EN(_en, _d, _q) \
     always_ff @(posedge clk) begin \
         if (_en) _q <= _d; \

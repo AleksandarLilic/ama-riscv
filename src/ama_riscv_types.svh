@@ -441,14 +441,13 @@ typedef union packed {
 parameter unsigned MHPM_IDX_L = 3; // index low, starts at idx 3
 parameter unsigned MHPMCOUNTERS = 6;
 parameter unsigned MHPMEVENTS = 6;
+parameter unsigned MHPMCOUNTER_WIDTH = 48; // min 32 bits
 
-typedef struct {
-    arch_width_t tohost;
-    arch_width_t mscratch;
-    csr_dw_t mcycle;
-    csr_dw_t minstret;
-    csr_dw_t mtime;
-} csr_t;
+parameter unsigned MHPMCOUNTER_PAD_WIDTH = (ARCH_WIDTH_D - MHPMCOUNTER_WIDTH);
+parameter logic [MHPMCOUNTER_PAD_WIDTH-1:0] MHPMCOUNTER_PAD = 'h0;
+
+`define MHPM_RANGE_C MHPM_IDX_L:(MHPMCOUNTERS + MHPM_IDX_L - 1)
+`define MHPM_RANGE_E MHPM_IDX_L:(MHPMEVENTS + MHPM_IDX_L - 1)
 
 // Machine Hardware Performance Monitor (MHPM) counters & events
 typedef enum logic [MHPMEVENTS-1:0] {
@@ -460,6 +459,26 @@ typedef enum logic [MHPMEVENTS-1:0] {
     MHPMEVENT_FE_IC = (1 << 4),
     MHPMEVENT_RET_SIMD = (1 << 5)
 } mhpmevent_t;
+
+typedef struct packed {
+    logic [MHPMCOUNTER_WIDTH-1:32] hi;
+    logic [31:0] lo;
+} csr_mhpm_fields_t;
+
+typedef union packed {
+    logic [MHPMCOUNTER_WIDTH-1:0] r;
+    csr_mhpm_fields_t f;
+} csr_mhpm_t;
+
+typedef struct {
+    arch_width_t tohost;
+    arch_width_t mscratch;
+    csr_dw_t mcycle;
+    csr_dw_t minstret;
+    csr_dw_t mtime;
+    mhpmevent_t mhpmevent[`MHPM_RANGE_E];
+    csr_mhpm_t mhpmcounter[`MHPM_RANGE_C];
+} csr_t;
 
 // peripherals
 typedef struct packed {
