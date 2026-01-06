@@ -1,7 +1,7 @@
 # meant to be included in the <repo_root>/Makefile
 
 # ISA SIM
-CXX := g++
+CXX ?= g++
 CXXFLAGS := -Wall -Wextra
 CXXFLAGS += -Wcast-qual -Wold-style-cast
 CXXFLAGS += -Wunreachable-code -Wnull-dereference
@@ -68,7 +68,7 @@ $(COSIM_TARGET): .isa_sim_obj.touchfile $(COSIM_OBJS)
 isa_sim_obj: .isa_sim_obj.touchfile
 .isa_sim_obj.touchfile: $(ISA_SIM_SRCS) $(ISA_SIM_H) $(COSIM_H)
 	@echo "Building ISA SIM"
-	$(MAKE) -C $(ISA_SIM_DIR) obj_for_cosim INC_EXT="$(ISA_SIM_EXT)" BDIR=$(ISA_SIM_BDIR) DEFINES="-DDPI -DCACHE_MODE=CACHE_MODE_FUNC"
+	$(MAKE) -C $(ISA_SIM_DIR) obj_for_cosim INC_EXT="$(ISA_SIM_EXT)" BDIR=$(ISA_SIM_BDIR) DEFINES="-DDPI -DCACHE_MODE=CACHE_MODE_FUNC" CXX=$(CXX)
 	@touch .isa_sim_obj.touchfile
 
 $(COSIM_ROOT)/$(COSIM_BDIR)/%.o: $(COSIM_ROOT)/%.cpp $(COSIM_H) $(ISA_SIM_H)
