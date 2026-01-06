@@ -57,7 +57,7 @@ void cosim_exec(
 
     rv32->update_clk(clk_cnt); // issue for profiling multiple windows
     *pc = rv32->get_pc();
-    rv32->exec_inst();
+    rv32->single_step();
     *inst = rv32->get_inst();
     *tohost = rv32->get_csr(CSR_TOHOST);
     for (int i = 0; i < 32; i++) rf[i] = rv32->get_reg(i);
