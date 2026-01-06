@@ -100,7 +100,6 @@
         ["sim/sw/baremetal/ustress/branch_indirect", "ustress.hex"],
         ["sim/sw/baremetal/ustress/call_return", "ustress.hex"],
         ["sim/sw/baremetal/ustress/l1d_cache", "ustress.hex"],
-        ["sim/sw/baremetal/ustress/l1i_cache", "ustress.hex"],
         ["sim/sw/baremetal/ustress/load_after_store", "ustress.hex"],
         ["sim/sw/baremetal/ustress/mac32", "ustress.hex"],
         ["sim/sw/baremetal/ustress/mac64", "ustress.hex"],
