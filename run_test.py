@@ -27,6 +27,8 @@ TEST_STATUS = "test.status"
 
 MSG_PASS = "==== PASS ===="
 MSG_FAIL = "==== FAIL ===="
+MSG_SIM_FATAL = "Fatal"
+MSG_SIM_ERROR = "Error"
 
 @dataclass
 class make_args:
@@ -150,6 +152,10 @@ def check_test_status(test_log_path, test_name):
                 return f"Test <{test_name}> PASSED."
             elif MSG_FAIL in line:
                 return f"Test <{test_name}> FAILED with: " + "".join(errors)
+            elif MSG_SIM_FATAL in line:
+                return f"Test <{test_name}> FAILED with: " + line.strip()
+            elif MSG_SIM_ERROR in line:
+                return f"Test <{test_name}> FAILED with: " + line.strip()
             elif "cosim_exec()" in line:
                 return f"Test <{test_name}> FAILED. " + \
                         "Cosim stopped. Check the log for details."
