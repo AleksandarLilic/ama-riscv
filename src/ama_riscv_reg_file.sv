@@ -72,27 +72,37 @@ logic addr_d_even, addr_d_odd;
 assign addr_d_even = (addr_d[0] == 1'b0);
 assign addr_d_odd = (addr_d[0] == 1'b1);
 
+// when rd is odd, rdp (= rd+1) lives in the *next* even index
+logic [3:0] idx_dp;
+assign idx_dp = (idx_d + addr_d[0]);
+
 logic rd_we;
 assign rd_we = (we.rd && (addr_d != RF_X0_ZERO));
 
 logic rdp_we;
 assign rdp_we = (
-    we.rdp && addr_d_even && (addr_d != RF_X0_ZERO) && (addr_d != RF_X31_T6)
+    we.rdp && (addr_d != RF_X0_ZERO) && (addr_d != RF_X31_T6)
 );
 
 // even bank writes:
 //  - single write when rd is even
-//  - paired write always writes rd (which is even by construction)
+//  - paired write: if rd even -> write rd (data_d) at idx_d
+//                  if rd odd -> write rdp (data_dp) at idx_dp
 always_ff @(posedge clk) begin
-    if (rdp_we) rf_even[idx_d] <= data_d;
-    else if (rd_we && addr_d_even) rf_even[idx_d] <= data_d;
+    if (rdp_we) begin
+        if (addr_d_even) rf_even[idx_d] <= data_d;
+        else rf_even[idx_dp] <= data_dp;
+    end else if (rd_we && addr_d_even) begin
+        rf_even[idx_d] <= data_d;
+    end
 end
 
 // odd bank writes:
 //  - single write when rd is odd
-//  - paired write writes rdp (= rd+1), which is odd
+//  - paired write: if rd even -> write rdp (data_dp) at idx_d
+//                  if rd odd -> write rd (data_d) at idx_d
 always_ff @(posedge clk) begin
-    if (rdp_we) rf_odd[idx_d] <= data_dp;
+    if (rdp_we) rf_odd[idx_d] <= (addr_d_even ? data_dp : data_d);
     else if (rd_we && addr_d_odd) rf_odd[idx_d] <= data_d;
 end
 
@@ -129,8 +139,6 @@ always_comb begin
     if (we.rdp) begin
         assert (addr_d != RF_X31_T6)
             else $fatal(1, "rd=x31, illegal for rdp write");
-        assert (addr_d[0] == 1'b0)
-            else $fatal(1, "paired write illegal: rd is odd");
     end
 end
 `endif
