@@ -74,7 +74,7 @@ assign addr_d_odd = (addr_d[0] == 1'b1);
 
 // when rd is odd, rdp (= rd+1) lives in the *next* even index
 logic [3:0] idx_dp;
-assign idx_dp = (idx_d + addr_d[0]);
+assign idx_dp = (idx_d + {3'h0, addr_d[0]});
 
 logic rd_we;
 assign rd_we = (we.rd && (addr_d != RF_X0_ZERO));
