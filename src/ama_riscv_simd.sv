@@ -176,12 +176,14 @@ assign mul_hsu = b_sign_bit_d ? mul_hsu_signed.w[1] : mul_s.w[1];
 
 // wrap up simd
 localparam unsigned DOT8_W = (ARCH_WIDTH_H + 1); // dot8 result width, 17 bits
-localparam unsigned DOT8_SIGN = (ARCH_WIDTH - DOT8_W); // sign pad, 15 bits
+localparam unsigned DOT8_SIGN_EXT = (ARCH_WIDTH - DOT8_W); // sign ext, 15 bits
 
 simd_t dot_r, dot16_r, dot8_r, dot_acc_in, dot_acc_out;
 assign dot_r = mul_s.w[0];
 assign dot16_r = dot_r[ARCH_WIDTH-1:0];
-assign dot8_r = {{DOT8_SIGN{dot_r[DOT8_W-1]}}, dot_r[DOT8_W-1:0]};
+logic dot8_sign; // overflow detection on 65536
+assign dot8_sign = (&dot_r[DOT8_W:DOT8_W-1]) ? 1'b0 : dot_r[DOT8_W-1];
+assign dot8_r = {{DOT8_SIGN_EXT{dot8_sign}}, dot_r[DOT8_W-1:0]};
 assign dot_acc_in = (op_d == SIMD_ARITH_OP_DOT16) ? dot16_r : dot8_r;
 assign dot_acc_out = (dot_acc_in + c_late);
 
