@@ -149,20 +149,18 @@ def check_test_status(test_log_path, test_name):
             if "ERROR" in line or "'tohost' failed #" in line:
                 errors.append(f"\n{INDENT}{line.strip()}")
             if MSG_PASS in line:
-                return f"Test <{test_name}> PASSED."
+                return True, ""
             elif MSG_FAIL in line:
-                return f"Test <{test_name}> FAILED with: " + "".join(errors)
+                return False, "".join(errors)
             elif MSG_SIM_FATAL in line:
-                return f"Test <{test_name}> FAILED with: " + line.strip()
+                return False, line.strip()
             elif MSG_SIM_ERROR in line:
-                return f"Test <{test_name}> FAILED with: " + line.strip()
+                return False, line.strip()
             elif "cosim_exec()" in line:
-                return f"Test <{test_name}> FAILED. " + \
-                        "Cosim stopped. Check the log for details."
-        return f"Test <{test_name}> result is inconclusive. " + \
-            f"Check {test_log_path} for details."
+                return False, "Cosim stopped. Check the log for details."
+        return False, f"Inconclusive. Check {test_log_path} for details."
     else:
-        return f"{TEST_LOG} not found at {test_log_path}. " + \
+        return False, f"{TEST_LOG} not found at {test_log_path}. " + \
             "Cannot determine test result."
 
 def build_tb(build_dir, force_rebuild):
@@ -211,6 +209,7 @@ def get_paths_for_test(run_dir, test_name):
     return p
 
 def run_test(test_path, run_dir, build_dir, make_args, cnt, keep_pass=False):
+    start_time = datetime.datetime.now()
     test_name = format_test_name(test_path)
     test_path_make = os.path.splitext(test_path)[0]
     with cnt["lock"]:
@@ -265,22 +264,32 @@ def run_test(test_path, run_dir, build_dir, make_args, cnt, keep_pass=False):
         raise ValueError(f"Error: Run test <{test_name}> failed. "
                          f"Check test log '{p['test_log']}' for details.")
 
+    s, msg = check_test_status(p['test_log'], test_name)
+
+    status_str = "PASSED" if s else "FAILED"
+    txt = f"Test <{test_name}>"
+    print(txt, status_str, end=' ')
+    print_runtime(start_time)
+    if msg:
+        print(msg.strip())
+
     # write to test.status
     with open(p['status_file'], 'w') as status_file:
-        status = check_test_status(p['test_log'], test_name)
-        status_file.write(status+"\n")
-        print(status.replace(f"Test <{test_name}>", "").strip())
+        status_file.write(txt + " " + status_str + msg + "\n")
 
-def print_runtime(start_time, process_name, end='\n'):
+def print_runtime(start_time, process_name=''):
     end_time = datetime.datetime.now()
     elapsed_time = end_time - start_time
     hours, remainder = divmod(elapsed_time.seconds, 3600)
     minutes, seconds = divmod(remainder+1, 60) # rounds down, correct +1 for sec
     print(
-        f"{process_name} runtime:",
+        f"{process_name} runtime: " if process_name else "(",
         f"{hours}h" if hours else "",
-        f"{minutes}m {seconds}s",
-        end=end
+        f"{minutes}m" if minutes else "",
+        f"{seconds}s",
+        "" if process_name else ")",
+        end="\n",
+        sep=''
     )
 
 def main():
@@ -339,7 +348,8 @@ def main():
     if args.jobs > MAX_WORKERS:
         print(f"Warning: The specified number of jobs ({args.jobs}) exceeds " +
               f"the number of available CPU cores ({MAX_WORKERS}).")
-    #print(f"Running simulation with {min(args.jobs,MAX_WORKERS)} workers")
+    w = min(args.jobs, MAX_WORKERS)
+    print(f"Running simulation with {w} workers\n")
 
     #random.seed(5)
     #sv_seed = args.seed if args.seed is not None \
@@ -352,7 +362,7 @@ def main():
             cnt["t"] = manager.Value('i', 0)
             cnt["lock"] = manager.Lock()
             cnt["total"] = len(all_tests)
-            with Pool(min(args.jobs, MAX_WORKERS)) as pool:
+            with Pool(w) as pool:
                 partial_run_test = \
                     functools.partial(
                         run_test,
