@@ -4,7 +4,6 @@ import argparse
 import datetime
 import functools
 import glob
-import json
 import os
 import random
 import re
@@ -16,6 +15,8 @@ import time
 from collections import deque
 from dataclasses import dataclass
 from multiprocessing import Manager, Pool
+
+from ruamel.yaml import YAML
 
 CC_RED = "91m"
 CC_GREEN = "32m"
@@ -38,7 +39,7 @@ class make_args:
 def parse_args():
     parser = argparse.ArgumentParser(description="Run RTL simulation.")
     parser.add_argument('-t', '--test', help="Specify single test to run")
-    parser.add_argument('--testlist', help="Path to a JSON file containing a list of tests")
+    parser.add_argument('--testlist', help="Path to a YAML file containing a list of tests")
     parser.add_argument('-f', '--filter', help="Apply regex filtering to the testlist on the group name. Passed in as comma-separated values. Use ~ to exclude test. E.g., -f 'riscv_isa,~zmmul' includes all groups that match 'riscv_isa' string in the group name, except those that match 'zmmul'. If not specified, all tests in the testlist are run")
     parser.add_argument('-r', '--rundir', help="Optional custom run directory name")
     parser.add_argument('-o', '--build_only', action='store_true', help="Only build the testbench")
@@ -78,9 +79,13 @@ def format_test_name(test_path):
     return f"{os.path.basename(os.path.dirname(test_path))}_" + \
         f"{os.path.splitext(os.path.basename(test_path))[0]}"
 
-def read_from_json(file_path):
+yaml = YAML()
+yaml.preserve_quotes = True
+yaml.indent(mapping=2, sequence=4, offset=2)
+
+def read_from_yaml(file_path):
     with open(file_path, 'r') as file:
-        return json.load(file)
+        return yaml.load(file)
 
 def find_all_tests(test_list, filters=[]):
     # if filtering is used, apply on top level keys, and put only those entires
@@ -315,7 +320,7 @@ def main():
         if args.filter:
             filters = [f.strip() for f in args.filter.split(',')]
             print(f"Applying filter(s): {filters}")
-        all_tests = find_all_tests(read_from_json(args.testlist), filters)
+        all_tests = find_all_tests(read_from_yaml(args.testlist), filters)
         print(f"\nTestlist:")
         print("   " + "\n   ".join(all_tests))
         print(f"Running {len(all_tests)} test(s) total")
