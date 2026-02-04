@@ -14,7 +14,8 @@ import "DPI-C" function void cosim_setup(
     input int unsigned prof_pc_stop,
     input int unsigned prof_pc_single_match,
     input byte unsigned prof_trace,
-    input byte unsigned log_isa_sim
+    input byte unsigned log_isa_sim,
+    output string cosim_out_dir
 );
 
 import "DPI-C" function void cosim_exec(
@@ -84,6 +85,7 @@ csr_sync_t csr_d[2];
 bit [RF_NUM-1:0] rf_chk_act;
 cosim_t cosim;
 cosim_str_t cosim_str;
+string cosim_outdir;
 
 // perf
 hw_counters_t ic_stats, dc_stats, bp_stats;
@@ -694,7 +696,8 @@ initial begin
         args.prof_pc_stop,
         args.prof_pc_single_match,
         args.prof_trace,
-        args.log_isa_sim
+        args.log_isa_sim,
+        cosim_outdir
     );
     `endif
 

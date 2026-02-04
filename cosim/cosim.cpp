@@ -23,7 +23,8 @@ void cosim_setup(
     unsigned int prof_pc_stop,
     unsigned int prof_pc_single_match,
     char prof_trace,
-    char log_isa_sim
+    char log_isa_sim,
+    const char** cosim_out_dir
 ) {
     cfg.perf_event = perf_event_t::cycle; // TODO: plusarg
     cfg.prof_pc.start = prof_pc_start;
@@ -36,6 +37,7 @@ void cosim_setup(
     std::string l_test_elf(test_elf);
     out_dir = gen_out_dir(l_test_elf, "cosim");
     cfg.out_dir = out_dir;
+    *cosim_out_dir = out_dir.c_str();
 
     mem = new memory(l_test_elf, cfg, hw_cfg);
     rv32 = new core(mem, cfg, hw_cfg);
