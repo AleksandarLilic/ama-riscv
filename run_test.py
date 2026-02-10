@@ -274,18 +274,14 @@ def run_test(test_path, run_dir, build_dir, make_args, cnt, keep_pass=False):
 
     s, msg = check_test_status(p['test_log'], test_name)
 
-    status_str = "PASSED" if s else "FAILED"
-    cc = CC_GREEN if s else CC_RED
-    txt = f"Test <{test_name}>"
-    print(txt, status_str, end=' ')
-    print(txt, color_code_string(status_str, cc), end=' ')
+    status_str, cc = ("PASSED", CC_GREEN) if s else ("FAILED", CC_RED)
+    print(color_code_string(status_str, cc), end=' ')
     print_runtime(start_time)
     if msg:
         print(msg.strip())
 
-    # write to test.status
-    with open(p['status_file'], 'w') as status_file:
-        status_file.write(txt + " " + status_str + msg + "\n")
+    with open(p['status_file'], 'w') as status_file: # write to test.status
+        status_file.write(f"Test <{test_name}> {status_str} {msg}\n")
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Run RTL simulation.")
