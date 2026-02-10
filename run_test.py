@@ -5,7 +5,7 @@ import datetime
 import functools
 import glob
 import os
-import random
+#import random
 import re
 import shlex
 import shutil
@@ -32,31 +32,24 @@ MSG_FAIL = "==== FAIL ===="
 MSG_SIM_FATAL = "Fatal"
 MSG_SIM_ERROR = "Error"
 
+yaml = YAML()
+yaml.preserve_quotes = True
+yaml.indent(mapping=2, sequence=4, offset=2)
+
 @dataclass
 class make_args:
     timeout_clocks: int
     log_level: str
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="Run RTL simulation.")
-    parser.add_argument('-t', '--test', help="Specify single test to run")
-    parser.add_argument('--testlist', help="Path to a YAML file containing a list of tests")
-    parser.add_argument('-f', '--filter', help="Apply regex filtering to the testlist on the group name. Passed in as comma-separated values. Use ~ to exclude test. E.g., -f 'riscv_isa,~zmmul' includes all groups that match 'riscv_isa' string in the group name, except those that match 'zmmul'. If not specified, all tests in the testlist are run")
-    parser.add_argument('-r', '--rundir', help="Optional custom run directory name")
-    parser.add_argument('-o', '--build_only', action='store_true', help="Only build the testbench")
-    parser.add_argument('-k', '--keep_build', action='store_true', default=False, help="Reuse existing build if available")
-    parser.add_argument('-b', '--rebuild_all', action='store_true', default=False, help="Rebuild everything: RTL, ISA sim, cosim. Takes priority over -k if both are specified")
-    parser.add_argument('-p', '--keep_pass', action='store_true', default=False, help="Keep rundir of passed tests. Applicable only if -k is used")
-    parser.add_argument('-j', '--jobs', type=int, default=MAX_WORKERS, help="Number of parallel jobs to run (default: number of CPU cores)")
-    parser.add_argument('-c', '--timeout_clocks', type=int, default=500_000, help="Number of clocks before simulations times out")
-    parser.add_argument('-v', '--log_level', type=str, default="WARN", help="Log level during simulation")
-    #parser.add_argument('--coverage', action='store_true', help="Enable coverage analysis")
-    #parser.add_argument('--coverage-only', action='store_true', help="Only run coverage analysis. Relies on the existing test directories for the specified tests")
-    #parser.add_argument('--seed', type=int, help="Seed value for the tests")
-    parser.add_argument('--log_wave', action='store_true', help="Collect .wdb waveform, all modules from the top down")
-    parser.add_argument('--log_vcd', action='store_true', help="Collect .vcd waveform, all modules from the top down")
-    return parser.parse_args()
+# utility functions
+def read_from_yaml(file_path):
+    with open(file_path, 'r') as file:
+        return yaml.load(file)
 
+def color_code_string(str, color_code):
+    return f"\033[{color_code}{str}\033[0m"
+
+# helper functions
 def create_run_cfg(log_wave, log_vcd):
     tcl_content = []
     tcl_content.append("# AUTOMATICALLY GENERATED FILE. DO NOT EDIT.")
@@ -75,18 +68,6 @@ def create_run_cfg(log_wave, log_vcd):
 
     with open(RUN_CFG, 'w') as file:
         file.writelines(line + '\n' for line in tcl_content)
-
-def format_test_name(test_path):
-    return f"{os.path.basename(os.path.dirname(test_path))}_" + \
-        f"{os.path.splitext(os.path.basename(test_path))[0]}"
-
-yaml = YAML()
-yaml.preserve_quotes = True
-yaml.indent(mapping=2, sequence=4, offset=2)
-
-def read_from_yaml(file_path):
-    with open(file_path, 'r') as file:
-        return yaml.load(file)
 
 def find_all_tests(test_list, filters=[]):
     # if filtering is used, apply on top level keys, and put only those entires
@@ -147,6 +128,18 @@ def find_all_tests(test_list, filters=[]):
 
     return list(set(valid_tests)) # deduplicate after globbing
 
+def format_test_name(test_path):
+    return f"{os.path.basename(os.path.dirname(test_path))}_" + \
+        f"{os.path.splitext(os.path.basename(test_path))[0]}"
+
+def get_paths_for_test(run_dir, test_name):
+    p = {}
+    p['test_dir'] = os.path.join(run_dir, test_name)
+    p['test_log'] = os.path.join(p['test_dir'], "test.log")
+    p['run_sh'] = os.path.join(p['test_dir'], "run.sh") # save cmd for rerun
+    p['status_file'] = os.path.join(p['test_dir'], TEST_STATUS)
+    return p
+
 def check_test_status(test_log_path, test_name):
     if os.path.exists(test_log_path):
         errors = []
@@ -169,9 +162,22 @@ def check_test_status(test_log_path, test_name):
         return False, f"{TEST_LOG} not found at {test_log_path}. " + \
             "Cannot determine test result."
 
-def color_code_string(str, color_code):
-    return f"\033[{color_code}{str}\033[0m"
+def print_runtime(start_time, process_name=''):
+    end_time = datetime.datetime.now()
+    elapsed_time = end_time - start_time
+    hours, remainder = divmod(elapsed_time.seconds, 3600)
+    minutes, seconds = divmod(remainder+1, 60) # rounds down, correct +1 for sec
+    print(
+        f"{process_name} runtime: " if process_name else "(",
+        f"{hours}h" if hours else "",
+        f"{minutes}m" if minutes else "",
+        f"{seconds}s",
+        "" if process_name else ")",
+        end="\n",
+        sep=''
+    )
 
+# main functions
 def build_tb(build_dir, force_rebuild):
     if os.path.exists(build_dir):
         shutil.rmtree(build_dir)
@@ -208,14 +214,6 @@ def build_tb(build_dir, force_rebuild):
                          f"Check build log '{build_log}' for details.")
 
     print_runtime(start_time, "Build done,")
-
-def get_paths_for_test(run_dir, test_name):
-    p = {}
-    p['test_dir'] = os.path.join(run_dir, test_name)
-    p['test_log'] = os.path.join(p['test_dir'], "test.log")
-    p['run_sh'] = os.path.join(p['test_dir'], "run.sh") # save cmd for rerun
-    p['status_file'] = os.path.join(p['test_dir'], TEST_STATUS)
-    return p
 
 def run_test(test_path, run_dir, build_dir, make_args, cnt, keep_pass=False):
     start_time = datetime.datetime.now()
@@ -289,20 +287,25 @@ def run_test(test_path, run_dir, build_dir, make_args, cnt, keep_pass=False):
     with open(p['status_file'], 'w') as status_file:
         status_file.write(txt + " " + status_str + msg + "\n")
 
-def print_runtime(start_time, process_name=''):
-    end_time = datetime.datetime.now()
-    elapsed_time = end_time - start_time
-    hours, remainder = divmod(elapsed_time.seconds, 3600)
-    minutes, seconds = divmod(remainder+1, 60) # rounds down, correct +1 for sec
-    print(
-        f"{process_name} runtime: " if process_name else "(",
-        f"{hours}h" if hours else "",
-        f"{minutes}m" if minutes else "",
-        f"{seconds}s",
-        "" if process_name else ")",
-        end="\n",
-        sep=''
-    )
+def parse_args():
+    parser = argparse.ArgumentParser(description="Run RTL simulation.")
+    parser.add_argument('-t', '--test', help="Specify single test to run")
+    parser.add_argument('--testlist', help="Path to a YAML file containing a list of tests")
+    parser.add_argument('-f', '--filter', help="Apply regex filtering to the testlist on the group name. Passed in as comma-separated values. Use ~ to exclude test. E.g., -f 'riscv_isa,~zmmul' includes all groups that match 'riscv_isa' string in the group name, except those that match 'zmmul'. If not specified, all tests in the testlist are run")
+    parser.add_argument('-r', '--rundir', help="Optional custom run directory name")
+    parser.add_argument('-o', '--build_only', action='store_true', help="Only build the testbench")
+    parser.add_argument('-k', '--keep_build', action='store_true', default=False, help="Reuse existing build if available")
+    parser.add_argument('-b', '--rebuild_all', action='store_true', default=False, help="Rebuild everything: RTL, ISA sim, cosim. Takes priority over -k if both are specified")
+    parser.add_argument('-p', '--keep_pass', action='store_true', default=False, help="Keep rundir of passed tests. Applicable only if -k is used")
+    parser.add_argument('-j', '--jobs', type=int, default=MAX_WORKERS, help="Number of parallel jobs to run (default: number of CPU cores)")
+    parser.add_argument('-c', '--timeout_clocks', type=int, default=500_000, help="Number of clocks before simulations times out")
+    parser.add_argument('-v', '--log_level', type=str, default="WARN", help="Log level during simulation")
+    #parser.add_argument('--coverage', action='store_true', help="Enable coverage analysis")
+    #parser.add_argument('--coverage-only', action='store_true', help="Only run coverage analysis. Relies on the existing test directories for the specified tests")
+    #parser.add_argument('--seed', type=int, help="Seed value for the tests")
+    parser.add_argument('--log_wave', action='store_true', help="Collect .wdb waveform, all modules from the top down")
+    parser.add_argument('--log_vcd', action='store_true', help="Collect .vcd waveform, all modules from the top down")
+    return parser.parse_args()
 
 def main():
     start_time_suite = datetime.datetime.now()
