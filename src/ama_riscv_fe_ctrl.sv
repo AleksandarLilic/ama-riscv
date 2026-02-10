@@ -414,7 +414,7 @@ end
 // SPECULATIVE EXEC control
 spec_entry_t spec_entry[2];
 logic se_ptr_h, se_ptr_t; // head and tail pointers for speculative entry
-logic double_branch;
+logic branch_queued;
 
 logic save_spec_entry, clear_spec_entry;
 assign spec.enter = (
@@ -461,7 +461,7 @@ always_comb begin
                     if (spec.enter) begin // branch in dec again
                         nx_state_e = SPEC_E;
                         save_spec_entry = 1'b1;
-                    end else if (!double_branch) begin
+                    end else if (!branch_queued) begin
                         // next inst is not branch, and not double branched
                         nx_state_e = NS_E;
                     end
@@ -490,15 +490,15 @@ always_ff @(posedge clk) begin
         end
         if (clear_spec_entry) begin
             se_ptr_t <= (!se_ptr_t);
-            if (se_ptr_t != se_ptr_h) begin
-                // written by another entry if both ptrs are the same (3rd br)
+            // written by new spec_entry if both ptrs match - 3rd consec. branch
+            if (!((se_ptr_t == se_ptr_h) && save_spec_entry)) begin
                 spec_entry[se_ptr_t] <= '{pc: 'h0, b_tnt: B_NT};
             end
         end
     end
 end
 
-assign double_branch = (spec_entry[se_ptr_h].pc != 'h0);
+assign branch_queued = (spec_entry[se_ptr_h].pc != 'h0);
 assign pc_cp = spec_entry[se_ptr_t].pc;
 
 `endif
