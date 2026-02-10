@@ -19,6 +19,7 @@ from multiprocessing import Manager, Pool
 from ruamel.yaml import YAML
 
 CC_RED = "91m"
+CC_YELLOW = "93m"
 CC_GREEN = "32m"
 INDENT = " " * 4
 TEST_LOG = "test.log"
@@ -168,6 +169,9 @@ def check_test_status(test_log_path, test_name):
         return False, f"{TEST_LOG} not found at {test_log_path}. " + \
             "Cannot determine test result."
 
+def color_code_string(str, color_code):
+    return f"\033[{color_code}{str}\033[0m"
+
 def build_tb(build_dir, force_rebuild):
     if os.path.exists(build_dir):
         shutil.rmtree(build_dir)
@@ -228,7 +232,8 @@ def run_test(test_path, run_dir, build_dir, make_args, cnt, keep_pass=False):
                 with open(p['status_file'], 'r') as status_file:
                     status = status_file.read()
                     if "PASSED" in status:
-                        print(f"Test <{test_name}> already PASSED. Skipping.")
+                        print(f"Test <{test_name}> already passed.",
+                              color_code_string("Skipping", CC_YELLOW))
                         return
         shutil.rmtree(p['test_dir'])
 
@@ -272,8 +277,10 @@ def run_test(test_path, run_dir, build_dir, make_args, cnt, keep_pass=False):
     s, msg = check_test_status(p['test_log'], test_name)
 
     status_str = "PASSED" if s else "FAILED"
+    cc = CC_GREEN if s else CC_RED
     txt = f"Test <{test_name}>"
     print(txt, status_str, end=' ')
+    print(txt, color_code_string(status_str, cc), end=' ')
     print_runtime(start_time)
     if msg:
         print(msg.strip())
@@ -406,7 +413,7 @@ def main():
                 else:
                     tests_passed += 1
                     cc = CC_GREEN
-                print(f"\033[{cc}{status}\033[0m", end='')
+                print(color_code_string(status, cc), end='')
         else:
             print(f"Status for <{test_name}> not found.")
             all_tests_passed = False
@@ -414,9 +421,9 @@ def main():
     print(f"\nTest suite DONE. Pass rate: {tests_passed}/{tests_num} passed;",
           end=" ")
     if all_tests_passed:
-        print(f"\033[{CC_GREEN}Test suite PASSED.\033[0m")
+        print(color_code_string("Test suite PASSED.", CC_GREEN))
     else:
-        print(f"\033[{CC_RED}Test suite FAILED.\033[0m")
+        print(color_code_string("Test suite FAILED.", CC_RED))
         print("\nFailed tests:", end='')
         print("".join(failed_tests))
 
