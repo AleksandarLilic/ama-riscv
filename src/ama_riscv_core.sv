@@ -675,7 +675,9 @@ always_comb begin
     endcase
 end
 
-assign inst_to_be_retired = (pc_nz.wbk && (!flush.wbk));
+assign inst_to_be_retired = (
+    pc_nz.wbk && !(ctrl_wbk_ret.flush || ctrl_wbk_ret.bubble)
+);
 
 //------------------------------------------------------------------------------
 // retire
