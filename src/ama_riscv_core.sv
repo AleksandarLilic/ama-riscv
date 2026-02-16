@@ -32,7 +32,7 @@ logic stall_act_flow;
 
 //------------------------------------------------------------------------------
 // FET Stage
-arch_width_t imem_addr, pc_inc4, pc_branch_jal, pc_new_mem;
+arch_width_t pc_fet_last, pc_inc4, pc_branch_jal, pc_new_mem;
 fe_ctrl_t fe_ctrl;
 logic be_stalled_d;
 decoder_t decoded; // from decode
@@ -40,25 +40,25 @@ decoder_t decoded; // from decode
 `ifdef USE_BP
 arch_width_t pc_fet_cp; // checkpoint fetch PC before going to speculative
 arch_width_t pc_fet_cp_get;
-assign pc_fet_cp_get = fe_ctrl.use_cp ? pc_fet_cp : pc.fet;
+assign pc_fet_cp_get = fe_ctrl.use_cp ? pc_fet_cp : pc_fet_last;
 assign pc_inc4 = (pc_fet_cp_get + 'd4);
 branch_t bp_pred;
 `else
-assign pc_inc4 = (pc.fet + 'd4);
+assign pc_inc4 = (pc_fet_last + 'd4);
 `endif
 
 always_comb begin
     unique case (fe_ctrl.pc_sel)
-        PC_SEL_PC: imem_addr = pc.fet;
-        PC_SEL_INC4: imem_addr = pc_inc4;
-        PC_SEL_ALU: imem_addr = pc_new_mem;
-        PC_SEL_JAL_BP: imem_addr = pc_branch_jal;
-        default: imem_addr = pc.fet;
+        PC_SEL_PC: pc.fet = pc_fet_last;
+        PC_SEL_INC4: pc.fet = pc_inc4;
+        PC_SEL_ALU: pc.fet = pc_new_mem;
+        PC_SEL_JAL_BP: pc.fet = pc_branch_jal;
+        default: pc.fet = pc_fet_last;
     endcase
 end
-assign imem_req.data = imem_addr[15:2];
+assign imem_req.data = pc.fet[15:2];
 
-`DFF_CI_RI_RV_EN(`RESET_VECTOR, fe_ctrl.pc_we, imem_addr, pc.fet)
+`DFF_CI_RI_RV_EN(`RESET_VECTOR, fe_ctrl.pc_we, pc.fet, pc_fet_last)
 
 //------------------------------------------------------------------------------
 // DEC Stage
@@ -70,9 +70,9 @@ always_comb begin
         inst.dec = inst_dec_d;
         pc.dec = pc_dec_d;
     end else begin
-        pc.dec = pc.fet;
         // even if be in stall, take inst if imem_rsp.valid
         // happens when i$ missed before be stalled
+        pc.dec = imem_rsp.valid ? pc_fet_last : 'h0;
         inst.dec = imem_rsp.valid ? imem_rsp.data : 'h0;
     end
 end
