@@ -125,4 +125,67 @@ DPI_LINKER_DECL DPI_DLLESPEC
 	const hw_events_t* bp);
 
 
+/* Imported (by SV) function */
+DPI_LINKER_DECL DPI_DLLESPEC 
+ void konata_open(
+	const char* outdir);
+
+
+/* Imported (by SV) function */
+DPI_LINKER_DECL DPI_DLLESPEC 
+ void konata_cycle(
+	uint64_t cycle);
+
+
+/* Imported (by SV) function */
+DPI_LINKER_DECL DPI_DLLESPEC 
+ void konata_inst(
+	unsigned int id);
+
+
+/* Imported (by SV) function */
+DPI_LINKER_DECL DPI_DLLESPEC 
+ void konata_label(
+	unsigned int id ,
+	unsigned int pc ,
+	unsigned int inst ,
+	const char* inst_asm_str);
+
+
+/* Imported (by SV) function */
+DPI_LINKER_DECL DPI_DLLESPEC 
+ void konata_label_str(
+	unsigned int id ,
+	unsigned int lane ,
+	const char* str);
+
+
+/* Imported (by SV) function */
+DPI_LINKER_DECL DPI_DLLESPEC 
+ void konata_start_stage(
+	unsigned int id ,
+	const char* stage);
+
+
+/* Imported (by SV) function */
+DPI_LINKER_DECL DPI_DLLESPEC 
+ void konata_end_stage(
+	unsigned int id ,
+	const char* stage);
+
+
+/* Imported (by SV) function */
+DPI_LINKER_DECL DPI_DLLESPEC 
+ void konata_retire(
+	unsigned int id ,
+	unsigned int retire_id ,
+	char is_flush);
+
+
+/* Imported (by SV) function */
+DPI_LINKER_DECL DPI_DLLESPEC 
+ void konata_close(
+);
+
+
 #endif

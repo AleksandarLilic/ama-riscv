@@ -62,6 +62,44 @@ import "DPI-C" function void cosim_log_stats(
 
 `endif // ENABLE_COSIM
 
+`ifdef ENABLE_KONATA
+import "DPI-C" function void konata_open(input string outdir);
+import "DPI-C" function void konata_cycle(input longint unsigned cycle);
+import "DPI-C" function void konata_inst(input int unsigned id);
+
+import "DPI-C" function void konata_label(
+    input int unsigned id,
+    input int unsigned pc,
+    input int unsigned inst,
+    input string inst_asm_str
+);
+
+import "DPI-C" function void konata_label_str(
+    input int unsigned id,
+    input int unsigned lane,
+    input string str
+);
+
+import "DPI-C" function void konata_start_stage(
+    input int unsigned id,
+    input string stage
+);
+
+import "DPI-C" function void konata_end_stage(
+    input int unsigned id,
+    input string stage
+);
+
+import "DPI-C" function void konata_retire(
+    input int unsigned id,
+    input int unsigned retire_id,
+    input byte unsigned is_flush
+);
+
+import "DPI-C" function void konata_close();
+
+`endif // ENABLE_KONATA
+
 //------------------------------------------------------------------------------
 // Testbench variables
 plusargs_t args;
@@ -106,6 +144,7 @@ int uart_char; // wider than char so it can fit and print specials like newline
 event go_in_reset;
 event reset_end;
 
+// DUT and its ports
 logic clk = 1;
 logic rst;
 logic inst_retired;
@@ -117,13 +156,17 @@ ama_riscv_top #(.CLOCK_FREQ (CLOCK_FREQ), .UART_BR (BR_921600)) `DUT ( .* );
 bind `CORE ama_riscv_core_view ama_riscv_core_view_i (
     .clk (clk),
     .rst (rst),
+    .imem_req (imem_req),
+    .imem_rsp (imem_rsp),
     .dmem_req (dmem_req),
+    .spec_wrong (spec_wrong),
     .inst_retired (inst_retired),
     // internal
     .ctrl_dec_exe (ctrl_dec_exe),
     .ctrl_exe_mem (ctrl_exe_mem),
     .ctrl_mem_wbk (ctrl_mem_wbk),
     .ctrl_wbk_ret (ctrl_wbk_ret),
+    .be_stalled_d (be_stalled_d),
     .decoded_exe (decoded_exe),
     .branch_resolution_mem (branch_resolution_mem),
     .csr_tohost (`CSR.csr.tohost), // this
@@ -529,6 +572,38 @@ task automatic single_step();
     cosim_log_stats(core_events, e_ic, e_dc, e_bp);
     `endif
 
+    `ifdef ENABLE_KONATA
+    // advance cycle - sets the time for all events this cycle
+    konata_cycle(clk_cnt - `RST_PULSES);
+    if (`CORE_VIEW.k_valid.fet) begin
+        konata_inst(`CORE_VIEW.k_id.fet);
+        konata_start_stage(`CORE_VIEW.k_id.fet, "F");
+    end
+
+    if (`CORE_VIEW.k_valid.dec) konata_start_stage(`CORE_VIEW.k_id.dec, "D");
+    if (`CORE_VIEW.k_valid.exe) konata_start_stage(`CORE_VIEW.k_id.exe, "E");
+    if (`CORE_VIEW.k_valid.mem) konata_start_stage(`CORE_VIEW.k_id.mem, "M");
+    if (`CORE_VIEW.k_valid.wbk) konata_start_stage(`CORE_VIEW.k_id.wbk, "W");
+
+    // speculative exec gone wrong
+    if (`CORE_VIEW.spec_wrong_on_ic_miss) begin
+        konata_retire(`CORE_VIEW.k_id.dec, 0, 1);
+        konata_label(`CORE_VIEW.k_id.dec, `CORE.pc_fet_last, 'h0, "f fet");
+    end else begin
+        if (`CORE_VIEW.spec_wrong && (!`CORE_VIEW.spec_wrong_on_jump)) begin
+            // if it stalls on jump, nothing to flush
+            konata_retire(`CORE_VIEW.k_id.dec, 0, 1);
+            konata_label(
+                `CORE_VIEW.k_id.dec, `CORE.pc.dec, `CORE.inst.dec, "f dec");
+        end
+        if (`CORE_VIEW.spec_wrong) begin
+            konata_retire(`CORE_VIEW.k_id.exe, 0, 1);
+            konata_label(
+                `CORE_VIEW.k_id.exe, `CORE.pc.exe, `CORE.inst.exe, "f exe");
+        end
+    end
+    `endif
+
     // cosim advances only if rtl retires an instruction
     if (!inst_retired) begin
         `LOG_V("Core [R] empty cycle");
@@ -561,6 +636,16 @@ task automatic single_step();
         end
     end
     `endif
+
+    `ifdef ENABLE_KONATA
+    if (`CORE_VIEW.k_valid.ret) begin
+        konata_retire(`CORE_VIEW.k_id.ret, 0, 0);
+        konata_label(
+            `CORE_VIEW.k_id.ret, cosim.pc, cosim.inst, cosim_str.inst_asm);
+        konata_label_str(`CORE_VIEW.k_id.ret, 1, cosim_str.stack_top);
+    end
+    `endif
+
 endtask
 
 task run_test();
@@ -701,6 +786,10 @@ initial begin
     );
     `endif
 
+    `ifdef ENABLE_KONATA
+    konata_open(cosim_outdir);
+    `endif
+
     ->go_in_reset;
     @reset_end;
     `LOG_I("Reset released");
@@ -763,6 +852,10 @@ initial begin
 
     if (args.cosim_chk_en) cosim_check_inst_cnt();
     cosim_finish();
+    `endif
+
+    `ifdef ENABLE_KONATA
+    konata_close();
     `endif
 
     $display("");

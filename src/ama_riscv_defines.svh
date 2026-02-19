@@ -49,6 +49,9 @@
 `define IT_P_NT(p, limit) for (p = 0; p < (limit); p++)
 `define IT_P_I(p, init, limit) for (int p = (init); p < (limit); p++)
 
+`define STAGE_VALID(stage) \
+    (stage.en && !stage.flush && !stage.bubble)
+
 `define FE_CTRL_INIT_VAL \
     '{ \
         pc_sel: PC_SEL_INC4, \

@@ -6,13 +6,17 @@ module ama_riscv_core_view (
     // top level signals
     input logic clk,
     input logic rst,
+    rv_if.TX imem_req,
+    rv_if.RX imem_rsp,
     rv_if_dc.TX dmem_req,
+    input logic spec_wrong,
     input logic inst_retired,
     // internal signals
     input stage_ctrl_t ctrl_dec_exe,
     input stage_ctrl_t ctrl_exe_mem,
     input stage_ctrl_t ctrl_mem_wbk,
     input stage_ctrl_t ctrl_wbk_ret,
+    input logic be_stalled_d,
     input decoder_t decoded_exe,
     input branch_t branch_resolution_mem,
     input arch_width_t csr_tohost,
@@ -34,6 +38,9 @@ pipeline_if_typed #(.T(inst_shadow_t)) inst_shadow ();
 inst_shadow_t inst_shadow_ret;
 pipeline_if_s nop ();
 pipeline_if_s flush ();
+pipeline_if_s k_valid ();
+pipeline_if_s k_valid_id ();
+pipeline_if #(.W(64)) k_id ();
 retired_t r;
 
 function automatic inst_shadow_t classify_inst(input inst_width_t inst);
@@ -139,5 +146,54 @@ pipeline_if_s bubble ();
     (ctrl_mem_wbk.bubble || bubble.mem),
     bubble.wbk
 );
+
+// konata
+assign k_valid.fet = s_valid.fet;
+assign k_valid.dec = s_valid.dec;
+assign k_valid.exe = s_valid.exe;
+assign k_valid.mem = s_valid.mem;
+assign k_valid.wbk = s_valid.wbk;
+assign k_valid.ret = s_valid.ret;
+
+logic spec_wrong_on_ic_miss;
+assign spec_wrong_on_ic_miss = (spec_wrong && !imem_req.ready);
+
+logic spec_wrong_on_jump;
+assign spec_wrong_on_jump = (spec_wrong && decoded_exe.itype.jalr);
+
+logic [3:0] spec_wrong_d;
+`DFF_CI_RI_RVI({spec_wrong_d[2:0], spec_wrong}, spec_wrong_d);
+
+assign k_valid_id.fet = k_valid.fet;
+assign k_valid_id.dec = (k_valid.dec || spec_wrong);
+assign k_valid_id.exe = (k_valid.exe || (spec_wrong_d[0] && !dc_stalled));
+assign k_valid_id.mem = (k_valid.mem || (spec_wrong_d[1] && !dc_stalled));
+assign k_valid_id.wbk = (k_valid.wbk || (spec_wrong_d[2] && !dc_stalled));
+assign k_valid_id.ret = (k_valid.ret || (|spec_wrong_d[3:2]));
+
+`DFF_CI_RI_RVI_EN(k_valid_id.fet, (k_id.fet + 1), k_id.fet)
+`DFF_CI_RI_RVI_EN(k_valid_id.dec, k_id.fet, k_id.dec)
+`DFF_CI_RI_RVI_EN(k_valid_id.exe, k_id.dec, k_id.exe)
+`DFF_CI_RI_RVI_EN(k_valid_id.mem, k_id.exe, k_id.mem)
+`DFF_CI_RI_RVI_EN(k_valid_id.wbk, k_id.mem, k_id.wbk)
+`DFF_CI_RI_RVI_EN(k_valid_id.ret, k_id.wbk, k_id.ret)
+
+/*
+// mostly for debug
+typedef struct {
+    logic v;
+    logic [63:0] id;
+    arch_width_t pc;
+    inst_width_t inst;
+} konata_entry_t;
+pipeline_if_typed #(.T(konata_entry_t)) ke ();
+
+assign ke.fet = '{k_valid.fet, k_id.fet, pc.fet, 'h0};
+assign ke.dec = '{k_valid.dec, k_id.dec, pc.dec, inst.dec};
+assign ke.exe = '{k_valid.exe, k_id.exe, pc.exe, inst.exe};
+assign ke.mem = '{k_valid.mem, k_id.mem, pc.mem, inst.mem};
+assign ke.wbk = '{k_valid.wbk, k_id.wbk, pc.wbk, inst.wbk};
+assign ke.ret = '{k_valid.ret, k_id.ret, pc.ret, inst.ret};
+*/
 
 endmodule
