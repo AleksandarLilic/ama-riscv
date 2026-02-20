@@ -23,10 +23,6 @@ pipeline_if_s flush ();
 pipeline_if_s pc_nz ();
 pipeline_if_typed #(.T(wb_sel_t)) wb_sel ();
 
-`ifndef SYNT
-pipeline_if_s s_valid ();
-`endif
-
 // Reset sequence
 logic [PIPE_STAGES-1:0] reset_seq;
 `DFF_CI_RI_RV(RST_INIT, {reset_seq[PIPE_STAGES-2:0], 1'b0}, reset_seq)
@@ -68,7 +64,6 @@ assign imem_req.data = pc.fet[15:2];
 
 `ifndef SYNT
 assign pc_nz.fet = (pc.fet != 'h0);
-assign s_valid.fet = (imem_req.valid && (imem_req.ready || spec_wrong));
 `endif
 
 //------------------------------------------------------------------------------
@@ -392,7 +387,6 @@ assign ctrl_dec_exe = '{
 `ifndef SYNT
 `STAGE_D_E(1'b1, inst.dec, inst.exe, 'h0)
 assign pc_nz.dec = (pc.dec != 'h0);
-assign s_valid.dec = (`STAGE_VALID(ctrl_dec_exe) && pc_nz.dec);
 `endif
 `STAGE_D_E(1'b1, pc.dec, pc.exe, 'h0)
 `STAGE_D_E(1'b1, rd_addr.dec, rd_addr.exe, RF_X0_ZERO)
@@ -590,7 +584,6 @@ arch_width_t rs3_mem;
 
 `ifndef SYNT
 `STAGE_E_M(1'b1, inst.exe, inst.mem, 'h0)
-assign s_valid.exe = (`STAGE_VALID(ctrl_exe_mem) && pc_nz.exe);
 `endif
 `STAGE_E_M(1'b1, pc.exe, pc.mem, 'h0)
 `STAGE_E_M(1'b1, pc_nz.exe, pc_nz.mem, 'h0)
@@ -659,7 +652,6 @@ arch_width_t e_writeback_wbk, simd_out_wbk;
 `ifndef SYNT
 `STAGE_M_W(1'b1, inst.mem, inst.wbk, 'h0)
 `STAGE_M_W(1'b1, pc.mem, pc.wbk, 'h0)
-assign s_valid.mem = (`STAGE_VALID(ctrl_mem_wbk) && pc_nz.mem);
 `endif
 `STAGE_M_W(1'b1, pc_nz.mem, pc_nz.wbk, 1'b0)
 `STAGE_M_W(simd_arith_mem, simd_out_mem, simd_out_wbk, 'h0)
@@ -701,8 +693,6 @@ logic simd_inst_ret;
 `ifndef SYNT
 `STAGE_W_R(1'b1, inst.wbk, inst.ret, 'h0)
 `STAGE_W_R(1'b1, pc.wbk, pc.ret, 'h0)
-assign s_valid.wbk = (`STAGE_VALID(ctrl_wbk_ret) && pc_nz.wbk);
-`DFF_CI_RI_RVI(inst_to_be_retired, s_valid.ret)
 `endif
 `STAGE_W_R(1'b1, pc_nz.wbk, pc_nz.ret, 1'b0)
 `STAGE_W_R(1'b1, simd_inst_wbk, simd_inst_ret, 'h0)

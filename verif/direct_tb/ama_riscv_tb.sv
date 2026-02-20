@@ -588,18 +588,16 @@ task automatic single_step();
     // speculative exec gone wrong
     if (`CORE_VIEW.spec_wrong_on_ic_miss) begin
         konata_retire(`CORE_VIEW.k_id.dec, 0, 1);
-        konata_label(`CORE_VIEW.k_id.dec, `CORE.pc_fet_last, 'h0, "f fet");
+        konata_label(`CORE_VIEW.k_id.dec, `CORE.pc_fet_last, 'h0, "");
     end else begin
-        if (`CORE_VIEW.spec_wrong && (!`CORE_VIEW.spec_wrong_on_jump)) begin
+        if (`CORE_VIEW.spec_wrong && (!`CORE_VIEW.spec_wrong_on_jump_exe)) begin
             // if it stalls on jump, nothing to flush
             konata_retire(`CORE_VIEW.k_id.dec, 0, 1);
-            konata_label(
-                `CORE_VIEW.k_id.dec, `CORE.pc.dec, `CORE.inst.dec, "f dec");
+            konata_label(`CORE_VIEW.k_id.dec, `CORE.pc.dec, `CORE.inst.dec, "");
         end
         if (`CORE_VIEW.spec_wrong) begin
             konata_retire(`CORE_VIEW.k_id.exe, 0, 1);
-            konata_label(
-                `CORE_VIEW.k_id.exe, `CORE.pc.exe, `CORE.inst.exe, "f exe");
+            konata_label(`CORE_VIEW.k_id.exe, `CORE.pc.exe, `CORE.inst.exe, "");
         end
     end
     `endif
