@@ -159,7 +159,7 @@ bind `CORE ama_riscv_core_view ama_riscv_core_view_i (
     .imem_req (imem_req),
     .imem_rsp (imem_rsp),
     .dmem_req (dmem_req),
-    .spec_wrong (spec_wrong),
+    .spec (spec),
     .inst_retired (inst_retired),
     // internal
     .ctrl_dec_exe (ctrl_dec_exe),
@@ -590,12 +590,12 @@ task automatic single_step();
         konata_retire(`CORE_VIEW.k_id.dec, 0, 1);
         konata_label(`CORE_VIEW.k_id.dec, `CORE.pc_fet_last, 'h0, "");
     end else begin
-        if (`CORE_VIEW.spec_wrong && (!`CORE_VIEW.spec_wrong_on_jump_exe)) begin
+        if (`CORE_VIEW.spec.wrong && (!`CORE_VIEW.spec_wrong_on_jump_exe)) begin
             // if it stalls on jump, nothing to flush
             konata_retire(`CORE_VIEW.k_id.dec, 0, 1);
             konata_label(`CORE_VIEW.k_id.dec, `CORE.pc.dec, `CORE.inst.dec, "");
         end
-        if (`CORE_VIEW.spec_wrong) begin
+        if (`CORE_VIEW.spec.wrong) begin
             konata_retire(`CORE_VIEW.k_id.exe, 0, 1);
             konata_label(`CORE_VIEW.k_id.exe, `CORE.pc.exe, `CORE.inst.exe, "");
         end

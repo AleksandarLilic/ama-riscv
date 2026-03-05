@@ -9,7 +9,7 @@ module ama_riscv_core_view (
     rv_if.TX imem_req,
     rv_if.RX imem_rsp,
     rv_if_dc.TX dmem_req,
-    input logic spec_wrong,
+    input spec_exec_t spec,
     input logic inst_retired,
     // internal signals
     input stage_ctrl_t ctrl_dec_exe,
@@ -148,7 +148,7 @@ pipeline_if_s bubble ();
 );
 
 // konata
-assign k_valid.fet = (imem_req.valid && (imem_req.ready || spec_wrong));
+assign k_valid.fet = (imem_req.valid && (imem_req.ready || spec.wrong));
 assign k_valid.dec = (`STAGE_VALID(ctrl_dec_exe) && pc_nz.dec);
 assign k_valid.exe = (`STAGE_VALID(ctrl_exe_mem) && pc_nz.exe);
 assign k_valid.mem = (`STAGE_VALID(ctrl_mem_wbk) && pc_nz.mem);
@@ -156,16 +156,16 @@ assign k_valid.wbk = (`STAGE_VALID(ctrl_wbk_ret) && pc_nz.wbk);
 assign k_valid.ret = inst_retired;
 
 logic spec_wrong_on_ic_miss;
-assign spec_wrong_on_ic_miss = (spec_wrong && !imem_req.ready);
+assign spec_wrong_on_ic_miss = (spec.wrong && !imem_req.ready);
 
 logic spec_wrong_on_jump_exe;
-assign spec_wrong_on_jump_exe = (spec_wrong && decoded_exe.itype.jalr);
+assign spec_wrong_on_jump_exe = (spec.wrong && decoded_exe.itype.jalr);
 
 logic [3:0] spec_wrong_d;
-`DFF_CI_RI_RVI({spec_wrong_d[2:0], spec_wrong}, spec_wrong_d);
+`DFF_CI_RI_RVI({spec_wrong_d[2:0], spec.wrong}, spec_wrong_d);
 
 assign k_valid_id.fet = k_valid.fet;
-assign k_valid_id.dec = (k_valid.dec || spec_wrong);
+assign k_valid_id.dec = (k_valid.dec || spec.wrong);
 assign k_valid_id.exe = (k_valid.exe || (spec_wrong_d[0] && !dc_stalled));
 assign k_valid_id.mem = (k_valid.mem || (spec_wrong_d[1] && !dc_stalled));
 assign k_valid_id.wbk = (k_valid.wbk || (spec_wrong_d[2] && !dc_stalled));
