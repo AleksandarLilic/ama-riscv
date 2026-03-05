@@ -9,7 +9,9 @@ module ama_riscv_icache #(
 )(
     input  logic clk,
     input  logic rst,
+    /* verilator lint_off UNUSEDSIGNAL */
     input  spec_exec_t spec,
+    /* verilator lint_on UNUSEDSIGNAL */
     output perf_event_icache_t pe,
     rv_if.RX req_core,
     rv_if.TX rsp_core,
@@ -434,11 +436,21 @@ assign rsp_core.data =
     bank_data[way_idx_d][(word_in_bank_line_addr*INST_WIDTH) +: INST_WIDTH];
 
 // perf events
+logic [1:0] spec_miss_cnt;
+logic has_spec_miss, spec_miss_resolved;
+assign spec_miss_resolved = (has_spec_miss && spec.resolve);
+assign has_spec_miss = (spec_miss_cnt != 0);
+always_ff @(posedge clk) begin
+    if (rst) spec_miss_cnt <= 'h0;
+    else if (pe.spec_miss) spec_miss_cnt <= (spec_miss_cnt + '1);
+    else if (spec_miss_resolved) spec_miss_cnt <= (spec_miss_cnt - '1);
+end
+
 assign pe.hit = hit;
 assign pe.miss = miss;
-assign pe.spec_miss = (miss && spec.enter);
-assign pe.spec_miss_bad = (((state == IC_MISS) || miss_d) && spec.wrong);
-assign pe.spec_miss_good = ((state == IC_MISS) && spec.resolve && !spec.wrong);
+assign pe.spec_miss = (miss && spec.exec_n);
+assign pe.spec_miss_bad = (has_spec_miss && spec.wrong);
+assign pe.spec_miss_good = (has_spec_miss && spec.resolve && !spec.wrong);
 
 //------------------------------------------------------------------------------
 // debug views

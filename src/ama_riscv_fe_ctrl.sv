@@ -415,6 +415,7 @@ end
 spec_entry_t spec_entry[2];
 logic se_ptr_h, se_ptr_t; // head and tail pointers for speculative entry
 logic branch_queued;
+exec_state_t state_e, nx_state_e;
 
 logic save_spec_entry, clear_spec_entry;
 assign spec.enter = (
@@ -428,9 +429,7 @@ assign bp_hit = (
 );
 assign bp_miss = (spec.resolve && !bp_hit);
 assign spec.wrong = bp_miss;
-
-// speculative execution FSM
-exec_state_t state_e, nx_state_e;
+assign spec.exec_n = (nx_state_e == SPEC_E);
 
 // state transition
 `DFF_CI_RI_RV(NS_E, nx_state_e, state_e)
