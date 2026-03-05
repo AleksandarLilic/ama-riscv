@@ -437,7 +437,7 @@ assign rsp_core.data =
 assign pe.hit = hit;
 assign pe.miss = miss;
 assign pe.spec_miss = (miss && spec.enter);
-assign pe.spec_miss_bad = ((state == IC_MISS) && spec.wrong);
+assign pe.spec_miss_bad = (((state == IC_MISS) || miss_d) && spec.wrong);
 assign pe.spec_miss_good = ((state == IC_MISS) && spec.resolve && !spec.wrong);
 
 //------------------------------------------------------------------------------
