@@ -9,7 +9,8 @@ module ama_riscv_icache #(
 )(
     input  logic clk,
     input  logic rst,
-    input  logic spec_wrong,
+    input  spec_exec_t spec,
+    output perf_event_icache_t pe,
     rv_if.RX req_core,
     rv_if.TX rsp_core,
     rv_if.TX req_mem,
@@ -232,7 +233,7 @@ end // gen_dmap/assoc
 //------------------------------------------------------------------------------
 // handling requests
 
-assign new_core_req = (req_core.valid && (req_core.ready || spec_wrong));
+assign new_core_req = (req_core.valid && (req_core.ready || spec.wrong));
 `DFF_CI_RI_RVI(new_core_req, new_core_req_d)
 `DFF_CI_RI_RVI_EN(new_core_req, cr.addr, cr_d_addr)
 `DFF_CI_RI_RVI_EN(new_core_req, hit, hit_d)
@@ -262,7 +263,7 @@ end
 
 mem_miss_cnt_t mem_miss_cnt, mem_miss_cnt_d;
 `DFF_CI_RI_RVI_CLR_CLRVI_EN(
-    spec_wrong, req_mem.valid, (mem_miss_cnt + 'h1), mem_miss_cnt)
+    spec.wrong, req_mem.valid, (mem_miss_cnt + 'h1), mem_miss_cnt)
 
 logic [MEM_ADDR_BUS-1:0] mem_miss_cnt_pad;
 assign mem_miss_cnt_pad =
@@ -285,7 +286,7 @@ logic [TAG_W-1:0] tag_pend;
 assign tag_pend = cr_pend.mem_start_addr[MEM_ADDR_BUS-1 -: TAG_W];
 
 logic mem_to_cache_wr;
-assign mem_to_cache_wr = (rsp_mem.valid && (state == IC_MISS) && !spec_wrong);
+assign mem_to_cache_wr = (rsp_mem.valid && (state == IC_MISS) && !spec.wrong);
 always_comb begin
     `IT_P(w, WAYS) begin
         bank_we[w] = (
@@ -355,11 +356,11 @@ always_comb begin
         end
 
         IC_READY: begin
-            if (miss_d && (!spec_wrong)) nx_state = IC_MISS;
+            if (miss_d && (!spec.wrong)) nx_state = IC_MISS;
         end
 
         IC_MISS: begin
-            if (mem_transfer_done_d || spec_wrong) nx_state = IC_READY;
+            if (mem_transfer_done_d || spec.wrong) nx_state = IC_READY;
         end
 
         default: ;
@@ -397,7 +398,7 @@ always_comb begin
             end else if (new_core_req_d) begin
                 if (hit_d) begin
                     rsp_core.valid = 1'b1;
-                end else if (!spec_wrong) begin
+                end else if (!spec.wrong) begin
                     // TODO: move all miss handling to MISS state (for timing)?
                     // handle miss, initiate memory read
                     // NOTE: doesn't check for main mem ready
@@ -421,7 +422,7 @@ always_comb begin
             end
             // if at any point during a speculative miss this turns out to be
             // wrong path, clear wrong pending request and go to ready
-            clear_pending = spec_wrong;
+            clear_pending = spec.wrong;
         end
 
         default: ;
@@ -431,6 +432,13 @@ end
 
 assign rsp_core.data =
     bank_data[way_idx_d][(word_in_bank_line_addr*INST_WIDTH) +: INST_WIDTH];
+
+// perf events
+assign pe.hit = hit;
+assign pe.miss = miss;
+assign pe.spec_miss = (miss && spec.enter);
+assign pe.spec_miss_bad = ((state == IC_MISS) && spec.wrong);
+assign pe.spec_miss_good = ((state == IC_MISS) && spec.resolve && !spec.wrong);
 
 //------------------------------------------------------------------------------
 // debug views

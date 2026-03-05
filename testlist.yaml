@@ -21,7 +21,8 @@ simple:
 
 pref_cnts:
   - ["sim/sw/baremetal/asm_rv32i_zihpm", "basic.hex"]
-  - ["sim/sw/baremetal/rv32i_zihpm", "basic.hex"]
+  - ["sim/sw/baremetal/rv32i_zihpm_tda", "test.hex"]
+  - ["sim/sw/baremetal/rv32i_zihpm_all", "test.hex"]
 
 dcache:
   - ["sim/sw/baremetal/dcache_set_thrashing", "basic.hex"]

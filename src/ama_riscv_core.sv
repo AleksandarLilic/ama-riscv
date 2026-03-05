@@ -5,12 +5,14 @@ module ama_riscv_core #(
 )(
     input  logic clk,
     input  logic rst,
+    input perf_event_icache_t pe_ic,
+    input perf_event_dcache_t pe_dc,
     rv_if.TX     imem_req,
     rv_if.RX     imem_rsp,
     rv_if_dc.TX  dmem_req,
     rv_if.RX     dmem_rsp,
     uart_if.TX   uart_ch,
-    output logic spec_wrong,
+    output spec_exec_t spec,
     output logic inst_retired
 );
 
@@ -29,7 +31,7 @@ logic [PIPE_STAGES-1:0] reset_seq;
 
 // pipe stage controls
 stage_ctrl_t ctrl_dec_exe, ctrl_exe_mem, ctrl_mem_wbk, ctrl_wbk_ret;
-perf_event_t perf_event;
+perf_event_t perf_events;
 logic stall_act_flow;
 
 //------------------------------------------------------------------------------
@@ -98,7 +100,6 @@ logic dc_stalled;
 logic branch_inst_mem, jalr_inst_mem;
 branch_t branch_resolution_mem;
 hazard_t hazard;
-spec_exec_t spec;
 rv_ctrl_if imem_req_rv ();
 rv_ctrl_if imem_rsp_rv ();
 assign imem_req_rv.ready = imem_req.ready;
@@ -133,8 +134,6 @@ ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     .spec (spec), // tied to 0 when BP is not used
     .fe_ctrl (fe_ctrl)
 );
-
-assign spec_wrong = spec.wrong; // module output
 
 arch_width_t e_writeback_mem, data_fmt_out_p_mem; // from MEM stage
 arch_width_t writeback, data_fmt_out_p_wbk; // from WBK stage
@@ -385,9 +384,9 @@ assign ctrl_dec_exe = '{
 };
 
 `ifndef SYNT
-`STAGE_D_E(1'b1, inst.dec, inst.exe, 'h0)
 assign pc_nz.dec = (pc.dec != 'h0);
 `endif
+`STAGE_D_E(1'b1, inst.dec, inst.exe, 'h0)
 `STAGE_D_E(1'b1, pc.dec, pc.exe, 'h0)
 `STAGE_D_E(1'b1, rd_addr.dec, rd_addr.exe, RF_X0_ZERO)
 `STAGE_D_E(1'b1, rs1_addr_dec, rs1_addr_exe, RF_X0_ZERO)
@@ -511,7 +510,7 @@ ama_riscv_csr #(
     .imm5 (csr_imm5_exe),
     .addr (csr_addr_exe),
     .inst_to_be_retired (inst_to_be_retired),
-    .perf_event (perf_event),
+    .perf_events (perf_events),
     .out (csr_out_exe)
 );
 
@@ -582,9 +581,7 @@ dmem_req_side_t dmem_req_mem;
 uart_ch_side_t uart_ch_mem;
 arch_width_t rs3_mem;
 
-`ifndef SYNT
 `STAGE_E_M(1'b1, inst.exe, inst.mem, 'h0)
-`endif
 `STAGE_E_M(1'b1, pc.exe, pc.mem, 'h0)
 `STAGE_E_M(1'b1, pc_nz.exe, pc_nz.mem, 'h0)
 `STAGE_E_M(rf_we.exe.rd, e_writeback_exe, e_writeback_mem, 'h0)
@@ -650,9 +647,9 @@ logic simd_inst_wbk, map_uart_wbk;
 arch_width_t e_writeback_wbk, simd_out_wbk;
 
 `ifndef SYNT
-`STAGE_M_W(1'b1, inst.mem, inst.wbk, 'h0)
 `STAGE_M_W(1'b1, pc.mem, pc.wbk, 'h0)
 `endif
+`STAGE_M_W(1'b1, inst.mem, inst.wbk, 'h0)
 `STAGE_M_W(1'b1, pc_nz.mem, pc_nz.wbk, 1'b0)
 `STAGE_M_W(simd_arith_mem, simd_out_mem, simd_out_wbk, 'h0)
 `STAGE_M_W(rf_we.mem.rd, e_writeback_mem, e_writeback_wbk, 'h0)
@@ -691,9 +688,9 @@ assign ctrl_wbk_ret = '{flush: flush.wbk, en: 1'b1, bubble: (!ctrl_mem_wbk.en)};
 logic simd_inst_ret;
 
 `ifndef SYNT
-`STAGE_W_R(1'b1, inst.wbk, inst.ret, 'h0)
 `STAGE_W_R(1'b1, pc.wbk, pc.ret, 'h0)
 `endif
+`STAGE_W_R(1'b1, inst.wbk, inst.ret, 'h0)
 `STAGE_W_R(1'b1, pc_nz.wbk, pc_nz.ret, 1'b0)
 `STAGE_W_R(1'b1, simd_inst_wbk, simd_inst_ret, 'h0)
 
@@ -701,20 +698,46 @@ assign inst_retired = pc_nz.ret;
 
 //------------------------------------------------------------------------------
 // perf
-perf_event_t get_pe;
+perf_event_t cpe; // collect perf events
 always_comb begin
-    get_pe = '{0, 0, 0, 0, 0, 0};
-    get_pe.bad_spec = spec.wrong;
-    get_pe.ret_simd = (inst_retired && simd_inst_ret);
-    if (!get_pe.bad_spec) begin
-        get_pe.be = (dc_stalled || hazard.to_exe);
-        get_pe.be_dc = dc_stalled;
-        get_pe.fe = (!get_pe.be && (stall_act_flow || !imem_req.ready));
-        get_pe.fe_ic = (!get_pe.be && (!imem_req.ready));
+    cpe = '0;
+    // tda
+    cpe.bad_spec = spec.wrong;
+    cpe.ret_simd = (inst_retired && simd_inst_ret);
+    if (!cpe.bad_spec) begin
+        cpe.be = (dc_stalled || hazard.to_exe);
+        cpe.be_dc = dc_stalled;
+        cpe.fe = (!cpe.be && (stall_act_flow || !imem_req.ready));
+        cpe.fe_ic = (!cpe.be && (!imem_req.ready));
     end
+    // core
+    cpe.ret_ctrl_flow = (
+        cpe.ret_ctrl_flow_j || cpe.ret_ctrl_flow_jr || cpe.ret_ctrl_flow_br);
+    cpe.ret_ctrl_flow_j = (get_opc7(inst.ret) == OPC7_JAL);
+    cpe.ret_ctrl_flow_jr = (get_opc7(inst.ret) == OPC7_JALR);
+    cpe.ret_ctrl_flow_br = (get_opc7(inst.ret) == OPC7_BRANCH);
+    cpe.ret_mem = (cpe.ret_mem_load || cpe.ret_mem_store);
+    cpe.ret_mem_load = (get_opc7(inst.ret) == OPC7_LOAD);
+    cpe.ret_mem_store = (get_opc7(inst.ret) == OPC7_STORE);
+    cpe.ret_simd_arith = (
+        cpe.ret_simd && (get_fn7(inst.ret) == CUSTOM_ISA_FN7_SIMD_DOT));
+    cpe.ret_simd_data_fmt = (
+        cpe.ret_simd && (get_fn7(inst.ret) == CUSTOM_ISA_FN7_SIMD_WIDEN));
+    cpe.core_stall_simd = (hazard.to_exe && simd_arith_mem);
+    cpe.core_stall_load = (hazard.to_exe && load_inst_mem);
+    // icache
+    cpe.l1i_access = (pe_ic.hit || pe_ic.miss);
+    cpe.l1i_miss = pe_ic.miss;
+    cpe.l1i_spec_miss = pe_ic.spec_miss;
+    cpe.l1i_spec_miss_bad = pe_ic.spec_miss_bad;
+    cpe.l1i_spec_miss_good = pe_ic.spec_miss_good;
+    // dcache
+    cpe.l1d_access = (pe_dc.hit || pe_dc.miss);
+    cpe.l1d_miss = pe_dc.miss;
+    cpe.l1d_writeback = pe_dc.writeback;
 end
 
-`DFF_CI_RI_RVI(get_pe, perf_event)
+`DFF_CI_RI_RVI(cpe, perf_events)
 
 //------------------------------------------------------------------------------
 // pipeline control

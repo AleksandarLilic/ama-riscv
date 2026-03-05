@@ -9,6 +9,7 @@ module ama_riscv_dcache #(
 )(
     input  logic clk,
     input  logic rst,
+    output perf_event_dcache_t pe,
     rv_if_dc.RX req_core,
     rv_if.TX rsp_core,
     rv_if.TX req_mem_r,
@@ -551,7 +552,6 @@ always_comb begin
                     // on miss go to mem; mem always ready to take new request
                     req_core.ready = 1'b0;
                     if (cr_victim_dirty_d) begin
-
                         // start eviction, initiate memory write
                         req_mem_w.valid = 1'b1;
                         req_mem_w.addr = victim_wb_start_addr;
@@ -658,6 +658,11 @@ end
 // so rsp_core.ready is not used by core nor checked by dcache
 // this violates RV interface, but is functionally fine for now
 assign rsp_core.data = data_out;
+
+// perf events
+assign pe.hit = hit;
+assign pe.miss = miss;
+assign pe.writeback = (miss_d && cr_victim_dirty_d);
 
 `ifndef SYNT
 `ifdef DEBUG

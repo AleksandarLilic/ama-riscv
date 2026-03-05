@@ -335,12 +335,36 @@ typedef struct packed {
 } dmem_req_side_t;
 
 typedef struct packed {
+    // TDA
     logic bad_spec;
     logic fe;
     logic fe_ic;
     logic be;
     logic be_dc;
     logic ret_simd;
+    // core
+    logic ret_ctrl_flow;
+    logic ret_ctrl_flow_j;
+    logic ret_ctrl_flow_jr;
+    logic ret_ctrl_flow_br;
+    logic ret_mem;
+    logic ret_mem_load;
+    logic ret_mem_store;
+    logic ret_simd_arith;
+    logic ret_simd_data_fmt;
+    logic core_stall_simd;
+    logic core_stall_load;
+    // cache specific
+    logic l1i_access;
+    logic l1i_miss;
+    logic l1i_spec_miss;
+    logic l1i_spec_miss_bad;
+    logic l1i_spec_miss_good;
+    //logic l1i_line_fill;
+    logic l1d_access;
+    logic l1d_miss;
+    //logic l1d_line_fill; // same as miss in current uarch
+    logic l1d_writeback;
 } perf_event_t;
 
 // branch predictor
@@ -398,6 +422,20 @@ typedef union packed {
     logic [MEM_DATA_BUS/INST_WIDTH-1:0] [INST_WIDTH-1:0] w; // inst 32
 } cache_line_short_data_t;
 
+typedef struct packed {
+    logic hit;
+    logic miss;
+    logic spec_miss;
+    logic spec_miss_bad;
+    logic spec_miss_good;
+} perf_event_icache_t;
+
+typedef struct packed {
+    logic hit;
+    logic miss;
+    logic writeback;
+} perf_event_dcache_t;
+
 // CSRs
 typedef enum logic [11:0] {
     CSR_TOHOST = 12'h51E,
@@ -440,7 +478,7 @@ typedef union packed {
 
 parameter unsigned MHPM_IDX_L = 3; // index low, starts at idx 3
 parameter unsigned MHPMCOUNTERS = 6;
-parameter unsigned MHPMEVENTS = 6;
+parameter unsigned MHPMEVENTS = 25;
 parameter unsigned MHPMCOUNTER_WIDTH = 48; // min 32 bits
 
 parameter unsigned MHPMCOUNTER_PAD_WIDTH = (ARCH_WIDTH_D - MHPMCOUNTER_WIDTH);
@@ -451,13 +489,36 @@ parameter logic [MHPMCOUNTER_PAD_WIDTH-1:0] MHPMCOUNTER_PAD = 'h0;
 
 // Machine Hardware Performance Monitor (MHPM) counters & events
 typedef enum logic [MHPMEVENTS-1:0] {
+    // tda
     MHPMEVENT_NONE = 0,
     MHPMEVENT_BAD_SPEC = (1 << 0),
     MHPMEVENT_BE = (1 << 1),
     MHPMEVENT_BE_DC = (1 << 2),
     MHPMEVENT_FE = (1 << 3),
     MHPMEVENT_FE_IC = (1 << 4),
-    MHPMEVENT_RET_SIMD = (1 << 5)
+    MHPMEVENT_RET_SIMD = (1 << 5),
+    // core
+    MHPMEVENT_RET_CTRL_FLOW = (1 << 6),
+    MHPMEVENT_RET_CTRL_FLOW_J = (1 << 7),
+    MHPMEVENT_RET_CTRL_FLOW_JR = (1 << 8),
+    MHPMEVENT_RET_CTRL_FLOW_BR = (1 << 9),
+    MHPMEVENT_RET_MEM = (1 << 10),
+    MHPMEVENT_RET_MEM_LOAD = (1 << 11),
+    MHPMEVENT_RET_MEM_STORE = (1 << 12),
+    MHPMEVENT_RET_SIMD_ARITH = (1 << 13),
+    MHPMEVENT_RET_SIMD_DATA_FMT = (1 << 14),
+    MHPMEVENT_CORE_STALL_SIMD = (1 << 15),
+    MHPMEVENT_CORE_STALL_LOAD = (1 << 16),
+    // icache
+    MHPMEVENT_L1I_ACCESS = (1 << 17),
+    MHPMEVENT_L1I_MISS = (1 << 18),
+    MHPMEVENT_L1I_SPEC_MISS = (1 << 19),
+    MHPMEVENT_L1I_SPEC_MISS_BAD = (1 << 20),
+    MHPMEVENT_L1I_SPEC_MISS_GOOD = (1 << 21),
+    // dcache
+    MHPMEVENT_L1D_ACCESS = (1 << 22),
+    MHPMEVENT_L1D_MISS = (1 << 23),
+    MHPMEVENT_L1D_WRITEBACK = (1 << 24)
 } mhpmevent_t;
 
 typedef struct packed {

@@ -10,7 +10,7 @@ module ama_riscv_csr #(
     input  logic [4:0] imm5,
     input  csr_addr_t addr,
     input  logic inst_to_be_retired,
-    input  perf_event_t perf_event,
+    input  perf_event_t perf_events,
     output arch_width_t out
 );
 
@@ -27,12 +27,35 @@ localparam unsigned MHPMEVENT_MASK_BITS = $clog2(MHPMEVENTS + MHPM_IDX_L);
 function automatic logic get_event(
     input perf_event_t pe, input mhpmevent_t ev);
     case (ev)
+        // tda
         MHPMEVENT_BAD_SPEC: get_event = pe.bad_spec;
         MHPMEVENT_BE: get_event = pe.be;
         MHPMEVENT_BE_DC: get_event = pe.be_dc;
         MHPMEVENT_FE: get_event = pe.fe;
         MHPMEVENT_FE_IC: get_event = pe.fe_ic;
         MHPMEVENT_RET_SIMD: get_event = pe.ret_simd;
+        // core
+        MHPMEVENT_RET_CTRL_FLOW: get_event = pe.ret_ctrl_flow;
+        MHPMEVENT_RET_CTRL_FLOW_J: get_event = pe.ret_ctrl_flow_j;
+        MHPMEVENT_RET_CTRL_FLOW_JR: get_event = pe.ret_ctrl_flow_jr;
+        MHPMEVENT_RET_CTRL_FLOW_BR: get_event = pe.ret_ctrl_flow_br;
+        MHPMEVENT_RET_MEM: get_event = pe.ret_mem;
+        MHPMEVENT_RET_MEM_LOAD: get_event = pe.ret_mem_load;
+        MHPMEVENT_RET_MEM_STORE: get_event = pe.ret_mem_store;
+        MHPMEVENT_RET_SIMD_ARITH: get_event = pe.ret_simd_arith;
+        MHPMEVENT_RET_SIMD_DATA_FMT: get_event = pe.ret_simd_data_fmt;
+        MHPMEVENT_CORE_STALL_SIMD: get_event = pe.core_stall_simd;
+        MHPMEVENT_CORE_STALL_LOAD: get_event = pe.core_stall_load;
+        // icache
+        MHPMEVENT_L1I_ACCESS: get_event = pe.l1i_access;
+        MHPMEVENT_L1I_MISS: get_event = pe.l1i_miss;
+        MHPMEVENT_L1I_SPEC_MISS: get_event = pe.l1i_spec_miss;
+        MHPMEVENT_L1I_SPEC_MISS_BAD: get_event = pe.l1i_spec_miss_bad;
+        MHPMEVENT_L1I_SPEC_MISS_GOOD: get_event = pe.l1i_spec_miss_good;
+        // dcache
+        MHPMEVENT_L1D_ACCESS: get_event = pe.l1d_access;
+        MHPMEVENT_L1D_MISS: get_event = pe.l1d_miss;
+        MHPMEVENT_L1D_WRITEBACK: get_event = pe.l1d_writeback;
         default: get_event = 1'b0;
     endcase
 endfunction
@@ -200,7 +223,7 @@ generate
             end else begin
                 csr.mhpmcounter[i].f.hi <= wr_data[MHPMCOUNTER_PAD_WIDTH-1:0];
             end
-        end else if (get_event(perf_event, csr.mhpmevent[i])) begin
+        end else if (get_event(perf_events, csr.mhpmevent[i])) begin
             csr.mhpmcounter[i] <= (csr.mhpmcounter[i] + MHPMCOUNTER_WIDTH'(1));
         end
     end

@@ -737,12 +737,12 @@ end
 
 // perf counters
 always_comb begin
-    core_events.bad_spec = `CORE.perf_event.bad_spec;
-    core_events.fe = `CORE.perf_event.fe;
-    core_events.fe_ic = `CORE.perf_event.fe_ic;
-    core_events.be = `CORE.perf_event.be;
-    core_events.be_dc = `CORE.perf_event.be_dc;
-    core_events.ret_simd = `CORE.perf_event.ret_simd;
+    core_events.bad_spec = `CORE.perf_events.bad_spec;
+    core_events.fe = `CORE.perf_events.fe;
+    core_events.fe_ic = `CORE.perf_events.fe_ic;
+    core_events.be = `CORE.perf_events.be;
+    core_events.be_dc = `CORE.perf_events.be_dc;
+    core_events.ret_simd = `CORE.perf_events.ret_simd;
 end
 
 always_ff @(posedge clk) begin
