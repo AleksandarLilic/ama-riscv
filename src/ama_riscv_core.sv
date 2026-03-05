@@ -711,14 +711,14 @@ always_comb begin
         cpe.fe_ic = (!cpe.be && (!imem_req.ready));
     end
     // core
-    cpe.ret_ctrl_flow = (
-        cpe.ret_ctrl_flow_j || cpe.ret_ctrl_flow_jr || cpe.ret_ctrl_flow_br);
     cpe.ret_ctrl_flow_j = (get_opc7(inst.ret) == OPC7_JAL);
     cpe.ret_ctrl_flow_jr = (get_opc7(inst.ret) == OPC7_JALR);
     cpe.ret_ctrl_flow_br = (get_opc7(inst.ret) == OPC7_BRANCH);
-    cpe.ret_mem = (cpe.ret_mem_load || cpe.ret_mem_store);
+    cpe.ret_ctrl_flow = (
+        cpe.ret_ctrl_flow_j || cpe.ret_ctrl_flow_jr || cpe.ret_ctrl_flow_br);
     cpe.ret_mem_load = (get_opc7(inst.ret) == OPC7_LOAD);
     cpe.ret_mem_store = (get_opc7(inst.ret) == OPC7_STORE);
+    cpe.ret_mem = (cpe.ret_mem_load || cpe.ret_mem_store);
     cpe.ret_simd_arith = (
         cpe.ret_simd && (get_fn7(inst.ret) == CUSTOM_ISA_FN7_SIMD_DOT));
     cpe.ret_simd_data_fmt = (
