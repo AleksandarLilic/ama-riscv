@@ -16,15 +16,39 @@ json_out = [
 ]
  */
 
-// rest can be added if needed, but all info is provided as is, just add up
-#define CORE_STATS_JSON_ENTRY(stat_struct) \
-    JSON_N << "[\"bad_spec\", \"None\", " << stat_struct->bad_spec << "]," \
-    JSON_N << "[\"frontend\", \"icache\", " << stat_struct->fe_ic << "]," \
-    JSON_N << "[\"frontend\", \"core\", " << stat_struct->fe_core << "]," \
-    JSON_N << "[\"backend\", \"dcache\", " << stat_struct->be_dc << "]," \
-    JSON_N << "[\"backend\", \"core\", " << stat_struct->be_core << "]," \
-    JSON_N << "[\"retiring\", \"integer\", " << stat_struct->ret_int << "]," \
-    JSON_N << "[\"retiring\", \"simd\", " << stat_struct->ret_simd << "]"
+#define CORE_STATS_JSON_LINE_LAST(l1, l2, val) \
+    JSON_N << "[\"" << l1 << "\", \"" << l2 << "\", " << val << "]"
+
+#define CORE_STATS_JSON_LINE(l1, l2, val) \
+    CORE_STATS_JSON_LINE_LAST(l1, l2, val) << "," <<
+
+#define CORE_STATS_JSON_ENTRY(st) \
+    CORE_STATS_JSON_LINE("bad_spec", "None", st->bad_spec) \
+    CORE_STATS_JSON_LINE("frontend", "icache", st->fe_ic) \
+    CORE_STATS_JSON_LINE("frontend", "core", st->fe_core) \
+    CORE_STATS_JSON_LINE("backend", "dcache", st->be_dc) \
+    CORE_STATS_JSON_LINE("backend", "core", st->be_core) \
+    CORE_STATS_JSON_LINE("retiring", "integer", st->ret_int) \
+    CORE_STATS_JSON_LINE("retiring", "simd", st->ret_simd) \
+    CORE_STATS_JSON_LINE("cnt", "ret_ctrl_flow", st->ret_ctrl_flow) \
+    CORE_STATS_JSON_LINE("cnt", "ret_ctrl_flow_j", st->ret_ctrl_flow_j) \
+    CORE_STATS_JSON_LINE("cnt", "ret_ctrl_flow_jr", st->ret_ctrl_flow_jr) \
+    CORE_STATS_JSON_LINE("cnt", "ret_ctrl_flow_br", st->ret_ctrl_flow_br) \
+    CORE_STATS_JSON_LINE("cnt", "ret_mem", st->ret_mem) \
+    CORE_STATS_JSON_LINE("cnt", "ret_mem_load", st->ret_mem_load) \
+    CORE_STATS_JSON_LINE("cnt", "ret_mem_store", st->ret_mem_store) \
+    CORE_STATS_JSON_LINE("cnt", "ret_simd_arith", st->ret_simd_arith) \
+    CORE_STATS_JSON_LINE("cnt", "ret_simd_data_fmt", st->ret_simd_data_fmt) \
+    CORE_STATS_JSON_LINE("cnt", "core_stall_simd", st->core_stall_simd) \
+    CORE_STATS_JSON_LINE("cnt", "core_stall_load", st->core_stall_load) \
+    CORE_STATS_JSON_LINE("cnt", "l1i_ref", st->l1i_ref) \
+    CORE_STATS_JSON_LINE("cnt", "l1i_miss", st->l1i_miss) \
+    CORE_STATS_JSON_LINE("cnt", "l1i_spec_miss", st->l1i_spec_miss) \
+    CORE_STATS_JSON_LINE("cnt", "l1i_spec_miss_bad", st->l1i_spec_miss_bad) \
+    CORE_STATS_JSON_LINE("cnt", "l1i_spec_miss_good", st->l1i_spec_miss_good) \
+    CORE_STATS_JSON_LINE("cnt", "l1d_ref", st->l1d_ref) \
+    CORE_STATS_JSON_LINE("cnt", "l1d_miss", st->l1d_miss) \
+    CORE_STATS_JSON_LINE_LAST("cnt", "l1d_writeback", st->l1d_writeback)
 
 /*
 Core stats:
@@ -35,6 +59,7 @@ TDA:
  */
 struct core_stats_t {
     private:
+        // tda
         uint64_t bad_spec;
         uint64_t be;
         uint64_t be_dc;
@@ -47,10 +72,32 @@ struct core_stats_t {
         uint64_t ret;
         uint64_t cycles;
         uint64_t stalls;
+        uint64_t cycles_all;
+        // other
+        uint64_t ret_ctrl_flow;
+        uint64_t ret_ctrl_flow_j;
+        uint64_t ret_ctrl_flow_jr;
+        uint64_t ret_ctrl_flow_br;
+        uint64_t ret_mem;
+        uint64_t ret_mem_load;
+        uint64_t ret_mem_store;
+        uint64_t ret_simd_arith;
+        uint64_t ret_simd_data_fmt;
+        uint64_t core_stall_simd;
+        uint64_t core_stall_load;
+        uint64_t l1i_ref;
+        uint64_t l1i_miss;
+        uint64_t l1i_spec_miss;
+        uint64_t l1i_spec_miss_bad;
+        uint64_t l1i_spec_miss_good;
+        uint64_t l1d_ref;
+        uint64_t l1d_miss;
+        uint64_t l1d_writeback;
+        // summary
         float_t cpi = -1.0;
         float_t ipc = -1.0;
+        // misc
         bool prof_active = false;
-        uint64_t cycles_all;
         static constexpr uint64_t bad_spec_penalty = 2;
     private:
         void summarize() {
@@ -69,6 +116,7 @@ struct core_stats_t {
         void add_events(const core_events_t* ev) {
             cycles_all++;
             if (!prof_active) return;
+            // tda
             bad_spec += (ev->bad_spec * bad_spec_penalty);
             fe += ev->fe;
             fe_ic += ev->fe_ic;
@@ -76,8 +124,28 @@ struct core_stats_t {
             be_dc += ev->be_dc;
             ret_simd += ev->ret_simd;
             cycles += 1;
+            // others
+            ret_ctrl_flow += ev->ret_ctrl_flow;
+            ret_ctrl_flow_j += ev->ret_ctrl_flow_j;
+            ret_ctrl_flow_jr += ev->ret_ctrl_flow_jr;
+            ret_ctrl_flow_br += ev->ret_ctrl_flow_br;
+            ret_mem += ev->ret_mem;
+            ret_mem_load += ev->ret_mem_load;
+            ret_mem_store += ev->ret_mem_store;
+            ret_simd_arith += ev->ret_simd_arith;
+            ret_simd_data_fmt += ev->ret_simd_data_fmt;
+            core_stall_simd += ev->core_stall_simd;
+            core_stall_load += ev->core_stall_load;
+            l1i_ref += ev->l1i_ref;
+            l1i_miss += ev->l1i_miss;
+            l1i_spec_miss += ev->l1i_spec_miss;
+            l1i_spec_miss_bad += ev->l1i_spec_miss_bad;
+            l1i_spec_miss_good += ev->l1i_spec_miss_good;
+            l1d_ref += ev->l1d_ref;
+            l1d_miss += ev->l1d_miss;
+            l1d_writeback += ev->l1d_writeback;
         }
-        void show() {
+        void show_tda() {
             summarize();
             std::cout << "Cycles: " << cycles
                       << ", Inst: " <<  ret
@@ -99,6 +167,31 @@ struct core_stats_t {
                       << ", INT: " <<  ret_int
                       << ", SIMD: " <<  ret_simd;
         }
+        void show_all() {
+            std::cout
+                << "Control Flow: " << ret_ctrl_flow
+                << " - J: " << ret_ctrl_flow_j
+                << ", JR: " << ret_ctrl_flow_jr
+                << ", BR: " << ret_ctrl_flow_br
+                << "\n" << INDENT << "Memory: " << ret_mem
+                << " - Load: " << ret_mem_load
+                << ", Store: " << ret_mem_store
+                << "\n" << INDENT << "SIMD: " << ret_simd
+                << " - Arith: " << ret_simd_arith
+                << ", Data Format: " << ret_simd_data_fmt
+                << "\n" << INDENT << "Stall -"
+                << " SIMD: " << core_stall_simd
+                << ", Load: " << core_stall_load
+                << "\n" << INDENT << "icache -"
+                << " A: " << l1i_ref
+                << ", M: " << l1i_miss
+                << ", SM (G/B): " << l1i_spec_miss
+                << "(" << l1i_spec_miss_good << "/" << l1i_spec_miss_bad << ")"
+                << "\n" << INDENT << "dcache -"
+                << " A: " << l1d_ref
+                << ", M: " << l1d_miss
+                << ", WB: " << l1d_writeback;
+        };
         void log(std::ofstream& hw_ofs) const {
             hw_ofs << CORE_STATS_JSON_ENTRY(this);
         }

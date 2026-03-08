@@ -86,6 +86,25 @@ typedef struct {
     byte be = 'h0;
     byte be_dc = 'h0;
     byte ret_simd = 'h0;
+    byte ret_ctrl_flow = 'h0;
+    byte ret_ctrl_flow_j = 'h0;
+    byte ret_ctrl_flow_jr = 'h0;
+    byte ret_ctrl_flow_br = 'h0;
+    byte ret_mem = 'h0;
+    byte ret_mem_load = 'h0;
+    byte ret_mem_store = 'h0;
+    byte ret_simd_arith = 'h0;
+    byte ret_simd_data_fmt = 'h0;
+    byte core_stall_simd = 'h0;
+    byte core_stall_load = 'h0;
+    byte l1i_ref = 'h0;
+    byte l1i_miss = 'h0;
+    byte l1i_spec_miss = 'h0;
+    byte l1i_spec_miss_bad = 'h0;
+    byte l1i_spec_miss_good = 'h0;
+    byte l1d_ref = 'h0;
+    byte l1d_miss = 'h0;
+    byte l1d_writeback = 'h0;
 } core_events_t;
 
 typedef struct {
@@ -100,7 +119,7 @@ typedef struct {
     int unsigned ret_simd;
     int unsigned ret_int;
     int unsigned ret;
-} core_events_counters_t;
+} tda_counters_t;
 
 // views
 typedef struct packed {

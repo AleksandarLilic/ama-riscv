@@ -128,7 +128,7 @@ string cosim_outdir;
 // perf
 hw_counters_t ic_stats, dc_stats, bp_stats;
 core_events_t core_events;
-core_events_counters_t tda;
+tda_counters_t tda;
 
 // works without probing core internally, needed for GLS
 core_counters_t core_cnt_main;
@@ -743,6 +743,25 @@ always_comb begin
     core_events.be = `CORE.perf_events.be;
     core_events.be_dc = `CORE.perf_events.be_dc;
     core_events.ret_simd = `CORE.perf_events.ret_simd;
+    core_events.ret_ctrl_flow = `CORE.perf_events.ret_ctrl_flow;
+    core_events.ret_ctrl_flow_j = `CORE.perf_events.ret_ctrl_flow_j;
+    core_events.ret_ctrl_flow_jr = `CORE.perf_events.ret_ctrl_flow_jr;
+    core_events.ret_ctrl_flow_br = `CORE.perf_events.ret_ctrl_flow_br;
+    core_events.ret_mem = `CORE.perf_events.ret_mem;
+    core_events.ret_mem_load = `CORE.perf_events.ret_mem_load;
+    core_events.ret_mem_store = `CORE.perf_events.ret_mem_store;
+    core_events.ret_simd_arith = `CORE.perf_events.ret_simd_arith;
+    core_events.ret_simd_data_fmt = `CORE.perf_events.ret_simd_data_fmt;
+    core_events.core_stall_simd = `CORE.perf_events.core_stall_simd;
+    core_events.core_stall_load = `CORE.perf_events.core_stall_load;
+    core_events.l1i_ref = `CORE.perf_events.l1i_ref;
+    core_events.l1i_miss = `CORE.perf_events.l1i_miss;
+    core_events.l1i_spec_miss = `CORE.perf_events.l1i_spec_miss;
+    core_events.l1i_spec_miss_bad = `CORE.perf_events.l1i_spec_miss_bad;
+    core_events.l1i_spec_miss_good = `CORE.perf_events.l1i_spec_miss_good;
+    core_events.l1d_ref = `CORE.perf_events.l1d_ref;
+    core_events.l1d_miss = `CORE.perf_events.l1d_miss;
+    core_events.l1d_writeback = `CORE.perf_events.l1d_writeback;
 end
 
 always_ff @(posedge clk) begin

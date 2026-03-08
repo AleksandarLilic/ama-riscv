@@ -10,10 +10,10 @@ void cosim_stats::profiling(bool enable) {
 
 void cosim_stats::show() {
     std::cout << "Simulation cycles: " << core_stats.get_cycles_all() << "\n";
-    std::cout << "Stats - Profiling Summary (approx.):\n";
-    std::cout << "core";
+    std::cout << "Stats - Profiling Summary:\n";
+    std::cout << "core (TDA counters)";
     std::cout << "\n" << INDENT;
-    core_stats.show();
+    core_stats.show_tda();
     std::cout << "\n";
 
     std::cout << "bpred";
@@ -30,6 +30,11 @@ void cosim_stats::show() {
     std::cout << "dcache";
     std::cout << "\n" << INDENT;
     dcache_stats.show(cache_type_t::data);
+    std::cout << "\n";
+
+    std::cout << "core (all counters)";
+    std::cout << "\n" << INDENT;
+    core_stats.show_all();
     std::cout << "\n\n";
 }
 
