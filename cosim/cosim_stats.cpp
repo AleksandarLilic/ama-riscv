@@ -74,9 +74,9 @@ void cosim_stats::log_hw_stats(std::string out_dir) {
     ofs.open(out_dir + "hw_stats.json");
     ofs << "{\n";
 
-    ofs << "\"" << "core" << "\"" << ": [";
+    ofs << "\"" << "core" << "\"" << ": {";
     core_stats.log(ofs);
-    ofs << "\n],\n";
+    ofs << "\n},\n";
 
     ofs << "\"" << "icache" << "\"" << ": {";
     icache_stats.log(ofs);

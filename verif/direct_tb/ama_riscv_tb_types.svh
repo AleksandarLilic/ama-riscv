@@ -80,42 +80,48 @@ typedef struct {
 } hw_counters_t;
 
 typedef struct {
-    byte bad_spec = 'h0;
-    byte fe = 'h0;
-    byte fe_ic = 'h0;
-    byte be = 'h0;
-    byte be_dc = 'h0;
-    byte ret_simd = 'h0;
-    byte ret_ctrl_flow = 'h0;
-    byte ret_ctrl_flow_j = 'h0;
-    byte ret_ctrl_flow_jr = 'h0;
-    byte ret_ctrl_flow_br = 'h0;
-    byte ret_mem = 'h0;
-    byte ret_mem_load = 'h0;
-    byte ret_mem_store = 'h0;
-    byte ret_simd_arith = 'h0;
-    byte ret_simd_data_fmt = 'h0;
-    byte core_stall_simd = 'h0;
-    byte core_stall_load = 'h0;
-    byte l1i_ref = 'h0;
-    byte l1i_miss = 'h0;
-    byte l1i_spec_miss = 'h0;
-    byte l1i_spec_miss_bad = 'h0;
-    byte l1i_spec_miss_good = 'h0;
-    byte l1d_ref = 'h0;
-    byte l1d_miss = 'h0;
-    byte l1d_writeback = 'h0;
+    byte bad_spec = '0; // tda
+    byte stall_be = '0; // tda
+    byte stall_l1d = '0; // tda
+    byte stall_l1d_r = '0;
+    byte stall_l1d_w = '0;
+    byte stall_fe = '0; // tda
+    byte stall_l1i = '0; // tda
+    byte stall_simd = '0;
+    byte stall_load = '0;
+    byte ret_ctrl_flow = '0;
+    byte ret_ctrl_flow_j = '0;
+    byte ret_ctrl_flow_jr = '0;
+    byte ret_ctrl_flow_br = '0;
+    byte ret_mem = '0;
+    byte ret_mem_load = '0;
+    byte ret_mem_store = '0;
+    byte ret_simd = '0; // tda
+    byte ret_simd_arith = '0;
+    byte ret_simd_data_fmt = '0;
+    byte l1i_ref = '0;
+    byte l1i_miss = '0;
+    byte l1i_spec_miss = '0;
+    byte l1i_spec_miss_bad = '0;
+    byte l1i_spec_miss_good = '0;
+    byte l1d_ref = '0;
+    byte l1d_ref_r = '0;
+    byte l1d_ref_w = '0;
+    byte l1d_miss = '0;
+    byte l1d_miss_r = '0;
+    byte l1d_miss_w = '0;
+    byte l1d_writeback = '0;
 } core_events_t;
 
 typedef struct {
     int unsigned cycles;
     int unsigned bad_spec;
-    int unsigned be;
-    int unsigned be_dc;
-    int unsigned be_core;
-    int unsigned fe;
-    int unsigned fe_ic;
-    int unsigned fe_core;
+    int unsigned stall_be;
+    int unsigned stall_l1d;
+    int unsigned stall_be_core;
+    int unsigned stall_fe;
+    int unsigned stall_l1i;
+    int unsigned stall_fe_core;
     int unsigned ret_simd;
     int unsigned ret_int;
     int unsigned ret;

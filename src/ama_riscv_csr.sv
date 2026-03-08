@@ -21,41 +21,42 @@ localparam unsigned CNT_WIDTH = $clog2(CLOCKS_PER_US);
 
 localparam unsigned MHPMEVENT_PAD_WIDTH = (ARCH_WIDTH - MHPMEVENTS);
 localparam logic [MHPMEVENT_PAD_WIDTH-1:0] MHPMEVENT_PAD = 'h0;
-localparam unsigned MHPMCOUNTER_MASK_BITS = $clog2(MHPMCOUNTERS + MHPM_IDX_L);
-localparam unsigned MHPMEVENT_MASK_BITS = $clog2(MHPMEVENTS + MHPM_IDX_L);
+localparam unsigned MHPM_MASK_BITS = $clog2(MHPMCOUNTERS + MHPM_IDX_L);
 
 function automatic logic get_event(
     input perf_event_t pe, input mhpmevent_t ev);
     case (ev)
-        // tda
         MHPMEVENT_BAD_SPEC: get_event = pe.bad_spec;
-        MHPMEVENT_BE: get_event = pe.be;
-        MHPMEVENT_BE_DC: get_event = pe.be_dc;
-        MHPMEVENT_FE: get_event = pe.fe;
-        MHPMEVENT_FE_IC: get_event = pe.fe_ic;
-        MHPMEVENT_RET_SIMD: get_event = pe.ret_simd;
-        // core
-        MHPMEVENT_RET_CTRL_FLOW: get_event = pe.ret_ctrl_flow;
-        MHPMEVENT_RET_CTRL_FLOW_J: get_event = pe.ret_ctrl_flow_j;
-        MHPMEVENT_RET_CTRL_FLOW_JR: get_event = pe.ret_ctrl_flow_jr;
-        MHPMEVENT_RET_CTRL_FLOW_BR: get_event = pe.ret_ctrl_flow_br;
-        MHPMEVENT_RET_MEM: get_event = pe.ret_mem;
-        MHPMEVENT_RET_MEM_LOAD: get_event = pe.ret_mem_load;
-        MHPMEVENT_RET_MEM_STORE: get_event = pe.ret_mem_store;
-        MHPMEVENT_RET_SIMD_ARITH: get_event = pe.ret_simd_arith;
-        MHPMEVENT_RET_SIMD_DATA_FMT: get_event = pe.ret_simd_data_fmt;
-        MHPMEVENT_CORE_STALL_SIMD: get_event = pe.core_stall_simd;
-        MHPMEVENT_CORE_STALL_LOAD: get_event = pe.core_stall_load;
-        // icache
-        MHPMEVENT_L1I_ACCESS: get_event = pe.l1i_ref;
-        MHPMEVENT_L1I_MISS: get_event = pe.l1i_miss;
-        MHPMEVENT_L1I_SPEC_MISS: get_event = pe.l1i_spec_miss;
-        MHPMEVENT_L1I_SPEC_MISS_BAD: get_event = pe.l1i_spec_miss_bad;
-        MHPMEVENT_L1I_SPEC_MISS_GOOD: get_event = pe.l1i_spec_miss_good;
-        // dcache
-        MHPMEVENT_L1D_ACCESS: get_event = pe.l1d_ref;
-        MHPMEVENT_L1D_MISS: get_event = pe.l1d_miss;
-        MHPMEVENT_L1D_WRITEBACK: get_event = pe.l1d_writeback;
+        MHPMEVENT_STALL_BE : get_event = pe.stall_be;
+        MHPMEVENT_STALL_L1D : get_event = pe.stall_l1d;
+        MHPMEVENT_STALL_L1D_R : get_event = pe.stall_l1d_r;
+        MHPMEVENT_STALL_L1D_W : get_event = pe.stall_l1d_w;
+        MHPMEVENT_STALL_FE : get_event = pe.stall_fe;
+        MHPMEVENT_STALL_L1I : get_event = pe.stall_l1i;
+        MHPMEVENT_STALL_SIMD : get_event = pe.stall_simd;
+        MHPMEVENT_STALL_LOAD : get_event = pe.stall_load;
+        MHPMEVENT_RET_CTRL_FLOW : get_event = pe.ret_ctrl_flow;
+        MHPMEVENT_RET_CTRL_FLOW_J : get_event = pe.ret_ctrl_flow_j;
+        MHPMEVENT_RET_CTRL_FLOW_JR : get_event = pe.ret_ctrl_flow_jr;
+        MHPMEVENT_RET_CTRL_FLOW_BR : get_event = pe.ret_ctrl_flow_br;
+        MHPMEVENT_RET_MEM : get_event = pe.ret_mem;
+        MHPMEVENT_RET_MEM_LOAD : get_event = pe.ret_mem_load;
+        MHPMEVENT_RET_MEM_STORE : get_event = pe.ret_mem_store;
+        MHPMEVENT_RET_SIMD : get_event = pe.ret_simd;
+        MHPMEVENT_RET_SIMD_ARITH : get_event = pe.ret_simd_arith;
+        MHPMEVENT_RET_SIMD_DATA_FMT : get_event = pe.ret_simd_data_fmt;
+        MHPMEVENT_L1I_REF : get_event = pe.l1i_ref;
+        MHPMEVENT_L1I_MISS : get_event = pe.l1i_miss;
+        MHPMEVENT_L1I_SPEC_MISS : get_event = pe.l1i_spec_miss;
+        MHPMEVENT_L1I_SPEC_MISS_BAD : get_event = pe.l1i_spec_miss_bad;
+        MHPMEVENT_L1I_SPEC_MISS_GOOD : get_event = pe.l1i_spec_miss_good;
+        MHPMEVENT_L1D_REF : get_event = pe.l1d_ref;
+        MHPMEVENT_L1D_REF_R : get_event = pe.l1d_ref_r;
+        MHPMEVENT_L1D_REF_W : get_event = pe.l1d_ref_w;
+        MHPMEVENT_L1D_MISS : get_event = pe.l1d_miss;
+        MHPMEVENT_L1D_MISS_R : get_event = pe.l1d_miss_r;
+        MHPMEVENT_L1D_MISS_W : get_event = pe.l1d_miss_w;
+        MHPMEVENT_L1D_WRITEBACK : get_event = pe.l1d_writeback;
         default: get_event = 1'b0;
     endcase
 endfunction
@@ -69,10 +70,10 @@ assign imm = {27'h0, imm5}; // zero-extend
 assign wr_data_src = ctrl.ui ? imm : in;
 assign addr_en = csr_addr_t'(addr & {12{ctrl.en}});
 
-logic [MHPMCOUNTER_MASK_BITS-1:0] mhpm_addr_c;
-assign mhpm_addr_c = (addr_en[MHPMCOUNTER_MASK_BITS-1:0]);
-logic [MHPMEVENT_MASK_BITS-1:0] mhpm_addr_e;
-assign mhpm_addr_e = (addr_en[MHPMEVENT_MASK_BITS-1:0]);
+logic [MHPM_MASK_BITS-1:0] mhpm_addr_c;
+assign mhpm_addr_c = (addr_en[MHPM_MASK_BITS-1:0]);
+logic [MHPM_MASK_BITS-1:0] mhpm_addr_e;
+assign mhpm_addr_e = (addr_en[MHPM_MASK_BITS-1:0]);
 
 //------------------------------------------------------------------------------
 // csr read
@@ -191,7 +192,7 @@ assign tick_us = (cnt_us == CNT_WIDTH'(CLOCKS_PER_US - 1));
 
 //------------------------------------------------------------------------------
 // hardware performance monitors
-csr_addr_t am_l[`MHPM_RANGE_C], am_h[`MHPM_RANGE_C];
+csr_addr_t am_l[`MHPM_RANGE], am_h[`MHPM_RANGE];
 assign am_l = {
     CSR_MHPMCOUNTER3,
     CSR_MHPMCOUNTER4,
@@ -209,7 +210,7 @@ assign am_h = {
     CSR_MHPMCOUNTER8H
 };
 
-logic [1:0] am_mhpmcounter[`MHPM_RANGE_C];
+logic [1:0] am_mhpmcounter[`MHPM_RANGE];
 genvar i;
 generate
 `IT_I_NT(MHPM_IDX_L, (MHPMCOUNTERS + MHPM_IDX_L)) begin: gen_mhpm_write

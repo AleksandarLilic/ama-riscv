@@ -738,11 +738,14 @@ end
 // perf counters
 always_comb begin
     core_events.bad_spec = `CORE.perf_events.bad_spec;
-    core_events.fe = `CORE.perf_events.fe;
-    core_events.fe_ic = `CORE.perf_events.fe_ic;
-    core_events.be = `CORE.perf_events.be;
-    core_events.be_dc = `CORE.perf_events.be_dc;
-    core_events.ret_simd = `CORE.perf_events.ret_simd;
+    core_events.stall_be = `CORE.perf_events.stall_be;
+    core_events.stall_l1d = `CORE.perf_events.stall_l1d;
+    core_events.stall_l1d_r = `CORE.perf_events.stall_l1d_r;
+    core_events.stall_l1d_w = `CORE.perf_events.stall_l1d_w;
+    core_events.stall_fe = `CORE.perf_events.stall_fe;
+    core_events.stall_l1i = `CORE.perf_events.stall_l1i;
+    core_events.stall_simd = `CORE.perf_events.stall_simd;
+    core_events.stall_load = `CORE.perf_events.stall_load;
     core_events.ret_ctrl_flow = `CORE.perf_events.ret_ctrl_flow;
     core_events.ret_ctrl_flow_j = `CORE.perf_events.ret_ctrl_flow_j;
     core_events.ret_ctrl_flow_jr = `CORE.perf_events.ret_ctrl_flow_jr;
@@ -750,26 +753,29 @@ always_comb begin
     core_events.ret_mem = `CORE.perf_events.ret_mem;
     core_events.ret_mem_load = `CORE.perf_events.ret_mem_load;
     core_events.ret_mem_store = `CORE.perf_events.ret_mem_store;
+    core_events.ret_simd = `CORE.perf_events.ret_simd;
     core_events.ret_simd_arith = `CORE.perf_events.ret_simd_arith;
     core_events.ret_simd_data_fmt = `CORE.perf_events.ret_simd_data_fmt;
-    core_events.core_stall_simd = `CORE.perf_events.core_stall_simd;
-    core_events.core_stall_load = `CORE.perf_events.core_stall_load;
     core_events.l1i_ref = `CORE.perf_events.l1i_ref;
     core_events.l1i_miss = `CORE.perf_events.l1i_miss;
     core_events.l1i_spec_miss = `CORE.perf_events.l1i_spec_miss;
     core_events.l1i_spec_miss_bad = `CORE.perf_events.l1i_spec_miss_bad;
     core_events.l1i_spec_miss_good = `CORE.perf_events.l1i_spec_miss_good;
     core_events.l1d_ref = `CORE.perf_events.l1d_ref;
+    core_events.l1d_ref_r = `CORE.perf_events.l1d_ref_r;
+    core_events.l1d_ref_w = `CORE.perf_events.l1d_ref_w;
     core_events.l1d_miss = `CORE.perf_events.l1d_miss;
+    core_events.l1d_miss_r = `CORE.perf_events.l1d_miss_r;
+    core_events.l1d_miss_w = `CORE.perf_events.l1d_miss_w;
     core_events.l1d_writeback = `CORE.perf_events.l1d_writeback;
 end
 
 always_ff @(posedge clk) begin
     tda.bad_spec += core_events.bad_spec;
-    tda.fe_ic += core_events.fe_ic;
-    tda.be_dc += core_events.be_dc;
-    tda.fe += core_events.fe;
-    tda.be += core_events.be;
+    tda.stall_be += core_events.stall_be;
+    tda.stall_l1d += core_events.stall_l1d;
+    tda.stall_fe += core_events.stall_fe;
+    tda.stall_l1i += core_events.stall_l1i;
     tda.ret_simd += core_events.ret_simd;
     tda.cycles += 1;
 end
@@ -879,19 +885,20 @@ initial begin
     if (args.cosim_en) $finish(); // using cosim stats for this run
 
     // TODO: these really need to be consolidated like core core_stats
-    tda.be_core = (tda.be - tda.be_dc);
-    tda.fe_core = (tda.fe - tda.fe_ic);
-    tda.ret = (tda.cycles - (tda.bad_spec + tda.fe + tda.be));
+    tda.stall_be_core = (tda.stall_be - tda.stall_l1d);
+    tda.stall_fe_core = (tda.stall_fe - tda.stall_l1i);
+    tda.ret = (tda.cycles - (tda.bad_spec + tda.stall_fe + tda.stall_be));
     tda.ret_int = (tda.ret - tda.ret_simd);
     $display("TDA: ");
     $display(
         "    L1: bad spec %0d, fe bound %0d, be bound %0d, retiring %0d",
-        tda.bad_spec, tda.fe, tda.be, tda.ret
+        tda.bad_spec, tda.stall_fe, tda.stall_be, tda.ret
     );
     $display(
         "    L2: ",
         "fe mem %0d, fe core %0d, be mem %0d, be core %0d, int %0d, simd %0d",
-        tda.fe_ic, tda.fe_core, tda.be_dc, tda.be_core, tda.ret_int,tda.ret_simd
+        tda.stall_l1i, tda.stall_fe_core, tda.stall_l1d, tda.stall_be_core,
+        tda.ret_int, tda.ret_simd
     );
 
     $display(

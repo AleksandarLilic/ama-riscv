@@ -96,11 +96,14 @@ DPI_LINKER_DECL DPI_DLLESPEC
 
 typedef struct {
 	char bad_spec;
-	char fe;
-	char fe_ic;
-	char be;
-	char be_dc;
-	char ret_simd;
+	char stall_be;
+	char stall_l1d;
+	char stall_l1d_r;
+	char stall_l1d_w;
+	char stall_fe;
+	char stall_l1i;
+	char stall_simd;
+	char stall_load;
 	char ret_ctrl_flow;
 	char ret_ctrl_flow_j;
 	char ret_ctrl_flow_jr;
@@ -108,17 +111,20 @@ typedef struct {
 	char ret_mem;
 	char ret_mem_load;
 	char ret_mem_store;
+	char ret_simd;
 	char ret_simd_arith;
 	char ret_simd_data_fmt;
-	char core_stall_simd;
-	char core_stall_load;
 	char l1i_ref;
 	char l1i_miss;
 	char l1i_spec_miss;
 	char l1i_spec_miss_bad;
 	char l1i_spec_miss_good;
 	char l1d_ref;
+	char l1d_ref_r;
+	char l1d_ref_w;
 	char l1d_miss;
+	char l1d_miss_r;
+	char l1d_miss_w;
 	char l1d_writeback;
 } core_events_t;
 

@@ -685,31 +685,34 @@ assign inst_to_be_retired = (
 // retire
 assign ctrl_wbk_ret = '{flush: flush.wbk, en: 1'b1, bubble: (!ctrl_mem_wbk.en)};
 
-logic simd_inst_ret;
+logic inst_retired_simd;
 
 `ifndef SYNT
 `STAGE_W_R(1'b1, pc.wbk, pc.ret, 'h0)
 `endif
 `STAGE_W_R(1'b1, inst.wbk, inst.ret, 'h0)
 `STAGE_W_R(1'b1, pc_nz.wbk, pc_nz.ret, 1'b0)
-`STAGE_W_R(1'b1, simd_inst_wbk, simd_inst_ret, 'h0)
+`STAGE_W_R(1'b1, simd_inst_wbk, inst_retired_simd, 'h0)
 
 assign inst_retired = pc_nz.ret;
 
 //------------------------------------------------------------------------------
 // perf
 perf_event_t cpe; // collect perf events
+logic fe_unblocked;
 always_comb begin
     cpe = '0;
-    // tda
-    cpe.bad_spec = spec.wrong;
-    cpe.ret_simd = (inst_retired && simd_inst_ret);
-    if (!cpe.bad_spec) begin
-        cpe.be = (dc_stalled || hazard.to_exe);
-        cpe.be_dc = dc_stalled;
-        cpe.fe = (!cpe.be && (stall_act_flow || !imem_req.ready));
-        cpe.fe_ic = (!cpe.be && (!imem_req.ready));
-    end
+    // stalls
+    cpe.bad_spec = spec.wrong; // tda
+    cpe.stall_be = (dc_stalled || (hazard.to_exe && !cpe.bad_spec)); // tda
+    cpe.stall_l1d = dc_stalled; // tda
+    cpe.stall_l1d_r = (dc_stalled && pe_dc.rd_pend);
+    cpe.stall_l1d_w = (dc_stalled && !pe_dc.rd_pend);
+    fe_unblocked = (!cpe.bad_spec && !cpe.stall_be);
+    cpe.stall_fe = (fe_unblocked && (stall_act_flow || !imem_req.ready)); // tda
+    cpe.stall_l1i = (fe_unblocked && (!imem_req.ready)); // tda
+    cpe.stall_simd = (hazard.to_exe && simd_arith_mem);
+    cpe.stall_load = (hazard.to_exe && load_inst_mem);
     // core
     cpe.ret_ctrl_flow_j = (get_opc7(inst.ret) == OPC7_JAL);
     cpe.ret_ctrl_flow_jr = (get_opc7(inst.ret) == OPC7_JALR);
@@ -719,12 +722,11 @@ always_comb begin
     cpe.ret_mem_load = (get_opc7(inst.ret) == OPC7_LOAD);
     cpe.ret_mem_store = (get_opc7(inst.ret) == OPC7_STORE);
     cpe.ret_mem = (cpe.ret_mem_load || cpe.ret_mem_store);
+    cpe.ret_simd = (inst_retired && inst_retired_simd); // tda
     cpe.ret_simd_arith = (
         cpe.ret_simd && (get_fn7(inst.ret) == CUSTOM_ISA_FN7_SIMD_DOT));
     cpe.ret_simd_data_fmt = (
         cpe.ret_simd && (get_fn7(inst.ret) == CUSTOM_ISA_FN7_SIMD_WIDEN));
-    cpe.core_stall_simd = (hazard.to_exe && simd_arith_mem);
-    cpe.core_stall_load = (hazard.to_exe && load_inst_mem);
     // icache
     cpe.l1i_ref = (pe_ic.hit || pe_ic.miss);
     cpe.l1i_miss = pe_ic.miss;
@@ -733,7 +735,11 @@ always_comb begin
     cpe.l1i_spec_miss_good = pe_ic.spec_miss_good;
     // dcache
     cpe.l1d_ref = (pe_dc.hit || pe_dc.miss);
+    cpe.l1d_ref_r = (cpe.l1d_ref && pe_dc.rd);
+    cpe.l1d_ref_w = (cpe.l1d_ref && !pe_dc.rd);
     cpe.l1d_miss = pe_dc.miss;
+    cpe.l1d_miss_r = (cpe.l1d_miss && pe_dc.rd);
+    cpe.l1d_miss_w = (cpe.l1d_miss && !pe_dc.rd);
     cpe.l1d_writeback = pe_dc.writeback;
 end
 

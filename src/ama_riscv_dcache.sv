@@ -663,6 +663,8 @@ assign rsp_core.data = data_out;
 assign pe.hit = hit;
 assign pe.miss = miss;
 assign pe.writeback = (miss_d && cr_victim_dirty_d);
+assign pe.rd = load_req;
+assign pe.rd_pend = (cr_pend.active && (cr_pend.cr.rtype == DMEM_READ));
 
 `ifndef SYNT
 `ifdef DEBUG
