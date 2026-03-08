@@ -726,13 +726,13 @@ always_comb begin
     cpe.core_stall_simd = (hazard.to_exe && simd_arith_mem);
     cpe.core_stall_load = (hazard.to_exe && load_inst_mem);
     // icache
-    cpe.l1i_access = (pe_ic.hit || pe_ic.miss);
+    cpe.l1i_ref = (pe_ic.hit || pe_ic.miss);
     cpe.l1i_miss = pe_ic.miss;
     cpe.l1i_spec_miss = pe_ic.spec_miss;
     cpe.l1i_spec_miss_bad = pe_ic.spec_miss_bad;
     cpe.l1i_spec_miss_good = pe_ic.spec_miss_good;
     // dcache
-    cpe.l1d_access = (pe_dc.hit || pe_dc.miss);
+    cpe.l1d_ref = (pe_dc.hit || pe_dc.miss);
     cpe.l1d_miss = pe_dc.miss;
     cpe.l1d_writeback = pe_dc.writeback;
 end

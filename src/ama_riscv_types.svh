@@ -356,13 +356,13 @@ typedef struct packed {
     logic core_stall_simd;
     logic core_stall_load;
     // cache specific
-    logic l1i_access;
+    logic l1i_ref;
     logic l1i_miss;
     logic l1i_spec_miss;
     logic l1i_spec_miss_bad;
     logic l1i_spec_miss_good;
     //logic l1i_line_fill;
-    logic l1d_access;
+    logic l1d_ref;
     logic l1d_miss;
     //logic l1d_line_fill; // same as miss in current uarch
     logic l1d_writeback;

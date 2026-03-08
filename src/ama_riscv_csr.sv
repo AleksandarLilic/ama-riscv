@@ -47,13 +47,13 @@ function automatic logic get_event(
         MHPMEVENT_CORE_STALL_SIMD: get_event = pe.core_stall_simd;
         MHPMEVENT_CORE_STALL_LOAD: get_event = pe.core_stall_load;
         // icache
-        MHPMEVENT_L1I_ACCESS: get_event = pe.l1i_access;
+        MHPMEVENT_L1I_ACCESS: get_event = pe.l1i_ref;
         MHPMEVENT_L1I_MISS: get_event = pe.l1i_miss;
         MHPMEVENT_L1I_SPEC_MISS: get_event = pe.l1i_spec_miss;
         MHPMEVENT_L1I_SPEC_MISS_BAD: get_event = pe.l1i_spec_miss_bad;
         MHPMEVENT_L1I_SPEC_MISS_GOOD: get_event = pe.l1i_spec_miss_good;
         // dcache
-        MHPMEVENT_L1D_ACCESS: get_event = pe.l1d_access;
+        MHPMEVENT_L1D_ACCESS: get_event = pe.l1d_ref;
         MHPMEVENT_L1D_MISS: get_event = pe.l1d_miss;
         MHPMEVENT_L1D_WRITEBACK: get_event = pe.l1d_writeback;
         default: get_event = 1'b0;
