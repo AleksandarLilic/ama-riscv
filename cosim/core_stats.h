@@ -177,6 +177,11 @@ struct core_stats_t {
                       << ", SIMD: " <<  ret_simd;
         }
         void show_all() {
+            float_t amat_l1i, amat_l1d, hits;
+            hits = (l1i_ref - l1i_miss);
+            amat_l1i = ((hits + stall_l1i) / hits);
+            hits = (l1d_ref - l1d_miss);
+            amat_l1d = ((hits + stall_l1d) / hits);
             std::cout
                 << "Control Flow: " << ret_ctrl_flow
                 << " - J: " << ret_ctrl_flow_j
@@ -196,10 +201,14 @@ struct core_stats_t {
                 << ", M: " << l1i_miss
                 << ", SM (G/B): " << l1i_spec_miss
                 << "(" << l1i_spec_miss_good << "/" << l1i_spec_miss_bad << ")"
+                << std::fixed << std::setprecision(2)
+                << ", AMAT: " << amat_l1i
                 << "\n" << INDENT << "dcache -"
                 << " A: " << l1d_ref
                 << ", M: " << l1d_miss
-                << ", WB: " << l1d_writeback;
+                << ", WB: " << l1d_writeback
+                << std::fixed << std::setprecision(2)
+                << ", AMAT: " << amat_l1d;
         };
         void log(std::ofstream& hw_ofs) const {
             hw_ofs << CORE_STATS_JSON_ENTRY;
