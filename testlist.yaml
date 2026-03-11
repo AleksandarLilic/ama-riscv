@@ -46,6 +46,10 @@ dot_product:
   - ["sim/sw/baremetal/dot_product", "int8_int2.hex"]
   - ["sim/sw/baremetal/dot_product_peak", "int8.hex"]
 
+matmul:
+  - ["sim/sw/baremetal/matmul", "*.hex"]
+  - ["sim/sw/baremetal/matmul_opt", "*.hex"]
+
 uart:
   - ["sim/sw/baremetal/uart_direct_send", "hello_world.hex"]
   - ["sim/sw/baremetal/uart_printf_mini", "hello_world.hex"]
