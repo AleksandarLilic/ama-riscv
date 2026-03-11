@@ -144,7 +144,17 @@ always_comb begin
                 CUSTOM_ISA_FN7_SIMD_WIDEN: begin
                     fc.pc_we = 1'b1;
                     d.itype.simd_data_fmt = 1'b1;
-                    d.simd_widen_op = simd_widen_op_t'(fn3);
+                    d.simd_data_fmt_type = SIMD_DATA_FMT_TYPE_WIDEN;
+                    d.simd_data_fmt_op = simd_data_fmt_op_t'(fn3);
+                    d.ewb_sel = EWB_SEL_DATA_FMT;
+                    d.rd_we = rd_nz;
+                    d.has_reg = '{rd: 1, rdp: 1, rs1: 1, rs2: 1, rs3: 0};
+                end
+                CUSTOM_ISA_FN7_SIMD_TXP: begin
+                    fc.pc_we = 1'b1;
+                    d.itype.simd_data_fmt = 1'b1;
+                    d.simd_data_fmt_type = SIMD_DATA_FMT_TYPE_TXP;
+                    d.simd_data_fmt_op = simd_data_fmt_op_t'(fn3);
                     d.ewb_sel = EWB_SEL_DATA_FMT;
                     d.rd_we = rd_nz;
                     d.has_reg = '{rd: 1, rdp: 1, rs1: 1, rs2: 1, rs3: 0};

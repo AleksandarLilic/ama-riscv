@@ -474,7 +474,11 @@ assign pc_new_exe = decoded_exe.itype.branch ? pc_branch_exe : alu_out_exe;
 
 simd_d_t data_fmt_out;
 ama_riscv_data_fmt ama_riscv_data_fmt_i (
-    .op (decoded_exe.simd_widen_op), .a (op_a_r), .s (data_fmt_out)
+    .op (decoded_exe.simd_data_fmt_op),
+    .op_t (decoded_exe.simd_data_fmt_type),
+    .a (op_a_r),
+    .b (op_b_r),
+    .s (data_fmt_out)
 );
 
 simd_t data_fmt_out_exe, data_fmt_out_p_exe;

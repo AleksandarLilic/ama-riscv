@@ -83,7 +83,8 @@ typedef enum logic [6:0] {
 
 typedef enum logic [6:0] {
     CUSTOM_ISA_FN7_SIMD_DOT = 7'h03,
-    CUSTOM_ISA_FN7_SIMD_WIDEN = 7'h20
+    CUSTOM_ISA_FN7_SIMD_WIDEN = 7'h20,
+    CUSTOM_ISA_FN7_SIMD_TXP = 7'h30
 } custom_isa_fn7_t;
 
 typedef enum logic [1:0] {
@@ -196,6 +197,17 @@ typedef enum logic [3:0] {
 } simd_arith_op_t;
 
 typedef enum logic [2:0] {
+    SIMD_DATA_FMT_OP_16 = 3'h0,
+    SIMD_DATA_FMT_OP_16U = 3'h1,
+    SIMD_DATA_FMT_OP_8 = 3'h2,
+    SIMD_DATA_FMT_OP_8U = 3'h3,
+    SIMD_DATA_FMT_OP_4 = 3'h4,
+    SIMD_DATA_FMT_OP_4U = 3'h5,
+    SIMD_DATA_FMT_OP_2 = 3'h6,
+    SIMD_DATA_FMT_OP_2U = 3'h7
+} simd_data_fmt_op_t;
+
+typedef enum logic [2:0] {
     SIMD_WIDEN_OP_16 = 3'h0,
     SIMD_WIDEN_OP_16U = 3'h1,
     SIMD_WIDEN_OP_8 = 3'h2,
@@ -205,6 +217,19 @@ typedef enum logic [2:0] {
     SIMD_WIDEN_OP_2 = 3'h6,
     SIMD_WIDEN_OP_2U = 3'h7
 } simd_widen_op_t;
+
+typedef enum logic [1:0] {
+    SIMD_TXP_OP_16 = 2'h0,
+    SIMD_TXP_OP_8 = 2'h1,
+    SIMD_TXP_OP_4 = 2'h2,
+    SIMD_TXP_OP_2 = 2'h3
+} simd_txp_op_t;
+
+typedef enum logic [1:0] {
+    SIMD_DATA_FMT_TYPE_NONE = 2'h0,
+    SIMD_DATA_FMT_TYPE_WIDEN = 2'h1,
+    SIMD_DATA_FMT_TYPE_TXP = 2'h2
+} simd_data_fmt_type_t;
 
 typedef enum logic [2:0] {
     IG_OFF = 3'd0,
@@ -298,7 +323,8 @@ typedef struct packed {
     csr_ctrl_t csr_ctrl;
     alu_op_t alu_op;
     simd_arith_op_t simd_arith_op;
-    simd_widen_op_t simd_widen_op;
+    simd_data_fmt_op_t simd_data_fmt_op;
+    simd_data_fmt_type_t simd_data_fmt_type;
     a_sel_t a_sel;
     b_sel_t b_sel;
     ig_sel_t ig_sel;
