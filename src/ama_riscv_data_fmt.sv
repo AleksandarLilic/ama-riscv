@@ -31,7 +31,7 @@ simd_t txp_a, txp_b;
 always_comb begin
     txp_a = 'h0;
     txp_b = 'h0;
-    unique case (simd_widen_op_t'(op[2:1]))
+    unique case (simd_txp_op_t'(op[2:1]))
         SIMD_TXP_OP_16: begin
             txp_a.h[0] = a.h[0];
             txp_a.h[1] = b.h[0];
