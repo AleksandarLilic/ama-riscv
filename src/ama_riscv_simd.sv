@@ -8,7 +8,7 @@ module ama_riscv_simd (
     input  simd_arith_op_t op,
     input  simd_t a,
     input  simd_t b,
-    input  simd_t c_late,
+    input  arch_width_t c_late,
     output simd_t p
 );
 
@@ -30,17 +30,26 @@ always_comb begin
     `IT_P(y, W) `IT_P(x, W) mask_16[y][x] = ((y / TILE_16) == (x / TILE_16));
 end
 
-logic op_dot16, op_dot8, op_simd;
+logic op_dot16, op_dot16u, op_dot8, op_dot8u, op_simd;
 assign op_dot16 = (op == SIMD_ARITH_OP_DOT16);
+assign op_dot16u = (op == SIMD_ARITH_OP_DOT16U);
 assign op_dot8 = (op == SIMD_ARITH_OP_DOT8);
-assign op_simd = (op_dot16 || op_dot8);
+assign op_dot8u = (op == SIMD_ARITH_OP_DOT8U);
+assign op_simd = (op[3]);
+
+logic op_dot16_any, op_dot8_any;
+assign op_dot16_any = (op_dot16 || op_dot16u);
+assign op_dot8_any = (op_dot8 || op_dot8u);
+
+logic unsigned_op;
+assign unsigned_op = ((op == SIMD_ARITH_OP_MULHU) || (op[3] && op[0]));
 
 // AND matrix for signed multiply using lane-aware Baugh–Wooley
 simd_t [W-1:0] pp; // partial products matrix
 always_comb begin
     int lane_sz;
-    if (op_dot8) lane_sz = 8;
-    else if (op_dot16) lane_sz = 16;
+    if (op_dot8_any) lane_sz = 8;
+    else if (op_dot16_any) lane_sz = 16;
     else lane_sz = W; // plain 32x32 signed
 
     `IT_P(i, W) begin
@@ -49,19 +58,19 @@ always_comb begin
             int li, lj; // lane-local indices
 
             // lane-local positions
-            li = i % lane_sz;
-            lj = j % lane_sz;
+            li = (i % lane_sz);
+            lj = (j % lane_sz);
 
             // Baugh–Wooley rule per lane:
             // flip last row / last col, except 'sign × sign' intersection
             flip = 1'b0;
-            if (op != SIMD_ARITH_OP_MULHU) begin // the only unsigned mult
+            if (!unsigned_op) begin
                 flip = (
                     ((li == lane_sz-1) && (lj != lane_sz-1)) || // "row sign"
                     ((lj == lane_sz-1) && (li != lane_sz-1)) // "col sign"
                 );
             end
-            y = a[i] & b[j];
+            y = (a[i] & b[j]);
             pp[i][j] = flip ? ~y : y;
         end
     end
@@ -75,13 +84,13 @@ always_comb begin
         ppv[i] = x; // idk whatever
         if (!op_simd) begin // MULT 32x32
             ppv[i] = (x << i);
-        end else if (op_dot16) begin // DOT16
+        end else if (op_dot16_any) begin // DOT16
             // every 16 rows (one lane) shifted left per the algorithm
             // but every lane is shifted right to start at idx 0 for dotp
             ppv[i] = (
                 ({32'h0, (x.w[0] & mask_16[i])} << (i % 16)) >> ((i / 16) * 16)
             );
-        end else if (op_dot8) begin // DOT8
+        end else if (op_dot8_any) begin // DOT8
             // same as above, but done on 8-bit blocks
             ppv[i] = (
                 ({32'h0, (x.w[0] & mask_8[i])} << (i % 8)) >> ((i / 8) * 8)
@@ -97,10 +106,10 @@ always_comb begin
         // 32x32 signed MBW
         corr[32] = 1'b1;
         corr[63] = 1'b1;
-    end else if (op_dot16) begin
+    end else if (op_dot16_any) begin
         // 2 lanes of 16x16 signed
         corr[17] = 1'b1; // idx [16] set twice (1x per lane)
-    end else if (op_dot8) begin
+    end else if (op_dot8_any) begin
         // 4 lanes of 8x8 signed
         corr[10] = 1'b1; // idx [8] set four times (1x per lane)
     end
@@ -171,21 +180,43 @@ simd_d_t mul_hsu_tree_1_aligned, mul_hsu_signed;
 assign mul_hsu_tree_1_aligned = (mul_hsu_tree[1] << 1);
 assign mul_hsu_signed = (mul_hsu_tree[0] + mul_hsu_tree_1_aligned);
 
-simd_t mul_hsu;
+arch_width_t mul_hsu;
 assign mul_hsu = b_sign_bit_d ? mul_hsu_signed.w[1] : mul_s.w[1];
 
 // wrap up simd
 localparam unsigned DOT8_W = (ARCH_WIDTH_H + 1); // dot8 result width, 17 bits
 localparam unsigned DOT8_SIGN_EXT = (ARCH_WIDTH - DOT8_W); // sign ext, 15 bits
 
-simd_t dot_r, dot16_r, dot8_r, dot_acc_in, dot_acc_out;
+// signed
+arch_width_t dot_r, dot16_r, dot8_r;
 assign dot_r = mul_s.w[0];
 assign dot16_r = dot_r[ARCH_WIDTH-1:0];
-logic dot8_sign; // overflow detection on 65536
-assign dot8_sign = (&dot_r[DOT8_W:DOT8_W-1]) ? 1'b0 : dot_r[DOT8_W-1];
-assign dot8_r = {{DOT8_SIGN_EXT{dot8_sign}}, dot_r[DOT8_W-1:0]};
-assign dot_acc_in = (op_d == SIMD_ARITH_OP_DOT16) ? dot16_r : dot8_r;
-assign dot_acc_out = (dot_acc_in + c_late);
+
+logic dot8_msb; // overflow detection on 65536
+assign dot8_msb = (&dot_r[DOT8_W:DOT8_W-1]) ? 1'b0 : dot_r[DOT8_W-1];
+assign dot8_r = {{DOT8_SIGN_EXT{dot8_msb}}, dot_r[DOT8_W-1:0]};
+
+// unsigned
+arch_width_t dotu_r, dot16u_r, dot8u_r;
+assign dotu_r = tree_sum.w[0];
+assign dot16u_r = dotu_r[ARCH_WIDTH-1:0];
+
+logic dot8u_of; // overflow detection
+assign dot8u_of = (&dotu_r[DOT8_W:DOT8_W-1]) ? 1'b1 : 1'b0;
+assign dot8u_r = {{DOT8_SIGN_EXT-1{1'b0}}, dot8u_of, dotu_r[DOT8_W-1:0]};
+
+// accumulator common
+arch_width_t dot_acc_in, dot_out;
+always_comb begin
+    case (op_d)
+        SIMD_ARITH_OP_DOT16: dot_acc_in = dot16_r;
+        SIMD_ARITH_OP_DOT16U: dot_acc_in = dot16u_r;
+        SIMD_ARITH_OP_DOT8: dot_acc_in = dot8_r;
+        SIMD_ARITH_OP_DOT8U: dot_acc_in = dot8u_r;
+        default: dot_acc_in = 'h0;
+    endcase
+end
+assign dot_out = (dot_acc_in + c_late);
 
 // output assignment based on the operation
 always_comb begin
@@ -195,7 +226,9 @@ always_comb begin
         SIMD_ARITH_OP_MULHSU: p = mul_hsu;
         SIMD_ARITH_OP_MULHU: p = mul_hu;
         SIMD_ARITH_OP_DOT16,
-        SIMD_ARITH_OP_DOT8: p = dot_acc_out;
+        SIMD_ARITH_OP_DOT16U,
+        SIMD_ARITH_OP_DOT8,
+        SIMD_ARITH_OP_DOT8U: p = dot_out;
         default: p = 'h0;
     endcase
 end

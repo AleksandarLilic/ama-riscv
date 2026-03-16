@@ -5,9 +5,10 @@ simple:
   - ["sim/sw/baremetal/asm_rv32im", "test.hex"]
   - ["sim/sw/baremetal/asm_rv32i_zbb_min-max", "test.hex"]
 
-  #- ["sim/sw/baremetal/asm_rv32i_custom-simd-dot", "test.hex"]
+  - ["sim/sw/baremetal/asm_rv32i_custom-simd-dot", "test.hex"]
   - ["sim/sw/baremetal/asm_rv32i_custom-simd-widen", "test.hex"]
 
+  - ["sim/sw/baremetal/rv32i_custom-simd-dot", "test.hex"]
   - ["sim/sw/baremetal/rv32i_custom-simd-widen", "test.hex"]
   - ["sim/sw/baremetal/rv32i_custom-simd-txp", "test.hex"]
 

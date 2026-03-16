@@ -487,7 +487,7 @@ assign data_fmt_out_p_exe = data_fmt_out.w[1];
 
 logic simd_arith_exe;
 assign simd_arith_exe = (decoded_exe.itype.mult || decoded_exe.itype.simd_dot);
-simd_t op_c_r;
+arch_width_t op_c_r;
 simd_t simd_out_mem;
 ama_riscv_simd ama_riscv_simd_i (
     .clk (clk),

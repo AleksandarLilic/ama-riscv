@@ -191,9 +191,13 @@ typedef enum logic [3:0] {
     SIMD_ARITH_OP_MULHSU = 4'h2,
     SIMD_ARITH_OP_MULHU = 4'h3,
     SIMD_ARITH_OP_DOT16 = (4'h8 + 4'h0),
-    SIMD_ARITH_OP_DOT8 = (4'h8 + 4'h2)
+    SIMD_ARITH_OP_DOT16U = (4'h8 + 4'h1),
+    SIMD_ARITH_OP_DOT8 = (4'h8 + 4'h2),
+    SIMD_ARITH_OP_DOT8U = (4'h8 + 4'h3)
     // SIMD_ARITH_OP_DOT4 = (4'h8 + 4'h4),
+    // SIMD_ARITH_OP_DOT4U = (4'h8 + 4'h5),
     // SIMD_ARITH_OP_DOT2 = (4'h8 + 4'h6),
+    // SIMD_ARITH_OP_DOT2U = (4'h8 + 4'h7)
 } simd_arith_op_t;
 
 typedef enum logic [2:0] {
