@@ -30,6 +30,8 @@ dcache:
   - ["sim/sw/baremetal/dcache_peak", "load.hex"]
   - ["sim/sw/baremetal/dcache_peak", "store.hex"]
   - ["sim/sw/baremetal/dcache_peak", "mixed.hex"]
+  - ["sim/sw/baremetal/dcache_ds_2", "*.hex"]
+  - ["sim/sw/baremetal/dcache_ds_all", "*.hex"]
 
 vector:
   - ["sim/sw/baremetal/vector_ew_basic", "add*.hex"]
