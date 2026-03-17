@@ -9,7 +9,13 @@ static FILE* g_file = nullptr;
 static uint64_t g_last_cycle = 0;
 
 DPI_DLLESPEC void konata_open(const char* outdir) {
-    std::filesystem::path p = std::filesystem::path(outdir) / "kanata.log";
+    auto tag = std::string(outdir);
+    auto pos = tag.find("_out_cosim/");
+    if (pos != std::string::npos) {
+        tag.erase(pos, std::string("_out_cosim/").size());
+    }
+    std::filesystem::path p =
+        std::filesystem::path(outdir) / (tag + std::string(".kanata.log"));
     g_file = std::fopen(p.string().c_str(), "w");
     if (g_file) {
         fprintf(g_file, "Kanata\t0004\n");
