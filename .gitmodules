@@ -1,6 +1,3 @@
 [submodule "sim"]
 	path = sim
 	url = git@github.com:AleksandarLilic/ama-riscv-sim.git
-[submodule "pd/tech/ihp13"]
-	path = pd/tech/ihp13
-	url = git@github.com:IHP-GmbH/IHP-Open-PDK.git
