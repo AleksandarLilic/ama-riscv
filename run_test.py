@@ -294,7 +294,7 @@ def parse_args():
     parser.add_argument('-b', '--rebuild_all', action='store_true', default=False, help="Rebuild everything: RTL, ISA sim, cosim. Takes priority over -k if both are specified")
     parser.add_argument('-p', '--keep_pass', action='store_true', default=False, help="Keep rundir of passed tests. Applicable only if -k is used")
     parser.add_argument('-j', '--jobs', type=int, default=MAX_WORKERS, help="Number of parallel jobs to run (default: number of CPU cores)")
-    parser.add_argument('-c', '--timeout_clocks', type=int, default=500_000, help="Number of clocks before simulations times out")
+    parser.add_argument('-c', '--timeout_clocks', type=int, default=2_000_000, help="Number of clocks before simulations times out")
     parser.add_argument('-v', '--log_level', type=str, default="WARN", help="Log level during simulation")
     #parser.add_argument('--coverage', action='store_true', help="Enable coverage analysis")
     #parser.add_argument('--coverage-only', action='store_true', help="Only run coverage analysis. Relies on the existing test directories for the specified tests")
