@@ -318,7 +318,9 @@ def main():
     create_run_cfg(args.log_wave, args.log_vcd)
     if args.test:
         all_tests = find_all_tests(
-            [[os.path.dirname(args.test), os.path.basename(args.test)]]
+            { "test" :
+                [[os.path.dirname(args.test), os.path.basename(args.test)]]
+            }
         )
         print(f"\nRunning {all_tests[0]}")
     elif args.testlist:
