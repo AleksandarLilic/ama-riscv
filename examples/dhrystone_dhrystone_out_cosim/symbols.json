@@ -1,0 +1,272 @@
+{
+    "_start": {
+        "exec_count": 69,
+        "addr_start": "0x40000",
+        "addr_end": "0x400B4"
+    },
+    "clear_bss_w_loop": {
+        "exec_count": 12033,
+        "addr_start": "0x400B8",
+        "addr_end": "0x400C4"
+    },
+    "clear_bss_b_check": {
+        "exec_count": 3,
+        "addr_start": "0x400C8",
+        "addr_end": "0x400C8"
+    },
+    "clear_bss_b_loop": {
+        "exec_count": 0,
+        "addr_start": "0x400CC",
+        "addr_end": "0x400D8"
+    },
+    "call_main": {
+        "exec_count": 4,
+        "addr_start": "0x400DC",
+        "addr_end": "0x400E4"
+    },
+    "forever": {
+        "exec_count": 0,
+        "addr_start": "0x400E8",
+        "addr_end": "0x400E8"
+    },
+    "trap_entry": {
+        "exec_count": 0,
+        "addr_start": "0x400EC",
+        "addr_end": "0x401FC"
+    },
+    "strcmp": {
+        "exec_count": 65018,
+        "addr_start": "0x40200",
+        "addr_end": "0x40378"
+    },
+    "__udivdi3": {
+        "exec_count": 308,
+        "addr_start": "0x4037C",
+        "addr_end": "0x40940"
+    },
+    "__divsf3": {
+        "exec_count": 0,
+        "addr_start": "0x40944",
+        "addr_end": "0x40CB4"
+    },
+    "__mulsf3": {
+        "exec_count": 0,
+        "addr_start": "0x40CB8",
+        "addr_end": "0x41000"
+    },
+    "__fixsfsi": {
+        "exec_count": 0,
+        "addr_start": "0x41004",
+        "addr_end": "0x41070"
+    },
+    "__floatsisf": {
+        "exec_count": 0,
+        "addr_start": "0x41074",
+        "addr_end": "0x41180"
+    },
+    "__mulsi3": {
+        "exec_count": 36,
+        "addr_start": "0x41184",
+        "addr_end": "0x411A4"
+    },
+    "__divsi3": {
+        "exec_count": 2000,
+        "addr_start": "0x411A8",
+        "addr_end": "0x411AC"
+    },
+    "__hidden___udivsi3": {
+        "exec_count": 30096,
+        "addr_start": "0x411B0",
+        "addr_end": "0x411F4"
+    },
+    "__umodsi3": {
+        "exec_count": 354,
+        "addr_start": "0x411F8",
+        "addr_end": "0x41228"
+    },
+    "__modsi3": {
+        "exec_count": 0,
+        "addr_start": "0x4122C",
+        "addr_end": "0x41258"
+    },
+    "__clzsi2": {
+        "exec_count": 0,
+        "addr_start": "0x4125C",
+        "addr_end": "0x412A4"
+    },
+    "Proc_2": {
+        "exec_count": 9006,
+        "addr_start": "0x412A8",
+        "addr_end": "0x412CC"
+    },
+    "Proc_3": {
+        "exec_count": 12998,
+        "addr_start": "0x412D0",
+        "addr_end": "0x412F0"
+    },
+    "Proc_1": {
+        "exec_count": 71038,
+        "addr_start": "0x412F4",
+        "addr_end": "0x41440"
+    },
+    "Proc_4": {
+        "exec_count": 9000,
+        "addr_start": "0x41444",
+        "addr_end": "0x41464"
+    },
+    "Proc_5": {
+        "exec_count": 4006,
+        "addr_start": "0x41468",
+        "addr_end": "0x41474"
+    },
+    "main": {
+        "exec_count": 85608,
+        "addr_start": "0x41478",
+        "addr_end": "0x41AF4"
+    },
+    "Proc_7": {
+        "exec_count": 18006,
+        "addr_start": "0x41AF8",
+        "addr_end": "0x41B04"
+    },
+    "Proc_8": {
+        "exec_count": 25010,
+        "addr_start": "0x41B08",
+        "addr_end": "0x41B68"
+    },
+    "Func_1": {
+        "exec_count": 15008,
+        "addr_start": "0x41B6C",
+        "addr_end": "0x41B88"
+    },
+    "Func_2": {
+        "exec_count": 34020,
+        "addr_start": "0x41B8C",
+        "addr_end": "0x41C04"
+    },
+    "Func_3": {
+        "exec_count": 3000,
+        "addr_start": "0x41C08",
+        "addr_end": "0x41C10"
+    },
+    "Proc_6": {
+        "exec_count": 22012,
+        "addr_start": "0x41C14",
+        "addr_end": "0x41CD0"
+    },
+    "time_s": {
+        "exec_count": 28,
+        "addr_start": "0x41CD4",
+        "addr_end": "0x41CF8"
+    },
+    "send_byte_uart0": {
+        "exec_count": 11732,
+        "addr_start": "0x41CFC",
+        "addr_end": "0x41D10"
+    },
+    "_write": {
+        "exec_count": 34708,
+        "addr_start": "0x41D14",
+        "addr_end": "0x41D60"
+    },
+    "__puts_uart": {
+        "exec_count": 26128,
+        "addr_start": "0x41D64",
+        "addr_end": "0x41D94"
+    },
+    "mini_printf": {
+        "exec_count": 1387,
+        "addr_start": "0x41D98",
+        "addr_end": "0x41DE8"
+    },
+    "get_cpu_time": {
+        "exec_count": 12,
+        "addr_start": "0x41DEC",
+        "addr_end": "0x41DFC"
+    },
+    "timer_interrupt_handler": {
+        "exec_count": 0,
+        "addr_start": "0x41E00",
+        "addr_end": "0x41E28"
+    },
+    "trap_handler": {
+        "exec_count": 0,
+        "addr_start": "0x41E2C",
+        "addr_end": "0x41E84"
+    },
+    "mini_strlen": {
+        "exec_count": 648,
+        "addr_start": "0x41E88",
+        "addr_end": "0x41EAC"
+    },
+    "mini_itoa": {
+        "exec_count": 2807,
+        "addr_start": "0x41EB0",
+        "addr_end": "0x42014"
+    },
+    "mini_pad": {
+        "exec_count": 955,
+        "addr_start": "0x42018",
+        "addr_end": "0x42220"
+    },
+    "_puts": {
+        "exec_count": 0,
+        "addr_start": "0x42224",
+        "addr_end": "0x42294"
+    },
+    "mini_vpprintf": {
+        "exec_count": 25764,
+        "addr_start": "0x42298",
+        "addr_end": "0x425D0"
+    },
+    "_sbrk": {
+        "exec_count": 21,
+        "addr_start": "0x425D4",
+        "addr_end": "0x425F8"
+    },
+    "malloc": {
+        "exec_count": 28,
+        "addr_start": "0x425FC",
+        "addr_end": "0x42604"
+    },
+    "_malloc_r": {
+        "exec_count": 418,
+        "addr_start": "0x42608",
+        "addr_end": "0x42E14"
+    },
+    "__malloc_lock": {
+        "exec_count": 8,
+        "addr_start": "0x42E18",
+        "addr_end": "0x42E18"
+    },
+    "__malloc_unlock": {
+        "exec_count": 2,
+        "addr_start": "0x42E1C",
+        "addr_end": "0x42E1C"
+    },
+    "_sbrk_r": {
+        "exec_count": 38,
+        "addr_start": "0x42E20",
+        "addr_end": "0x42E78"
+    },
+    "__libc_init_array": {
+        "exec_count": 54,
+        "addr_start": "0x42E7C",
+        "addr_end": "0x42F04"
+    },
+    "strcpy": {
+        "exec_count": 86232,
+        "addr_start": "0x42F08",
+        "addr_end": "0x42FA8"
+    },
+    "_malloc_trim_r": {
+        "exec_count": 0,
+        "addr_start": "0x42FAC",
+        "addr_end": "0x430E8"
+    },
+    "_free_r": {
+        "exec_count": 0,
+        "addr_start": "0x430EC",
+        "addr_end": "0x433D8"
+    }
+}

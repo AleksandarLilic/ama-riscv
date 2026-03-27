@@ -1,0 +1,33 @@
+usage: run_test.py [-h] [-t TEST] [--testlist TESTLIST] [-f FILTER]
+                   [-r RUNDIR] [-o] [-k] [-b] [-p] [-j JOBS]
+                   [-c TIMEOUT_CLOCKS] [-v LOG_LEVEL] [--log_wave] [--log_vcd]
+
+Run RTL simulation.
+
+options:
+  -h, --help            show this help message and exit
+  -t TEST, --test TEST  Specify single test to run
+  --testlist TESTLIST   Path to a YAML file containing a list of tests
+  -f FILTER, --filter FILTER
+                        Apply regex filtering to the testlist on the group
+                        name. Passed in as comma-separated values. Use ~ to
+                        exclude test. E.g., -f 'riscv_isa,~zmmul' includes all
+                        groups that match 'riscv_isa' string in the group
+                        name, except those that match 'zmmul'. If not
+                        specified, all tests in the testlist are run
+  -r RUNDIR, --rundir RUNDIR
+                        Optional custom run directory name
+  -o, --build_only      Only build the testbench
+  -k, --keep_build      Reuse existing build if available
+  -b, --rebuild_all     Rebuild everything: RTL, ISA sim, cosim. Takes
+                        priority over -k if both are specified
+  -p, --keep_pass       Keep rundir of passed tests. Applicable only if -k is
+                        used
+  -j JOBS, --jobs JOBS  Number of parallel jobs to run (default: number of CPU
+                        cores)
+  -c TIMEOUT_CLOCKS, --timeout_clocks TIMEOUT_CLOCKS
+                        Number of clocks before simulations times out
+  -v LOG_LEVEL, --log_level LOG_LEVEL
+                        Log level during simulation
+  --log_wave            Collect .wdb waveform, all modules from the top down
+  --log_vcd             Collect .vcd waveform, all modules from the top down
