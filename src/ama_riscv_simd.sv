@@ -31,16 +31,38 @@ always_comb begin
     `IT_P(y, W) `IT_P(x, W) mask_16[y][x] = ((y / TILE_16) == (x / TILE_16));
 end
 
-logic op_dot16, op_dot16u, op_dot8, op_dot8u, op_simd;
+localparam int unsigned TILE_4 = 4; // 4x4 blocks
+simd_t [W-1:0] mask_4;
+always_comb begin
+    `IT_P(y, W) `IT_P(x, W) mask_4[y][x] = ((y / TILE_4) == (x / TILE_4));
+end
+
+localparam int unsigned TILE_2 = 2; // 2x2 blocks
+simd_t [W-1:0] mask_2;
+always_comb begin
+    `IT_P(y, W) `IT_P(x, W) mask_2[y][x] = ((y / TILE_2) == (x / TILE_2));
+end
+
+logic op_simd;
+assign op_simd = (op[3]);
+
+logic op_dot16, op_dot16u, op_dot8, op_dot8u;
 assign op_dot16 = (op == SIMD_ARITH_OP_DOT16);
 assign op_dot16u = (op == SIMD_ARITH_OP_DOT16U);
 assign op_dot8 = (op == SIMD_ARITH_OP_DOT8);
 assign op_dot8u = (op == SIMD_ARITH_OP_DOT8U);
-assign op_simd = (op[3]);
 
-logic op_dot16_any, op_dot8_any;
+logic op_dot4, op_dot4u, op_dot2, op_dot2u;
+assign op_dot4 = (op == SIMD_ARITH_OP_DOT4);
+assign op_dot4u = (op == SIMD_ARITH_OP_DOT4U);
+assign op_dot2 = (op == SIMD_ARITH_OP_DOT2);
+assign op_dot2u = (op == SIMD_ARITH_OP_DOT2U);
+
+logic op_dot16_any, op_dot8_any, op_dot4_any, op_dot2_any;
 assign op_dot16_any = (op_dot16 || op_dot16u);
 assign op_dot8_any = (op_dot8 || op_dot8u);
+assign op_dot4_any = (op_dot4 || op_dot4u);
+assign op_dot2_any = (op_dot2 || op_dot2u);
 
 logic unsigned_op;
 assign unsigned_op = ((op == SIMD_ARITH_OP_MULHU) || (op[3] && op[0]));
@@ -50,7 +72,9 @@ assign unsigned_op = ((op == SIMD_ARITH_OP_MULHU) || (op[3] && op[0]));
 simd_t [W-1:0] pp; // partial products matrix
 always_comb begin
     int lane_sz;
-    if (op_dot8_any) lane_sz = 8;
+    if (op_dot2_any) lane_sz = 2;
+    else if (op_dot4_any) lane_sz = 4;
+    else if (op_dot8_any) lane_sz = 8;
     else if (op_dot16_any) lane_sz = 16;
     else lane_sz = W; // plain 32x32 signed
 
@@ -93,9 +117,16 @@ always_comb begin
                 ({32'h0, (x.w[0] & mask_16[i])} << (i % 16)) >> ((i / 16) * 16)
             );
         end else if (op_dot8_any) begin // DOT8
-            // same as above, but done on 8-bit blocks
             ppv[i] = (
                 ({32'h0, (x.w[0] & mask_8[i])} << (i % 8)) >> ((i / 8) * 8)
+            );
+        end else if (op_dot4_any) begin // DOT4
+            ppv[i] = (
+                ({32'h0, (x.w[0] & mask_4[i])} << (i % 4)) >> ((i / 4) * 4)
+            );
+        end else if (op_dot2_any) begin // DOT2
+            ppv[i] = (
+                ({32'h0, (x.w[0] & mask_2[i])} << (i % 2)) >> ((i / 2) * 2)
             );
         end
     end
@@ -114,6 +145,12 @@ always_comb begin
     end else if (op_dot8_any) begin
         // 4 lanes of 8x8 signed
         corr[10] = 1'b1; // idx [8] set four times (1x per lane)
+    end else if (op_dot4_any) begin
+        // 8 lanes of 4x4 signed
+        corr[7] = 1'b1; // idx [4] set eight times (1x per lane)
+    end else if (op_dot2_any) begin
+        // 16 lanes of 2x2 signed
+        corr[6] = 1'b1; // idx [2] set sixteen times (1x per lane)
     end
 end
 
@@ -192,32 +229,46 @@ assign mul_hsu = b_sign_bit_d ? mul_hsu_signed.w[1] : mul_s.w[1];
 
 //------------------------------------------------------------------------------
 // wrap up simd
-localparam unsigned DOT8_W = (ARCH_WIDTH_H + 1); // dot8 result width, 17 bits
-localparam unsigned DOT8_SIGN_EXT = (ARCH_WIDTH - DOT8_W); // sign ext, 15 bits
+localparam unsigned DOT8_W = 17; // dot8 result width
+localparam unsigned DOT8_SIGN_EXT = (ARCH_WIDTH - DOT8_W);
+localparam unsigned DOT4_W = 10; // dot4 result width
+localparam unsigned DOT4_SIGN_EXT = (ARCH_WIDTH - DOT4_W);
+localparam unsigned DOT2_W = 7; // dot2 result width
+localparam unsigned DOT2_SIGN_EXT = (ARCH_WIDTH - DOT2_W);
 
 // signed
-arch_width_t dot_r, dot16_r, dot8_r;
+arch_width_t dot_r, dot16_r, dot8_r, dot4_r, dot2_r;
 assign dot_r = mul_s.w[0];
 assign dot16_r = dot_r[ARCH_WIDTH-1:0];
 
-logic dot8_msb; // overflow detection on 65536
+logic dot8_msb;
 assign dot8_msb = (&dot_r[DOT8_W:DOT8_W-1]) ? 1'b0 : dot_r[DOT8_W-1];
 assign dot8_r = {{DOT8_SIGN_EXT{dot8_msb}}, dot_r[DOT8_W-1:0]};
 
-// unsigned
-arch_width_t dotu_r, dot16u_r, dot8u_r;
+logic dot4_msb;
+assign dot4_msb = (&dot_r[DOT4_W:DOT4_W-1]) ? 1'b0 : dot_r[DOT4_W-1];
+assign dot4_r = {{DOT4_SIGN_EXT{dot4_msb}}, dot_r[DOT4_W-1:0]};
+
+logic dot2_msb;
+assign dot2_msb = (&dot_r[DOT2_W:DOT2_W-1]) ? 1'b0 : dot_r[DOT2_W-1];
+assign dot2_r = {{DOT2_SIGN_EXT{dot2_msb}}, dot_r[DOT2_W-1:0]};
+
+// unsigned: no BW bias, tree gives exact result
+arch_width_t dotu_r;
 assign dotu_r = tree_sum.w[0];
-assign dot16u_r = dotu_r;
-assign dot8u_r = dotu_r;
 
 // accumulator common
 arch_width_t dot_acc_in, dot_out;
 always_comb begin
     case (op_d)
         SIMD_ARITH_OP_DOT16: dot_acc_in = dot16_r;
-        SIMD_ARITH_OP_DOT16U: dot_acc_in = dot16u_r;
         SIMD_ARITH_OP_DOT8: dot_acc_in = dot8_r;
-        SIMD_ARITH_OP_DOT8U: dot_acc_in = dot8u_r;
+        SIMD_ARITH_OP_DOT4: dot_acc_in = dot4_r;
+        SIMD_ARITH_OP_DOT2: dot_acc_in = dot2_r;
+        SIMD_ARITH_OP_DOT16U,
+        SIMD_ARITH_OP_DOT8U,
+        SIMD_ARITH_OP_DOT4U,
+        SIMD_ARITH_OP_DOT2U: dot_acc_in = dotu_r;
         default: dot_acc_in = 'h0;
     endcase
 end
@@ -234,7 +285,11 @@ always_comb begin
         SIMD_ARITH_OP_DOT16,
         SIMD_ARITH_OP_DOT16U,
         SIMD_ARITH_OP_DOT8,
-        SIMD_ARITH_OP_DOT8U: p = dot_out;
+        SIMD_ARITH_OP_DOT8U,
+        SIMD_ARITH_OP_DOT4,
+        SIMD_ARITH_OP_DOT4U,
+        SIMD_ARITH_OP_DOT2,
+        SIMD_ARITH_OP_DOT2U: p = dot_out;
         default: p = 'h0;
     endcase
 end
