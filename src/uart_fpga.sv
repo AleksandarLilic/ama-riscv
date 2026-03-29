@@ -16,8 +16,14 @@ logic rst;
 rv_if #(.DW(8)) send_req_ch ();
 rv_if #(.DW(8)) recv_rsp_ch ();
 
-assign LEDS[4:0] = 5'b0_0001; // light up on boot
+logic light;
+assign LEDS[4:0] = {4'b0000, light};
 assign rst = BUTTONS[0];
+
+always @(posedge CLK100MHZ) begin
+    if (rst) light <= 1'b0;
+    else light <= 1'b1; // light up after reset release
+end
 
 uart # (
     .CLOCK_FREQ (CLOCK_FREQ),
