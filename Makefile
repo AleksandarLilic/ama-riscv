@@ -157,33 +157,33 @@ print_defs:
 print_defs_vivado:
 	@echo "set_property verilog_define { $(RTL_DEFINES_LIST)} [current_fileset]"
 
-# run standalone bench with provided sources and top name, oneshot
+# run unit_test bench with provided sources and top name, oneshot
 
-# standalone testbench sources file path
-SAS ?=
-# standalone testbench top name
-SAT ?=
+# unit_test testbench sources file path
+UT_F ?=
+# unit_test testbench top name
+UT_TOP ?=
 
-# standalone work library name, should match the one in the first line of $(SAS)
+# unit_test work library name, should match the one in the first line of $(UT_F)
 # not really meant to be changed even for multiple tops
 # as each top will have its own dir under xsim.dir
-SA_WORKLIB := standalone_tb
+UT_WORKLIB := unit_test
 
-# example usage: 'make standalone SAS=sources_uart.f SAT=uart_tb'
-standalone:
-	@if [ -z "$(SAS)" ]; then \
-		echo "Error: Please provide SAS variable (standalone testbench sources file path)"; \
+# example usage: 'make unit_test UT_F=sources_uart.f UT_TOP=uart_tb'
+unit_test:
+	@if [ -z "$(UT_F)" ]; then \
+		echo "Error: Please provide UT_F variable (unit_test testbench sources file path)"; \
 		exit 1; \
 	fi
-	@if [ -z "$(SAT)" ]; then \
-		echo "Error: Please provide SAT variable (standalone testbench top name)"; \
+	@if [ -z "$(UT_TOP)" ]; then \
+		echo "Error: Please provide UT_TOP variable (unit_test testbench top name)"; \
 		exit 1; \
 	fi
-	xvlog $(COMP_OPTS) -prj $(SAS) -log /dev/null 2>&1
+	xvlog $(COMP_OPTS) -prj $(UT_F) -log /dev/null 2>&1
 	@rm xvlog.pb
-	xelab $(SA_WORKLIB).$(SAT) $(ELAB_OPTS) -log /dev/null 2>&1
+	xelab $(UT_WORKLIB).$(UT_TOP) $(ELAB_OPTS) -log /dev/null 2>&1
 	@rm xelab.pb
-	xsim $(SA_WORKLIB).$(SAT) $(TCLBATCH_SWITCH) -log /dev/null 2>&1
+	xsim $(UT_WORKLIB).$(UT_TOP) $(TCLBATCH_SWITCH) -log /dev/null 2>&1
 	@rm xsim.jou
 
 WORKDIR ?= workdir_test
