@@ -2,7 +2,6 @@
 `define AMA_RISCV_TYPES
 
 parameter unsigned ARCH_WIDTH = 32;
-parameter unsigned ARCH_WIDTH_H = ARCH_WIDTH/2;
 parameter unsigned ARCH_WIDTH_D = ARCH_WIDTH*2;
 parameter unsigned INST_WIDTH = 32;
 parameter unsigned DMEM_ADDR_OFFSET_WIDTH = 12; // inst immediate bits in offset
