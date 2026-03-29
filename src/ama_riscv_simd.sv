@@ -14,6 +14,7 @@ module ama_riscv_simd (
 
 localparam int unsigned W = 32;
 
+//------------------------------------------------------------------------------
 // set up masks
 // select which 8x8/16x16 tile (y,x) belongs to
 // set ones only on diagonal tile blocks (ty == tx)
@@ -44,6 +45,7 @@ assign op_dot8_any = (op_dot8 || op_dot8u);
 logic unsigned_op;
 assign unsigned_op = ((op == SIMD_ARITH_OP_MULHU) || (op[3] && op[0]));
 
+//------------------------------------------------------------------------------
 // AND matrix for signed multiply using lane-aware Baugh–Wooley
 simd_t [W-1:0] pp; // partial products matrix
 always_comb begin
@@ -115,6 +117,7 @@ always_comb begin
     end
 end
 
+//------------------------------------------------------------------------------
 // first four trees in parallel
 simd_d_t [1:0] o_tree_0, o_tree_1, o_tree_2, o_tree_3;
 csa_tree_8 #(.W(64)) csa_tree_8_i0 (.a (ppv[7:0]), .o (o_tree_0));
@@ -122,6 +125,8 @@ csa_tree_8 #(.W(64)) csa_tree_8_i1 (.a (ppv[15:8]), .o (o_tree_1));
 csa_tree_8 #(.W(64)) csa_tree_8_i2 (.a (ppv[23:16]), .o (o_tree_2));
 csa_tree_8 #(.W(64)) csa_tree_8_i3 (.a (ppv[31:24]), .o (o_tree_3));
 
+//------------------------------------------------------------------------------
+// pipeline
 simd_t a_d;
 simd_arith_op_t op_d;
 simd_d_t corr_d;
@@ -142,6 +147,7 @@ assign b_sign_bit = b[ARCH_WIDTH-1]; // b MSB
 `STAGE(ctrl_exe_mem, (en && !op_simd), b_sign_bit, b_sign_bit_d, 1'b0)
 `STAGE(ctrl_exe_mem, (en && !op_simd), a, a_d, 'h0)
 
+//------------------------------------------------------------------------------
 // final tree (multiplication)
 simd_d_t [7:0] i_tree_f;
 simd_d_t [1:0] o_tree_f;
@@ -150,6 +156,7 @@ assign i_tree_f = {o_tree_3_d, o_tree_2_d, o_tree_1_d, o_tree_0_d};
 csa_tree_8 #(.W(64)) csa_tree_8_f_i (.a (i_tree_f), .o(o_tree_f));
 assign tree_sum = (o_tree_f[0] + o_tree_f[1]);
 
+//------------------------------------------------------------------------------
 // wrap up multiplication
 simd_t mul_hu;
 assign mul_hu = tree_sum.w[1];
@@ -183,6 +190,7 @@ assign mul_hsu_signed = (mul_hsu_tree[0] + mul_hsu_tree_1_aligned);
 arch_width_t mul_hsu;
 assign mul_hsu = b_sign_bit_d ? mul_hsu_signed.w[1] : mul_s.w[1];
 
+//------------------------------------------------------------------------------
 // wrap up simd
 localparam unsigned DOT8_W = (ARCH_WIDTH_H + 1); // dot8 result width, 17 bits
 localparam unsigned DOT8_SIGN_EXT = (ARCH_WIDTH - DOT8_W); // sign ext, 15 bits
@@ -199,11 +207,8 @@ assign dot8_r = {{DOT8_SIGN_EXT{dot8_msb}}, dot_r[DOT8_W-1:0]};
 // unsigned
 arch_width_t dotu_r, dot16u_r, dot8u_r;
 assign dotu_r = tree_sum.w[0];
-assign dot16u_r = dotu_r[ARCH_WIDTH-1:0];
-
-logic dot8u_of; // overflow detection
-assign dot8u_of = (&dotu_r[DOT8_W:DOT8_W-1]) ? 1'b1 : 1'b0;
-assign dot8u_r = {{DOT8_SIGN_EXT-1{1'b0}}, dot8u_of, dotu_r[DOT8_W-1:0]};
+assign dot16u_r = dotu_r;
+assign dot8u_r = dotu_r;
 
 // accumulator common
 arch_width_t dot_acc_in, dot_out;
@@ -218,6 +223,7 @@ always_comb begin
 end
 assign dot_out = (dot_acc_in + c_late);
 
+//------------------------------------------------------------------------------
 // output assignment based on the operation
 always_comb begin
     unique case (op_d)
