@@ -7,7 +7,8 @@ module uart_fpga #(
     input  CLK100MHZ,
     input  [3:0] BUTTONS,
     input  [3:0] SWITCHES,
-    output [5:0] LEDS,
+    output [3:0] LEDS,
+    output [2:0] LED0_RGB,
     input  FPGA_SERIAL_RX,
     output FPGA_SERIAL_TX
 );
@@ -17,7 +18,7 @@ rv_if #(.DW(8)) send_req_ch ();
 rv_if #(.DW(8)) recv_rsp_ch ();
 
 logic light;
-assign LEDS[4:0] = {4'b0000, light};
+assign LEDS[3:0] = {3'b000, light};
 assign rst = BUTTONS[0];
 
 always @(posedge CLK100MHZ) begin
@@ -64,8 +65,10 @@ always_comb begin
     else send_req_ch.data = char;
 end
 
-// Light up an LED when ASCII 'A' arrives
-assign LEDS[5] = (char == 8'd65);
+// Light up RGB LEDs when ASCII char arrives:
+assign LED0_RGB[0] = (char == 8'd65); // 'A'
+assign LED0_RGB[1] = (char == 8'd77); // 'M'
+assign LED0_RGB[2] = (char == 8'd119); // 'w'
 assign send_req_ch.valid = has_char;
 assign recv_rsp_ch.ready = !has_char;
 
