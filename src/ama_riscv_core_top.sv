@@ -1,6 +1,8 @@
 `include "ama_riscv_defines.svh"
 
-module ama_riscv_core_top (
+module ama_riscv_core_top #(
+    parameter unsigned CLOCK_FREQ = 100_000_000 // Hz
+)(
     input  logic clk,
     input  logic rst,
     rv_if.TX     req_imem,
@@ -23,7 +25,9 @@ perf_event_dcache_t pe_dc;
 rv_if_dc #(.AW(CORE_BYTE_ADDR_BUS), .DW(ARCH_WIDTH)) dmem_req_ch ();
 rv_if #(.DW(ARCH_WIDTH)) dmem_rsp_ch ();
 
-ama_riscv_core ama_riscv_core_i(
+ama_riscv_core #(
+    .CLOCK_FREQ (CLOCK_FREQ)
+) ama_riscv_core_i (
     .clk (clk),
     .rst (rst),
     .pe_ic (pe_ic),

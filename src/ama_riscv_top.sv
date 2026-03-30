@@ -22,7 +22,9 @@ rv_if #(.DW(MEM_DATA_BUS)) mem_r_rsp_ch_dmem ();
 // core <-> uart
 uart_if uart_ch ();
 
-ama_riscv_core_top ama_riscv_core_top_i(
+ama_riscv_core_top #(
+    .CLOCK_FREQ (CLOCK_FREQ)
+) ama_riscv_core_top_i(
     .clk (clk),
     .rst (rst),
     .req_imem (mem_r_req_ch_imem.TX),
