@@ -69,36 +69,25 @@ assign unsigned_op = ((op == SIMD_ARITH_OP_MULHU) || (op[3] && op[0]));
 
 //------------------------------------------------------------------------------
 // AND matrix for signed multiply using lane-aware Baugh–Wooley
-simd_t [W-1:0] pp; // partial products matrix
+
+logic [W-1:0] sign_mask;
 always_comb begin
-    int lane_sz;
-    if (op_dot2_any) lane_sz = 2;
-    else if (op_dot4_any) lane_sz = 4;
-    else if (op_dot8_any) lane_sz = 8;
-    else if (op_dot16_any) lane_sz = 16;
-    else lane_sz = W; // plain 32x32 signed
+    unique case (1'b1)
+        unsigned_op: sign_mask = 'h0000_0000;
+        op_dot2: sign_mask = 'hAAAA_AAAA;
+        op_dot4: sign_mask = 'h8888_8888;
+        op_dot8: sign_mask = 'h8080_8080;
+        op_dot16: sign_mask = 'h8000_8000;
+        default: sign_mask = 'h8000_0000;
+    endcase
+end
 
-    `IT_P(i, W) begin
-        `IT_P(j, W) begin
-            logic y, flip;
-            int li, lj; // lane-local indices
-
-            // lane-local positions
-            li = (i % lane_sz);
-            lj = (j % lane_sz);
-
-            // Baugh–Wooley rule per lane:
-            // flip last row / last col, except 'sign × sign' intersection
-            flip = 1'b0;
-            if (!unsigned_op) begin
-                flip = (
-                    ((li == lane_sz-1) && (lj != lane_sz-1)) || // "row sign"
-                    ((lj == lane_sz-1) && (li != lane_sz-1)) // "col sign"
-                );
-            end
-            y = (a[i] & b[j]);
-            pp[i][j] = flip ? ~y : y;
-        end
+simd_t [W-1:0] pp; // partial products matrix
+for (genvar c = 0; c < W; c++) begin : g_pp_cols
+    for (genvar r = 0; r < W; r++) begin : g_pp_rows
+        wire y = (a[c] & b[r]);
+        wire flip = (sign_mask[c] ^ sign_mask[r]);
+        assign pp[c][r] = flip ? ~y : y;
     end
 end
 
@@ -106,29 +95,31 @@ simd_d_t [W-1:0] ppv; // double-wide pp view
 always_comb begin
     `IT_P(i, W) begin
         simd_d_t x;
-        x = {32'h0, pp[i]};
-        ppv[i] = x; // idk whatever
-        if (!op_simd) begin // MULT 32x32
-            ppv[i] = (x << i);
-        end else if (op_dot16_any) begin // DOT16
-            // every 16 rows (one lane) shifted left per the algorithm
-            // but every lane is shifted right to start at idx 0 for dotp
-            ppv[i] = (
-                ({32'h0, (x.w[0] & mask_16[i])} << (i % 16)) >> ((i / 16) * 16)
-            );
-        end else if (op_dot8_any) begin // DOT8
-            ppv[i] = (
-                ({32'h0, (x.w[0] & mask_8[i])} << (i % 8)) >> ((i / 8) * 8)
-            );
-        end else if (op_dot4_any) begin // DOT4
-            ppv[i] = (
-                ({32'h0, (x.w[0] & mask_4[i])} << (i % 4)) >> ((i / 4) * 4)
-            );
-        end else if (op_dot2_any) begin // DOT2
-            ppv[i] = (
-                ({32'h0, (x.w[0] & mask_2[i])} << (i % 2)) >> ((i / 2) * 2)
-            );
-        end
+        ppv[i] = '0;
+        unique case (1'b1)
+            op_dot16_any: begin
+                // every 16 rows (one lane) shifted left per the algorithm
+                // but every lane is shifted right to start at idx 0 for dotp
+                x = {32'h0, (pp[i] & mask_16[i])};
+                ppv[i] = ((x << (i % 16)) >> ((i / 16) * 16));
+            end
+            op_dot8_any: begin
+                x = {32'h0, (pp[i] & mask_8[i])};
+                ppv[i] = ((x << (i % 8)) >> ((i / 8) * 8));
+            end
+            op_dot4_any: begin
+                x = {32'h0, (pp[i] & mask_4[i])};
+                ppv[i] = ((x << (i % 4)) >> ((i / 4) * 4));
+            end
+            op_dot2_any: begin
+                x = {32'h0, (pp[i] & mask_2[i])};
+                ppv[i] = ((x << (i % 2)) >> ((i / 2) * 2));
+            end
+            default: begin // MULT 32x32
+                x = {32'h0, pp[i]};
+                ppv[i] = (x << i);
+            end
+        endcase
     end
 end
 
