@@ -55,7 +55,6 @@ always_ff @(posedge clk) begin
         case (uart_ch.ctrl.addr)
             UART_CTRL: begin
                 uart_ch.recv <= {30'd0, uart_rv_ctrl};
-                recv_rsp_ch.ready <= 1'b1;
             end
             UART_RX: begin
                 uart_ch.recv <= read;
