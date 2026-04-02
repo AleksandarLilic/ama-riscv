@@ -796,7 +796,7 @@ initial begin
     `endif
     `endif
 
-    load_memories({args.test_path, ".hex"});
+    load_memories({args.test_path, ".mem"});
     `ifdef ENABLE_COSIM
     cosim_setup(
         {args.test_path, ".elf"},
