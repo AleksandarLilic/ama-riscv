@@ -5,7 +5,7 @@
 
 module ama_riscv_fpga #(
     parameter CLOCK_FREQ = 50_000_000,
-    parameter UART_BR = 115_200
+    parameter UART_BR = BR_115200
 )(
     input  CLK100MHZ,
     input  RST,
