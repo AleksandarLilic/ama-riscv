@@ -88,11 +88,11 @@ end
 simd_t [W-1:0] pp; // partial products matrix
 logic [W-1:0][W-1:0] y;
 logic [W-1:0][W-1:0] flip;
-for (genvar c = 0; c < W; c++) begin : g_pp_cols
-    for (genvar r = 0; r < W; r++) begin : g_pp_rows
-        assign y[c][r] = (a[c] & b[r]);
-        assign flip[c][r] = (sign_mask[c] ^ sign_mask[r]);
-        assign pp[c][r] = flip[c][r] ? ~y[c][r] : y[c][r];
+for (genvar ai = 0; ai < W; ai++) begin : g_pp_ai
+    for (genvar bi = 0; bi < W; bi++) begin : g_pp_bi
+        assign y[ai][bi] = (a[ai] & b[bi]);
+        assign flip[ai][bi] = (sign_mask[ai] ^ sign_mask[bi]);
+        assign pp[ai][bi] = flip[ai][bi] ? ~y[ai][bi] : y[ai][bi];
     end
 end
 
@@ -190,7 +190,7 @@ assign b_sign_bit = b[ARCH_WIDTH-1]; // b MSB
 `STAGE(ctrl_exe_mem, (en && !op_simd), a, a_d, 'h0)
 
 //------------------------------------------------------------------------------
-// final tree (multiplication)
+// final tree rv32 mul & simd dot
 simd_d_t [7:0] i_tree_f;
 simd_d_t [1:0] o_tree_f;
 simd_d_t tree_sum;
@@ -199,10 +199,9 @@ csa_tree_8 #(.W(64)) csa_tree_8_f_i (.a (i_tree_f), .o(o_tree_f));
 assign tree_sum = (o_tree_f[0] + o_tree_f[1]);
 
 //------------------------------------------------------------------------------
-// wrap up multiplication
-simd_t mul_hu;
-assign mul_hu = tree_sum.w[1];
+// wrap up rv32 mul
 
+// multiply signed, high signed, & simd dot signed
 simd_d_t [1:0] mul_s_tree;
 csa #(.W(64)) csa_i_mul_s (
     .x(o_tree_f[0]),
@@ -216,6 +215,7 @@ simd_d_t mul_s_tree_1_aligned, mul_s;
 assign mul_s_tree_1_aligned = (mul_s_tree[1] << 1);
 assign mul_s = (mul_s_tree[0] + mul_s_tree_1_aligned);
 
+// multiply high signed x unsigned
 simd_d_t [1:0] mul_hsu_tree;
 csa #(.W(64)) csa_i_mul_hsu (
     .x(mul_s_tree[0]),
@@ -232,8 +232,12 @@ assign mul_hsu_signed = (mul_hsu_tree[0] + mul_hsu_tree_1_aligned);
 arch_width_t mul_hsu;
 assign mul_hsu = b_sign_bit_d ? mul_hsu_signed.w[1] : mul_s.w[1];
 
+// multiply high unsigned
+simd_t mul_hu;
+assign mul_hu = tree_sum.w[1];
+
 //------------------------------------------------------------------------------
-// wrap up simd
+// wrap up simd dot
 localparam unsigned DOT8_W = 17; // dot8 result width
 localparam unsigned DOT8_SIGN_EXT = (ARCH_WIDTH - DOT8_W);
 localparam unsigned DOT4_W = 10; // dot4 result width
@@ -280,7 +284,7 @@ end
 assign dot_out = (dot_acc_in + c_late);
 
 //------------------------------------------------------------------------------
-// output assignment based on the operation
+// output assignment
 always_comb begin
     unique case (op_d)
         SIMD_ARITH_OP_MUL: p = mul_s[ARCH_WIDTH-1:0];
