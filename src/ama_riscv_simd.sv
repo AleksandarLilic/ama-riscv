@@ -67,6 +67,9 @@ assign op_dot2_any = (op_dot2 || op_dot2u);
 logic unsigned_op;
 assign unsigned_op = ((op == SIMD_ARITH_OP_MULHU) || (op[3] && op[0]));
 
+logic signed_mul;
+assign signed_mul = ((!op[3]) && (op != SIMD_ARITH_OP_MULHU));
+
 //------------------------------------------------------------------------------
 // AND matrix for signed multiply using lane-aware Baugh–Wooley
 
@@ -125,26 +128,35 @@ always_comb begin
     end
 end
 
-simd_d_t corr; // correction for modified BW
+simd_d_t corr; // correction for modified BW for signed operations
 always_comb begin
     corr = '0;
-    if (!op_simd) begin
-        // 32x32 signed MBW
-        corr[32] = 1'b1;
-        corr[63] = 1'b1;
-    end else if (op_dot16_any) begin
-        // 2 lanes of 16x16 signed
-        corr[17] = 1'b1; // idx [16] set twice (1x per lane)
-    end else if (op_dot8_any) begin
-        // 4 lanes of 8x8 signed
-        corr[10] = 1'b1; // idx [8] set four times (1x per lane)
-    end else if (op_dot4_any) begin
-        // 8 lanes of 4x4 signed
-        corr[7] = 1'b1; // idx [4] set eight times (1x per lane)
-    end else if (op_dot2_any) begin
-        // 16 lanes of 2x2 signed
-        corr[6] = 1'b1; // idx [2] set sixteen times (1x per lane)
-    end
+    unique case (1'b1)
+        signed_mul: begin
+            // 32x32 signed MBW
+            corr[32] = 1'b1;
+            corr[63] = 1'b1;
+        end
+        op_dot16: begin
+            // 2 lanes of 16x16 signed
+            corr[17] = 1'b1; // idx [16] set twice (1x per lane)
+        end
+        op_dot8: begin
+            // 4 lanes of 8x8 signed
+            corr[10] = 1'b1; // idx [8] set four times (1x per lane)
+        end
+        op_dot4: begin
+            // 8 lanes of 4x4 signed
+            corr[7] = 1'b1; // idx [4] set eight times (1x per lane)
+        end
+        op_dot2: begin
+            // 16 lanes of 2x2 signed
+            corr[6] = 1'b1; // idx [2] set sixteen times (1x per lane)
+        end
+        default: begin
+            corr = '0;
+        end
+    endcase
 end
 
 //------------------------------------------------------------------------------
