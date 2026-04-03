@@ -28,9 +28,9 @@ RUN_CFG ?= $(REPO_ROOT)/run_cfg.tcl
 TCLBATCH_SWITCH := -tclbatch $(RUN_CFG)
 
 TEST_PATH ?=
-# if TEST_PATH is not set, use a default unique name
+# if TEST_PATH is not set, use a default unique name with timestamp
 ifeq ($(strip $(TEST_PATH)),)
-    TEST_WDB := make_run_default
+    TEST_WDB := make_run_$(shell date +%Y-%m-%d_%H-%M-%S)
 else
     TEST_WDB := $(shell path='$(TEST_PATH)'; echo "$$(basename "$$(dirname "$$path")")_$$(basename "$$path")")
 endif
@@ -50,7 +50,6 @@ LOG_ARG := -log /dev/null 2>&1
 LOG_NAME = $(TEST_WDB).log
 TO_LOG ?= 1
 ifeq ($(strip $(TO_LOG)),1)
-    $(shell echo "" > $(LOG_NAME))
     LOG_ARG := $(LOG_ARG) >> $(LOG_NAME)
 endif
 
