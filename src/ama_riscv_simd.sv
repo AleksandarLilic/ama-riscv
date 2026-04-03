@@ -195,48 +195,50 @@ assign b_sign_bit = b[ARCH_WIDTH-1]; // b MSB
 // final tree rv32 mul & simd dot
 simd_d_t [7:0] i_tree_f;
 simd_d_t [1:0] o_tree_f;
-simd_d_t tree_sum;
 assign i_tree_f = {o_tree_3_d, o_tree_2_d, o_tree_1_d, o_tree_0_d};
 /* verilator lint_off PINCONNECTEMPTY */
 csa_tree_8 #(.W(64)) csa_tree_8_f_i (
     .a (i_tree_f), .o(o_tree_f), .taps ()
 );
 /* verilator lint_on PINCONNECTEMPTY */
-assign tree_sum = (o_tree_f[0] + o_tree_f[1]);
 
 //------------------------------------------------------------------------------
 // wrap up rv32 mul
 
 // multiply signed, high signed, & simd dot signed
-simd_d_t [1:0] mul_s_tree;
-csa #(.W(64)) csa_i_mul_s (
+simd_d_t [1:0] tree_sum_mbw;
+csa #(.W(64)) csa_i_tree_sum_mbw (
     .x(o_tree_f[0]),
     .y(o_tree_f[1]),
     .z(corr_d),
-    .s(mul_s_tree[0]),
-    .c(mul_s_tree[1])
+    .s(tree_sum_mbw[0]),
+    .c(tree_sum_mbw[1])
 );
 
-simd_d_t mul_s_tree_1_aligned, mul_s;
-assign mul_s_tree_1_aligned = (mul_s_tree[1] << 1);
-assign mul_s = (mul_s_tree[0] + mul_s_tree_1_aligned);
+simd_d_t tree_sum_mbw_1_aligned;
+assign tree_sum_mbw_1_aligned = (tree_sum_mbw[1] << 1);
+
+simd_d_t tree_sum;
+assign tree_sum = (tree_sum_mbw[0] + tree_sum_mbw_1_aligned);
 
 // multiply high signed x unsigned
 simd_d_t [1:0] mul_hsu_tree;
 csa #(.W(64)) csa_i_mul_hsu (
-    .x(mul_s_tree[0]),
-    .y(mul_s_tree_1_aligned),
+    .x(tree_sum_mbw[0]),
+    .y(tree_sum_mbw_1_aligned),
     .z({a_d, 32'h0}),
     .s(mul_hsu_tree[0]),
     .c(mul_hsu_tree[1])
 );
 
-simd_d_t mul_hsu_tree_1_aligned, mul_hsu_signed;
+simd_d_t mul_hsu_tree_1_aligned;
 assign mul_hsu_tree_1_aligned = (mul_hsu_tree[1] << 1);
+
+simd_d_t mul_hsu_signed;
 assign mul_hsu_signed = (mul_hsu_tree[0] + mul_hsu_tree_1_aligned);
 
 arch_width_t mul_hsu;
-assign mul_hsu = b_sign_bit_d ? mul_hsu_signed.w[1] : mul_s.w[1];
+assign mul_hsu = b_sign_bit_d ? mul_hsu_signed.w[1] : tree_sum.w[1];
 
 // multiply high unsigned
 simd_t mul_hu;
@@ -253,7 +255,7 @@ localparam unsigned DOT2_SIGN_EXT = (ARCH_WIDTH - DOT2_W);
 
 // signed
 arch_width_t dot_r, dot16_r, dot8_r, dot4_r, dot2_r;
-assign dot_r = mul_s.w[0];
+assign dot_r = tree_sum.w[0];
 assign dot16_r = dot_r[ARCH_WIDTH-1:0];
 
 logic dot8_msb;
@@ -293,8 +295,8 @@ assign dot_out = (dot_acc_in + c_late);
 // output assignment
 always_comb begin
     unique case (op_d)
-        SIMD_ARITH_OP_MUL: p = mul_s[ARCH_WIDTH-1:0];
-        SIMD_ARITH_OP_MULH: p = mul_s[ARCH_WIDTH_D-1:ARCH_WIDTH];
+        SIMD_ARITH_OP_MUL: p = tree_sum[ARCH_WIDTH-1:0];
+        SIMD_ARITH_OP_MULH: p = tree_sum[ARCH_WIDTH_D-1:ARCH_WIDTH];
         SIMD_ARITH_OP_MULHSU: p = mul_hsu;
         SIMD_ARITH_OP_MULHU: p = mul_hu;
         SIMD_ARITH_OP_DOT16,
