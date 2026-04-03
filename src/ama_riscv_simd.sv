@@ -83,11 +83,13 @@ always_comb begin
 end
 
 simd_t [W-1:0] pp; // partial products matrix
+logic [W-1:0][W-1:0] y;
+logic [W-1:0][W-1:0] flip;
 for (genvar c = 0; c < W; c++) begin : g_pp_cols
     for (genvar r = 0; r < W; r++) begin : g_pp_rows
-        wire y = (a[c] & b[r]);
-        wire flip = (sign_mask[c] ^ sign_mask[r]);
-        assign pp[c][r] = flip ? ~y : y;
+        assign y[c][r] = (a[c] & b[r]);
+        assign flip[c][r] = (sign_mask[c] ^ sign_mask[r]);
+        assign pp[c][r] = flip[c][r] ? ~y[c][r] : y[c][r];
     end
 end
 
