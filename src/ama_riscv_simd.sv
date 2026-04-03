@@ -162,10 +162,12 @@ end
 //------------------------------------------------------------------------------
 // first four trees in parallel
 simd_d_t [1:0] o_tree_0, o_tree_1, o_tree_2, o_tree_3;
-csa_tree_8 #(.W(64)) csa_tree_8_i0 (.a (ppv[7:0]), .o (o_tree_0));
-csa_tree_8 #(.W(64)) csa_tree_8_i1 (.a (ppv[15:8]), .o (o_tree_1));
-csa_tree_8 #(.W(64)) csa_tree_8_i2 (.a (ppv[23:16]), .o (o_tree_2));
-csa_tree_8 #(.W(64)) csa_tree_8_i3 (.a (ppv[31:24]), .o (o_tree_3));
+/* verilator lint_off PINCONNECTEMPTY */
+csa_tree_8 #(.W(64)) csa_tree_8_i0 (.a (ppv[7:0]), .o (o_tree_0), .taps ());
+csa_tree_8 #(.W(64)) csa_tree_8_i1 (.a (ppv[15:8]), .o (o_tree_1), .taps ());
+csa_tree_8 #(.W(64)) csa_tree_8_i2 (.a (ppv[23:16]), .o (o_tree_2), .taps ());
+csa_tree_8 #(.W(64)) csa_tree_8_i3 (.a (ppv[31:24]), .o (o_tree_3), .taps ());
+/* verilator lint_on PINCONNECTEMPTY */
 
 //------------------------------------------------------------------------------
 // pipeline
@@ -195,7 +197,11 @@ simd_d_t [7:0] i_tree_f;
 simd_d_t [1:0] o_tree_f;
 simd_d_t tree_sum;
 assign i_tree_f = {o_tree_3_d, o_tree_2_d, o_tree_1_d, o_tree_0_d};
-csa_tree_8 #(.W(64)) csa_tree_8_f_i (.a (i_tree_f), .o(o_tree_f));
+/* verilator lint_off PINCONNECTEMPTY */
+csa_tree_8 #(.W(64)) csa_tree_8_f_i (
+    .a (i_tree_f), .o(o_tree_f), .taps ()
+);
+/* verilator lint_on PINCONNECTEMPTY */
 assign tree_sum = (o_tree_f[0] + o_tree_f[1]);
 
 //------------------------------------------------------------------------------
