@@ -207,7 +207,7 @@ csa_tree_8 #(.W(64)) csa_tree_8_f_i (
 
 // multiply signed, high signed, & simd dot signed
 simd_d_t [1:0] tree_sum_mbw;
-csa #(.W(64)) csa_i_tree_sum_mbw (
+csa #(.W(64), .A(1)) csa_i_tree_sum_mbw (
     .x(o_tree_f[0]),
     .y(o_tree_f[1]),
     .z(corr_d),
@@ -215,27 +215,21 @@ csa #(.W(64)) csa_i_tree_sum_mbw (
     .c(tree_sum_mbw[1])
 );
 
-simd_d_t tree_sum_mbw_1_aligned;
-assign tree_sum_mbw_1_aligned = (tree_sum_mbw[1] << 1);
-
 simd_d_t tree_sum;
-assign tree_sum = (tree_sum_mbw[0] + tree_sum_mbw_1_aligned);
+assign tree_sum = (tree_sum_mbw[0] + tree_sum_mbw[1]);
 
 // multiply high signed x unsigned
 simd_d_t [1:0] mul_hsu_tree;
-csa #(.W(64)) csa_i_mul_hsu (
+csa #(.W(64), .A(1)) csa_i_mul_hsu (
     .x(tree_sum_mbw[0]),
-    .y(tree_sum_mbw_1_aligned),
+    .y(tree_sum_mbw[1]),
     .z({a_d, 32'h0}),
     .s(mul_hsu_tree[0]),
     .c(mul_hsu_tree[1])
 );
 
-simd_d_t mul_hsu_tree_1_aligned;
-assign mul_hsu_tree_1_aligned = (mul_hsu_tree[1] << 1);
-
 simd_d_t mul_hsu_signed;
-assign mul_hsu_signed = (mul_hsu_tree[0] + mul_hsu_tree_1_aligned);
+assign mul_hsu_signed = (mul_hsu_tree[0] + mul_hsu_tree[1]);
 
 arch_width_t mul_hsu;
 assign mul_hsu = b_sign_bit_d ? mul_hsu_signed.w[1] : tree_sum.w[1];
