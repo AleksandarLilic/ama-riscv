@@ -81,7 +81,7 @@ typedef enum logic [6:0] {
 } opc7_t;
 
 typedef enum logic [6:0] {
-    CUSTOM_ISA_FN7_SIMD_DOT = 7'h03,
+    CUSTOM_ISA_FN7_SIMD_DOT = 7'h04,
     CUSTOM_ISA_FN7_SIMD_WIDEN = 7'h20,
     CUSTOM_ISA_FN7_SIMD_TXP = 7'h30
 } custom_isa_fn7_t;
