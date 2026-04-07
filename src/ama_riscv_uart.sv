@@ -39,7 +39,7 @@ end
 uart_rv_ctrl_t uart_rv_ctrl_in, uart_rv_ctrl;
 assign uart_rv_ctrl_in = '{
     rx_valid: recv_rsp_ch.valid,
-    tx_ready: send_req_ch.ready
+    tx_ready: (send_req_ch.ready && !send_req_ch.valid)
 };
 `DFF_CI_RI_RV('{0, 0}, uart_rv_ctrl_in, uart_rv_ctrl)
 
