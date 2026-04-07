@@ -28,6 +28,13 @@ typedef union packed {
     logic [31:0] [(ARCH_WIDTH_D/32)-1:0] c;
 } simd_d_t;
 
+typedef union packed {
+    logic [(ARCH_WIDTH/2)-1:0] h; // half
+    logic [1:0] [(ARCH_WIDTH/4)-1:0] b; // byte
+    logic [3:0] [(ARCH_WIDTH/8)-1:0] n; // nibble
+    logic [7:0] [(ARCH_WIDTH/16)-1:0] c; // crumb
+} simd_h_t;
+
 parameter unsigned RF_NUM = 32;
 parameter unsigned RF_BANKED = 1;
 
@@ -81,6 +88,8 @@ typedef enum logic [6:0] {
 } opc7_t;
 
 typedef enum logic [6:0] {
+    CUSTOM_ISA_FN7_SIMD_MUL = 7'h02,
+    CUSTOM_ISA_FN7_SIMD_WMUL = 7'h03,
     CUSTOM_ISA_FN7_SIMD_DOT = 7'h04,
     CUSTOM_ISA_FN7_SIMD_WIDEN = 7'h20,
     CUSTOM_ISA_FN7_SIMD_TXP = 7'h30
@@ -184,19 +193,41 @@ typedef enum logic [4:0] {
     ALU_OP_OFF =  {5{1'b1}}
 } alu_op_t;
 
-typedef enum logic [3:0] {
-    SIMD_ARITH_OP_MUL = 4'h0,
-    SIMD_ARITH_OP_MULH = 4'h1,
-    SIMD_ARITH_OP_MULHSU = 4'h2,
-    SIMD_ARITH_OP_MULHU = 4'h3,
-    SIMD_ARITH_OP_DOT16 = (4'h8 + 4'h0),
-    SIMD_ARITH_OP_DOT16U = (4'h8 + 4'h1),
-    SIMD_ARITH_OP_DOT8 = (4'h8 + 4'h2),
-    SIMD_ARITH_OP_DOT8U = (4'h8 + 4'h3),
-    SIMD_ARITH_OP_DOT4 = (4'h8 + 4'h4),
-    SIMD_ARITH_OP_DOT4U = (4'h8 + 4'h5),
-    SIMD_ARITH_OP_DOT2 = (4'h8 + 4'h6),
-    SIMD_ARITH_OP_DOT2U = (4'h8 + 4'h7)
+typedef enum logic [2:0] {
+    SIMD_ARITH_CLASS_RV32M = 3'h0,
+    SIMD_ARITH_CLASS_MUL = 3'h2,
+    SIMD_ARITH_CLASS_WMUL = 3'h3,
+    SIMD_ARITH_CLASS_DOT = 3'h4
+} simd_arith_class_t;
+
+typedef enum logic [5:0] {
+    //                  fn7[2:0],  fn3
+    // rv32m mul
+    SIMD_ARITH_OP_MUL    = {SIMD_ARITH_CLASS_RV32M, 3'h0},
+    SIMD_ARITH_OP_MULH   = {SIMD_ARITH_CLASS_RV32M, 3'h1},
+    SIMD_ARITH_OP_MULHSU = {SIMD_ARITH_CLASS_RV32M, 3'h2},
+    SIMD_ARITH_OP_MULHU  = {SIMD_ARITH_CLASS_RV32M, 3'h3},
+    // simd mul
+    SIMD_ARITH_OP_MUL16   = {SIMD_ARITH_CLASS_MUL, 3'h0},
+    SIMD_ARITH_OP_MUL8    = {SIMD_ARITH_CLASS_MUL, 3'h2},
+    SIMD_ARITH_OP_MULH16  = {SIMD_ARITH_CLASS_MUL, 3'h4},
+    SIMD_ARITH_OP_MULH16U = {SIMD_ARITH_CLASS_MUL, 3'h5},
+    SIMD_ARITH_OP_MULH8   = {SIMD_ARITH_CLASS_MUL, 3'h6},
+    SIMD_ARITH_OP_MULH8U  = {SIMD_ARITH_CLASS_MUL, 3'h7},
+    // simd wmul
+    SIMD_ARITH_OP_WMUL16  = {SIMD_ARITH_CLASS_WMUL, 3'h0},
+    SIMD_ARITH_OP_WMUL16U = {SIMD_ARITH_CLASS_WMUL, 3'h1},
+    SIMD_ARITH_OP_WMUL8   = {SIMD_ARITH_CLASS_WMUL, 3'h2},
+    SIMD_ARITH_OP_WMUL8U  = {SIMD_ARITH_CLASS_WMUL, 3'h3},
+    // simd dot
+    SIMD_ARITH_OP_DOT16  = {SIMD_ARITH_CLASS_DOT, 3'h0},
+    SIMD_ARITH_OP_DOT16U = {SIMD_ARITH_CLASS_DOT, 3'h1},
+    SIMD_ARITH_OP_DOT8   = {SIMD_ARITH_CLASS_DOT, 3'h2},
+    SIMD_ARITH_OP_DOT8U  = {SIMD_ARITH_CLASS_DOT, 3'h3},
+    SIMD_ARITH_OP_DOT4   = {SIMD_ARITH_CLASS_DOT, 3'h4},
+    SIMD_ARITH_OP_DOT4U  = {SIMD_ARITH_CLASS_DOT, 3'h5},
+    SIMD_ARITH_OP_DOT2   = {SIMD_ARITH_CLASS_DOT, 3'h6},
+    SIMD_ARITH_OP_DOT2U  = {SIMD_ARITH_CLASS_DOT, 3'h7}
 } simd_arith_op_t;
 
 typedef enum logic [2:0] {
@@ -295,7 +326,7 @@ typedef struct packed {
 
 typedef struct packed {
     logic mult;
-    logic simd_dot;
+    logic simd_arith;
     logic simd_data_fmt;
     logic load;
     logic store;

@@ -9,7 +9,7 @@ module ama_riscv_simd (
     input  simd_t a,
     input  simd_t b,
     input  arch_width_t c_late,
-    output simd_t p
+    output simd_d_t p
 );
 
 localparam int unsigned W = 32;
@@ -43,46 +43,39 @@ always_comb begin
     `IT_P(y, W) `IT_P(x, W) mask_2[y][x] = ((y / TILE_2) == (x / TILE_2));
 end
 
-logic op_simd;
-assign op_simd = (op[3]);
+logic op_rv32_mul, op_simd, /* op_simd_mul, op_simd_wmul, */ op_simd_dot;
+assign op_rv32_mul = (op[5:3] == SIMD_ARITH_CLASS_RV32M);
+assign op_simd = (op[5:3] != SIMD_ARITH_CLASS_RV32M);
+//assign op_simd_mul = (op[5:3] == SIMD_ARITH_CLASS_MUL);
+//assign op_simd_wmul = (op[5:3] == SIMD_ARITH_CLASS_WMUL);
+assign op_simd_dot = (op[5:3] == SIMD_ARITH_CLASS_DOT);
 
-logic op_dot16, op_dot16u, op_dot8, op_dot8u;
-assign op_dot16 = (op == SIMD_ARITH_OP_DOT16);
-assign op_dot16u = (op == SIMD_ARITH_OP_DOT16U);
-assign op_dot8 = (op == SIMD_ARITH_OP_DOT8);
-assign op_dot8u = (op == SIMD_ARITH_OP_DOT8U);
+logic ew_32, ew_16, ew_8, ew_4, ew_2;
+assign ew_2 = (op_simd_dot && (op[2:1] == 2'b11));
+assign ew_4 = (op_simd_dot && (op[2:1] == 2'b10));
+assign ew_8 = (op_simd && (op[1] == 1'b1) && !ew_2);
+assign ew_16 = (op_simd && (op[1] == 1'b0) && !ew_4);
+assign ew_32 = op_rv32_mul;
 
-logic op_dot4, op_dot4u, op_dot2, op_dot2u;
-assign op_dot4 = (op == SIMD_ARITH_OP_DOT4);
-assign op_dot4u = (op == SIMD_ARITH_OP_DOT4U);
-assign op_dot2 = (op == SIMD_ARITH_OP_DOT2);
-assign op_dot2u = (op == SIMD_ARITH_OP_DOT2U);
-
-logic op_dot16_any, op_dot8_any, op_dot4_any, op_dot2_any;
-assign op_dot16_any = (op_dot16 || op_dot16u);
-assign op_dot8_any = (op_dot8 || op_dot8u);
-assign op_dot4_any = (op_dot4 || op_dot4u);
-assign op_dot2_any = (op_dot2 || op_dot2u);
-
-logic unsigned_op;
-assign unsigned_op = ((op == SIMD_ARITH_OP_MULHU) || (op[3] && op[0]));
-
-logic signed_mul;
-assign signed_mul = ((!op[3]) && (op != SIMD_ARITH_OP_MULHU));
+logic op_unsigned;
+assign op_unsigned = ((op == SIMD_ARITH_OP_MULHU) || (op_simd && op[0]));
 
 //------------------------------------------------------------------------------
 // AND matrix for signed multiply using lane-aware Baugh–Wooley
 
 logic [W-1:0] sign_mask;
 always_comb begin
-    unique case (1'b1)
-        unsigned_op: sign_mask = 'h0000_0000;
-        op_dot2: sign_mask = 'hAAAA_AAAA;
-        op_dot4: sign_mask = 'h8888_8888;
-        op_dot8: sign_mask = 'h8080_8080;
-        op_dot16: sign_mask = 'h8000_8000;
-        default: sign_mask = 'h8000_0000;
-    endcase
+    sign_mask = '0;
+    if (!op_unsigned) begin
+        unique case (1'b1)
+            ew_2: sign_mask = 'hAAAA_AAAA;
+            ew_4: sign_mask = 'h8888_8888;
+            ew_8: sign_mask = 'h8080_8080;
+            ew_16: sign_mask = 'h8000_8000;
+            ew_32: sign_mask = 'h8000_0000;
+            default: sign_mask = '0;
+        endcase
+    end
 end
 
 simd_t [W-1:0] pp; // partial products matrix
@@ -102,28 +95,29 @@ always_comb begin
         simd_d_t x;
         ppv[i] = '0;
         unique case (1'b1)
-            op_dot16_any: begin
+            ew_32: begin // MULT 32x32
+                x = {32'h0, pp[i]};
+                ppv[i] = (x << i);
+            end
+            ew_16: begin
                 // every 16 rows (one lane) shifted left per the algorithm
                 // but every lane is shifted right to start at idx 0 for dotp
                 x = {32'h0, (pp[i] & mask_16[i])};
                 ppv[i] = ((x << (i % 16)) >> ((i / 16) * 16));
             end
-            op_dot8_any: begin
+            ew_8: begin
                 x = {32'h0, (pp[i] & mask_8[i])};
                 ppv[i] = ((x << (i % 8)) >> ((i / 8) * 8));
             end
-            op_dot4_any: begin
+            ew_4: begin
                 x = {32'h0, (pp[i] & mask_4[i])};
                 ppv[i] = ((x << (i % 4)) >> ((i / 4) * 4));
             end
-            op_dot2_any: begin
+            ew_2: begin
                 x = {32'h0, (pp[i] & mask_2[i])};
                 ppv[i] = ((x << (i % 2)) >> ((i / 2) * 2));
             end
-            default: begin // MULT 32x32
-                x = {32'h0, pp[i]};
-                ppv[i] = (x << i);
-            end
+            default: ppv[i] = '0;
         endcase
     end
 end
@@ -131,32 +125,17 @@ end
 simd_d_t corr; // correction for modified BW for signed operations
 always_comb begin
     corr = '0;
-    unique case (1'b1)
-        signed_mul: begin
-            // 32x32 signed MBW
-            corr[32] = 1'b1;
-            corr[63] = 1'b1;
-        end
-        op_dot16: begin
-            // 2 lanes of 16x16 signed
-            corr[17] = 1'b1; // idx [16] set twice (1x per lane)
-        end
-        op_dot8: begin
-            // 4 lanes of 8x8 signed
-            corr[10] = 1'b1; // idx [8] set four times (1x per lane)
-        end
-        op_dot4: begin
-            // 8 lanes of 4x4 signed
-            corr[7] = 1'b1; // idx [4] set eight times (1x per lane)
-        end
-        op_dot2: begin
-            // 16 lanes of 2x2 signed
-            corr[6] = 1'b1; // idx [2] set sixteen times (1x per lane)
-        end
-        default: begin
-            corr = '0;
-        end
-    endcase
+    if (!op_unsigned) begin
+        unique case (1'b1)
+            ew_32: begin corr[32] = 1'b1; corr[63] = 1'b1; end
+            (ew_16 && op_simd_dot): begin corr[17] = 1'b1; end
+            (ew_16 && !op_simd_dot): begin corr[16] = 1'b1; corr[31] = 1'b1; end
+            (ew_8 && op_simd_dot): begin corr[10] = 1'b1; end
+            (ew_8 && !op_simd_dot): begin corr[8] = 1'b1; corr[15] = 1'b1; end
+            ew_4: begin corr[7] = 1'b1; end // idx [4] set 8 times
+            ew_2: begin corr[6] = 1'b1; end // idx [2] set 16 times
+        endcase
+    end
 end
 
 //------------------------------------------------------------------------------
@@ -192,18 +171,17 @@ assign b_sign_bit = b[ARCH_WIDTH-1]; // b MSB
 `STAGE(ctrl_exe_mem, (en && !op_simd), a, a_d, 'h0)
 
 //------------------------------------------------------------------------------
-// final tree rv32 mul & simd dot
+// final tree rv32m mul & simd dot
 simd_d_t [7:0] i_tree_f;
 simd_d_t [1:0] o_tree_f;
+simd_d_t [3:0] mul16_taps;
 assign i_tree_f = {o_tree_3_d, o_tree_2_d, o_tree_1_d, o_tree_0_d};
-/* verilator lint_off PINCONNECTEMPTY */
-csa_tree_8 #(.W(64)) csa_tree_8_f_i (
-    .a (i_tree_f), .o(o_tree_f), .taps ()
+csa_tree_8 #(.W(64), .T4(1)) csa_tree_8_f_i (
+    .a (i_tree_f), .o(o_tree_f), .taps (mul16_taps)
 );
-/* verilator lint_on PINCONNECTEMPTY */
 
 //------------------------------------------------------------------------------
-// wrap up rv32 mul
+// wrap up rv32m mul
 
 // multiply signed, high signed, & simd dot signed
 simd_d_t [1:0] tree_sum_mbw;
@@ -286,13 +264,83 @@ end
 assign dot_out = (dot_acc_in + c_late);
 
 //------------------------------------------------------------------------------
+// wrap up simd (w)mul
+
+// (w)mul16
+simd_t [1:0] wmul16_csa_0, wmul16_csa_1;
+csa #(.W(32), .A(1)) csa_i_wmul16_0 (
+    .x(mul16_taps[0].w[0]), .y(mul16_taps[1].w[0]), .z(corr_d.w[0]),
+    .s(wmul16_csa_0[0]), .c(wmul16_csa_0[1])
+);
+
+csa #(.W(32), .A(1)) csa_i_wmul16_1 (
+    .x(mul16_taps[2].w[0]), .y(mul16_taps[3].w[0]), .z(corr_d.w[0]),
+    .s(wmul16_csa_1[0]), .c(wmul16_csa_1[1])
+);
+
+simd_d_t wmul16;
+assign wmul16.w[0] = (wmul16_csa_0[0] + wmul16_csa_0[1]);
+assign wmul16.w[1] = (wmul16_csa_1[0] + wmul16_csa_1[1]);
+
+simd_t mul16, mul16h;
+assign mul16 = {wmul16.h[2], wmul16.h[0]};
+assign mul16h = {wmul16.h[3], wmul16.h[1]};
+
+// (w)mul8
+simd_h_t [1:0] wmul8_csa_0, wmul8_csa_1, wmul8_csa_2, wmul8_csa_3;
+csa #(.W(16), .A(1)) csa_i_wmul8_0 (
+    .x(i_tree_f[0].h[0]), .y(i_tree_f[1].h[0]), .z(corr_d.h[0]),
+    .s(wmul8_csa_0[0]), .c(wmul8_csa_0[1])
+);
+
+csa #(.W(16), .A(1)) csa_i_wmul8_1 (
+    .x(i_tree_f[2].h[0]), .y(i_tree_f[3].h[0]), .z(corr_d.h[0]),
+    .s(wmul8_csa_1[0]), .c(wmul8_csa_1[1])
+);
+
+csa #(.W(16), .A(1)) csa_i_wmul8_2 (
+    .x(i_tree_f[4].h[0]), .y(i_tree_f[5].h[0]), .z(corr_d.h[0]),
+    .s(wmul8_csa_2[0]), .c(wmul8_csa_2[1])
+);
+
+csa #(.W(16), .A(1)) csa_i_wmul8_3 (
+    .x(i_tree_f[6].h[0]), .y(i_tree_f[7].h[0]), .z(corr_d.h[0]),
+    .s(wmul8_csa_3[0]), .c(wmul8_csa_3[1])
+);
+
+simd_d_t wmul8;
+assign wmul8.h[0] = (wmul8_csa_0[0] + wmul8_csa_0[1]);
+assign wmul8.h[1] = (wmul8_csa_1[0] + wmul8_csa_1[1]);
+assign wmul8.h[2] = (wmul8_csa_2[0] + wmul8_csa_2[1]);
+assign wmul8.h[3] = (wmul8_csa_3[0] + wmul8_csa_3[1]);
+
+simd_t mul8, mul8h;
+assign mul8 = {wmul8.b[6], wmul8.b[4], wmul8.b[2], wmul8.b[0]};
+assign mul8h = {wmul8.b[7], wmul8.b[5], wmul8.b[3], wmul8.b[1]};
+
+//------------------------------------------------------------------------------
 // output assignment
 always_comb begin
+    p = '0;
     unique case (op_d)
-        SIMD_ARITH_OP_MUL: p = tree_sum[ARCH_WIDTH-1:0];
-        SIMD_ARITH_OP_MULH: p = tree_sum[ARCH_WIDTH_D-1:ARCH_WIDTH];
-        SIMD_ARITH_OP_MULHSU: p = mul_hsu;
-        SIMD_ARITH_OP_MULHU: p = mul_hu;
+        // rv32m mul
+        SIMD_ARITH_OP_MUL: p.w[0] = tree_sum[ARCH_WIDTH-1:0];
+        SIMD_ARITH_OP_MULH: p.w[0] = tree_sum[ARCH_WIDTH_D-1:ARCH_WIDTH];
+        SIMD_ARITH_OP_MULHSU: p.w[0] = mul_hsu;
+        SIMD_ARITH_OP_MULHU: p.w[0] = mul_hu;
+        // simd mul
+        SIMD_ARITH_OP_MUL16: p.w[0] = mul16;
+        SIMD_ARITH_OP_MUL8: p.w[0] = mul8;
+        SIMD_ARITH_OP_MULH16,
+        SIMD_ARITH_OP_MULH16U: p.w[0] = mul16h;
+        SIMD_ARITH_OP_MULH8,
+        SIMD_ARITH_OP_MULH8U: p.w[0] = mul8h;
+        // simd wmul
+        SIMD_ARITH_OP_WMUL16,
+        SIMD_ARITH_OP_WMUL16U: p = wmul16;
+        SIMD_ARITH_OP_WMUL8,
+        SIMD_ARITH_OP_WMUL8U: p = wmul8;
+        // simd dot
         SIMD_ARITH_OP_DOT16,
         SIMD_ARITH_OP_DOT16U,
         SIMD_ARITH_OP_DOT8,
@@ -300,8 +348,8 @@ always_comb begin
         SIMD_ARITH_OP_DOT4,
         SIMD_ARITH_OP_DOT4U,
         SIMD_ARITH_OP_DOT2,
-        SIMD_ARITH_OP_DOT2U: p = dot_out;
-        default: p = 'h0;
+        SIMD_ARITH_OP_DOT2U: p.w[0] = dot_out;
+        default: p = '0;
     endcase
 end
 

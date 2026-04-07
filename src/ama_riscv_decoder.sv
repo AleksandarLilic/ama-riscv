@@ -24,6 +24,12 @@ assign fn7_b0 = get_fn7_b0(inst_dec);
 assign fn7_b2 = get_fn7_b2(inst_dec);
 assign fn7_b5 = get_fn7_b5(inst_dec);
 
+logic [2:0] fn7_simd_arith;
+assign fn7_simd_arith = fn7[2:0];
+
+simd_arith_op_t simd_arith_op_dec;
+assign simd_arith_op_dec = simd_arith_op_t'({fn7_simd_arith, fn3});
+
 // shorthands
 decoder_t d;
 fe_ctrl_t fc;
@@ -133,10 +139,26 @@ always_comb begin
 
         OPC7_CUSTOM: begin
             unique case (fn7)
+                CUSTOM_ISA_FN7_SIMD_MUL: begin
+                    fc.pc_we = 1'b1;
+                    d.itype.simd_arith = 1'b1;
+                    d.simd_arith_op = simd_arith_op_dec;
+                    d.wb_sel = WB_SEL_SIMD;
+                    d.rd_we = rd_nz;
+                    d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 1};
+                end
+                CUSTOM_ISA_FN7_SIMD_WMUL: begin
+                    fc.pc_we = 1'b1;
+                    d.itype.simd_arith = 1'b1;
+                    d.simd_arith_op = simd_arith_op_dec;
+                    d.wb_sel = WB_SEL_SIMD;
+                    d.rd_we = rd_nz;
+                    d.has_reg = '{rd: 1, rdp: 1, rs1: 1, rs2: 1, rs3: 1};
+                end
                 CUSTOM_ISA_FN7_SIMD_DOT: begin
                     fc.pc_we = 1'b1;
-                    d.itype.simd_dot = 1'b1;
-                    d.simd_arith_op = simd_arith_op_t'({1'b1, fn3});
+                    d.itype.simd_arith = 1'b1;
+                    d.simd_arith_op = simd_arith_op_dec;
                     d.wb_sel = WB_SEL_SIMD;
                     d.rd_we = rd_nz;
                     d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 1};

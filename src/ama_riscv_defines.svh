@@ -64,7 +64,7 @@
 `define INST_TYPE_INIT_VAL \
     '{ \
         mult: 1'b0, \
-        simd_dot: 1'b0, \
+        simd_arith: 1'b0, \
         simd_data_fmt: 1'b0, \
         load: 1'b0, \
         store: 1'b0, \

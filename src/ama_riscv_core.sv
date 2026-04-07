@@ -135,8 +135,8 @@ ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     .fe_ctrl (fe_ctrl)
 );
 
-arch_width_t e_writeback_mem, data_fmt_out_p_mem; // from MEM stage
-arch_width_t writeback, data_fmt_out_p_wbk; // from WBK stage
+arch_width_t e_writeback_mem, e_writeback_p_mem; // from MEM stage
+arch_width_t writeback, writeback_p; // from WBK stage
 
 // reg file
 pipeline_if_typed #(.T(rf_addr_t)) rd_addr ();
@@ -160,7 +160,7 @@ ama_riscv_reg_file #(
     .addr_c (rs3_addr_dec),
     .addr_d (rd_addr.wbk),
     .data_d (writeback),
-    .data_dp (data_fmt_out_p_wbk),
+    .data_dp (writeback_p),
     // outputs
     .data_a (rs1_data_dec),
     .data_b (rs2_data_dec),
@@ -315,7 +315,7 @@ arch_width_t rs1_dec_be_fwd, rs2_dec_be_fwd, rs3_dec_be_fwd;
 always_comb begin
     unique case (fwd_src_sel_rs1_dec)
         FWD_BE_WBK: rs1_dec_be_fwd = writeback;
-        FWD_BE_WBK_P: rs1_dec_be_fwd = data_fmt_out_p_wbk;
+        FWD_BE_WBK_P: rs1_dec_be_fwd = writeback_p;
         default: rs1_dec_be_fwd = 'h0;
     endcase
 end
@@ -323,7 +323,7 @@ end
 always_comb begin
     unique case (fwd_src_sel_rs2_dec)
         FWD_BE_WBK: rs2_dec_be_fwd = writeback;
-        FWD_BE_WBK_P: rs2_dec_be_fwd = data_fmt_out_p_wbk;
+        FWD_BE_WBK_P: rs2_dec_be_fwd = writeback_p;
         default: rs2_dec_be_fwd = 'h0;
     endcase
 end
@@ -331,7 +331,7 @@ end
 always_comb begin
     unique case (fwd_src_sel_rs3_dec)
         FWD_BE_WBK: rs3_dec_be_fwd = writeback;
-        FWD_BE_WBK_P: rs3_dec_be_fwd = data_fmt_out_p_wbk;
+        FWD_BE_WBK_P: rs3_dec_be_fwd = writeback_p;
         default: rs3_dec_be_fwd = 'h0;
     endcase
 end
@@ -428,8 +428,8 @@ always_comb begin
     unique case (fwd_src_sel_rs1_exe)
         FWD_BE_MEM: rs1_exe_be_fwd = e_writeback_mem;
         FWD_BE_WBK: rs1_exe_be_fwd = writeback;
-        FWD_BE_MEM_P: rs1_exe_be_fwd = data_fmt_out_p_mem;
-        FWD_BE_WBK_P: rs1_exe_be_fwd = data_fmt_out_p_wbk;
+        FWD_BE_MEM_P: rs1_exe_be_fwd = e_writeback_p_mem;
+        FWD_BE_WBK_P: rs1_exe_be_fwd = writeback_p;
     endcase
 end
 
@@ -438,8 +438,8 @@ always_comb begin
     unique case (fwd_src_sel_rs2_exe)
         FWD_BE_MEM: rs2_exe_be_fwd = e_writeback_mem;
         FWD_BE_WBK: rs2_exe_be_fwd = writeback;
-        FWD_BE_MEM_P: rs2_exe_be_fwd = data_fmt_out_p_mem;
-        FWD_BE_WBK_P: rs2_exe_be_fwd = data_fmt_out_p_wbk;
+        FWD_BE_MEM_P: rs2_exe_be_fwd = e_writeback_p_mem;
+        FWD_BE_WBK_P: rs2_exe_be_fwd = writeback_p;
     endcase
 end
 
@@ -448,8 +448,8 @@ always_comb begin
     unique case (fwd_src_sel_rs3_exe)
         FWD_BE_MEM: rs3_exe_be_fwd = e_writeback_mem;
         FWD_BE_WBK: rs3_exe_be_fwd = writeback;
-        FWD_BE_MEM_P: rs3_exe_be_fwd = data_fmt_out_p_mem;
-        FWD_BE_WBK_P: rs3_exe_be_fwd = data_fmt_out_p_wbk;
+        FWD_BE_MEM_P: rs3_exe_be_fwd = e_writeback_p_mem;
+        FWD_BE_WBK_P: rs3_exe_be_fwd = writeback_p;
     endcase
 end
 
@@ -486,9 +486,12 @@ assign data_fmt_out_exe = data_fmt_out.w[0];
 assign data_fmt_out_p_exe = data_fmt_out.w[1];
 
 logic simd_arith_exe;
-assign simd_arith_exe = (decoded_exe.itype.mult || decoded_exe.itype.simd_dot);
+assign simd_arith_exe = (
+    decoded_exe.itype.mult || decoded_exe.itype.simd_arith
+);
+
 arch_width_t op_c_r;
-simd_t simd_out_mem;
+simd_d_t simd_out;
 ama_riscv_simd ama_riscv_simd_i (
     .clk (clk),
     .rst (rst),
@@ -498,8 +501,12 @@ ama_riscv_simd ama_riscv_simd_i (
     .a (op_a_r),
     .b (op_b_r),
     .c_late (op_c_r),
-    .p (simd_out_mem)
+    .p (simd_out)
 );
+
+simd_t simd_out_mem, simd_out_p_mem;
+assign simd_out_mem = simd_out.w[0];
+assign simd_out_p_mem = simd_out.w[1];
 
 // CSR
 arch_width_t csr_out_exe;
@@ -565,7 +572,7 @@ assign uart_ch_exe.send = op_b_r[7:0]; // uart is 1 byte wide
 logic data_fmt_en_exe, data_fmt_en_mem;
 assign data_fmt_en_exe = decoded_exe.itype.simd_data_fmt;
 logic simd_inst_exe, simd_inst_mem;
-assign simd_inst_exe = (data_fmt_en_exe || decoded_exe.itype.simd_dot);
+assign simd_inst_exe = (data_fmt_en_exe || decoded_exe.itype.simd_arith);
 
 assign pc_nz.exe = (pc.exe != 'h0);
 assign wb_sel.exe = decoded_exe.wb_sel;
@@ -589,7 +596,7 @@ arch_width_t rs3_mem;
 `STAGE_E_M(1'b1, pc.exe, pc.mem, 'h0)
 `STAGE_E_M(1'b1, pc_nz.exe, pc_nz.mem, 'h0)
 `STAGE_E_M(rf_we.exe.rd, e_writeback_exe, e_writeback_mem, 'h0)
-`STAGE_E_M(data_fmt_en_exe, data_fmt_out_p_exe, data_fmt_out_p_mem, 'h0)
+`STAGE_E_M(data_fmt_en_exe, data_fmt_out_p_exe, e_writeback_p_mem, 'h0)
 `STAGE_E_M(data_fmt_en_exe, data_fmt_en_exe, data_fmt_en_mem, 'h0)
 `STAGE_E_M(rf_we.exe.rd, wb_sel.exe, wb_sel.mem, WB_SEL_EWB)
 `STAGE_E_M(1'b1, rd_addr.exe, rd_addr.mem, RF_X0_ZERO)
@@ -616,7 +623,7 @@ arch_width_t rs3_mem_be_fwd;
 always_comb begin
     unique case (fwd_src_sel_rs3_mem)
         FWD_BE_WBK: rs3_mem_be_fwd = writeback;
-        FWD_BE_WBK_P: rs3_mem_be_fwd = data_fmt_out_p_wbk;
+        FWD_BE_WBK_P: rs3_mem_be_fwd = writeback_p;
         default: rs3_mem_be_fwd = 'h0;
     endcase
 end
@@ -648,7 +655,7 @@ assign ctrl_mem_wbk = '{
 };
 
 logic simd_inst_wbk, map_uart_wbk;
-arch_width_t e_writeback_wbk, simd_out_wbk;
+arch_width_t e_writeback_wbk, e_writeback_p_wbk, simd_out_wbk, simd_out_p_wbk;
 
 `ifndef SYNT
 `STAGE_M_W(1'b1, pc.mem, pc.wbk, 'h0)
@@ -656,8 +663,9 @@ arch_width_t e_writeback_wbk, simd_out_wbk;
 `STAGE_M_W(1'b1, inst.mem, inst.wbk, 'h0)
 `STAGE_M_W(1'b1, pc_nz.mem, pc_nz.wbk, 1'b0)
 `STAGE_M_W(simd_arith_mem, simd_out_mem, simd_out_wbk, 'h0)
+`STAGE_M_W(simd_arith_mem, simd_out_p_mem, simd_out_p_wbk, 'h0)
 `STAGE_M_W(rf_we.mem.rd, e_writeback_mem, e_writeback_wbk, 'h0)
-`STAGE_M_W(data_fmt_en_mem, data_fmt_out_p_mem, data_fmt_out_p_wbk, 'h0)
+`STAGE_M_W(data_fmt_en_mem, e_writeback_p_mem, e_writeback_p_wbk, 'h0)
 `STAGE_M_W(rf_we.mem.rd, wb_sel.mem, wb_sel.wbk, WB_SEL_EWB)
 `STAGE_M_W(1'b1, rd_addr.mem, rd_addr.wbk, RF_X0_ZERO)
 `STAGE_M_W(1'b1, rf_we.mem, rf_we.wbk, 'h0)
@@ -679,6 +687,11 @@ always_comb begin
         WB_SEL_SIMD: writeback = simd_out_wbk;
         default: writeback = 'h0;
     endcase
+end
+
+always_comb begin
+    if (wb_sel.wbk == WB_SEL_SIMD) writeback_p = simd_out_p_wbk;
+    else writeback_p = e_writeback_p_wbk;
 end
 
 assign inst_to_be_retired = (
