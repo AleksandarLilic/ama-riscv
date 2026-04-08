@@ -4,7 +4,6 @@
 `define FPGA
 
 module ama_riscv_fpga #(
-    parameter CLOCK_FREQ = 50_000_000,
     parameter UART_BR = BR_115200
 )(
     input  CLK100MHZ,
@@ -22,18 +21,35 @@ logic clk_gen_b;
 logic clk_gen_fb_out;
 logic clk_gen_fb_out_b;
 
+// arty-7 100MHz on-board osc
+localparam CLOCK_FREQ_ARTY_7 = 100; // MHz
+localparam real CLOCK_PERIOD_ARTY_7 = (1000.0 / CLOCK_FREQ_ARTY_7); // 10 ns
+// PLL 50MHz config
+localparam longint CLKIN1 = (CLOCK_FREQ_ARTY_7 * 1_000_000); // Hz
+localparam DIVCLK_DIVIDE = 5;
+localparam CLKFBOUT_MULT = 50;
+localparam CLKOUT0_DIVIDE = 20;
+localparam longint CLOCK_FREQ = (
+    //CLKIN1 * (CLKFBOUT_MULT / (DIVCLK_DIVIDE * CLKOUT0_DIVIDE))
+    (CLKIN1 * CLKFBOUT_MULT) / DIVCLK_DIVIDE / CLKOUT0_DIVIDE
+);
+
+if (CLOCK_FREQ == 0) begin: check_clock_freq
+    $error("CLOCK_FREQ = 0");
+end
+
 // 50MHz config
 PLLE2_ADV #(
     .BANDWIDTH ("OPTIMIZED"),
     .COMPENSATION ("BUF_IN"), // ZHOLD is default
     .STARTUP_WAIT ("FALSE"),
-    .DIVCLK_DIVIDE (5), // config f1
-    .CLKFBOUT_MULT (50), // config f2
-    .CLKOUT0_DIVIDE (20), // config f3
+    .DIVCLK_DIVIDE (DIVCLK_DIVIDE),
+    .CLKFBOUT_MULT (CLKFBOUT_MULT),
+    .CLKOUT0_DIVIDE (CLKOUT0_DIVIDE),
     .CLKFBOUT_PHASE (0.000),
     .CLKOUT0_PHASE (0.000),
     .CLKOUT0_DUTY_CYCLE (0.500), // 50%
-    .CLKIN1_PERIOD (10.000) // 100MHz on-board osc
+    .CLKIN1_PERIOD (CLOCK_PERIOD_ARTY_7)
 ) plle2_adv_i (
     // input clock and control
     .CLKFBIN (clk_gen_fb_out_b),
