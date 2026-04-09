@@ -30,6 +30,7 @@
     CORE_STATS_JSON_LINE(ret_simd) \
     CORE_STATS_JSON_LINE(ret_simd_arith) \
     CORE_STATS_JSON_LINE(ret_simd_data_fmt) \
+    CORE_STATS_JSON_LINE(bp_miss) \
     CORE_STATS_JSON_LINE(l1i_ref) \
     CORE_STATS_JSON_LINE(l1i_miss) \
     CORE_STATS_JSON_LINE(l1i_spec_miss) \
@@ -80,6 +81,7 @@ struct core_stats_t {
         uint64_t ret_simd;
         uint64_t ret_simd_arith;
         uint64_t ret_simd_data_fmt;
+        uint64_t bp_miss;
         uint64_t l1i_ref;
         uint64_t l1i_miss;
         uint64_t l1i_spec_miss;
@@ -103,7 +105,6 @@ struct core_stats_t {
         float_t ipc = -1.0;
         // misc
         bool prof_active = false;
-        static constexpr uint64_t bad_spec_penalty = 2;
     private:
         void summarize() {
             stalls = (bad_spec + stall_be + stall_fe);
@@ -122,7 +123,7 @@ struct core_stats_t {
             cycles_all++;
             if (!prof_active) return;
             cycles += 1;
-            bad_spec += (ev->bad_spec * bad_spec_penalty);
+            bad_spec += ev->bad_spec;
             stall_be += ev->stall_be;
             stall_l1d += ev->stall_l1d;
             stall_l1d_r += ev->stall_l1d_r;
@@ -141,6 +142,7 @@ struct core_stats_t {
             ret_simd += ev->ret_simd;
             ret_simd_arith += ev->ret_simd_arith;
             ret_simd_data_fmt += ev->ret_simd_data_fmt;
+            bp_miss += ev->bp_miss;
             l1i_ref += ev->l1i_ref;
             l1i_miss += ev->l1i_miss;
             l1i_spec_miss += ev->l1i_spec_miss;
@@ -196,6 +198,8 @@ struct core_stats_t {
                 << "\n" << INDENT << "Stall -"
                 << " SIMD: " << stall_simd
                 << ", Load: " << stall_load
+                << "\n" << INDENT << "bpred -"
+                << " M: " << bp_miss
                 << "\n" << INDENT << "icache -"
                 << " A: " << l1i_ref
                 << ", M: " << l1i_miss

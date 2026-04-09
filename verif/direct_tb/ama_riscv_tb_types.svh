@@ -99,6 +99,7 @@ typedef struct {
     byte ret_simd = '0; // tda
     byte ret_simd_arith = '0;
     byte ret_simd_data_fmt = '0;
+    byte bp_miss = '0;
     byte l1i_ref = '0;
     byte l1i_miss = '0;
     byte l1i_spec_miss = '0;

@@ -737,7 +737,7 @@ end
 
 // perf counters
 always_comb begin
-    core_events.bad_spec = `CORE.perf_events.bad_spec;
+    core_events.bad_spec = (`CORE.perf_events.bp_miss * BP_MISS_FLUSH_PENALTY);
     core_events.stall_be = `CORE.perf_events.stall_be;
     core_events.stall_l1d = `CORE.perf_events.stall_l1d;
     core_events.stall_l1d_r = `CORE.perf_events.stall_l1d_r;
@@ -756,6 +756,7 @@ always_comb begin
     core_events.ret_simd = `CORE.perf_events.ret_simd;
     core_events.ret_simd_arith = `CORE.perf_events.ret_simd_arith;
     core_events.ret_simd_data_fmt = `CORE.perf_events.ret_simd_data_fmt;
+    core_events.bp_miss = `CORE.perf_events.bp_miss;
     core_events.l1i_ref = `CORE.perf_events.l1i_ref;
     core_events.l1i_miss = `CORE.perf_events.l1i_miss;
     core_events.l1i_spec_miss = `CORE.perf_events.l1i_spec_miss;

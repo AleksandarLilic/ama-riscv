@@ -19,45 +19,47 @@ module ama_riscv_csr #(
 localparam unsigned CLOCKS_PER_US = (CLOCK_FREQ / 1_000_000);
 localparam unsigned CNT_WIDTH = $clog2(CLOCKS_PER_US);
 
-localparam unsigned MHPMEVENT_PAD_WIDTH = (ARCH_WIDTH - MHPMEVENTS);
-localparam logic [MHPMEVENT_PAD_WIDTH-1:0] MHPMEVENT_PAD = 'h0;
+//localparam unsigned MHPMEVENT_PAD_WIDTH =
+//    ((ARCH_WIDTH - MHPMEVENTS) != 0) ? (ARCH_WIDTH - MHPMEVENTS) : ARCH_WIDTH;
+//localparam logic [MHPMEVENT_PAD_WIDTH-1:0] MHPMEVENT_PAD = 'h0;
 localparam unsigned MHPM_MASK_BITS = $clog2(MHPMCOUNTERS + MHPM_IDX_L);
 
-function automatic logic get_event(
+function automatic logic [1:0] get_event(
     input perf_event_t pe, input mhpmevent_t ev);
     case (ev)
-        MHPMEVENT_BAD_SPEC: get_event = pe.bad_spec;
-        MHPMEVENT_STALL_BE : get_event = pe.stall_be;
-        MHPMEVENT_STALL_L1D : get_event = pe.stall_l1d;
-        MHPMEVENT_STALL_L1D_R : get_event = pe.stall_l1d_r;
-        MHPMEVENT_STALL_L1D_W : get_event = pe.stall_l1d_w;
-        MHPMEVENT_STALL_FE : get_event = pe.stall_fe;
-        MHPMEVENT_STALL_L1I : get_event = pe.stall_l1i;
-        MHPMEVENT_STALL_SIMD : get_event = pe.stall_simd;
-        MHPMEVENT_STALL_LOAD : get_event = pe.stall_load;
-        MHPMEVENT_RET_CTRL_FLOW : get_event = pe.ret_ctrl_flow;
-        MHPMEVENT_RET_CTRL_FLOW_J : get_event = pe.ret_ctrl_flow_j;
-        MHPMEVENT_RET_CTRL_FLOW_JR : get_event = pe.ret_ctrl_flow_jr;
-        MHPMEVENT_RET_CTRL_FLOW_BR : get_event = pe.ret_ctrl_flow_br;
-        MHPMEVENT_RET_MEM : get_event = pe.ret_mem;
-        MHPMEVENT_RET_MEM_LOAD : get_event = pe.ret_mem_load;
-        MHPMEVENT_RET_MEM_STORE : get_event = pe.ret_mem_store;
-        MHPMEVENT_RET_SIMD : get_event = pe.ret_simd;
-        MHPMEVENT_RET_SIMD_ARITH : get_event = pe.ret_simd_arith;
-        MHPMEVENT_RET_SIMD_DATA_FMT : get_event = pe.ret_simd_data_fmt;
-        MHPMEVENT_L1I_REF : get_event = pe.l1i_ref;
-        MHPMEVENT_L1I_MISS : get_event = pe.l1i_miss;
-        MHPMEVENT_L1I_SPEC_MISS : get_event = pe.l1i_spec_miss;
-        MHPMEVENT_L1I_SPEC_MISS_BAD : get_event = pe.l1i_spec_miss_bad;
-        MHPMEVENT_L1I_SPEC_MISS_GOOD : get_event = pe.l1i_spec_miss_good;
-        MHPMEVENT_L1D_REF : get_event = pe.l1d_ref;
-        MHPMEVENT_L1D_REF_R : get_event = pe.l1d_ref_r;
-        MHPMEVENT_L1D_REF_W : get_event = pe.l1d_ref_w;
-        MHPMEVENT_L1D_MISS : get_event = pe.l1d_miss;
-        MHPMEVENT_L1D_MISS_R : get_event = pe.l1d_miss_r;
-        MHPMEVENT_L1D_MISS_W : get_event = pe.l1d_miss_w;
-        MHPMEVENT_L1D_WRITEBACK : get_event = pe.l1d_writeback;
-        default: get_event = 1'b0;
+        MHPMEVENT_BAD_SPEC: get_event = (pe.bp_miss * BP_MISS_FLUSH_PENALTY);
+        MHPMEVENT_STALL_BE : get_event = {1'b0, pe.stall_be};
+        MHPMEVENT_STALL_L1D : get_event = {1'b0, pe.stall_l1d};
+        MHPMEVENT_STALL_L1D_R : get_event = {1'b0, pe.stall_l1d_r};
+        MHPMEVENT_STALL_L1D_W : get_event = {1'b0, pe.stall_l1d_w};
+        MHPMEVENT_STALL_FE : get_event = {1'b0, pe.stall_fe};
+        MHPMEVENT_STALL_L1I : get_event = {1'b0, pe.stall_l1i};
+        MHPMEVENT_STALL_SIMD : get_event = {1'b0, pe.stall_simd};
+        MHPMEVENT_STALL_LOAD : get_event = {1'b0, pe.stall_load};
+        MHPMEVENT_RET_CTRL_FLOW : get_event = {1'b0, pe.ret_ctrl_flow};
+        MHPMEVENT_RET_CTRL_FLOW_J : get_event = {1'b0, pe.ret_ctrl_flow_j};
+        MHPMEVENT_RET_CTRL_FLOW_JR : get_event = {1'b0, pe.ret_ctrl_flow_jr};
+        MHPMEVENT_RET_CTRL_FLOW_BR : get_event = {1'b0, pe.ret_ctrl_flow_br};
+        MHPMEVENT_RET_MEM : get_event = {1'b0, pe.ret_mem};
+        MHPMEVENT_RET_MEM_LOAD : get_event = {1'b0, pe.ret_mem_load};
+        MHPMEVENT_RET_MEM_STORE : get_event = {1'b0, pe.ret_mem_store};
+        MHPMEVENT_RET_SIMD : get_event = {1'b0, pe.ret_simd};
+        MHPMEVENT_RET_SIMD_ARITH : get_event = {1'b0, pe.ret_simd_arith};
+        MHPMEVENT_RET_SIMD_DATA_FMT : get_event = {1'b0, pe.ret_simd_data_fmt};
+        MHPMEVENT_BP_MISS: get_event = {1'b0, pe.bp_miss};
+        MHPMEVENT_L1I_REF : get_event = {1'b0, pe.l1i_ref};
+        MHPMEVENT_L1I_MISS : get_event = {1'b0, pe.l1i_miss};
+        MHPMEVENT_L1I_SPEC_MISS : get_event = {1'b0, pe.l1i_spec_miss};
+        MHPMEVENT_L1I_SPEC_MISS_BAD : get_event = {1'b0, pe.l1i_spec_miss_bad};
+        MHPMEVENT_L1I_SPEC_MISS_GOOD : get_event = {1'b0, pe.l1i_spec_miss_good};
+        MHPMEVENT_L1D_REF : get_event = {1'b0, pe.l1d_ref};
+        MHPMEVENT_L1D_REF_R : get_event = {1'b0, pe.l1d_ref_r};
+        MHPMEVENT_L1D_REF_W : get_event = {1'b0, pe.l1d_ref_w};
+        MHPMEVENT_L1D_MISS : get_event = {1'b0, pe.l1d_miss};
+        MHPMEVENT_L1D_MISS_R : get_event = {1'b0, pe.l1d_miss_r};
+        MHPMEVENT_L1D_MISS_W : get_event = {1'b0, pe.l1d_miss_w};
+        MHPMEVENT_L1D_WRITEBACK : get_event = {1'b0, pe.l1d_writeback};
+        default: get_event = 2'b0;
     endcase
 endfunction
 
@@ -109,7 +111,8 @@ always_comb begin
             CSR_MHPMEVENT6,
             CSR_MHPMEVENT7,
             CSR_MHPMEVENT8:
-                out = {MHPMEVENT_PAD, csr.mhpmevent[mhpm_addr_e]};
+                //out = {MHPMEVENT_PAD, csr.mhpmevent[mhpm_addr_e]};
+                out = csr.mhpmevent[mhpm_addr_e];
             default: ;
         endcase
     end
@@ -211,10 +214,12 @@ assign am_h = {
 };
 
 logic [1:0] am_mhpmcounter[`MHPM_RANGE];
+logic [1:0] event_val [`MHPM_RANGE];
 genvar i;
 generate
 `IT_I_NT(MHPM_IDX_L, (MHPMCOUNTERS + MHPM_IDX_L)) begin: gen_mhpm_write
     assign am_mhpmcounter[i] = {(addr_en == am_h[i]), (addr_en == am_l[i])};
+    assign event_val[i] = get_event(perf_events, csr.mhpmevent[i]);
     always_ff @(posedge clk) begin
         if (rst) begin
             csr.mhpmcounter[i] <= 'h0;
@@ -224,8 +229,10 @@ generate
             end else begin
                 csr.mhpmcounter[i].f.hi <= wr_data[MHPMCOUNTER_PAD_WIDTH-1:0];
             end
-        end else if (get_event(perf_events, csr.mhpmevent[i])) begin
-            csr.mhpmcounter[i] <= (csr.mhpmcounter[i] + MHPMCOUNTER_WIDTH'(1));
+        end else begin
+            csr.mhpmcounter[i] <= (
+                csr.mhpmcounter[i] + MHPMCOUNTER_WIDTH'(event_val[i])
+            );
         end
     end
 end

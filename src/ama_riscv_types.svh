@@ -396,7 +396,6 @@ typedef struct packed {
 } dmem_req_side_t;
 
 typedef struct packed {
-    logic bad_spec; // tda
     logic stall_be; // tda
     logic stall_l1d; // tda
     logic stall_l1d_r;
@@ -415,6 +414,7 @@ typedef struct packed {
     logic ret_simd; // tda
     logic ret_simd_arith;
     logic ret_simd_data_fmt;
+    logic bp_miss;
     logic l1i_ref;
     logic l1i_miss;
     logic l1i_spec_miss;
@@ -469,6 +469,7 @@ parameter unsigned BP_2_GHR_BITS = 9;
 parameter unsigned BP_2_CNT_BITS = 1;
 parameter unsigned BP_C_PC_BITS = 4;
 parameter unsigned BP_C_CNT_BITS = 4;
+parameter logic [1:0] BP_MISS_FLUSH_PENALTY = 2;
 
 //parameter bp_t BP_TYPE = BP_STATIC; // static
 parameter bp_t BP_TYPE = BP_COMBINED; // or combined
@@ -544,7 +545,7 @@ typedef union packed {
 
 parameter unsigned MHPM_IDX_L = 3; // index low, starts at idx 3
 parameter unsigned MHPMCOUNTERS = 6;
-parameter unsigned MHPMEVENTS = 31;
+parameter unsigned MHPMEVENTS = 32;
 parameter unsigned MHPMCOUNTER_WIDTH = 48; // min 32 bits
 
 parameter unsigned MHPMCOUNTER_PAD_WIDTH = (ARCH_WIDTH_D - MHPMCOUNTER_WIDTH);
@@ -574,18 +575,19 @@ typedef enum logic [MHPMEVENTS-1:0] {
     MHPMEVENT_RET_SIMD = (1 << 16), // tda
     MHPMEVENT_RET_SIMD_ARITH = (1 << 17),
     MHPMEVENT_RET_SIMD_DATA_FMT = (1 << 18),
-    MHPMEVENT_L1I_REF = (1 << 19),
-    MHPMEVENT_L1I_MISS = (1 << 20),
-    MHPMEVENT_L1I_SPEC_MISS = (1 << 21),
-    MHPMEVENT_L1I_SPEC_MISS_BAD = (1 << 22),
-    MHPMEVENT_L1I_SPEC_MISS_GOOD = (1 << 23),
-    MHPMEVENT_L1D_REF = (1 << 24),
-    MHPMEVENT_L1D_REF_R = (1 << 25),
-    MHPMEVENT_L1D_REF_W = (1 << 26),
-    MHPMEVENT_L1D_MISS = (1 << 27),
-    MHPMEVENT_L1D_MISS_R = (1 << 28),
-    MHPMEVENT_L1D_MISS_W = (1 << 29),
-    MHPMEVENT_L1D_WRITEBACK = (1 << 30)
+    MHPMEVENT_BP_MISS = (1 << 19),
+    MHPMEVENT_L1I_REF = (1 << 20),
+    MHPMEVENT_L1I_MISS = (1 << 21),
+    MHPMEVENT_L1I_SPEC_MISS = (1 << 22),
+    MHPMEVENT_L1I_SPEC_MISS_BAD = (1 << 23),
+    MHPMEVENT_L1I_SPEC_MISS_GOOD = (1 << 24),
+    MHPMEVENT_L1D_REF = (1 << 25),
+    MHPMEVENT_L1D_REF_R = (1 << 26),
+    MHPMEVENT_L1D_REF_W = (1 << 27),
+    MHPMEVENT_L1D_MISS = (1 << 28),
+    MHPMEVENT_L1D_MISS_R = (1 << 29),
+    MHPMEVENT_L1D_MISS_W = (1 << 30),
+    MHPMEVENT_L1D_WRITEBACK = (1 << 31)
 } mhpmevent_t;
 
 typedef struct packed {

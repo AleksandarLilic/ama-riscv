@@ -114,6 +114,7 @@ typedef struct {
 	char ret_simd;
 	char ret_simd_arith;
 	char ret_simd_data_fmt;
+	char bp_miss;
 	char l1i_ref;
 	char l1i_miss;
 	char l1i_spec_miss;

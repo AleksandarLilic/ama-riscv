@@ -719,13 +719,14 @@ perf_event_t cpe; // collect perf events
 logic fe_unblocked;
 always_comb begin
     cpe = '0;
+    // bp
+    cpe.bp_miss = spec.wrong;
     // stalls
-    cpe.bad_spec = spec.wrong; // tda
-    cpe.stall_be = (dc_stalled || (hazard.to_exe && !cpe.bad_spec)); // tda
+    cpe.stall_be = (dc_stalled || (hazard.to_exe && !cpe.bp_miss)); // tda
     cpe.stall_l1d = dc_stalled; // tda
     cpe.stall_l1d_r = (dc_stalled && pe_dc.rd_pend);
     cpe.stall_l1d_w = (dc_stalled && !pe_dc.rd_pend);
-    fe_unblocked = (!cpe.bad_spec && !cpe.stall_be);
+    fe_unblocked = (!cpe.bp_miss && !cpe.stall_be);
     cpe.stall_fe = (fe_unblocked && (stall_act_flow || !imem_req.ready)); // tda
     cpe.stall_l1i = (fe_unblocked && (!imem_req.ready)); // tda
     cpe.stall_simd = (hazard.to_exe && simd_arith_mem);
