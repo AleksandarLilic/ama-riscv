@@ -16,19 +16,22 @@ void cosim_stats::show() {
     core_stats.show_tda();
     std::cout << "\n";
 
+    uint64_t total_insts = core_stats.get_total_insts();
     std::cout << "bpred";
     std::cout << "\n" << INDENT;
-    bp_stats.summarize(core_stats.get_total_insts());
+    bp_stats.summarize(total_insts);
     bp_stats.show();
     std::cout << "\n";
 
     std::cout << "icache";
     std::cout << "\n" << INDENT;
+    icache_stats.summarize(cache_type_t::inst, total_insts);
     icache_stats.show(cache_type_t::inst);
     std::cout << "\n";
 
     std::cout << "dcache";
     std::cout << "\n" << INDENT;
+    dcache_stats.summarize(cache_type_t::data, total_insts);
     dcache_stats.show(cache_type_t::data);
     std::cout << "\n";
 
