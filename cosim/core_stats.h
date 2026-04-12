@@ -45,6 +45,7 @@
     CORE_STATS_JSON_LINE(l1d_writeback) \
     CORE_STATS_JSON_LINE(ret) \
     CORE_STATS_JSON_LINE(cycles) \
+    CORE_STATS_JSON_LINE(empty) \
     CORE_STATS_JSON_LINE(stalls) \
     CORE_STATS_JSON_LINE(stall_fe_core) \
     CORE_STATS_JSON_LINE(stall_be_core) \
@@ -97,6 +98,7 @@ struct core_stats_t {
         // derived
         uint64_t ret;
         uint64_t cycles;
+        uint64_t empty;
         uint64_t stalls;
         uint64_t stall_fe_core;
         uint64_t stall_be_core;
@@ -107,8 +109,9 @@ struct core_stats_t {
         bool prof_active = false;
     private:
         void summarize() {
-            stalls = (bad_spec + stall_be + stall_fe);
-            ret = (cycles - stalls);
+            stalls = (stall_be + stall_fe);
+            empty = (bad_spec + stalls);
+            ret = (cycles - empty);
             ret_int = (ret - ret_simd);
             stall_fe_core = (stall_fe - stall_l1i);
             stall_be_core = (stall_be - stall_l1d);
@@ -160,7 +163,7 @@ struct core_stats_t {
             summarize();
             std::cout << "Cycles: " << cycles
                       << ", Inst: " <<  ret
-                      << ", Stalls: " <<  stalls
+                      << ", Empty: " <<  empty
                       << std::fixed << std::setprecision(3)
                       << ", CPI: " <<  cpi
                       << " (IPC: " <<  ipc << ")"

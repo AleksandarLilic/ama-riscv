@@ -3,20 +3,20 @@
 typedef struct {
     int unsigned cycle;
     int unsigned inst;
-    int unsigned hw_stall;
+    int unsigned empty;
 } core_counters_t;
 
 virtual class core_stats;
     static function void reset(ref core_counters_t cnt);
         cnt.cycle = 0;
         cnt.inst = 0;
-        cnt.hw_stall = 0;
+        cnt.empty = 0;
     endfunction
 
     static function void update(ref core_counters_t cnt, input logic inst_retired);
         cnt.cycle++;
         cnt.inst += inst_retired;
-        cnt.hw_stall += !inst_retired;
+        cnt.empty += !inst_retired;
     endfunction
 
     static function string get(ref core_counters_t cnt);
@@ -31,9 +31,9 @@ virtual class core_stats;
         ipc = 1/cpi;
         s = "Core stats: \n";
         s = {s, $sformatf(
-                {"    Cycles: %0d, Inst: %0d, Stalls: %0d,",
+                {"    Cycles: %0d, Inst: %0d, Empty: %0d,",
                  " CPI: %0.3f (IPC: %0.3f)"},
-                cnt.cycle, cnt.inst, cnt.hw_stall, cpi, ipc)
+                cnt.cycle, cnt.inst, cnt.empty, cpi, ipc)
             };
 
         return s;
