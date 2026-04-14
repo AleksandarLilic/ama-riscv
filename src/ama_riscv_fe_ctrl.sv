@@ -17,7 +17,9 @@ module ama_riscv_fe_ctrl (
     `endif
     input  branch_t branch_resolution,
     input  logic dc_stalled,
+    /* verilator lint_off UNUSEDSIGNAL */
     input  hazard_t hazard,
+    /* verilator lint_on UNUSEDSIGNAL */
     input  fe_ctrl_t decoded_fe_ctrl,
     `ifdef USE_BP
     output arch_width_t pc_cp,

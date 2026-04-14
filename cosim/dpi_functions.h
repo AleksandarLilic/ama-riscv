@@ -95,6 +95,7 @@ DPI_LINKER_DECL DPI_DLLESPEC
 	char ct_dmem_mem_w);
 
 typedef struct {
+	char ret;
 	char bad_spec;
 	char stall_be;
 	char stall_l1d;

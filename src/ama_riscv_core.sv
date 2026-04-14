@@ -24,6 +24,8 @@ pipeline_if #(.W(ARCH_WIDTH)) pc ();
 pipeline_if_s flush ();
 pipeline_if_s pc_nz ();
 pipeline_if_typed #(.T(wb_sel_t)) wb_sel ();
+pipeline_if_typed #(.T(cycle_tag_t)) ct ();
+pipeline_if_typed #(.T(cycle_tag_t)) ct_gen ();
 
 // Reset sequence
 logic [PIPE_STAGES-1:0] reset_seq;
@@ -67,6 +69,13 @@ assign imem_req.data = pc.fet[15:2];
 `ifndef SYNT
 assign pc_nz.fet = (pc.fet != 'h0);
 `endif
+
+always_comb begin
+    ct_gen.fet = '0;
+    ct_gen.fet.stall_fe_core = stall_act_flow;
+end
+
+`DFF_CI_RI_RVI(ct_gen.fet, ct.dec)
 
 //------------------------------------------------------------------------------
 // DEC Stage
@@ -418,6 +427,14 @@ always_ff @(posedge clk) begin
     end
 end
 
+always_comb begin
+    ct_gen.dec = ct.dec;
+    ct_gen.dec.stall_l1i = !imem_req.ready;
+    ct_gen.dec.bad_spec = spec.wrong;
+end
+
+`DFF_CI_RI_RVI(ct_gen.dec, ct.exe)
+
 //------------------------------------------------------------------------------
 // EXE stage
 
@@ -616,6 +633,19 @@ arch_width_t rs3_mem;
 
 `DFF_CI_RI_RVI((dc_stalled /*|| hazard.to_dec*/ || hazard.to_exe), be_stalled_d)
 
+always_comb begin
+    ct_gen.exe = ct.exe;
+    ct_gen.exe.bad_spec |= spec.wrong; // DEC can also generate bad_spec
+    ct_gen.exe.stall_be_core = hazard.from_mem;
+    ct_gen.exe.stall_simd = (hazard.from_mem && simd_arith_mem);
+    ct_gen.exe.stall_load = (
+        (hazard.from_mem && load_inst_mem) ||
+        (hazard.from_wbk && load_inst_wbk)
+    );
+end
+
+`DFF_CI_RI_RVI(ct_gen.exe, ct.mem)
+
 //------------------------------------------------------------------------------
 // MEM stage
 
@@ -673,6 +703,12 @@ arch_width_t e_writeback_wbk, e_writeback_p_wbk, simd_out_wbk, simd_out_p_wbk;
 `STAGE_M_W(1'b1, simd_inst_mem, simd_inst_wbk, 'h0)
 `STAGE_M_W(1'b1, map_uart_mem, map_uart_wbk, 'h0)
 
+always_comb begin
+    ct_gen.mem = ct.mem;
+end
+
+`DFF_CI_RI_RVI(ct_gen.mem, ct.wbk)
+
 //------------------------------------------------------------------------------
 // WBK stage
 
@@ -711,6 +747,15 @@ logic inst_retired_simd;
 `STAGE_W_R(1'b1, pc_nz.wbk, pc_nz.ret, 1'b0)
 `STAGE_W_R(1'b1, simd_inst_wbk, inst_retired_simd, 'h0)
 
+always_comb begin
+    ct_gen.wbk = ct.wbk;
+    ct_gen.wbk.stall_l1d = dc_stalled;
+    ct_gen.wbk.stall_l1d_r = (dc_stalled && pe_dc.rd_pend);
+    ct_gen.wbk.stall_l1d_w = (dc_stalled && !pe_dc.rd_pend);
+end
+
+`DFF_CI_RI_RVI(ct_gen.wbk, ct.ret)
+
 assign inst_retired = pc_nz.ret;
 
 //------------------------------------------------------------------------------
@@ -719,18 +764,24 @@ perf_event_t cpe; // collect perf events
 logic fe_unblocked;
 always_comb begin
     cpe = '0;
-    // bp
-    cpe.bp_miss = spec.wrong;
+    fe_unblocked = '0;
     // stalls
-    cpe.stall_be = (dc_stalled || (hazard.to_exe && !cpe.bp_miss)); // tda
-    cpe.stall_l1d = dc_stalled; // tda
-    cpe.stall_l1d_r = (dc_stalled && pe_dc.rd_pend);
-    cpe.stall_l1d_w = (dc_stalled && !pe_dc.rd_pend);
-    fe_unblocked = (!cpe.bp_miss && !cpe.stall_be);
-    cpe.stall_fe = (fe_unblocked && (stall_act_flow || !imem_req.ready)); // tda
-    cpe.stall_l1i = (fe_unblocked && (!imem_req.ready)); // tda
-    cpe.stall_simd = (hazard.to_exe && simd_arith_mem);
-    cpe.stall_load = (hazard.to_exe && load_inst_mem);
+    if (!inst_retired) begin
+        cpe.bad_spec = ct.ret.bad_spec;
+        // be
+        cpe.stall_be = (ct.ret.stall_l1d || ct.ret.stall_be_core);
+        cpe.stall_l1d = ct.ret.stall_l1d;
+        cpe.stall_l1d_r = ct.ret.stall_l1d_r;
+        cpe.stall_l1d_w = ct.ret.stall_l1d_w;
+        cpe.stall_simd = ct.ret.stall_simd;
+        cpe.stall_load = ct.ret.stall_load;
+        // fe
+        fe_unblocked = (!cpe.bad_spec && !cpe.stall_be);
+        if (fe_unblocked) begin
+            cpe.stall_fe = (ct.ret.stall_l1i || ct.ret.stall_fe_core);
+            cpe.stall_l1i = ct.ret.stall_l1i;
+        end
+    end
     // core
     cpe.ret_ctrl_flow_j = (get_opc7(inst.ret) == OPC7_JAL);
     cpe.ret_ctrl_flow_jr = (get_opc7(inst.ret) == OPC7_JALR);
@@ -740,11 +791,13 @@ always_comb begin
     cpe.ret_mem_load = (get_opc7(inst.ret) == OPC7_LOAD);
     cpe.ret_mem_store = (get_opc7(inst.ret) == OPC7_STORE);
     cpe.ret_mem = (cpe.ret_mem_load || cpe.ret_mem_store);
-    cpe.ret_simd = (inst_retired && inst_retired_simd); // tda
+    cpe.ret_simd = (inst_retired && inst_retired_simd);
     cpe.ret_simd_arith = (
         cpe.ret_simd && (get_fn7(inst.ret) == CUSTOM_ISA_FN7_SIMD_DOT));
     cpe.ret_simd_data_fmt = (
         cpe.ret_simd && (get_fn7(inst.ret) == CUSTOM_ISA_FN7_SIMD_WIDEN));
+    // bp
+    cpe.bp_miss = spec.wrong;
     // icache
     cpe.l1i_ref = (pe_ic.hit || pe_ic.miss);
     cpe.l1i_miss = pe_ic.miss;

@@ -737,7 +737,8 @@ end
 
 // perf counters
 always_comb begin
-    core_events.bad_spec = (`CORE.perf_events.bp_miss * BP_MISS_FLUSH_PENALTY);
+    core_events.ret = `CORE.inst_retired;
+    core_events.bad_spec = `CORE.perf_events.bad_spec;
     core_events.stall_be = `CORE.perf_events.stall_be;
     core_events.stall_l1d = `CORE.perf_events.stall_l1d;
     core_events.stall_l1d_r = `CORE.perf_events.stall_l1d_r;
@@ -868,14 +869,11 @@ initial begin
 
     check_test_status(1'b1);
 
-    `ifdef ENABLE_COSIM
-    `LOGNT($sformatf(
-        "DUT instruction count: %0d", core_stats::get_inst_cnt(core_cnt_main)
-    ));
+    `ifndef ENABLE_COSIM
     `LOGNT(core_stats::get(core_cnt_main));
-
+    `else
     if (args.cosim_chk_en) cosim_check_inst_cnt();
-    cosim_finish();
+    cosim_finish(); // cosim stats
     `endif
 
     `ifdef ENABLE_KONATA

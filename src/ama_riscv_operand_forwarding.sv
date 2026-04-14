@@ -217,12 +217,12 @@ assign c_sel_dec_fwd = d_rs3_dec.has;
 //------------------------------------------------------------------------------
 // hazards on 2+ cycle execute instructions? used to stall the machine
 
-logic hazard_from_mem, hazard_from_wbk;
-assign hazard_from_mem = (load_inst_mem || simd_arith_mem);
-assign hazard_from_wbk = (load_inst_wbk && dc_stalled);
-assign hazard.to_exe = (
-    (hazard_from_mem && (d_rs1_exe.in_mem || d_rs2_exe.in_mem)) ||
-    (hazard_from_wbk && (d_rs1_exe.in_wbk || d_rs2_exe.in_wbk))
-);
+logic hc_mem, hc_wbk; // hazard conditions
+assign hc_mem = (load_inst_mem || simd_arith_mem);
+assign hc_wbk = (load_inst_wbk && dc_stalled);
+
+assign hazard.from_mem = (hc_mem && (d_rs1_exe.in_mem || d_rs2_exe.in_mem));
+assign hazard.from_wbk = (hc_wbk && (d_rs1_exe.in_wbk || d_rs2_exe.in_wbk));
+assign hazard.to_exe = (hazard.from_mem || hazard.from_wbk);
 
 endmodule

@@ -47,6 +47,7 @@
     CORE_STATS_JSON_LINE(cycles) \
     CORE_STATS_JSON_LINE(empty) \
     CORE_STATS_JSON_LINE(stalls) \
+    CORE_STATS_JSON_LINE(lost) \
     CORE_STATS_JSON_LINE(stall_fe_core) \
     CORE_STATS_JSON_LINE(stall_be_core) \
     CORE_STATS_JSON_LINE(ret_int) \
@@ -63,6 +64,8 @@ TDA:
 struct core_stats_t {
     private:
         uint64_t cycles_all;
+        uint64_t cycles;
+        uint64_t ret;
         uint64_t bad_spec;
         uint64_t stall_be;
         uint64_t stall_l1d;
@@ -96,25 +99,26 @@ struct core_stats_t {
         uint64_t l1d_miss_w;
         uint64_t l1d_writeback;
         // derived
-        uint64_t ret;
-        uint64_t cycles;
         uint64_t empty;
         uint64_t stalls;
+        uint64_t lost;
+        uint64_t lost_other;
         uint64_t stall_fe_core;
         uint64_t stall_be_core;
         uint64_t ret_int;
-        float_t cpi = -1.0;
         float_t ipc = -1.0;
+        float_t cpi = -1.0;
         // misc
         bool prof_active = false;
     private:
         void summarize() {
+            empty = (cycles - ret);
             stalls = (stall_be + stall_fe);
-            empty = (bad_spec + stalls);
-            ret = (cycles - empty);
-            ret_int = (ret - ret_simd);
+            lost = (empty - stalls);
+            lost_other = (lost - bad_spec);
             stall_fe_core = (stall_fe - stall_l1i);
             stall_be_core = (stall_be - stall_l1d);
+            ret_int = (ret - ret_simd);
             if ((cycles > 0) && (ret > 0)) {
                 ipc = (TO_F32(ret) / TO_F32(cycles));
                 cpi = (1/ipc);
@@ -126,6 +130,7 @@ struct core_stats_t {
             cycles_all++;
             if (!prof_active) return;
             cycles += 1;
+            ret += ev->ret;
             bad_spec += ev->bad_spec;
             stall_be += ev->stall_be;
             stall_l1d += ev->stall_l1d;
@@ -162,24 +167,28 @@ struct core_stats_t {
         void show_tda() {
             summarize();
             std::cout << "Cycles: " << cycles
-                      << ", Inst: " <<  ret
-                      << ", Empty: " <<  empty
+                      << ", Inst: " << ret
+                      << ", Empty: " << empty
                       << std::fixed << std::setprecision(3)
-                      << ", CPI: " <<  cpi
-                      << " (IPC: " <<  ipc << ")"
-                      << "\n" << INDENT << "TDA:\n"
+                      << ", CPI: " << cpi
+                      << " (IPC: " << ipc << ")"
+                      << "\n"
+                      << INDENT << "TDA:\n"
                       << INDENT << INDENT << "L1: "
-                      << "Bad Spec: " <<  bad_spec
-                      << ", FE: " <<  stall_fe
-                      << ", BE: " <<  stall_be
-                      << ", Retired: " <<  ret << "\n"
+                      << "Retired: " << ret
+                      << ", FE: " << stall_fe
+                      << ", BE: " << stall_be
+                      << ", Lost: " << lost
+                      << "\n"
                       << INDENT << INDENT << "L2: "
-                      << "FE Mem: " <<  stall_l1i
+                      << "INT: " << ret_int
+                      << ", SIMD: " << ret_simd
+                      << ", FE Mem: " << stall_l1i
                       << ", FE Core: " << stall_fe_core
-                      << ", BE Mem: " <<  stall_l1d
-                      << ", BE Core: " <<  stall_be_core
-                      << ", INT: " <<  ret_int
-                      << ", SIMD: " <<  ret_simd;
+                      << ", BE Mem: " << stall_l1d
+                      << ", BE Core: " << stall_be_core
+                      << ", Bad Spec: " << bad_spec
+                      << ", Other: " << lost_other;
         }
         void show_all() {
             float_t amat_l1i, amat_l1d, hits;

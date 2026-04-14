@@ -385,6 +385,8 @@ typedef struct packed {
 typedef struct packed {
     //logic to_dec;
     logic to_exe;
+    logic from_mem;
+    logic from_wbk;
 } hazard_t;
 
 typedef struct packed {
@@ -396,6 +398,7 @@ typedef struct packed {
 } dmem_req_side_t;
 
 typedef struct packed {
+    logic bad_spec; // tda
     logic stall_be; // tda
     logic stall_l1d; // tda
     logic stall_l1d_r;
@@ -430,6 +433,18 @@ typedef struct packed {
     //logic l1d_line_fill; // same as miss in current uarch
     logic l1d_writeback;
 } perf_event_t;
+
+typedef struct packed {
+    logic bad_spec;
+    logic stall_be_core;
+    logic stall_l1d;
+    logic stall_l1d_r;
+    logic stall_l1d_w;
+    logic stall_fe_core;
+    logic stall_l1i;
+    logic stall_simd;
+    logic stall_load;
+} cycle_tag_t;
 
 // branch predictor
 typedef enum logic [2:0] {
@@ -469,7 +484,6 @@ parameter unsigned BP_2_GHR_BITS = 9;
 parameter unsigned BP_2_CNT_BITS = 1;
 parameter unsigned BP_C_PC_BITS = 4;
 parameter unsigned BP_C_CNT_BITS = 4;
-parameter logic [1:0] BP_MISS_FLUSH_PENALTY = 2;
 
 //parameter bp_t BP_TYPE = BP_STATIC; // static
 parameter bp_t BP_TYPE = BP_COMBINED; // or combined

@@ -80,6 +80,7 @@ typedef struct {
 } hw_counters_t;
 
 typedef struct {
+    byte ret;
     byte bad_spec = '0; // tda
     byte stall_be = '0; // tda
     byte stall_l1d = '0; // tda
