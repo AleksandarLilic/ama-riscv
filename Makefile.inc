@@ -10,12 +10,23 @@ define get_include_dirs
 $(foreach file,$(shell cat $(1) | grep -- '--include' | grep -oP '"\K[^"]+' | sed 's/\\//g'),$(shell echo $(file)))
 endef
 
+# if SIM_ONLY, ignore getting sources so it doesn't trigger rebuilds
+SIM_ONLY ?= 0
+ifeq ($(SIM_ONLY), 1)
+SOURCE_FILES :=
+SRC_VERIF :=
+SRC_DESIGN :=
+INC_DIRS :=
+SRC_INC :=
+PLUS_INCDIR :=
+else
 SOURCE_FILES := $(REPO_ROOT)/sources.f
 SRC_VERIF := $(call get_sources_v,$(SOURCE_FILES))
 SRC_DESIGN := $(call get_sources_d,$(SOURCE_FILES))
 INC_DIRS := $(call get_include_dirs,$(SOURCE_FILES))
 SRC_INC := $(foreach dir,$(INC_DIRS),$(shell echo $(dir))/*)
 PLUS_INCDIR := $(foreach dir,$(INC_DIRS),$(shell echo +incdir+$(dir)))
+endif
 
 # because ORFS hangs if functions are still defined
 # due to some expansions done in the OpenROAD-flow-scripts/flow/util/utils.mk

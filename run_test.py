@@ -196,10 +196,12 @@ def build_tb(build_dir, force_rebuild):
         "make", "elab",
         "ISA_SIM_BDIR=build_obj_runtest",
         "COSIM_BDIR=build_runtest",
+        "TO_LOG=0",
         f"-j{MAX_WORKERS}",
     ]
     if force_rebuild:
         make_cmd.append("-B")
+
     make_status = subprocess.run(
         make_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=build_dir
     )
@@ -244,8 +246,9 @@ def run_test(test_path, run_dir, build_dir, make_args, cnt, keep_pass=False):
         f"RUN_CFG={RUN_CFG}",
         f"TIMEOUT_CLOCKS={make_args.timeout_clocks}",
         f"LOG_LEVEL={make_args.log_level}",
-        f"UNIQUE_WDB=0", # single wdb per test run dir, always the same wdb name
-        f"TO_LOG=0", # stdout will be picked up by this script instead
+        "UNIQUE_WDB=0",
+        "TO_LOG=0",
+        "SIM_ONLY=1",
     ]
 
     with open(p['run_sh'], "w") as f:
