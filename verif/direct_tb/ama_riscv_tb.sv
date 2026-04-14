@@ -60,8 +60,6 @@ import "DPI-C" function void cosim_log_stats(
     hw_events_t bp
 );
 
-`endif // ENABLE_COSIM
-
 `ifdef ENABLE_KONATA
 import "DPI-C" function void konata_open(input string outdir);
 import "DPI-C" function void konata_cycle(input longint unsigned cycle);
@@ -99,6 +97,7 @@ import "DPI-C" function void konata_retire(
 import "DPI-C" function void konata_close();
 
 `endif // ENABLE_KONATA
+`endif // ENABLE_COSIM
 
 //------------------------------------------------------------------------------
 // Testbench variables
@@ -251,7 +250,7 @@ function automatic void check_test_status(input bit completed);
 
         `ifdef ENABLE_COSIM
         msg = {"Checker 2/2 - 'cosim' : "};
-        if (args.cosim_en && args.cosim_chk_en) begin
+        if (args.cosim_chk_en) begin
             msg = {msg, "ENABLED: "};
             msg = {msg, chk_pass_cosim ? "PASS" : "FAIL"};
         end else begin
@@ -357,7 +356,6 @@ function void get_plusargs();
         args.tohost_chk_en = $test$plusargs("enable_tohost_checker");
 
         `ifdef ENABLE_COSIM
-        args.cosim_en = $test$plusargs("enable_cosim");
         args.cosim_chk_en = $test$plusargs("enable_cosim_checkers");
         args.stop_on_cosim_error = $test$plusargs("stop_on_cosim_error");
 
@@ -567,10 +565,8 @@ task automatic single_step();
     add_up_events(bp_stats, e_bp);
 
     `ifdef ENABLE_COSIM
-    // don't count time in reset
     add_trace_entry((clk_cnt - `RST_PULSES), e_ic.hm, e_dc.hm, e_bp.hm);
     cosim_log_stats(core_events, e_ic, e_dc, e_bp);
-    `endif
 
     `ifdef ENABLE_KONATA
     // advance cycle - sets the time for all events this cycle
@@ -579,6 +575,7 @@ task automatic single_step();
         konata_inst(`CORE_VIEW.k_id.fet);
         konata_start_stage(`CORE_VIEW.k_id.fet, "F");
     end
+    `endif
 
     if (`CORE_VIEW.k_valid.dec) konata_start_stage(`CORE_VIEW.k_id.dec, "D");
     if (`CORE_VIEW.k_valid.exe) konata_start_stage(`CORE_VIEW.k_id.exe, "E");
@@ -600,7 +597,7 @@ task automatic single_step();
             konata_label(`CORE_VIEW.k_id.exe, `CORE.pc.exe, `CORE.inst.exe, "");
         end
     end
-    `endif
+    `endif // ENABLE_COSIM
 
     // cosim advances only if rtl retires an instruction
     if (!inst_retired) begin
@@ -612,28 +609,25 @@ task automatic single_step();
     `LOG_V(core_ret);
 
     `ifdef ENABLE_COSIM
-    if (args.cosim_en) begin
-        cosim_exec(clk_cnt_d[2], cosim.pc, cosim.inst, cosim.tohost,
-                   cosim_str.inst_asm, cosim_str.stack_top, cosim.rf);
-        isa_ret = $sformatf(
-            "COSIM    %5h: %8h %0s", cosim.pc, cosim.inst, cosim_str.inst_asm);
-        `LOG_V(isa_ret);
+    cosim_exec(clk_cnt_d[2], cosim.pc, cosim.inst, cosim.tohost,
+                cosim_str.inst_asm, cosim_str.stack_top, cosim.rf);
+    isa_ret = $sformatf(
+        "COSIM    %5h: %8h %0s", cosim.pc, cosim.inst, cosim_str.inst_asm);
+    `LOG_V(isa_ret);
 
-        cosim.stack_top_str_wave = pack_string(cosim_str.stack_top);
-        cosim.inst_asm_str_wave = pack_string(trim_ws(cosim_str.inst_asm));
+    cosim.stack_top_str_wave = pack_string(cosim_str.stack_top);
+    cosim.inst_asm_str_wave = pack_string(trim_ws(cosim_str.inst_asm));
 
-        if (args.cosim_chk_en) new_errors = cosim_run_checkers(rf_chk_act);
-        if (new_errors) begin
-            `LOG_E(core_ret, 0);
-            `LOG_E(isa_ret, 0);
-            if (args.stop_on_cosim_error) begin
-                `LOG_I("Exiting on first error");
-                check_test_status(1'b0);
-                $finish();
-            end
+    if (args.cosim_chk_en) new_errors = cosim_run_checkers(rf_chk_act);
+    if (new_errors) begin
+        `LOG_E(core_ret, 0);
+        `LOG_E(isa_ret, 0);
+        if (args.stop_on_cosim_error) begin
+            `LOG_I("Exiting on first error");
+            check_test_status(1'b0);
+            $finish();
         end
     end
-    `endif
 
     `ifdef ENABLE_KONATA
     if (`CORE_VIEW.k_valid.ret) begin
@@ -643,6 +637,7 @@ task automatic single_step();
         konata_label_str(`CORE_VIEW.k_id.ret, 1, cosim_str.stack_top);
     end
     `endif
+    `endif // ENABLE_COSIM
 
 endtask
 
@@ -799,6 +794,7 @@ initial begin
     `endif
 
     load_memories({args.test_path, ".mem"});
+
     `ifdef ENABLE_COSIM
     cosim_setup(
         {args.test_path, ".elf"},
@@ -809,10 +805,9 @@ initial begin
         args.log_isa_sim,
         cosim_outdir
     );
-    `endif
-
     `ifdef ENABLE_KONATA
     konata_open(cosim_outdir);
+    `endif
     `endif
 
     ->go_in_reset;
@@ -869,19 +864,21 @@ initial begin
 
     check_test_status(1'b1);
 
-    `ifndef ENABLE_COSIM
-    `LOGNT(core_stats::get(core_cnt_main));
-    `else
+    `ifdef ENABLE_COSIM
     if (args.cosim_chk_en) cosim_check_inst_cnt();
-    cosim_finish(); // cosim stats
-    `endif
-
+    cosim_finish(); // incl. cosim stats
     `ifdef ENABLE_KONATA
     konata_close();
     `endif
+    `endif
 
     $display("");
-    if (args.cosim_en) $finish(); // using cosim stats for this run
+
+    `ifdef ENABLE_COSIM
+    $finish();
+    `endif
+
+    `LOGNT(core_stats::get(core_cnt_main));
 
     // TODO: these really need to be consolidated like core core_stats
     tda.stall_be_core = (tda.stall_be - tda.stall_l1d);

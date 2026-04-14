@@ -18,7 +18,6 @@ string msg_fail = "==== FAIL ====";
 typedef struct {
     string test_path;
     bit tohost_chk_en;
-    bit cosim_en;
     bit cosim_chk_en;
     bit stop_on_cosim_error;
     int unsigned timeout_clocks;
