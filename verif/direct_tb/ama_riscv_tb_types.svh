@@ -20,13 +20,14 @@ typedef struct {
     bit tohost_chk_en;
     bit cosim_chk_en;
     bit stop_on_cosim_error;
-    int unsigned timeout_clocks;
-    int unsigned log_level;
+    bit konata_en;
+    bit prof_trace;
+    bit log_isa_sim;
     int unsigned prof_pc_start;
     int unsigned prof_pc_stop;
     int unsigned prof_pc_single_match;
-    bit prof_trace;
-    bit log_isa_sim;
+    int unsigned timeout_clocks;
+    int unsigned log_level;
 } plusargs_t;
 
 // cosim

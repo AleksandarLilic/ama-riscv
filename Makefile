@@ -88,10 +88,11 @@ COSIM_ARGS += -testplusarg enable_tohost_checker
 COSIM_ARGS += -testplusarg enable_cosim_checkers
 COSIM_ARGS += -testplusarg stop_on_cosim_error
 COSIM_ARGS += -testplusarg prof_trace
+#COSIM_ARGS += -testplusarg log_isa_sim
 COSIM_ARGS += -testplusarg prof_pc_start=40000
 #COSIM_ARGS += -testplusarg prof_pc_stop=41568
 #COSIM_ARGS += -testplusarg prof_pc_single_match=2
-#COSIM_ARGS += -testplusarg log_isa_sim
+#COSIM_ARGS += -testplusarg enable_konata
 
 all: sim
 

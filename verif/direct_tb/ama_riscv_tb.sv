@@ -358,6 +358,9 @@ function void get_plusargs();
         `ifdef ENABLE_COSIM
         args.cosim_chk_en = $test$plusargs("enable_cosim_checkers");
         args.stop_on_cosim_error = $test$plusargs("stop_on_cosim_error");
+        args.konata_en = $test$plusargs("konata_en");
+        args.prof_trace = $test$plusargs("prof_trace");
+        args.log_isa_sim = $test$plusargs("log_isa_sim");
 
         if (!$value$plusargs("prof_pc_start=%h", args.prof_pc_start)) begin
             args.prof_pc_start = 0;
@@ -369,8 +372,7 @@ function void get_plusargs();
             "prof_pc_single_match=%h", args.prof_pc_single_match)) begin
             args.prof_pc_single_match = 0;
         end
-        args.prof_trace = $test$plusargs("prof_trace");
-        args.log_isa_sim = $test$plusargs("log_isa_sim");
+
         `endif
 
         if (!$value$plusargs("timeout_clocks=%d", args.timeout_clocks)) begin
@@ -569,34 +571,41 @@ task automatic single_step();
     cosim_log_stats(core_events, e_ic, e_dc, e_bp);
 
     `ifdef ENABLE_KONATA
-    // advance cycle - sets the time for all events this cycle
-    konata_cycle(clk_cnt - `RST_PULSES);
-    if (`CORE_VIEW.k_valid.fet) begin
-        konata_inst(`CORE_VIEW.k_id.fet);
-        konata_start_stage(`CORE_VIEW.k_id.fet, "F");
-    end
-    `endif
+    if (args.konata_en) begin
+        // advance cycle - sets the time for all events this cycle
+        konata_cycle(clk_cnt - `RST_PULSES);
+        if (`CORE_VIEW.k_valid.fet) begin
+            konata_inst(`CORE_VIEW.k_id.fet);
+            konata_start_stage(`CORE_VIEW.k_id.fet, "F");
+        end
 
-    if (`CORE_VIEW.k_valid.dec) konata_start_stage(`CORE_VIEW.k_id.dec, "D");
-    if (`CORE_VIEW.k_valid.exe) konata_start_stage(`CORE_VIEW.k_id.exe, "E");
-    if (`CORE_VIEW.k_valid.mem) konata_start_stage(`CORE_VIEW.k_id.mem, "M");
-    if (`CORE_VIEW.k_valid.wbk) konata_start_stage(`CORE_VIEW.k_id.wbk, "W");
+        if (`CORE_VIEW.k_valid.dec) konata_start_stage(`CORE_VIEW.k_id.dec,"D");
+        if (`CORE_VIEW.k_valid.exe) konata_start_stage(`CORE_VIEW.k_id.exe,"E");
+        if (`CORE_VIEW.k_valid.mem) konata_start_stage(`CORE_VIEW.k_id.mem,"M");
+        if (`CORE_VIEW.k_valid.wbk) konata_start_stage(`CORE_VIEW.k_id.wbk,"W");
 
-    // speculative exec gone wrong
-    if (`CORE_VIEW.spec_wrong_on_ic_miss) begin
-        konata_retire(`CORE_VIEW.k_id.dec, 0, 1);
-        konata_label(`CORE_VIEW.k_id.dec, `CORE.pc_fet_last, 'h0, "");
-    end else begin
-        if (`CORE_VIEW.spec.wrong && (!`CORE_VIEW.spec_wrong_on_jump_exe)) begin
-            // if it stalls on jump, nothing to flush
+        // speculative exec gone wrong
+        if (`CORE_VIEW.spec_wrong_on_ic_miss) begin
             konata_retire(`CORE_VIEW.k_id.dec, 0, 1);
-            konata_label(`CORE_VIEW.k_id.dec, `CORE.pc.dec, `CORE.inst.dec, "");
-        end
-        if (`CORE_VIEW.spec.wrong) begin
-            konata_retire(`CORE_VIEW.k_id.exe, 0, 1);
-            konata_label(`CORE_VIEW.k_id.exe, `CORE.pc.exe, `CORE.inst.exe, "");
+            konata_label(`CORE_VIEW.k_id.dec, `CORE.pc_fet_last, 'h0, "");
+        end else begin
+            if (`CORE_VIEW.spec.wrong &&
+                (!`CORE_VIEW.spec_wrong_on_jump_exe)
+            ) begin
+                // if it stalls on jump, nothing to flush
+                konata_retire(`CORE_VIEW.k_id.dec, 0, 1);
+                konata_label(
+                    `CORE_VIEW.k_id.dec, `CORE.pc.dec, `CORE.inst.dec, "");
+            end
+            if (`CORE_VIEW.spec.wrong) begin
+                konata_retire(`CORE_VIEW.k_id.exe, 0, 1);
+                konata_label(
+                    `CORE_VIEW.k_id.exe, `CORE.pc.exe, `CORE.inst.exe, "");
+            end
         end
     end
+
+    `endif // ENABLE_KONATA
     `endif // ENABLE_COSIM
 
     // cosim advances only if rtl retires an instruction
@@ -630,11 +639,13 @@ task automatic single_step();
     end
 
     `ifdef ENABLE_KONATA
-    if (`CORE_VIEW.k_valid.ret) begin
-        konata_retire(`CORE_VIEW.k_id.ret, 0, 0);
-        konata_label(
-            `CORE_VIEW.k_id.ret, cosim.pc, cosim.inst, cosim_str.inst_asm);
-        konata_label_str(`CORE_VIEW.k_id.ret, 1, cosim_str.stack_top);
+    if (args.konata_en) begin
+        if (`CORE_VIEW.k_valid.ret) begin
+            konata_retire(`CORE_VIEW.k_id.ret, 0, 0);
+            konata_label(
+                `CORE_VIEW.k_id.ret, cosim.pc, cosim.inst, cosim_str.inst_asm);
+            konata_label_str(`CORE_VIEW.k_id.ret, 1, cosim_str.stack_top);
+        end
     end
     `endif
     `endif // ENABLE_COSIM
@@ -806,7 +817,7 @@ initial begin
         cosim_outdir
     );
     `ifdef ENABLE_KONATA
-    konata_open(cosim_outdir);
+    if (args.konata_en) konata_open(cosim_outdir);
     `endif
     `endif
 
@@ -868,7 +879,7 @@ initial begin
     if (args.cosim_chk_en) cosim_check_inst_cnt();
     cosim_finish(); // incl. cosim stats
     `ifdef ENABLE_KONATA
-    konata_close();
+    if (args.konata_en) konata_close();
     `endif
     `endif
 
