@@ -271,7 +271,8 @@ def run_test(test_path, run_dir, build_dir, make_args, cnt, keep_pass=False):
 
     print(f"Test <{test_name}> DONE.", end=" ")
     if make_status.returncode != 0:
-        # something went wrong at make level
+        print(color_code_string("FAILED", CC_RED))
+        # something went wrong at the make/simulator level
         raise ValueError(f"Error: Run test <{test_name}> failed. "
                          f"Check test log '{p['test_log']}' for details.")
 
