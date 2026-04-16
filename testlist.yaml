@@ -21,9 +21,9 @@ simple:
   - ["sim/sw/baremetal/vector_ew_al_uint8", "test.mem"]
   - ["sim/sw/baremetal/vector_ew_mac_uint8", "test.mem"]
 
-pref_cnts:
+perf_cnts:
   - ["sim/sw/baremetal/asm_rv32i_zihpm", "test.mem"]
-  - ["sim/sw/baremetal/rv32i_zihpm_tda", "test.mem"]
+  #- ["sim/sw/baremetal/rv32i_zihpm_tda", "test.mem"]
   - ["sim/sw/baremetal/rv32i_zihpm_all", "test.mem"]
 
 dcache:

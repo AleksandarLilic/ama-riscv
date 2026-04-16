@@ -10,7 +10,7 @@ rf_addr_t rs1_addr, rd_addr;
 assign rs1_addr = get_rs1(inst_dec, 1'b1);
 assign rd_addr = get_rd(inst_dec, 1'b1);
 logic rs1_nz, rd_nz;
-assign rs1_nz = (rs1_addr == RF_X0_ZERO);
+assign rs1_nz = (rs1_addr != RF_X0_ZERO);
 assign rd_nz = (rd_addr != RF_X0_ZERO);
 
 opc7_t opc7;
@@ -187,11 +187,9 @@ always_comb begin
 
         OPC7_SYSTEM: begin
             fc.pc_we = 1'b1;
-            // FIXME: rw/rwi should not read CSR on rd=x0;
-            // no impact w/ current CSRs
             d.csr_ctrl.en = 1'b1;
-            d.csr_ctrl.re = 1'b1;
-            d.csr_ctrl.we = !((fn3[1:0] != CSR_OP_RW) && rs1_nz);
+            d.csr_ctrl.re = !((fn3[1:0] == CSR_OP_RW) && !rd_nz);
+            d.csr_ctrl.we = (rs1_nz || (fn3[1:0] == CSR_OP_RW));
             d.csr_ctrl.ui = fn3[2];
             d.csr_ctrl.op = csr_op_t'(fn3[1:0]);
             d.ewb_sel = EWB_SEL_CSR;
