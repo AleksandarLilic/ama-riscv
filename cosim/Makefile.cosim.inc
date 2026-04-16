@@ -54,30 +54,37 @@ DPI_LINK_LIB := -L$(VIVADO_ROOT)/tps/lnx64/gcc-9.3.0/lib64/
 ISA_SIM_EXT := -I$(COSIM_ROOT_ABS)
 ISA_SIM_EXT += -I$(VIVADO_ROOT)/data/xsim/include
 
+# log stdout
+COSIM_LOG_ARG :=
+# 'TO_LOG' and 'LOG_NAME' from RTL makefile
+ifeq ($(strip $(TO_LOG)),1)
+    COSIM_LOG_ARG := >> $(LOG_NAME) 2>&1
+endif
+
 # TARGETS
 cosim_target: $(COSIM_TARGET)
 
 cosim_obj: $(COSIM_OBJS)
 
 $(COSIM_TARGET): .isa_sim_obj.touchfile $(COSIM_OBJS)
-	@echo "Building COSIM SO"
-	$(CXX) $(CXXFLAGS) -o $(COSIM_TARGET) $(COSIM_OBJS) $(ISA_SIM_OBJS) $(DPI_LINK_LIB)
-	@echo "Building COSIM SO done"
+	@echo "Building COSIM SO" $(COSIM_LOG_ARG)
+	@$(CXX) $(CXXFLAGS) -o $(COSIM_TARGET) $(COSIM_OBJS) $(ISA_SIM_OBJS) $(DPI_LINK_LIB) $(COSIM_LOG_ARG)
+	@echo "Building COSIM SO done" $(COSIM_LOG_ARG)
 
 # recipe calls isa sim's make which builds all isa sim objects
 # even though not all objects may be strictly required for cosim
 isa_sim_obj: .isa_sim_obj.touchfile
 .isa_sim_obj.touchfile: $(ISA_SIM_SRCS) $(ISA_SIM_H) $(COSIM_H)
-	@echo "Building ISA SIM"
-	$(MAKE) -C $(ISA_SIM_DIR) obj_for_cosim INC_EXT="$(ISA_SIM_EXT)" BDIR=$(ISA_SIM_BDIR) DEFINES="-DDPI -DCACHE_MODE=CACHE_MODE_FUNC" CXX=$(CXX)
+	@echo "Building ISA SIM" $(COSIM_LOG_ARG)
+	@$(MAKE) -C $(ISA_SIM_DIR) obj_for_cosim INC_EXT="$(ISA_SIM_EXT)" BDIR=$(ISA_SIM_BDIR) DEFINES="-DDPI -DCACHE_MODE=CACHE_MODE_FUNC" CXX=$(CXX) $(COSIM_LOG_ARG)
 	@touch .isa_sim_obj.touchfile
-	@echo "Building ISA SIM done"
+	@echo "Building ISA SIM done" $(COSIM_LOG_ARG)
 
 $(COSIM_ROOT)/$(COSIM_BDIR)/%.o: $(COSIM_ROOT)/%.cpp $(COSIM_H) $(ISA_SIM_H)
-	@echo "Building COSIM OBJ $@"
+	@echo "Building COSIM OBJ $@" $(COSIM_LOG_ARG)
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) -MMD -c $< -o $@ $(COSIM_INC) $(ISA_SIM_INC) -DDPI
-	@echo "Building COSIM OBJ $@ done"
+	@$(CXX) $(CXXFLAGS) -MMD -c $< -o $@ $(COSIM_INC) $(ISA_SIM_INC) -DDPI $(COSIM_LOG_ARG)
+	@echo "Building COSIM OBJ $@ done" $(COSIM_LOG_ARG)
 
 -include $(DEPS)
 
