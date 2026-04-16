@@ -48,6 +48,7 @@
     CORE_STATS_JSON_LINE(empty) \
     CORE_STATS_JSON_LINE(stalls) \
     CORE_STATS_JSON_LINE(lost) \
+    CORE_STATS_JSON_LINE(lost_other) \
     CORE_STATS_JSON_LINE(stall_fe_core) \
     CORE_STATS_JSON_LINE(stall_be_core) \
     CORE_STATS_JSON_LINE(ret_int) \
@@ -167,7 +168,7 @@ struct core_stats_t {
         void show_tda() {
             summarize();
             std::cout << "Cycles: " << cycles
-                      << ", Inst: " << ret
+                      << ", Retired: " << ret
                       << ", Empty: " << empty
                       << std::fixed << std::setprecision(3)
                       << ", CPI: " << cpi
@@ -183,9 +184,9 @@ struct core_stats_t {
                       << INDENT << INDENT << "L2: "
                       << "INT: " << ret_int
                       << ", SIMD: " << ret_simd
-                      << ", FE Mem: " << stall_l1i
+                      << ", FE Icache: " << stall_l1i
                       << ", FE Core: " << stall_fe_core
-                      << ", BE Mem: " << stall_l1d
+                      << ", BE Dcache: " << stall_l1d
                       << ", BE Core: " << stall_be_core
                       << ", Bad Spec: " << bad_spec
                       << ", Other: " << lost_other;
