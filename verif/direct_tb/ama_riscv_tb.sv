@@ -116,7 +116,7 @@ string isa_ret;
 longint unsigned clk_cnt = 0;
 logic [ARCH_WIDTH_D-1:0] mtime_d[3];
 logic [ARCH_WIDTH_D-1:0] clk_cnt_d[3];
-csr_sync_t csr_d[2];
+csr_sync_t csr_d[3];
 
 // cosim
 bit [RF_NUM-1:0] rf_chk_act;
@@ -515,7 +515,7 @@ endfunction
 function void cosim_sync_csrs(output csr_sync_t csr);
     csr.mtime = mtime_d[2];
     `IT((MHPMCOUNTERS+MHPM_IDX_L)) begin
-        csr.mhpmcounter[i] = csr_d[1].mhpmcounter[i];
+        csr.mhpmcounter[i] = csr_d[2].mhpmcounter[i];
     end
 endfunction
 `endif
@@ -687,9 +687,10 @@ always @(posedge clk) clk_cnt += 1;
 
 // perf counters only 1 clk delay
 always_ff @(posedge clk) begin
-    `IT((MHPMCOUNTERS+MHPM_IDX_L)) begin
+    `IT((MHPMCOUNTERS + MHPM_IDX_L)) begin
         csr_d[0].mhpmcounter[i] <= {MHPMCOUNTER_PAD, `CSR.csr.mhpmcounter[i]};
         csr_d[1].mhpmcounter[i] <= csr_d[0].mhpmcounter[i];
+        csr_d[2].mhpmcounter[i] <= csr_d[1].mhpmcounter[i];
     end
 end
 
