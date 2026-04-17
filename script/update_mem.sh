@@ -76,9 +76,11 @@ echo "" > "${run_name}.log"
 run_job run_g dhrystone dhrystone
 run_job run_g coremark coremark
 run_job run_g stream_int stream
-run_job run_g mlp w2a8
-run_job run_g mlp w4a8
+
 run_job run_g mlp w8a8
+run_job run_g mlp w4a8
+run_job run_g mlp w2a8
+
 run_job run_emb aha-mont64
 run_job run_emb crc32
 run_job run_emb cubic
