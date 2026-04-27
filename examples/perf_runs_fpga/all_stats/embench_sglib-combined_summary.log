@@ -1,0 +1,43 @@
+embench_sglib-combined
+IPC: 0.816
+         L1        L2     cycles cycles_e
+0      lost  bad_spec   19122610    19.1M
+1      lost     other         58     58.0
+2  frontend    icache     182915   182.9k
+3  frontend      core    4558839     4.6M
+4   backend    dcache    1165908     1.2M
+5   backend      core   14335408    14.3M
+6  retiring   integer  174089342   174.1M
+7  retiring      simd          0      0.0
+
+Performance Counters for 'embench_sglib-combined'
+   class          counter     count count_e
+  cycles           cycles 213455080  213.5M
+     ret              ret 174089342  174.1M
+   stall           stalls  20243070   20.2M
+    lost             lost  19122668   19.1M
+   ret_*          ret_int 174089342  174.1M
+   ret_* ret_ctrl_flow_br  38871597   38.9M
+   ret_*         ret_simd         0     0.0
+ stall_*         stall_be  15501316   15.5M
+ stall_*    stall_be_core  14335408   14.3M
+ stall_*         stall_fe   4741754    4.7M
+ stall_*    stall_fe_core   4558839    4.6M
+ stall_*        stall_l1d   1165908    1.2M
+ stall_*        stall_l1i    182915  182.9k
+bad_spec         bad_spec  19122610   19.1M
+   l1i_*          l1i_ref 193205438  193.2M
+   l1i_*         l1i_miss     47910   47.9k
+   l1d_*          l1d_ref  66017871   66.0M
+   l1d_*         l1d_miss    117463  117.5k
+    bp_*          bp_miss   9561309    9.6M
+
+
+core:
+    Cycles: 213.5M, Retired: 174.1M, Empty: 39.4M, IPC: 0.816 
+icache:
+    Ref: 193.2M, H: 193.2M, M: 47.9k, HR: 99.98%, MPKI: 0.28 
+dcache:
+    Ref: 66.0M, H: 65.9M, M: 117.5k, HR: 99.82%, MPKI: 0.67 
+bpred:
+    P: 29.3M, M: 9.6M, ACC: 75.40%, MPKI: 54.92 

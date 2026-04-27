@@ -1,0 +1,43 @@
+embench_ud
+IPC: 0.85
+         L1        L2     cycles cycles_e
+0      lost  bad_spec   20839845    20.8M
+1      lost     other         56     56.0
+2  frontend    icache     886981   887.0k
+3  frontend      core    6798840     6.8M
+4   backend    dcache          0      0.0
+5   backend      core    6729234     6.7M
+6  retiring   integer  199838808   199.8M
+7  retiring      simd          0      0.0
+
+Performance Counters for 'embench_ud'
+   class          counter     count count_e
+  cycles           cycles 235093764  235.1M
+     ret              ret 199838808  199.8M
+   stall           stalls  14415055   14.4M
+    lost             lost  20839901   20.8M
+   ret_*          ret_int 199838808  199.8M
+   ret_* ret_ctrl_flow_br  34959048   35.0M
+   ret_*         ret_simd         0     0.0
+ stall_*         stall_be   6729234    6.7M
+ stall_*    stall_be_core   6729234    6.7M
+ stall_*         stall_fe   7685821    7.7M
+ stall_*    stall_fe_core   6798840    6.8M
+ stall_*        stall_l1d         0     0.0
+ stall_*        stall_l1i    886981  887.0k
+bad_spec         bad_spec  20839845   20.8M
+   l1i_*          l1i_ref 219791872  219.8M
+   l1i_*         l1i_miss    591233  591.2k
+   l1d_*          l1d_ref  38945390   38.9M
+   l1d_*         l1d_miss         0     0.0
+    bp_*          bp_miss  10419926   10.4M
+
+
+core:
+    Cycles: 235.1M, Retired: 199.8M, Empty: 35.3M, IPC: 0.850 
+icache:
+    Ref: 219.8M, H: 219.2M, M: 591.2k, HR: 99.73%, MPKI: 2.96 
+dcache:
+    Ref: 38.9M, H: 38.9M, M: 0.0, HR: 100.00%, MPKI: 0.00 
+bpred:
+    P: 24.5M, M: 10.4M, ACC: 70.19%, MPKI: 52.14 

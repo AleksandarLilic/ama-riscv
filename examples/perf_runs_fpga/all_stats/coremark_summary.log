@@ -1,0 +1,43 @@
+coremark
+IPC: 0.89
+         L1        L2     cycles cycles_e
+0      lost  bad_spec   18117046    18.1M
+1      lost     other         58     58.0
+2  frontend    icache     211482   211.5k
+3  frontend      core    6980473     7.0M
+4   backend    dcache         54     54.0
+5   backend      core   38251406    38.3M
+6  retiring   integer  516643428   516.6M
+7  retiring      simd          0      0.0
+
+Performance Counters for 'coremark'
+   class          counter     count count_e
+  cycles           cycles 580203947  580.2M
+     ret              ret 516643428  516.6M
+   stall           stalls  45443415   45.4M
+    lost             lost  18117104   18.1M
+   ret_*          ret_int 516643428  516.6M
+   ret_* ret_ctrl_flow_br  92541716   92.5M
+   ret_*         ret_simd         0     0.0
+ stall_*         stall_be  38251460   38.3M
+ stall_*    stall_be_core  38251406   38.3M
+ stall_*         stall_fe   7191955    7.2M
+ stall_*    stall_fe_core   6980473    7.0M
+ stall_*        stall_l1d        54    54.0
+ stall_*        stall_l1i    211482  211.5k
+bad_spec         bad_spec  18117046   18.1M
+   l1i_*          l1i_ref 534684102  534.7M
+   l1i_*         l1i_miss     98592   98.6k
+   l1d_*          l1d_ref 109847578  109.8M
+   l1d_*         l1d_miss         9     9.0
+    bp_*          bp_miss   9058530    9.1M
+
+
+core:
+    Cycles: 580.2M, Retired: 516.6M, Empty: 63.6M, IPC: 0.890 
+icache:
+    Ref: 534.7M, H: 534.6M, M: 98.6k, HR: 99.98%, MPKI: 0.19 
+dcache:
+    Ref: 109.8M, H: 109.8M, M: 9.0, HR: 100.00%, MPKI: 0.00 
+bpred:
+    P: 83.5M, M: 9.1M, ACC: 90.21%, MPKI: 17.53 

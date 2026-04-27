@@ -1,0 +1,43 @@
+embench_matmult-int
+IPC: 0.874
+         L1        L2     cycles cycles_e
+0      lost  bad_spec    2756390     2.8M
+1      lost     other         57     57.0
+2  frontend    icache         49     49.0
+3  frontend      core      19367    19.4k
+4   backend    dcache    3638704     3.6M
+5   backend      core   25764333    25.8M
+6  retiring   integer  222302672   222.3M
+7  retiring      simd          0      0.0
+
+Performance Counters for 'embench_matmult-int'
+   class          counter     count count_e
+  cycles           cycles 254481572  254.5M
+     ret              ret 222302672  222.3M
+   stall           stalls  29422453   29.4M
+    lost             lost   2756447    2.8M
+   ret_*          ret_int 222302672  222.3M
+   ret_* ret_ctrl_flow_br  27467727   27.5M
+   ret_*         ret_simd         0     0.0
+ stall_*         stall_be  29403037   29.4M
+ stall_*    stall_be_core  25764333   25.8M
+ stall_*         stall_fe     19416   19.4k
+ stall_*    stall_fe_core     19367   19.4k
+ stall_*        stall_l1d   3638704    3.6M
+ stall_*        stall_l1i        49    49.0
+bad_spec         bad_spec   2756390    2.8M
+   l1i_*          l1i_ref 225059078  225.1M
+   l1i_*         l1i_miss        13    13.0
+   l1d_*          l1d_ref  83720075   83.7M
+   l1d_*         l1d_miss    447594  447.6k
+    bp_*          bp_miss   1378201    1.4M
+
+
+core:
+    Cycles: 254.5M, Retired: 222.3M, Empty: 32.2M, IPC: 0.874 
+icache:
+    Ref: 225.1M, H: 225.1M, M: 13.0, HR: 100.00%, MPKI: 0.00 
+dcache:
+    Ref: 83.7M, H: 83.3M, M: 447.6k, HR: 99.47%, MPKI: 2.01 
+bpred:
+    P: 26.1M, M: 1.4M, ACC: 94.98%, MPKI: 6.20 

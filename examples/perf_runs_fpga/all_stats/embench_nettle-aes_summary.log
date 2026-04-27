@@ -1,0 +1,43 @@
+embench_nettle-aes
+IPC: 0.856
+         L1        L2     cycles cycles_e
+0      lost  bad_spec    4625424     4.6M
+1      lost     other         53     53.0
+2  frontend    icache     140641   140.6k
+3  frontend      core    1661441     1.7M
+4   backend    dcache   30599440    30.6M
+5   backend      core       4337     4.3k
+6  retiring   integer  220901395   220.9M
+7  retiring      simd          0      0.0
+
+Performance Counters for 'embench_nettle-aes'
+   class          counter     count count_e
+  cycles           cycles 257932731  257.9M
+     ret              ret 220901395  220.9M
+   stall           stalls  32405859   32.4M
+    lost             lost   4625477    4.6M
+   ret_*          ret_int 220901395  220.9M
+   ret_* ret_ctrl_flow_br   9227845    9.2M
+   ret_*         ret_simd         0     0.0
+ stall_*         stall_be  30603777   30.6M
+ stall_*    stall_be_core      4337    4.3k
+ stall_*         stall_fe   1802082    1.8M
+ stall_*    stall_fe_core   1661441    1.7M
+ stall_*        stall_l1d  30599440   30.6M
+ stall_*        stall_l1i    140641  140.6k
+bad_spec         bad_spec   4625424    4.6M
+   l1i_*          l1i_ref 225456638  225.5M
+   l1i_*         l1i_miss     23453   23.5k
+   l1d_*          l1d_ref  43383682   43.4M
+   l1d_*         l1d_miss   4964705    5.0M
+    bp_*          bp_miss   2312718    2.3M
+
+
+core:
+    Cycles: 257.9M, Retired: 220.9M, Empty: 37.0M, IPC: 0.856 
+icache:
+    Ref: 225.5M, H: 225.4M, M: 23.5k, HR: 99.99%, MPKI: 0.11 
+dcache:
+    Ref: 43.4M, H: 38.4M, M: 5.0M, HR: 88.56%, MPKI: 22.47 
+bpred:
+    P: 6.9M, M: 2.3M, ACC: 74.94%, MPKI: 10.47 

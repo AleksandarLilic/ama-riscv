@@ -1,0 +1,43 @@
+dhrystone
+IPC: 0.88
+         L1        L2     cycles cycles_e
+0      lost  bad_spec   10000130    10.0M
+1      lost     other         58     58.0
+2  frontend    icache   12000253    12.0M
+3  frontend      core   32000051    32.0M
+4   backend    dcache         20     20.0
+5   backend      core    3000012     3.0M
+6  retiring   integer  419000478   419.0M
+7  retiring      simd          0      0.0
+
+Performance Counters for 'dhrystone'
+   class          counter     count count_e
+  cycles           cycles 476001002  476.0M
+     ret              ret 419000478  419.0M
+   stall           stalls  47000336   47.0M
+    lost             lost  10000188   10.0M
+   ret_*          ret_int 419000478  419.0M
+   ret_* ret_ctrl_flow_br  51000095   51.0M
+   ret_*         ret_simd         0     0.0
+ stall_*         stall_be   3000032    3.0M
+ stall_*    stall_be_core   3000012    3.0M
+ stall_*         stall_fe  44000304   44.0M
+ stall_*    stall_fe_core  32000051   32.0M
+ stall_*        stall_l1d        20    20.0
+ stall_*        stall_l1i  12000253   12.0M
+bad_spec         bad_spec  10000130   10.0M
+   l1i_*          l1i_ref 427000620  427.0M
+   l1i_*         l1i_miss   3000059    3.0M
+   l1d_*          l1d_ref 133000065  133.0M
+   l1d_*         l1d_miss         2     2.0
+    bp_*          bp_miss   5000071    5.0M
+
+
+core:
+    Cycles: 476.0M, Retired: 419.0M, Empty: 57.0M, IPC: 0.880 
+icache:
+    Ref: 427.0M, H: 424.0M, M: 3.0M, HR: 99.30%, MPKI: 7.16 
+dcache:
+    Ref: 133.0M, H: 133.0M, M: 2.0, HR: 100.00%, MPKI: 0.00 
+bpred:
+    P: 46.0M, M: 5.0M, ACC: 90.20%, MPKI: 11.93 

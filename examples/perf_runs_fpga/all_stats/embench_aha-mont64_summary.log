@@ -1,0 +1,43 @@
+embench_aha-mont64
+IPC: 0.957
+         L1        L2     cycles cycles_e
+0      lost  bad_spec    9940604     9.9M
+1      lost     other         59     59.0
+2  frontend    icache        127    127.0
+3  frontend      core     126939   126.9k
+4   backend    dcache          0      0.0
+5   backend      core      88931    88.9k
+6  retiring   integer  224731999   224.7M
+7  retiring      simd          0      0.0
+
+Performance Counters for 'embench_aha-mont64'
+   class          counter     count count_e
+  cycles           cycles 234888659  234.9M
+     ret              ret 224731999  224.7M
+   stall           stalls    215997  216.0k
+    lost             lost   9940663    9.9M
+   ret_*          ret_int 224731999  224.7M
+   ret_* ret_ctrl_flow_br  22909795   22.9M
+   ret_*         ret_simd         0     0.0
+ stall_*         stall_be     88931   88.9k
+ stall_*    stall_be_core     88931   88.9k
+ stall_*         stall_fe    127066  127.1k
+ stall_*    stall_fe_core    126939  126.9k
+ stall_*        stall_l1d         0     0.0
+ stall_*        stall_l1i       127   127.0
+bad_spec         bad_spec   9940604    9.9M
+   l1i_*          l1i_ref 234672618  234.7M
+   l1i_*         l1i_miss        35    35.0
+   l1d_*          l1d_ref    486556  486.6k
+   l1d_*         l1d_miss         0     0.0
+    bp_*          bp_miss   4970306    5.0M
+
+
+core:
+    Cycles: 234.9M, Retired: 224.7M, Empty: 10.2M, IPC: 0.957 
+icache:
+    Ref: 234.7M, H: 234.7M, M: 35.0, HR: 100.00%, MPKI: 0.00 
+dcache:
+    Ref: 486.6k, H: 486.6k, M: 0.0, HR: 100.00%, MPKI: 0.00 
+bpred:
+    P: 17.9M, M: 5.0M, ACC: 78.30%, MPKI: 22.12 

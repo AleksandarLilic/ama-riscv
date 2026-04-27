@@ -1,0 +1,43 @@
+embench_nsichneu
+IPC: 0.486
+         L1        L2     cycles cycles_e
+0      lost  bad_spec    3446876     3.4M
+1      lost     other         56     56.0
+2  frontend    icache   77183816    77.2M
+3  frontend      core         42     42.0
+4   backend    dcache          0      0.0
+5   backend      core   37611383    37.6M
+6  retiring   integer  111849548   111.8M
+7  retiring      simd          0      0.0
+
+Performance Counters for 'embench_nsichneu'
+   class          counter     count count_e
+  cycles           cycles 230091721  230.1M
+     ret              ret 111849548  111.8M
+   stall           stalls 114795241  114.8M
+    lost             lost   3446932    3.4M
+   ret_*          ret_int 111849548  111.8M
+   ret_* ret_ctrl_flow_br  38473096   38.5M
+   ret_*         ret_simd         0     0.0
+ stall_*         stall_be  37611383   37.6M
+ stall_*    stall_be_core  37611383   37.6M
+ stall_*         stall_fe  77183858   77.2M
+ stall_*    stall_fe_core        42    42.0
+ stall_*        stall_l1d         0     0.0
+ stall_*        stall_l1i  77183816   77.2M
+bad_spec         bad_spec   3446876    3.4M
+   l1i_*          l1i_ref 114680939  114.7M
+   l1i_*         l1i_miss  14033432   14.0M
+   l1d_*          l1d_ref  61488521   61.5M
+   l1d_*         l1d_miss         0     0.0
+    bp_*          bp_miss   1723445    1.7M
+
+
+core:
+    Cycles: 230.1M, Retired: 111.8M, Empty: 118.2M, IPC: 0.486 
+icache:
+    Ref: 114.7M, H: 100.6M, M: 14.0M, HR: 87.76%, MPKI: 125.47 
+dcache:
+    Ref: 61.5M, H: 61.5M, M: 0.0, HR: 100.00%, MPKI: 0.00 
+bpred:
+    P: 36.7M, M: 1.7M, ACC: 95.52%, MPKI: 15.41 

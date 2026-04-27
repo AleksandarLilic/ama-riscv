@@ -1,0 +1,43 @@
+embench_minver
+IPC: 0.799
+         L1        L2     cycles cycles_e
+0      lost  bad_spec   34981493    35.0M
+1      lost     other         56     56.0
+2  frontend    icache    8042148     8.0M
+3  frontend      core    5877495     5.9M
+4   backend    dcache          0      0.0
+5   backend      core     129204   129.2k
+6  retiring   integer  194626726   194.6M
+7  retiring      simd          0      0.0
+
+Performance Counters for 'embench_minver'
+   class          counter     count count_e
+  cycles           cycles 243657122  243.7M
+     ret              ret 194626726  194.6M
+   stall           stalls  14048847   14.0M
+    lost             lost  34981549   35.0M
+   ret_*          ret_int 194626726  194.6M
+   ret_* ret_ctrl_flow_br  55623667   55.6M
+   ret_*         ret_simd         0     0.0
+ stall_*         stall_be    129204  129.2k
+ stall_*    stall_be_core    129204  129.2k
+ stall_*         stall_fe  13919643   13.9M
+ stall_*    stall_fe_core   5877495    5.9M
+ stall_*        stall_l1d         0     0.0
+ stall_*        stall_l1i   8042148    8.0M
+bad_spec         bad_spec  34981493   35.0M
+   l1i_*          l1i_ref 227943222  227.9M
+   l1i_*         l1i_miss   1640070    1.6M
+   l1d_*          l1d_ref  12820595   12.8M
+   l1d_*         l1d_miss         0     0.0
+    bp_*          bp_miss  17490753   17.5M
+
+
+core:
+    Cycles: 243.7M, Retired: 194.6M, Empty: 49.0M, IPC: 0.799 
+icache:
+    Ref: 227.9M, H: 226.3M, M: 1.6M, HR: 99.28%, MPKI: 8.43 
+dcache:
+    Ref: 12.8M, H: 12.8M, M: 0.0, HR: 100.00%, MPKI: 0.00 
+bpred:
+    P: 38.1M, M: 17.5M, ACC: 68.56%, MPKI: 89.87 

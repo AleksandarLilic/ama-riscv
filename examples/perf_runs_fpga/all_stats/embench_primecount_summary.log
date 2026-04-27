@@ -1,0 +1,43 @@
+embench_primecount
+IPC: 0.755
+         L1        L2     cycles cycles_e
+0      lost  bad_spec   17966127    18.0M
+1      lost     other         55     55.0
+2  frontend    icache         43     43.0
+3  frontend      core        179    179.0
+4   backend    dcache          0      0.0
+5   backend      core   30896455    30.9M
+6  retiring   integer  150407633   150.4M
+7  retiring      simd          0      0.0
+
+Performance Counters for 'embench_primecount'
+   class          counter     count count_e
+  cycles           cycles 199270492  199.3M
+     ret              ret 150407633  150.4M
+   stall           stalls  30896677   30.9M
+    lost             lost  17966182   18.0M
+   ret_*          ret_int 150407633  150.4M
+   ret_* ret_ctrl_flow_br  59324868   59.3M
+   ret_*         ret_simd         0     0.0
+ stall_*         stall_be  30896455   30.9M
+ stall_*    stall_be_core  30896455   30.9M
+ stall_*         stall_fe       222   222.0
+ stall_*    stall_fe_core       179   179.0
+ stall_*        stall_l1d         0     0.0
+ stall_*        stall_l1i        43    43.0
+bad_spec         bad_spec  17966127   18.0M
+   l1i_*          l1i_ref 168373776  168.4M
+   l1i_*         l1i_miss        14    14.0
+   l1d_*          l1d_ref  30481994   30.5M
+   l1d_*         l1d_miss         0     0.0
+    bp_*          bp_miss   8983070    9.0M
+
+
+core:
+    Cycles: 199.3M, Retired: 150.4M, Empty: 48.9M, IPC: 0.755 
+icache:
+    Ref: 168.4M, H: 168.4M, M: 14.0, HR: 100.00%, MPKI: 0.00 
+dcache:
+    Ref: 30.5M, H: 30.5M, M: 0.0, HR: 100.00%, MPKI: 0.00 
+bpred:
+    P: 50.3M, M: 9.0M, ACC: 84.86%, MPKI: 59.72 

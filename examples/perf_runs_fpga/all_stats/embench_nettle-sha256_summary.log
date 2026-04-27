@@ -1,0 +1,43 @@
+embench_nettle-sha256
+IPC: 0.865
+         L1        L2     cycles cycles_e
+0      lost  bad_spec     712579   712.6k
+1      lost     other         55     55.0
+2  frontend    icache   28500102    28.5M
+3  frontend      core     760042   760.0k
+4   backend    dcache          0      0.0
+5   backend      core     574331   574.3k
+6  retiring   integer  196164434   196.2M
+7  retiring      simd          0      0.0
+
+Performance Counters for 'embench_nettle-sha256'
+   class          counter     count count_e
+  cycles           cycles 226711543  226.7M
+     ret              ret 196164434  196.2M
+   stall           stalls  29834475   29.8M
+    lost             lost    712634  712.6k
+   ret_*          ret_int 196164434  196.2M
+   ret_* ret_ctrl_flow_br   2688094    2.7M
+   ret_*         ret_simd         0     0.0
+ stall_*         stall_be    574331  574.3k
+ stall_*    stall_be_core    574331  574.3k
+ stall_*         stall_fe  29260144   29.3M
+ stall_*    stall_fe_core    760042  760.0k
+ stall_*        stall_l1d         0     0.0
+ stall_*        stall_l1i  28500102   28.5M
+bad_spec         bad_spec    712579  712.6k
+   l1i_*          l1i_ref 196782027  196.8M
+   l1i_*         l1i_miss   4821278    4.8M
+   l1d_*          l1d_ref  21137575   21.1M
+   l1d_*         l1d_miss         0     0.0
+    bp_*          bp_miss    356296  356.3k
+
+
+core:
+    Cycles: 226.7M, Retired: 196.2M, Empty: 30.5M, IPC: 0.865 
+icache:
+    Ref: 196.8M, H: 192.0M, M: 4.8M, HR: 97.55%, MPKI: 24.58 
+dcache:
+    Ref: 21.1M, H: 21.1M, M: 0.0, HR: 100.00%, MPKI: 0.00 
+bpred:
+    P: 2.3M, M: 356.3k, ACC: 86.75%, MPKI: 1.82 

@@ -1,0 +1,43 @@
+embench_huffbench
+IPC: 0.91
+         L1        L2     cycles cycles_e
+0      lost  bad_spec   14885658    14.9M
+1      lost     other       3029     3.0k
+2  frontend    icache        174    174.0
+3  frontend      core     211902   211.9k
+4   backend    dcache    1615724     1.6M
+5   backend      core    4346474     4.3M
+6  retiring   integer  214000704   214.0M
+7  retiring      simd          0      0.0
+
+Performance Counters for 'embench_huffbench'
+   class          counter     count count_e
+  cycles           cycles 235063665  235.1M
+     ret              ret 214000704  214.0M
+   stall           stalls   6174274    6.2M
+    lost             lost  14888687   14.9M
+   ret_*          ret_int 214000704  214.0M
+   ret_* ret_ctrl_flow_br  44918668   44.9M
+   ret_*         ret_simd         0     0.0
+ stall_*         stall_be   5962198    6.0M
+ stall_*    stall_be_core   4346474    4.3M
+ stall_*         stall_fe    212076  212.1k
+ stall_*    stall_fe_core    211902  211.9k
+ stall_*        stall_l1d   1615724    1.6M
+ stall_*        stall_l1i       174   174.0
+bad_spec         bad_spec  14885658   14.9M
+   l1i_*          l1i_ref 228886366  228.9M
+   l1i_*         l1i_miss        54    54.0
+   l1d_*          l1d_ref  52477995   52.5M
+   l1d_*         l1d_miss    170286  170.3k
+    bp_*          bp_miss   7442836    7.4M
+
+
+core:
+    Cycles: 235.1M, Retired: 214.0M, Empty: 21.1M, IPC: 0.910 
+icache:
+    Ref: 228.9M, H: 228.9M, M: 54.0, HR: 100.00%, MPKI: 0.00 
+dcache:
+    Ref: 52.5M, H: 52.3M, M: 170.3k, HR: 99.68%, MPKI: 0.80 
+bpred:
+    P: 37.5M, M: 7.4M, ACC: 83.43%, MPKI: 34.78 

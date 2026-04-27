@@ -1,0 +1,54 @@
+{
+    "core": {
+        "cycles": 55377864,
+        "empty": 9474247,
+        "stalls": 9467373,
+        "lost": 6874,
+        "lost_other": 1242,
+        "bad_spec": 5632,
+        "stall_be": 9467331,
+        "stall_l1d": 7828920,
+        "stall_be_core": 1638411,
+        "stall_fe": 42,
+        "stall_l1i": 36,
+        "stall_fe_core": 6,
+        "ret": 45903617,
+        "ret_simd": 0,
+        "ret_int": 45903617,
+        "ret_ctrl_flow_br": 6557200,
+        "bp_miss": 2823,
+        "l1i_ref": 45909270,
+        "l1i_miss": 15,
+        "l1d_ref": 16388802,
+        "l1d_miss": 1028800,
+        "ipc": 0.829
+    },
+    "icache": {
+        "references": 45909270,
+        "hits": {
+            "all": 45909255
+        },
+        "misses": {
+            "all": 15
+        },
+        "hr": 100.0,
+        "mpki": 0.0
+    },
+    "dcache": {
+        "references": 16388802,
+        "hits": {
+            "all": 15360002
+        },
+        "misses": {
+            "all": 1028800
+        },
+        "hr": 93.72,
+        "mpki": 22.41
+    },
+    "bpred": {
+        "predicted": 6554377,
+        "mispredicted": 2823,
+        "accuracy": 99.96,
+        "mpki": 0.06
+    }
+}

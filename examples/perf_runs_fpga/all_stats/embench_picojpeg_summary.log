@@ -1,0 +1,43 @@
+embench_picojpeg
+IPC: 0.942
+         L1        L2     cycles cycles_e
+0      lost  bad_spec    3797521     3.8M
+1      lost     other          0      0.0
+2  frontend    icache    4011152     4.0M
+3  frontend      core    2198449     2.2M
+4   backend    dcache      26396    26.4k
+5   backend      core    1406832     1.4M
+6  retiring   integer  187253990   187.3M
+7  retiring      simd          0      0.0
+
+Performance Counters for 'embench_picojpeg'
+   class          counter     count count_e
+  cycles           cycles 198694340  198.7M
+     ret              ret 187253990  187.3M
+   stall           stalls   7642829    7.6M
+    lost             lost   3797521    3.8M
+   ret_*          ret_int 187253990  187.3M
+   ret_* ret_ctrl_flow_br  17176946   17.2M
+   ret_*         ret_simd         0     0.0
+ stall_*         stall_be   1433228    1.4M
+ stall_*    stall_be_core   1406832    1.4M
+ stall_*         stall_fe   6209601    6.2M
+ stall_*    stall_fe_core   2198449    2.2M
+ stall_*        stall_l1d     26396   26.4k
+ stall_*        stall_l1i   4011152    4.0M
+bad_spec         bad_spec   3797521    3.8M
+   l1i_*          l1i_ref 190944070  190.9M
+   l1i_*         l1i_miss    811847  811.8k
+   l1d_*          l1d_ref  49675577   49.7M
+   l1d_*         l1d_miss      2999    3.0k
+    bp_*          bp_miss   1899043    1.9M
+
+
+core:
+    Cycles: 198.7M, Retired: 187.3M, Empty: 11.4M, IPC: 0.942 
+icache:
+    Ref: 190.9M, H: 190.1M, M: 811.8k, HR: 99.57%, MPKI: 4.34 
+dcache:
+    Ref: 49.7M, H: 49.7M, M: 3.0k, HR: 99.99%, MPKI: 0.02 
+bpred:
+    P: 15.3M, M: 1.9M, ACC: 88.94%, MPKI: 10.14 
