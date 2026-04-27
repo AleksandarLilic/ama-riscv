@@ -65,3 +65,6 @@ workdir*
 
 # isa sim outputs
 out_*/
+*.png
+*.svg
+*.json
