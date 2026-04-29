@@ -1,7 +1,3 @@
-*.swp
-local/
-src/rtl_scratchpad.ipynb
-
 # Vivado files
 *.cache
 *.hw
@@ -46,12 +42,20 @@ cosim/build*
 # manuals/helps/profiling
 *.help
 *.man
+*.grep
 *_profiler.*
 *_trace.*
 *_exec.*
+src/rtl_scratchpad.ipynb
 
 # make touchfiles
 *touchfile
+
+# python files
+__pycache__/
+
+# Vim files
+*.swp
 
 # VSCode files
 .vscode/
@@ -68,3 +72,6 @@ out_*/
 *.png
 *.svg
 *.json
+
+# untracked files
+local/
