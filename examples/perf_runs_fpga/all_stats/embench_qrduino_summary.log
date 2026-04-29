@@ -1,43 +1,43 @@
 embench_qrduino
 IPC: 0.902
          L1        L2     cycles cycles_e
-0      lost  bad_spec   14023182    14.0M
-1      lost     other         56     56.0
-2  frontend    icache     428877   428.9k
-3  frontend      core     319941   319.9k
+0      lost  bad_spec   10016552    10.0M
+1      lost     other         55     55.0
+2  frontend    icache     307067   307.1k
+3  frontend      core     228520   228.5k
 4   backend    dcache         10     10.0
-5   backend      core    6119531     6.1M
-6  retiring   integer  193350049   193.4M
+5   backend      core    4368512     4.4M
+6  retiring   integer  138097821   138.1M
 7  retiring      simd          0      0.0
 
 Performance Counters for 'embench_qrduino'
    class          counter     count count_e
-  cycles           cycles 214241646  214.2M
-     ret              ret 193350049  193.4M
-   stall           stalls   6868359    6.9M
-    lost             lost  14023238   14.0M
-   ret_*          ret_int 193350049  193.4M
-   ret_* ret_ctrl_flow_br  27131445   27.1M
+  cycles           cycles 153018537  153.0M
+     ret              ret 138097821  138.1M
+   stall           stalls   4904109    4.9M
+    lost             lost  10016607   10.0M
+   ret_*          ret_int 138097821  138.1M
+   ret_* ret_ctrl_flow_br  19376504   19.4M
    ret_*         ret_simd         0     0.0
- stall_*         stall_be   6119541    6.1M
- stall_*    stall_be_core   6119531    6.1M
- stall_*         stall_fe    748818  748.8k
- stall_*    stall_fe_core    319941  319.9k
+ stall_*         stall_be   4368522    4.4M
+ stall_*    stall_be_core   4368512    4.4M
+ stall_*         stall_fe    535587  535.6k
+ stall_*    stall_fe_core    228520  228.5k
  stall_*        stall_l1d        10    10.0
- stall_*        stall_l1i    428877  428.9k
-bad_spec         bad_spec  14023182   14.0M
-   l1i_*          l1i_ref 207239548  207.2M
-   l1i_*         l1i_miss    140381  140.4k
-   l1d_*          l1d_ref  38575685   38.6M
+ stall_*        stall_l1i    307067  307.1k
+bad_spec         bad_spec  10016552   10.0M
+   l1i_*          l1i_ref 148018892  148.0M
+   l1i_*         l1i_miss     96268   96.3k
+   l1d_*          l1d_ref  27554032   27.6M
    l1d_*         l1d_miss         1     1.0
-    bp_*          bp_miss   7011593    7.0M
+    bp_*          bp_miss   5008282    5.0M
 
 
 core:
-    Cycles: 214.2M, Retired: 193.4M, Empty: 20.9M, IPC: 0.902 
+    Cycles: 153.0M, Retired: 138.1M, Empty: 14.9M, IPC: 0.902 
 icache:
-    Ref: 207.2M, H: 207.1M, M: 140.4k, HR: 99.93%, MPKI: 0.73 
+    Ref: 148.0M, H: 147.9M, M: 96.3k, HR: 99.93%, MPKI: 0.70 
 dcache:
-    Ref: 38.6M, H: 38.6M, M: 1.0, HR: 100.00%, MPKI: 0.00 
+    Ref: 27.6M, H: 27.6M, M: 1.0, HR: 100.00%, MPKI: 0.00 
 bpred:
-    P: 20.1M, M: 7.0M, ACC: 74.16%, MPKI: 36.26 
+    P: 14.4M, M: 5.0M, ACC: 74.15%, MPKI: 36.27 

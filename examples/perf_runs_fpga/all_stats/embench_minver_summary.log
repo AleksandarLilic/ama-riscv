@@ -1,43 +1,43 @@
 embench_minver
-IPC: 0.799
+IPC: 0.8
          L1        L2     cycles cycles_e
-0      lost  bad_spec   34981493    35.0M
-1      lost     other         56     56.0
-2  frontend    icache    8042148     8.0M
-3  frontend      core    5877495     5.9M
+0      lost  bad_spec  112941660   112.9M
+1      lost     other         52     52.0
+2  frontend    icache   28804641    28.8M
+3  frontend      core   19591525    19.6M
 4   backend    dcache          0      0.0
-5   backend      core     129204   129.2k
-6  retiring   integer  194626726   194.6M
+5   backend      core     416262   416.3k
+6  retiring   integer  648711829   648.7M
 7  retiring      simd          0      0.0
 
 Performance Counters for 'embench_minver'
    class          counter     count count_e
-  cycles           cycles 243657122  243.7M
-     ret              ret 194626726  194.6M
-   stall           stalls  14048847   14.0M
-    lost             lost  34981549   35.0M
-   ret_*          ret_int 194626726  194.6M
-   ret_* ret_ctrl_flow_br  55623667   55.6M
+  cycles           cycles 810465969  810.5M
+     ret              ret 648711829  648.7M
+   stall           stalls  48812428   48.8M
+    lost             lost 112941712  112.9M
+   ret_*          ret_int 648711829  648.7M
+   ret_* ret_ctrl_flow_br 185397753  185.4M
    ret_*         ret_simd         0     0.0
- stall_*         stall_be    129204  129.2k
- stall_*    stall_be_core    129204  129.2k
- stall_*         stall_fe  13919643   13.9M
- stall_*    stall_fe_core   5877495    5.9M
+ stall_*         stall_be    416262  416.3k
+ stall_*    stall_be_core    416262  416.3k
+ stall_*         stall_fe  48396166   48.4M
+ stall_*    stall_fe_core  19591525   19.6M
  stall_*        stall_l1d         0     0.0
- stall_*        stall_l1i   8042148    8.0M
-bad_spec         bad_spec  34981493   35.0M
-   l1i_*          l1i_ref 227943222  227.9M
-   l1i_*         l1i_miss   1640070    1.6M
-   l1d_*          l1d_ref  12820595   12.8M
+ stall_*        stall_l1i  28804641   28.8M
+bad_spec         bad_spec 112941660  112.9M
+   l1i_*          l1i_ref 756103504  756.1M
+   l1i_*         l1i_miss   5938536    5.9M
+   l1d_*          l1d_ref  42735042   42.7M
    l1d_*         l1d_miss         0     0.0
-    bp_*          bp_miss  17490753   17.5M
+    bp_*          bp_miss  56470836   56.5M
 
 
 core:
-    Cycles: 243.7M, Retired: 194.6M, Empty: 49.0M, IPC: 0.799 
+    Cycles: 810.5M, Retired: 648.7M, Empty: 161.8M, IPC: 0.800 
 icache:
-    Ref: 227.9M, H: 226.3M, M: 1.6M, HR: 99.28%, MPKI: 8.43 
+    Ref: 756.1M, H: 750.2M, M: 5.9M, HR: 99.21%, MPKI: 9.15 
 dcache:
-    Ref: 12.8M, H: 12.8M, M: 0.0, HR: 100.00%, MPKI: 0.00 
+    Ref: 42.7M, H: 42.7M, M: 0.0, HR: 100.00%, MPKI: 0.00 
 bpred:
-    P: 38.1M, M: 17.5M, ACC: 68.56%, MPKI: 89.87 
+    P: 128.9M, M: 56.5M, ACC: 69.54%, MPKI: 87.05 
