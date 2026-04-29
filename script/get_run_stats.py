@@ -64,11 +64,12 @@ def parse_odd_jsons(path: Path) -> list[dict]:
     return results
 
 def main() -> None:
-    script_dir = Path(__file__).parent
+    #script_dir = Path(__file__).parent
+    cwd = Path.cwd()
     parser = argparse.ArgumentParser(description="Merge TDA + HW UART logs into per-workload JSON files.")
-    parser.add_argument("--tda", type=Path, default=script_dir / "output_raw_tda.log", help="TDA counter log (default: output_raw_tda.log next to this script)")
-    parser.add_argument("--hw", type=Path, default=script_dir / "output_raw_hw.log", help="HW counter log (default: output_raw_hw.log next to this script)")
-    parser.add_argument("--outdir", type=Path, default=script_dir, help="Output directory for per-workload JSON files (default: script directory)")
+    parser.add_argument("--tda", type=Path, default=cwd / "output_raw_tda.log", help="TDA counter log (default: output_raw_tda.log next to this script)")
+    parser.add_argument("--hw", type=Path, default=cwd / "output_raw_hw.log", help="HW counter log (default: output_raw_hw.log next to this script)")
+    parser.add_argument("--outdir", type=Path, default=cwd, help="Output directory for per-workload JSON files (default: script directory)")
     args = parser.parse_args()
 
     tda_path = args.tda
