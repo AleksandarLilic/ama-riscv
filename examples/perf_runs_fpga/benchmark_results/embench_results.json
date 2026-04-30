@@ -1,0 +1,98 @@
+{
+  "absolute size results": {
+    "detailed results": {
+      "aha-mont64": 7192,
+      "crc32": 5348,
+      "cubic": 59744,
+      "edn": 7220,
+      "huffbench": 25644,
+      "matmult-int": 6112,
+      "minver": 14012,
+      "nbody": 15852,
+      "nettle-aes": 9312,
+      "nettle-sha256": 12612,
+      "nsichneu": 25252,
+      "picojpeg": 20756,
+      "qrduino": 34460,
+      "sglib-combined": 27040,
+      "slre": 9612,
+      "st": 16380,
+      "statemate": 10188,
+      "ud": 8772,
+      "wikisort": 22788
+    }
+  },
+  "relative size results": {
+    "detailed results": {
+      "aha-mont64": 6.71,
+      "crc32": 18.83,
+      "cubic": 37.72,
+      "edn": 5.45,
+      "huffbench": 20.65,
+      "matmult-int": 12.42,
+      "minver": 12.0,
+      "nbody": 16.69,
+      "nettle-aes": 4.34,
+      "nettle-sha256": 3.71,
+      "nsichneu": 2.11,
+      "picojpeg": 2.98,
+      "qrduino": 5.93,
+      "sglib-combined": 11.9,
+      "slre": 4.37,
+      "st": 16.38,
+      "statemate": 2.27,
+      "ud": 12.18,
+      "wikisort": 5.3
+    },
+    "geometric mean": 7.85,
+    "geometric standard deviation": 2.21
+  },
+  "absolute speed results": {
+    "detailed results": {
+      "aha-mont64": 4697,
+      "crc32": 4528,
+      "cubic": 34381,
+      "edn": 3756,
+      "huffbench": 2612,
+      "matmult-int": 3635,
+      "minver": 16209,
+      "nbody": 16808,
+      "nettle-aes": 5161,
+      "nettle-sha256": 4509,
+      "nsichneu": 4748,
+      "picojpeg": 3969,
+      "qrduino": 3060,
+      "sglib-combined": 2847,
+      "slre": 2867,
+      "st": 20143,
+      "statemate": 1426,
+      "ud": 4752,
+      "wikisort": 4061
+    }
+  },
+  "relative speed results": {
+    "detailed results": {
+      "aha-mont64": 0.85,
+      "crc32": 0.89,
+      "cubic": 0.11,
+      "edn": 1.07,
+      "huffbench": 1.58,
+      "matmult-int": 1.1,
+      "minver": 0.25,
+      "nbody": 0.17,
+      "nettle-aes": 0.78,
+      "nettle-sha256": 0.89,
+      "nsichneu": 0.84,
+      "picojpeg": 1.02,
+      "qrduino": 1.39,
+      "sglib-combined": 1.4,
+      "slre": 1.4,
+      "st": 0.2,
+      "statemate": 2.81,
+      "ud": 0.84,
+      "wikisort": 0.68
+    },
+    "geometric mean": 0.74,
+    "geometric standard deviation": 2.27
+  }
+}
