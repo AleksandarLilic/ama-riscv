@@ -1,15 +1,17 @@
 # RISC-V core
 
-SystemVerilog implementation of RISC-V RV32I_Zmmul & custom SIMD instructions as a 5-stage scalar core with L1 caches and branch predictors  
+SystemVerilog implementation of RISC-V RV32I_Zmmul & custom packed SIMD ISA as a 5-stage scalar M-mode core, with L1 caches and branch predictors  
 
 - [RISC-V core](#risc-v-core)
 - [Getting the project](#getting-the-project)
   - [Prerequisites](#prerequisites)
   - [Quick start](#quick-start)
 - [Microarchitecture](#microarchitecture)
+- [Measured Performance - FPGA emulation](#measured-performance---fpga-emulation)
+  - [Plots and data](#plots-and-data)
 - [Verification](#verification)
   - [Environment](#environment)
-- [Example use-case: Dhrystone](#example-use-case-dhrystone)
+- [Analysis example use-case: Dhrystone](#analysis-example-use-case-dhrystone)
   - [Execution log](#execution-log)
   - [Callstack](#callstack)
   - [Profiled instructions](#profiled-instructions)
@@ -87,6 +89,48 @@ Running `-v VERBOSE` should be done with care since it will slow down execution.
 
 ![](docs/uarch.png)
 
+# Measured Performance - FPGA emulation
+
+Emulation is ran at 50MHz on Arty A7-100T board. Since the design is fully synchronous, change in clock frequency by X would yield the same change in speed by X, thus keeping the 'per MHz' result the same.
+
+- Dhrystone: 63 DMIPS, 1.26 DMIPS/MHz (IPC: 0.89)
+- Coremark: 145 Coremarks, 2.9 Coremarks/MHz (IPC: 0.88)
+- STREAM-INT: 
+  - Copy: 66 MB/s
+  - Scale: 49 MB/s
+  - Add: 64 MB/s
+  - Triad: 57 MB/s
+- Embench_1.0 (with [detailed breakdown](examples/perf_runs_fpga/benchmark_results/embench_results.md)): 
+  - Size: 7.85 (3.56 - 17.31)
+  - Speed: 37.08 (16.33 - 84.21)
+  - Speed/MHz: 0.74 (0.33 - 1.68)
+
+SIMD ISA improvements on MLP, measured in inferences per second
+
+| Flavor | `RV32I_Zmmul`<br>[inf/s] | `RV32I_Zmmul_Xsimd`<br>[inf/s] | Improvement |
+| ---- | --- | ---- | ---- |
+| w8a8 | 238 | 1968 | 8.3x |
+| w4a8 | 228 | 1984 | 8.7x |
+| w2a8 | 293 | 2083 | 7.1x |
+
+## Plots and data
+
+All TDA and counter plots are available under [examples/perf_runs_fpga](examples/perf_runs_fpga)  
+- [plots_benchmarks.pdf](examples/perf_runs_fpga/plots_benchmarks.pdf)
+- [plots_mlp.pdf](examples/perf_runs_fpga/plots_mlp.pdf)
+
+With CSV summaries under the same directory
+- [hw_stats_benchmarks.csv](examples/perf_runs_fpga/hw_stats_benchmarks.csv)
+- [hw_stats_mlp.csv](examples/perf_runs_fpga/hw_stats_mlp.csv)
+
+More detailed breakdowns are available under [examples/perf_runs_fpga/all_stats](examples/perf_runs_fpga/all_stats)  
+
+***Coremark***  
+![](examples/perf_runs_fpga/pngs/coremark_tda.png)
+
+***Dhrystone***  
+![](examples/perf_runs_fpga/pngs/dhrystone_tda.png)
+
 # Verification
 
 There are two supported mechanisms for functional verification:
@@ -101,7 +145,7 @@ Full usage available in [examples/run.help](examples/run.help)
 ## Environment
 ![](docs/tb.png)
 
-# Example use-case: Dhrystone
+# Analysis example use-case: Dhrystone
 > [!NOTE]
 > Tests, profiling, and logging are heavily reused from [ama-riscv-sim](https://github.com/AleksandarLilic/ama-riscv-sim) and therefore only differences introduced in the RTL environment will be covered here. Otherwise all of the functionality carries over.
 
