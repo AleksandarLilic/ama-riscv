@@ -1,0 +1,19 @@
+-------------------------------------------------------------
+STREAM version $Revision: 5.10 $
+-------------------------------------------------------------
+This system uses 4 bytes per array element.
+-------------------------------------------------------------
+Array size = 4096 (elements), Offset = 0 (elements)
+Memory per array = 16 KiB (= 0 MiB).
+Total memory required = 48 KiB (= 0 MiB).
+Each kernel will be executed 400 times.
+ The *best* time for each kernel (excluding the first iteration)
+ will be used to compute the reported bandwidth.
+-------------------------------------------------------------
+Function    Best Rate MB/s  Avg time us  Min time us  Max time us
+Copy:                66          492          492          493
+Scale:               49          656          656          657
+Add:                 64          768          768          769
+Triad:               57          850          850          851
+-------------------------------------------------------------
+-------------------------------------------------------------
