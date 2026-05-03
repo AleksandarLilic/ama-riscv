@@ -424,6 +424,13 @@ function automatic [8*SLEN-1:0] pack_string(input string str);
     end
 endfunction
 
+function automatic string classify_empty_cycle();
+    if (`CORE.cpe.bad_spec) return "lost: bad spec";
+    if (`CORE.cpe.stall_be) return "stall: backend";
+    if (`CORE.cpe.stall_fe) return "stall: frontend";
+    return "lost: other";
+endfunction
+
 function automatic hw_events_t
 get_cache_status(
     input logic new_core_req,
@@ -611,7 +618,8 @@ task automatic single_step();
 
     // cosim advances only if rtl retires an instruction
     if (!inst_retired) begin
-        `LOG_V("Core [R] empty cycle");
+        `LOG_V($sformatf(
+            "Core empty cycle (%0s)", classify_empty_cycle()));
         return;
     end
 
