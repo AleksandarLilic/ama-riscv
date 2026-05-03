@@ -265,6 +265,13 @@ typedef enum logic [1:0] {
     SIMD_DATA_FMT_TYPE_TXP = 2'h2
 } simd_data_fmt_type_t;
 
+typedef enum logic [1:0] {
+    DIV_DIV = 2'b00,
+    DIV_DIVU = 2'b01,
+    DIV_REM = 2'b10,
+    DIV_REMU = 2'b11
+} div_op_t;
+
 typedef enum logic [2:0] {
     IG_OFF = 3'd0,
     IG_I_TYPE = 3'd1,
