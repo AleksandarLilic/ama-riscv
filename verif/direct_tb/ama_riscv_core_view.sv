@@ -166,7 +166,7 @@ logic [3:0] spec_wrong_d;
 
 assign k_valid_id.fet = k_valid.fet;
 assign k_valid_id.dec = (k_valid.dec || spec.wrong);
-assign k_valid_id.exe = (k_valid.exe || (spec_wrong_d[0] && !dc_stalled));
+assign k_valid_id.exe = (k_valid.exe || spec_wrong_d[0]);
 assign k_valid_id.mem = (k_valid.mem || (spec_wrong_d[1] && !dc_stalled));
 assign k_valid_id.wbk = (k_valid.wbk || (spec_wrong_d[2] && !dc_stalled));
 assign k_valid_id.ret = (k_valid.ret || (|spec_wrong_d[3:2]));
