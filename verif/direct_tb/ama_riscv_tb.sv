@@ -108,6 +108,7 @@ bit errors_for_wave = 1'b0;
 logic tohost_source;
 bit chk_pass_tohost = 1'b1;
 bit chk_pass_cosim = 1'b1;
+bit completed = 1'b0;
 int log_level;
 
 string core_ret;
@@ -831,6 +832,7 @@ initial begin
     fork: run_f
     begin: run_test_f
         run_test();
+        completed = 1;
     end
     begin: uart_listen_f
         while (1) begin
@@ -855,10 +857,9 @@ initial begin
         end
     end
     begin: catch_timeout_f
-        repeat (args.timeout_clocks) @(posedge clk);
+        repeat (args.timeout_clocks + 1) @(posedge clk);
         `LOG_E("Test timed out", 1);
-        check_test_status(1'b0);
-        $finish();
+        completed = 0;
     end
     join_any;
     disable run_f;
@@ -874,7 +875,7 @@ initial begin
     `LOGNT(uart_out);
     `LOGNT("=== UART END ===");
 
-    check_test_status(1'b1);
+    check_test_status(completed);
 
     `ifdef ENABLE_COSIM
     if (args.cosim_chk_en) cosim_check_inst_cnt();
