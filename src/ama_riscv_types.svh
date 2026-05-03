@@ -588,8 +588,8 @@ typedef enum logic [MHPMEVENTS-1:0] {
     MHPMEVENT_STALL_FE = (1 << 5), // tda
     MHPMEVENT_STALL_L1I = (1 << 6), // tda
     MHPMEVENT_STALL_SIMD = (1 << 7),
-    MHPMEVENT_STALL_LOAD = (1 << 8),
-    MHPMEVENT_STALL_DIV = (1 << 9),
+    MHPMEVENT_STALL_DIV = (1 << 8),
+    MHPMEVENT_STALL_LOAD = (1 << 9),
     MHPMEVENT_RET_CTRL_FLOW = (1 << 10),
     MHPMEVENT_RET_CTRL_FLOW_J = (1 << 11),
     MHPMEVENT_RET_CTRL_FLOW_JR = (1 << 12),

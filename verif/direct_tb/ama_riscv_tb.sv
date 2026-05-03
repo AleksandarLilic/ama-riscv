@@ -762,6 +762,7 @@ always_comb begin
     core_events.stall_fe = `CORE.perf_events.stall_fe;
     core_events.stall_l1i = `CORE.perf_events.stall_l1i;
     core_events.stall_simd = `CORE.perf_events.stall_simd;
+    core_events.stall_div = `CORE.perf_events.stall_div;
     core_events.stall_load = `CORE.perf_events.stall_load;
     core_events.ret_ctrl_flow = `CORE.perf_events.ret_ctrl_flow;
     core_events.ret_ctrl_flow_j = `CORE.perf_events.ret_ctrl_flow_j;
@@ -778,7 +779,6 @@ always_comb begin
     core_events.l1i_miss = `CORE.perf_events.l1i_miss;
     core_events.l1i_spec_miss = `CORE.perf_events.l1i_spec_miss;
     core_events.l1i_spec_miss_bad = `CORE.perf_events.l1i_spec_miss_bad;
-    core_events.l1i_spec_miss_good = `CORE.perf_events.l1i_spec_miss_good;
     core_events.l1d_ref = `CORE.perf_events.l1d_ref;
     core_events.l1d_ref_r = `CORE.perf_events.l1d_ref_r;
     core_events.l1d_ref_w = `CORE.perf_events.l1d_ref_w;

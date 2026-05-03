@@ -104,6 +104,7 @@ typedef struct {
 	char stall_fe;
 	char stall_l1i;
 	char stall_simd;
+	char stall_div;
 	char stall_load;
 	char ret_ctrl_flow;
 	char ret_ctrl_flow_j;
@@ -120,7 +121,6 @@ typedef struct {
 	char l1i_miss;
 	char l1i_spec_miss;
 	char l1i_spec_miss_bad;
-	char l1i_spec_miss_good;
 	char l1d_ref;
 	char l1d_ref_r;
 	char l1d_ref_w;

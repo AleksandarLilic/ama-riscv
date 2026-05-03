@@ -35,8 +35,8 @@ function automatic logic get_event(
         MHPMEVENT_STALL_FE : get_event = pe.stall_fe;
         MHPMEVENT_STALL_L1I : get_event = pe.stall_l1i;
         MHPMEVENT_STALL_SIMD : get_event = pe.stall_simd;
-        MHPMEVENT_STALL_LOAD : get_event = pe.stall_load;
         MHPMEVENT_STALL_DIV : get_event = pe.stall_div;
+        MHPMEVENT_STALL_LOAD : get_event = pe.stall_load;
         MHPMEVENT_RET_CTRL_FLOW : get_event = pe.ret_ctrl_flow;
         MHPMEVENT_RET_CTRL_FLOW_J : get_event = pe.ret_ctrl_flow_j;
         MHPMEVENT_RET_CTRL_FLOW_JR : get_event = pe.ret_ctrl_flow_jr;

@@ -89,6 +89,7 @@ typedef struct {
     byte stall_fe = '0; // tda
     byte stall_l1i = '0; // tda
     byte stall_simd = '0;
+    byte stall_div = '0;
     byte stall_load = '0;
     byte ret_ctrl_flow = '0;
     byte ret_ctrl_flow_j = '0;
@@ -105,7 +106,6 @@ typedef struct {
     byte l1i_miss = '0;
     byte l1i_spec_miss = '0;
     byte l1i_spec_miss_bad = '0;
-    byte l1i_spec_miss_good = '0;
     byte l1d_ref = '0;
     byte l1d_ref_r = '0;
     byte l1d_ref_w = '0;
