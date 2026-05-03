@@ -358,7 +358,7 @@ function void get_plusargs();
         `ifdef ENABLE_COSIM
         args.cosim_chk_en = $test$plusargs("enable_cosim_checkers");
         args.stop_on_cosim_error = $test$plusargs("stop_on_cosim_error");
-        args.konata_en = $test$plusargs("konata_en");
+        args.konata_en = $test$plusargs("enable_konata");
         args.prof_trace = $test$plusargs("prof_trace");
         args.log_isa_sim = $test$plusargs("log_isa_sim");
 
