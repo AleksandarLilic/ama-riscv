@@ -450,7 +450,6 @@ assign pe.hit = hit;
 assign pe.miss = miss;
 assign pe.spec_miss = (miss && spec.exec_n);
 assign pe.spec_miss_bad = (has_spec_miss && spec.wrong);
-assign pe.spec_miss_good = (has_spec_miss && spec.resolve && !spec.wrong);
 
 //------------------------------------------------------------------------------
 // debug views

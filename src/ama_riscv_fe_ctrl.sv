@@ -17,6 +17,7 @@ module ama_riscv_fe_ctrl (
     `endif
     input  branch_t branch_resolution,
     input  logic dc_stalled,
+    input  logic div_stalled,
     /* verilator lint_off UNUSEDSIGNAL */
     input  hazard_t hazard,
     /* verilator lint_on UNUSEDSIGNAL */
@@ -56,6 +57,7 @@ typedef struct packed {
     logic icache;
     logic be;
     logic dcache;
+    logic div;
     logic hazard;
 } stall_sources_t;
 
@@ -93,13 +95,15 @@ assign stall_act_flow = stall_act.flow;
 assign stall_act.icache = !imem_req.ready;
 assign stall_act.dcache = dc_stalled;
 assign stall_act.hazard = (/* hazard.to_dec || */hazard.to_exe);
-assign stall_act.be = (stall_act.dcache || stall_act.hazard);
+assign stall_act.div = div_stalled;
+assign stall_act.be = (stall_act.dcache || stall_act.hazard || stall_act.div);
 
 assign stall_res.flow = ((stalled_pc == pc_mem) && (pc_mem != 'h0));
 assign stall_res.icache = imem_req.ready;
 assign stall_res.dcache = !dc_stalled;
 assign stall_res.hazard = !(/* hazard.to_dec || */ hazard.to_exe);
-assign stall_res.be = (stall_res.dcache && stall_res.hazard);
+assign stall_res.div = !div_stalled;
+assign stall_res.be = (stall_res.dcache && stall_res.hazard && stall_res.div);
 
 logic stall_res_flow_d;
 `DFF_CI_RI_RVI(stall_res.flow, stall_res_flow_d)
@@ -421,7 +425,8 @@ exec_state_t state_e, nx_state_e;
 
 logic save_spec_entry, clear_spec_entry;
 assign spec.enter = (
-    branch_in_dec && (!(stall_act.dcache || stall_act.hazard || spec.wrong))
+    branch_in_dec &&
+    (!(stall_act.dcache || stall_act.hazard || stall_act.div || spec.wrong))
 );
 assign spec.resolve = (
     (spec_entry[se_ptr_t].pc == pc_mem) && (pc_mem != 'h0)

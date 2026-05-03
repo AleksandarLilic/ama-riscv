@@ -64,6 +64,7 @@
 `define INST_TYPE_INIT_VAL \
     '{ \
         mult: 1'b0, \
+        div: 1'b0, \
         simd_arith: 1'b0, \
         simd_data_fmt: 1'b0, \
         load: 1'b0, \
@@ -91,6 +92,7 @@
         simd_arith_op: SIMD_ARITH_OP_MUL, \
         simd_data_fmt_op: SIMD_DATA_FMT_OP_16, \
         simd_data_fmt_type: SIMD_DATA_FMT_TYPE_NONE, \
+        div_op: DIV_DIV, \
         a_sel: A_SEL_RS1, \
         b_sel: B_SEL_RS2, \
         ig_sel: IG_OFF, \

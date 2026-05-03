@@ -60,10 +60,12 @@ lzc_dividend_i (
     .in_i (start_abs_a), .cnt_o (start_clz_a), .empty_o (start_clz_a_empty)
 );
 
+/* verilator lint_off UNUSEDSIGNAL */
 lzc #(.WIDTH (W), .MODE (1'b1))
 lzc_divisor_i (
     .in_i (start_abs_b), .cnt_o (start_clz_b), .empty_o (start_clz_b_empty)
 );
+/* verilator lint_on UNUSEDSIGNAL */
 
 assign start_clz_skip = {1'b0, start_clz_a};
 assign start_iter_count = (COUNT_WIDTH'(W) - start_clz_skip);
