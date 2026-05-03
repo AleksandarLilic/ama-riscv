@@ -475,15 +475,22 @@ assign op_a_r = a_sel_fwd_exe ? rs1_exe_be_fwd : op_a_exe;
 assign op_b_r = b_sel_fwd_exe ? rs2_exe_be_fwd : op_b_exe;
 assign rs3_exe = c_sel_fwd_exe ? rs3_exe_be_fwd : op_c_exe;
 
-logic div_start, div_busy, div_busy_d;
+logic div_start, div_busy, div_issued;
 assign div_start = (
     decoded_exe.itype.div &&
+    !div_issued &&
     !div_busy &&
-    !div_busy_d &&
+    !hazard.to_exe &&
     !(flush.dec || flush.exe)
 );
 assign div_stalled = (div_start || div_busy);
-`DFF_CI_RI_RVI(div_busy, div_busy_d)
+
+always_ff @(posedge clk) begin
+    if (rst) div_issued <= 1'b0;
+    else if (flush.exe) div_issued <= 1'b0;
+    else if (ctrl_exe_mem.en && !ctrl_exe_mem.bubble) div_issued <= 1'b0;
+    else if (div_start) div_issued <= 1'b1;
+end
 
 // ALU
 arch_width_t alu_out_exe, pc_new_exe;
@@ -625,8 +632,10 @@ assign rf_we.exe = '{
 
 assign ctrl_exe_mem = '{
     flush: flush.exe,
-    en: ((!dc_stalled) && (!div_stalled)),
-    bubble: (!ctrl_dec_exe.en || hazard.to_exe || fe_ctrl.bubble_exe)
+    en: (!dc_stalled),
+    bubble: (
+        !ctrl_dec_exe.en || hazard.to_exe || fe_ctrl.bubble_exe || div_stalled
+    )
 };
 
 logic map_uart_mem;
@@ -664,7 +673,7 @@ arch_width_t rs3_mem;
 always_comb begin
     ct_gen.exe = ct.exe;
     ct_gen.exe.bad_spec |= spec.wrong; // DEC can also generate bad_spec
-    ct_gen.exe.stall_be_core = hazard.from_mem;
+    ct_gen.exe.stall_be_core = (hazard.from_mem || div_stalled);
     ct_gen.exe.stall_simd = (hazard.from_mem && simd_arith_mem);
     ct_gen.exe.stall_div = div_stalled;
     ct_gen.exe.stall_load = (
@@ -710,7 +719,7 @@ assign uart_ch.send = uart_ch_mem.send;
 assign ctrl_mem_wbk = '{
     flush: flush.exe,
     en: (!dc_stalled),
-    bubble: (!ctrl_exe_mem.en)
+    bubble: (!pc_nz.mem)
 };
 
 logic simd_inst_wbk, map_uart_wbk;
