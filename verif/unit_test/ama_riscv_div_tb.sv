@@ -13,11 +13,11 @@ parameter unsigned TIMEOUT_CLKS = 8000;
 parameter unsigned BUSY_ASSERT_TO = 5; // max cycles wait for busy to assert
 parameter unsigned BUSY_RELEASE_TO = 50; // max cycles wait for busy to deassert
 
-// OVERHEAD = non-iteration cycles counted in busy = 1 (FIXUP only)
-// CLZ is computed combinatorially in IDLE; no separate NORM state.
+// OVERHEAD = non-iteration cycles counted in busy = 2 (SETUP + FIXUP)
+// CLZ is computed in SETUP from registered inputs.
 // all timing checks: max_busy_cyc = OVERHEAD + N_ITER
-// N_ITER = W - clz(|dividend|); pow2/a<b/overflow/div-by-0 go to SPECIAL (1 cycle)
-parameter unsigned OVERHEAD = 1;
+// N_ITER = W - clz(|dividend|); pow2/a<b/overflow/div-by-0 finish from SETUP
+parameter unsigned OVERHEAD = 2;
 
 `define FAILED \
     $display(msg_fail); \
@@ -251,11 +251,11 @@ initial begin
                 DIV_DIVU, 32'd3, 32'd3, 32'd1,
                 OVERHEAD + 'd2);
 
-        // SPECIAL a<b: always 1 busy cycle
+        // SPECIAL a<b: result is written in SETUP, so busy is 1 cycle
         run_div("timing SPECIAL a<b",
                 DIV_DIV, 32'd3, 32'd7, 32'd0, 'd1);
 
-        // SPECIAL pow2 divisor: always 1 busy cycle
+        // SPECIAL pow2 divisor: result is written in SETUP, so busy is 1 cycle
         run_div("timing SPECIAL pow2 1024/32",
                 DIV_DIVU, 32'd1024, 32'd32, 32'd32, 'd1);
 
