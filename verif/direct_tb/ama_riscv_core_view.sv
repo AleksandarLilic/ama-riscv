@@ -41,6 +41,12 @@ pipeline_if_s flush ();
 pipeline_if_s k_valid ();
 pipeline_if_s k_valid_id ();
 pipeline_if #(.W(64)) k_id ();
+// exe stage workarounds for div, needs to be done properly
+logic k_valid_s_exe;
+logic k_valid_exe_d;
+logic k_hold_exe_div;
+logic k_move_exe;
+logic [63:0] k_id_exe_d;
 retired_t r;
 
 function automatic inst_shadow_t classify_inst(input inst_width_t inst);
@@ -150,7 +156,11 @@ pipeline_if_s bubble ();
 // konata
 assign k_valid.fet = (imem_req.valid && (imem_req.ready || spec.wrong));
 assign k_valid.dec = (`STAGE_VALID(ctrl_dec_exe) && pc_nz.dec);
-assign k_valid.exe = (`STAGE_VALID(ctrl_exe_mem) && pc_nz.exe);
+// div/rem can occupy exe while ctrl_exe_mem.bubble is asserted
+assign k_hold_exe_div = (
+    decoded_exe.itype.div && !ctrl_exe_mem.flush && pc_nz.exe
+);
+assign k_valid.exe = (`STAGE_VALID(ctrl_exe_mem) && pc_nz.exe) || k_hold_exe_div;
 assign k_valid.mem = (`STAGE_VALID(ctrl_mem_wbk) && pc_nz.mem);
 assign k_valid.wbk = (`STAGE_VALID(ctrl_wbk_ret) && pc_nz.wbk);
 assign k_valid.ret = inst_retired;
@@ -166,10 +176,16 @@ logic [3:0] spec_wrong_d;
 
 assign k_valid_id.fet = k_valid.fet;
 assign k_valid_id.dec = (k_valid.dec || spec.wrong);
-assign k_valid_id.exe = (k_valid.exe || spec_wrong_d[0]);
+assign k_move_exe = (`STAGE_VALID(ctrl_exe_mem) && pc_nz.exe);
+assign k_valid_id.exe = (k_move_exe || spec_wrong_d[0]);
 assign k_valid_id.mem = (k_valid.mem || (spec_wrong_d[1] && !dc_stalled));
 assign k_valid_id.wbk = (k_valid.wbk || (spec_wrong_d[2] && !dc_stalled));
 assign k_valid_id.ret = (k_valid.ret || (|spec_wrong_d[3:2]));
+
+assign k_valid_s_exe = (
+    k_move_exe ||
+    (k_hold_exe_div && (!k_valid_exe_d || (k_id_exe_d != k_id.exe)))
+);
 
 `DFF_CI_RI_RVI_EN(k_valid_id.fet, (k_id.fet + 1), k_id.fet)
 `DFF_CI_RI_RVI_EN(k_valid_id.dec, k_id.fet, k_id.dec)
@@ -177,6 +193,8 @@ assign k_valid_id.ret = (k_valid.ret || (|spec_wrong_d[3:2]));
 `DFF_CI_RI_RVI_EN(k_valid_id.mem, k_id.exe, k_id.mem)
 `DFF_CI_RI_RVI_EN(k_valid_id.wbk, k_id.mem, k_id.wbk)
 `DFF_CI_RI_RVI_EN(k_valid_id.ret, k_id.wbk, k_id.ret)
+`DFF_CI_RI_RVI(k_valid.exe, k_valid_exe_d)
+`DFF_CI_RI_RVI(k_id.exe, k_id_exe_d)
 
 /*
 // mostly for debug

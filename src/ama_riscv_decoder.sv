@@ -45,11 +45,14 @@ always_comb begin
     case (opc7)
         OPC7_R_TYPE: begin
             fc.pc_we = 1'b1;
-            d.itype.mult = (fn7_b0 && !fn7_b2);
+            d.itype.mult = (fn7_b0 && !fn7_b2 && !fn3[2]);
+            d.itype.div = (fn7_b0 && !fn7_b2 && fn3[2]);
             d.a_sel = A_SEL_RS1;
             d.b_sel = B_SEL_RS2;
             d.alu_op = alu_op_t'({fn7_b5, fn7_b2, fn3});
             d.simd_arith_op = simd_arith_op_t'({2'h0, fn3});
+            d.div_op = div_op_t'(fn3[1:0]);
+            d.ewb_sel = d.itype.div ? EWB_SEL_DIV : EWB_SEL_ALU;
             d.wb_sel = d.itype.mult ? WB_SEL_SIMD : WB_SEL_EWB;
             d.rd_we = rd_nz;
             d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 0};

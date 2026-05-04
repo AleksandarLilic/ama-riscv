@@ -35,6 +35,7 @@ function automatic logic get_event(
         MHPMEVENT_STALL_FE : get_event = pe.stall_fe;
         MHPMEVENT_STALL_L1I : get_event = pe.stall_l1i;
         MHPMEVENT_STALL_SIMD : get_event = pe.stall_simd;
+        MHPMEVENT_STALL_DIV : get_event = pe.stall_div;
         MHPMEVENT_STALL_LOAD : get_event = pe.stall_load;
         MHPMEVENT_RET_CTRL_FLOW : get_event = pe.ret_ctrl_flow;
         MHPMEVENT_RET_CTRL_FLOW_J : get_event = pe.ret_ctrl_flow_j;
@@ -51,7 +52,6 @@ function automatic logic get_event(
         MHPMEVENT_L1I_MISS : get_event = pe.l1i_miss;
         MHPMEVENT_L1I_SPEC_MISS : get_event = pe.l1i_spec_miss;
         MHPMEVENT_L1I_SPEC_MISS_BAD : get_event = pe.l1i_spec_miss_bad;
-        MHPMEVENT_L1I_SPEC_MISS_GOOD : get_event = pe.l1i_spec_miss_good;
         MHPMEVENT_L1D_REF : get_event = pe.l1d_ref;
         MHPMEVENT_L1D_REF_R : get_event = pe.l1d_ref_r;
         MHPMEVENT_L1D_REF_W : get_event = pe.l1d_ref_w;

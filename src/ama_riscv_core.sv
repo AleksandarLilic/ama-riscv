@@ -105,7 +105,7 @@ ama_riscv_decoder ama_riscv_decoder_i (
 /* verilator lint_off UNUSEDSIGNAL */
 decoder_t decoded_exe; // some bits are not always used
 /* verilator lint_on UNUSEDSIGNAL */
-logic dc_stalled;
+logic dc_stalled, div_stalled;
 logic branch_inst_mem, jalr_inst_mem;
 branch_t branch_resolution_mem;
 hazard_t hazard;
@@ -135,6 +135,7 @@ ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     .decoded_fe_ctrl (decoded_fe_ctrl),
     .hazard (hazard),
     .dc_stalled (dc_stalled),
+    .div_stalled (div_stalled),
     // outputs
     `ifdef USE_BP
     .pc_cp (pc_fet_cp),
@@ -388,7 +389,7 @@ assign csr_addr_dec = csr_addr_t'(inst.dec[31:20]);
 
 assign ctrl_dec_exe = '{
     flush: (flush.dec || fe_ctrl.bubble_exe),
-    en: ((!dc_stalled) && (!hazard.to_exe)),
+    en: ((!dc_stalled) && (!hazard.to_exe) && (!div_stalled)),
     bubble: (fe_ctrl.bubble_dec /*|| hazard.to_dec*/)
 };
 
@@ -474,6 +475,23 @@ assign op_a_r = a_sel_fwd_exe ? rs1_exe_be_fwd : op_a_exe;
 assign op_b_r = b_sel_fwd_exe ? rs2_exe_be_fwd : op_b_exe;
 assign rs3_exe = c_sel_fwd_exe ? rs3_exe_be_fwd : op_c_exe;
 
+logic div_start, div_busy, div_issued;
+assign div_start = (
+    decoded_exe.itype.div &&
+    !div_issued &&
+    !div_busy &&
+    !hazard.to_exe &&
+    !(flush.dec || flush.exe)
+);
+assign div_stalled = (div_start || div_busy);
+
+always_ff @(posedge clk) begin
+    if (rst) div_issued <= 1'b0;
+    else if (flush.exe) div_issued <= 1'b0;
+    else if (ctrl_exe_mem.en && !ctrl_exe_mem.bubble) div_issued <= 1'b0;
+    else if (div_start) div_issued <= 1'b1;
+end
+
 // ALU
 arch_width_t alu_out_exe, pc_new_exe;
 branch_t branch_resolution_exe;
@@ -521,6 +539,19 @@ ama_riscv_simd ama_riscv_simd_i (
     .p (simd_out)
 );
 
+arch_width_t div_result;
+ama_riscv_div ama_riscv_div_i (
+    .clk (clk),
+    .rst (rst),
+    .start (div_start),
+    .flush (flush.exe || spec.wrong),
+    .op (decoded_exe.div_op),
+    .a (op_a_r),
+    .b (op_b_r),
+    .result (div_result),
+    .busy (div_busy)
+);
+
 simd_t simd_out_mem, simd_out_p_mem;
 assign simd_out_mem = simd_out.w[0];
 assign simd_out_p_mem = simd_out.w[1];
@@ -551,6 +582,7 @@ always_comb begin
         EWB_SEL_PC_INC4: e_writeback_exe = (pc.exe + 'd4);
         EWB_SEL_CSR: e_writeback_exe = csr_out_exe;
         EWB_SEL_DATA_FMT: e_writeback_exe = data_fmt_out_exe;
+        EWB_SEL_DIV: e_writeback_exe = div_result;
         default: e_writeback_exe = 'h0;
     endcase
 end
@@ -601,7 +633,9 @@ assign rf_we.exe = '{
 assign ctrl_exe_mem = '{
     flush: flush.exe,
     en: (!dc_stalled),
-    bubble: (!ctrl_dec_exe.en || hazard.to_exe || fe_ctrl.bubble_exe)
+    bubble: (
+        !ctrl_dec_exe.en || hazard.to_exe || fe_ctrl.bubble_exe || div_stalled
+    )
 };
 
 logic map_uart_mem;
@@ -631,13 +665,17 @@ arch_width_t rs3_mem;
 `STAGE_E_M(1'b1, uart_ch_exe, uart_ch_mem, 'h0)
 `STAGE_E_M(1'b1, map_uart_exe, map_uart_mem, 'h0)
 
-`DFF_CI_RI_RVI((dc_stalled /*|| hazard.to_dec*/ || hazard.to_exe), be_stalled_d)
+`DFF_CI_RI_RVI(
+    (dc_stalled /*|| hazard.to_dec*/ || hazard.to_exe || div_stalled),
+    be_stalled_d
+)
 
 always_comb begin
     ct_gen.exe = ct.exe;
     ct_gen.exe.bad_spec |= spec.wrong; // DEC can also generate bad_spec
-    ct_gen.exe.stall_be_core = hazard.from_mem;
+    ct_gen.exe.stall_be_core = (hazard.from_mem || div_stalled);
     ct_gen.exe.stall_simd = (hazard.from_mem && simd_arith_mem);
+    ct_gen.exe.stall_div = div_stalled;
     ct_gen.exe.stall_load = (
         (hazard.from_mem && load_inst_mem) ||
         (hazard.from_wbk && load_inst_wbk)
@@ -681,7 +719,7 @@ assign uart_ch.send = uart_ch_mem.send;
 assign ctrl_mem_wbk = '{
     flush: flush.exe,
     en: (!dc_stalled),
-    bubble: (!ctrl_exe_mem.en)
+    bubble: (!pc_nz.mem)
 };
 
 logic simd_inst_wbk, map_uart_wbk;
@@ -774,6 +812,7 @@ always_comb begin
         cpe.stall_l1d_r = ct.ret.stall_l1d_r;
         cpe.stall_l1d_w = ct.ret.stall_l1d_w;
         cpe.stall_simd = ct.ret.stall_simd;
+        cpe.stall_div = ct.ret.stall_div;
         cpe.stall_load = ct.ret.stall_load;
         // fe
         fe_unblocked = (!cpe.bad_spec && !cpe.stall_be);
@@ -803,7 +842,6 @@ always_comb begin
     cpe.l1i_miss = pe_ic.miss;
     cpe.l1i_spec_miss = pe_ic.spec_miss;
     cpe.l1i_spec_miss_bad = pe_ic.spec_miss_bad;
-    cpe.l1i_spec_miss_good = pe_ic.spec_miss_good;
     // dcache
     cpe.l1d_ref = (pe_dc.hit || pe_dc.miss);
     cpe.l1d_ref_r = (cpe.l1d_ref && pe_dc.rd);

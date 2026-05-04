@@ -19,6 +19,7 @@
     CORE_STATS_JSON_LINE(stall_fe) \
     CORE_STATS_JSON_LINE(stall_l1i) \
     CORE_STATS_JSON_LINE(stall_simd) \
+    CORE_STATS_JSON_LINE(stall_div) \
     CORE_STATS_JSON_LINE(stall_load) \
     CORE_STATS_JSON_LINE(ret_ctrl_flow) \
     CORE_STATS_JSON_LINE(ret_ctrl_flow_j) \
@@ -35,7 +36,6 @@
     CORE_STATS_JSON_LINE(l1i_miss) \
     CORE_STATS_JSON_LINE(l1i_spec_miss) \
     CORE_STATS_JSON_LINE(l1i_spec_miss_bad) \
-    CORE_STATS_JSON_LINE(l1i_spec_miss_good) \
     CORE_STATS_JSON_LINE(l1d_ref) \
     CORE_STATS_JSON_LINE(l1d_ref_r) \
     CORE_STATS_JSON_LINE(l1d_ref_w) \
@@ -75,6 +75,7 @@ struct core_stats_t {
         uint64_t stall_fe;
         uint64_t stall_l1i;
         uint64_t stall_simd;
+        uint64_t stall_div;
         uint64_t stall_load;
         uint64_t ret_ctrl_flow;
         uint64_t ret_ctrl_flow_j;
@@ -91,7 +92,6 @@ struct core_stats_t {
         uint64_t l1i_miss;
         uint64_t l1i_spec_miss;
         uint64_t l1i_spec_miss_bad;
-        uint64_t l1i_spec_miss_good;
         uint64_t l1d_ref;
         uint64_t l1d_ref_r;
         uint64_t l1d_ref_w;
@@ -140,6 +140,7 @@ struct core_stats_t {
             stall_fe += ev->stall_fe;
             stall_l1i += ev->stall_l1i;
             stall_simd += ev->stall_simd;
+            stall_div += ev->stall_div;
             stall_load += ev->stall_load;
             ret_ctrl_flow += ev->ret_ctrl_flow;
             ret_ctrl_flow_j += ev->ret_ctrl_flow_j;
@@ -156,7 +157,6 @@ struct core_stats_t {
             l1i_miss += ev->l1i_miss;
             l1i_spec_miss += ev->l1i_spec_miss;
             l1i_spec_miss_bad += ev->l1i_spec_miss_bad;
-            l1i_spec_miss_good += ev->l1i_spec_miss_good;
             l1d_ref += ev->l1d_ref;
             l1d_ref_r += ev->l1d_ref_r;
             l1d_ref_w += ev->l1d_ref_w;
@@ -210,14 +210,15 @@ struct core_stats_t {
                 << ", Data Format: " << ret_simd_data_fmt
                 << "\n" << INDENT << "Stall -"
                 << " SIMD: " << stall_simd
+                << ", DIV: " << stall_div
                 << ", Load: " << stall_load
                 << "\n" << INDENT << "bpred -"
                 << " M: " << bp_miss
                 << "\n" << INDENT << "icache -"
                 << " A: " << l1i_ref
                 << ", M: " << l1i_miss
-                << ", SM (G/B): " << l1i_spec_miss
-                << "(" << l1i_spec_miss_good << "/" << l1i_spec_miss_bad << ")"
+                << ", SM: " << l1i_spec_miss
+                << ", SMB: " << l1i_spec_miss_bad
                 << std::fixed << std::setprecision(2)
                 << ", AMAT: " << amat_l1i
                 << "\n" << INDENT << "dcache -"

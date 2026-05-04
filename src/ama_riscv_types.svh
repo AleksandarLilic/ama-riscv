@@ -142,7 +142,8 @@ typedef enum logic [2:0] {
     EWB_SEL_IMM_U = 3'd1,
     EWB_SEL_PC_INC4 = 3'd2,
     EWB_SEL_CSR = 3'd3,
-    EWB_SEL_DATA_FMT = 3'd4
+    EWB_SEL_DATA_FMT = 3'd4,
+    EWB_SEL_DIV = 3'd5
 } ewb_sel_t;
 
 typedef enum logic [1:0] {
@@ -265,6 +266,13 @@ typedef enum logic [1:0] {
     SIMD_DATA_FMT_TYPE_TXP = 2'h2
 } simd_data_fmt_type_t;
 
+typedef enum logic [1:0] {
+    DIV_DIV = 2'b00,
+    DIV_DIVU = 2'b01,
+    DIV_REM = 2'b10,
+    DIV_REMU = 2'b11
+} div_op_t;
+
 typedef enum logic [2:0] {
     IG_OFF = 3'd0,
     IG_I_TYPE = 3'd1,
@@ -326,6 +334,7 @@ typedef struct packed {
 
 typedef struct packed {
     logic mult;
+    logic div;
     logic simd_arith;
     logic simd_data_fmt;
     logic load;
@@ -359,6 +368,7 @@ typedef struct packed {
     simd_arith_op_t simd_arith_op;
     simd_data_fmt_op_t simd_data_fmt_op;
     simd_data_fmt_type_t simd_data_fmt_type;
+    div_op_t div_op;
     a_sel_t a_sel;
     b_sel_t b_sel;
     ig_sel_t ig_sel;
@@ -406,6 +416,7 @@ typedef struct packed {
     logic stall_fe; // tda
     logic stall_l1i; // tda
     logic stall_simd;
+    logic stall_div;
     logic stall_load;
     logic ret_ctrl_flow;
     logic ret_ctrl_flow_j;
@@ -422,7 +433,6 @@ typedef struct packed {
     logic l1i_miss;
     logic l1i_spec_miss;
     logic l1i_spec_miss_bad;
-    logic l1i_spec_miss_good;
     //logic l1i_line_fill;
     logic l1d_ref;
     logic l1d_ref_r;
@@ -443,6 +453,7 @@ typedef struct packed {
     logic stall_fe_core;
     logic stall_l1i;
     logic stall_simd;
+    logic stall_div;
     logic stall_load;
 } cycle_tag_t;
 
@@ -506,7 +517,6 @@ typedef struct packed {
     logic miss;
     logic spec_miss;
     logic spec_miss_bad;
-    logic spec_miss_good;
 } perf_event_icache_t;
 
 typedef struct packed {
@@ -578,23 +588,23 @@ typedef enum logic [MHPMEVENTS-1:0] {
     MHPMEVENT_STALL_FE = (1 << 5), // tda
     MHPMEVENT_STALL_L1I = (1 << 6), // tda
     MHPMEVENT_STALL_SIMD = (1 << 7),
-    MHPMEVENT_STALL_LOAD = (1 << 8),
-    MHPMEVENT_RET_CTRL_FLOW = (1 <<  9),
-    MHPMEVENT_RET_CTRL_FLOW_J = (1 << 10),
-    MHPMEVENT_RET_CTRL_FLOW_JR = (1 << 11),
-    MHPMEVENT_RET_CTRL_FLOW_BR = (1 << 12),
-    MHPMEVENT_RET_MEM = (1 << 13),
-    MHPMEVENT_RET_MEM_LOAD = (1 << 14),
-    MHPMEVENT_RET_MEM_STORE = (1 << 15),
-    MHPMEVENT_RET_SIMD = (1 << 16), // tda
-    MHPMEVENT_RET_SIMD_ARITH = (1 << 17),
-    MHPMEVENT_RET_SIMD_DATA_FMT = (1 << 18),
-    MHPMEVENT_BP_MISS = (1 << 19),
-    MHPMEVENT_L1I_REF = (1 << 20),
-    MHPMEVENT_L1I_MISS = (1 << 21),
-    MHPMEVENT_L1I_SPEC_MISS = (1 << 22),
-    MHPMEVENT_L1I_SPEC_MISS_BAD = (1 << 23),
-    MHPMEVENT_L1I_SPEC_MISS_GOOD = (1 << 24),
+    MHPMEVENT_STALL_DIV = (1 << 8),
+    MHPMEVENT_STALL_LOAD = (1 << 9),
+    MHPMEVENT_RET_CTRL_FLOW = (1 << 10),
+    MHPMEVENT_RET_CTRL_FLOW_J = (1 << 11),
+    MHPMEVENT_RET_CTRL_FLOW_JR = (1 << 12),
+    MHPMEVENT_RET_CTRL_FLOW_BR = (1 << 13),
+    MHPMEVENT_RET_MEM = (1 << 14),
+    MHPMEVENT_RET_MEM_LOAD = (1 << 15),
+    MHPMEVENT_RET_MEM_STORE = (1 << 16),
+    MHPMEVENT_RET_SIMD = (1 << 17), // tda
+    MHPMEVENT_RET_SIMD_ARITH = (1 << 18),
+    MHPMEVENT_RET_SIMD_DATA_FMT = (1 << 19),
+    MHPMEVENT_BP_MISS = (1 << 20),
+    MHPMEVENT_L1I_REF = (1 << 21),
+    MHPMEVENT_L1I_MISS = (1 << 22),
+    MHPMEVENT_L1I_SPEC_MISS = (1 << 23),
+    MHPMEVENT_L1I_SPEC_MISS_BAD = (1 << 24),
     MHPMEVENT_L1D_REF = (1 << 25),
     MHPMEVENT_L1D_REF_R = (1 << 26),
     MHPMEVENT_L1D_REF_W = (1 << 27),
