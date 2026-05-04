@@ -588,7 +588,7 @@ task automatic single_step();
         end
 
         if (`CORE_VIEW.k_valid.dec) konata_start_stage(`CORE_VIEW.k_id.dec,"D");
-        if (`CORE_VIEW.k_valid.exe) konata_start_stage(`CORE_VIEW.k_id.exe,"E");
+        if (`CORE_VIEW.k_valid_s_exe) konata_start_stage(`CORE_VIEW.k_id.exe,"E");
         if (`CORE_VIEW.k_valid.mem) konata_start_stage(`CORE_VIEW.k_id.mem,"M");
         if (`CORE_VIEW.k_valid.wbk) konata_start_stage(`CORE_VIEW.k_id.wbk,"W");
 
