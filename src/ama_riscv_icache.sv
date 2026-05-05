@@ -208,8 +208,15 @@ always_comb begin
     endcase
 end
 
-logic update_lru;
+// register update_lru and lca so the lru update logic starts from flops
+// one-cycle delayed lru update is fine - a_lru is only used for eviction
+logic update_lru, update_lru_d;
+lru_cnt_access_t lca_d;
+
 assign update_lru = (load_req_hit || load_req_pend);
+`DFF_CI_RI_RVI(update_lru, update_lru_d)
+`DFF_CI_RI_RVI(lca, lca_d)
+
 always_ff @(posedge clk) begin
     if (rst) begin
         `IT_P(w, WAYS) begin
@@ -217,16 +224,24 @@ always_ff @(posedge clk) begin
                 a_lru[w][s] <= w[WAY_BITS-1:0]; // init LRU to way idx
             end
         end
-    end else if (update_lru) begin
+    end else if (update_lru_d) begin
         `IT_P(w, WAYS) begin
-            // if LRU counter is less than the one that hit, increment it
-            // no need to make cnt saturating - can't increment last lru
-            if (a_lru[w][lca.set_idx] < a_lru[lca.way_idx][lca.set_idx]) begin
-                a_lru[w][lca.set_idx] <= (a_lru[w][lca.set_idx] + 1);
+            if (WAYS == 2) begin // optimized for 2-way - toggle
+                // way_bits=1: accessed way -> 0, other way -> 1
+                a_lru[w][lca_d.set_idx] <=
+                    lru_cnt_t'(w[WAY_BITS-1:0] != lca_d.way_idx);
+            end else begin // WAYS > 2
+                // increment counters ranked below the accessed way's counter
+                // no need to make cnt saturating - can't increment last lru
+                if (a_lru[w][lca_d.set_idx] <
+                    a_lru[lca_d.way_idx][lca_d.set_idx])
+                begin
+                    a_lru[w][lca_d.set_idx] <= (a_lru[w][lca_d.set_idx] + 1);
+                end
             end
         end
         // hit way becomes LRU 0
-        a_lru[lca.way_idx][lca.set_idx] <= '0;
+        if (WAYS != 2) a_lru[lca_d.way_idx][lca_d.set_idx] <= '0;
     end
 end
 
