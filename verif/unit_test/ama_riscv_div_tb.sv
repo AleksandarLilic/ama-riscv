@@ -362,6 +362,9 @@ initial begin
 
         run_div("buffer special seed div-by-0", DIV_DIV, 32'd5, 32'd0, 32'hFFFFFFFF, 'd1);
         run_div("buffer special pair rem-by-0", DIV_REM, 32'd5, 32'd0, 32'd5, 'd1);
+        run_div("buffer keep seed div 20/3", DIV_DIV, 32'd20, 32'd3, 32'd6, OVERHEAD + 'd5);
+        run_div("buffer keep special div-by-0", DIV_DIV, 32'd9, 32'd0, 32'hFFFFFFFF, 'd1);
+        run_div_hit("buffer keep hit div 20/3", DIV_DIV, 32'd20, 32'd3, 32'd6);
 
         run_div("buffer signed seed -20/3", DIV_DIV, 32'hFFFFFFEC, 32'd3, 32'hFFFFFFFA, OVERHEAD + 'd5);
         run_div("buffer miss unsigned -20/3", DIV_DIVU, 32'hFFFFFFEC, 32'd3, 32'h5555554E, OVERHEAD + 'd32);

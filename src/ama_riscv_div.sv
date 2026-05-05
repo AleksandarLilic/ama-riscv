@@ -59,7 +59,8 @@ assign in_b_neg = (!in_op_uns && b[W-1]);
 assign in_abs_a = in_a_neg ? (~a + 1'b1) : a;
 assign in_abs_b = in_b_neg ? (~b + 1'b1) : b;
 
-logic in_overflow;
+logic in_div_by_zero, in_overflow;
+assign in_div_by_zero = (b == '0);
 assign in_overflow = (!in_op_uns && (a == 32'h8000_0000) && (b == {W{1'b1}}));
 
 logic op_rem, start_a_neg, start_neg;
@@ -161,7 +162,7 @@ assign special_result = op_rem ? special_rem : special_quot;
 state_t state, nx_state;
 div_state_t ds;
 div_result_cache_t div_cache;
-logic db_valid;
+logic div_cache_valid;
 iter_t iter;
 
 assign iter.rem_shift = {ds.rem, ds.dividend[W-1]};
@@ -183,7 +184,7 @@ arch_width_t div_cache_result;
 assign start_div_cache_hit = (
     (state == IDLE) &&
     start &&
-    db_valid &&
+    div_cache_valid &&
     (a == div_cache.a) &&
     (b == div_cache.b) &&
     (in_op_uns == div_cache.op_uns)
@@ -228,7 +229,7 @@ always_ff @(posedge clk) begin
     if (rst) begin
         ds <= '0;
         setup <= '0;
-        db_valid <= 1'b0;
+        div_cache_valid <= 1'b0;
     end else if (flush) begin
     end else begin
         unique case (state)
@@ -240,8 +241,8 @@ always_ff @(posedge clk) begin
                         // the combinational hit condition goes away
                         ds.result <= div_cache_result;
                     end else begin
-                        // miss: flop the request, invalidate the old div_cache
-                        // entry, and let SETUP classify the operation
+                        // miss: flop the request and let SETUP decide whether
+                        // this is a special case or real iterative work
                         setup.a <= a;
                         setup.b <= b;
                         setup.abs_a <= in_abs_a;
@@ -250,12 +251,8 @@ always_ff @(posedge clk) begin
                         setup.op_uns <= in_op_uns;
                         setup.quot_neg <= (in_a_neg ^ in_b_neg);
                         setup.rem_neg <= in_a_neg;
-                        setup.div_by_zero <= (b == '0);
+                        setup.div_by_zero <= in_div_by_zero;
                         setup.overflow <= in_overflow;
-                        div_cache.a <= a;
-                        div_cache.b <= b;
-                        div_cache.op_uns <= in_op_uns;
-                        db_valid <= 1'b0;
                     end
                 end
             end
@@ -267,8 +264,8 @@ always_ff @(posedge clk) begin
                     // single-entry div_cache with cheap one-cycle operations
                     ds.result <= special_result;
                 end else begin
-                    // regular divide: initialize the restoring datapath state
-                    // and enter the iteration loop on the next cycle
+                    // regular divide: initialize the restoring datapath state,
+                    // invalidate the old div_cache entry, and enter ITER next
                     ds.dividend <= start_dividend_norm;
                     ds.divisor <= start_abs_b;
                     ds.quot <= '0;
@@ -277,6 +274,10 @@ always_ff @(posedge clk) begin
                     ds.op_rem <= op_rem;
                     ds.quot_neg <= start_neg;
                     ds.rem_neg <= start_a_neg;
+                    div_cache.a <= setup.a;
+                    div_cache.b <= setup.b;
+                    div_cache.op_uns <= setup.op_uns;
+                    div_cache_valid <= 1'b0;
                 end
             end
 
@@ -294,7 +295,7 @@ always_ff @(posedge clk) begin
                 ds.result <= ds.op_rem ? rem_fixed : quot_fixed;
                 div_cache.quot <= quot_fixed;
                 div_cache.rem <= rem_fixed;
-                db_valid <= 1'b1;
+                div_cache_valid <= 1'b1;
             end
 
             default: begin
