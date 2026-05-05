@@ -47,7 +47,7 @@ typedef struct packed {
 typedef struct packed {
     arch_width_t a, b, quot, rem;
     logic op_uns;
-} div_buf_t;
+} div_result_cache_t;
 
 //------------------------------------------------------------------------------
 // start conditions
@@ -160,7 +160,7 @@ assign special_result = op_rem ? special_rem : special_quot;
 // common case
 state_t state, nx_state;
 div_state_t ds;
-div_buf_t db;
+div_result_cache_t div_cache;
 logic db_valid;
 iter_t iter;
 
@@ -178,17 +178,17 @@ assign quot_fixed = ds.quot_neg ? (~ds.quot + 1'b1) : ds.quot;
 assign rem_mag = ds.rem;
 assign rem_fixed = ds.rem_neg ? (~rem_mag + 1'b1) : rem_mag;
 
-logic start_buf_hit;
-arch_width_t buf_result;
-assign start_buf_hit = (
+logic start_div_cache_hit;
+arch_width_t div_cache_result;
+assign start_div_cache_hit = (
     (state == IDLE) &&
     start &&
     db_valid &&
-    (a == db.a) &&
-    (b == db.b) &&
-    (in_op_uns == db.op_uns)
+    (a == div_cache.a) &&
+    (b == div_cache.b) &&
+    (in_op_uns == div_cache.op_uns)
 );
-assign buf_result = in_op_rem ? db.rem : db.quot;
+assign div_cache_result = in_op_rem ? div_cache.rem : div_cache.quot;
 
 //------------------------------------------------------------------------------
 // state transition
@@ -203,7 +203,7 @@ always_comb begin
     nx_state = state;
     unique case (state)
         IDLE: begin
-            if (start && !start_buf_hit) nx_state = SETUP;
+            if (start && !start_div_cache_hit) nx_state = SETUP;
         end
 
         SETUP: begin
@@ -234,13 +234,13 @@ always_ff @(posedge clk) begin
         unique case (state)
             IDLE: begin
                 if (start) begin
-                    if (start_buf_hit) begin
+                    if (start_div_cache_hit) begin
                         // mirror the hit result into the holding register so
                         // `result` does not fall back to an older value once
                         // the combinational hit condition goes away
-                        ds.result <= buf_result;
+                        ds.result <= div_cache_result;
                     end else begin
-                        // miss: flop the request, invalidate the old buffer
+                        // miss: flop the request, invalidate the old div_cache
                         // entry, and let SETUP classify the operation
                         setup.a <= a;
                         setup.b <= b;
@@ -252,9 +252,9 @@ always_ff @(posedge clk) begin
                         setup.rem_neg <= in_a_neg;
                         setup.div_by_zero <= (b == '0);
                         setup.overflow <= in_overflow;
-                        db.a <= a;
-                        db.b <= b;
-                        db.op_uns <= in_op_uns;
+                        div_cache.a <= a;
+                        div_cache.b <= b;
+                        div_cache.op_uns <= in_op_uns;
                         db_valid <= 1'b0;
                     end
                 end
@@ -262,12 +262,10 @@ always_ff @(posedge clk) begin
 
             SETUP: begin
                 if (start_special) begin
-                    // special-case completion: produce both outputs without
-                    // entering the iterative datapath and repopulate the buffer
+                    // special-case completion: produce the result without
+                    // entering the iterative datapath; do not refill the
+                    // single-entry div_cache with cheap one-cycle operations
                     ds.result <= special_result;
-                    db.quot <= special_quot;
-                    db.rem <= special_rem;
-                    db_valid <= 1'b1;
                 end else begin
                     // regular divide: initialize the restoring datapath state
                     // and enter the iteration loop on the next cycle
@@ -291,11 +289,11 @@ always_ff @(posedge clk) begin
             end
 
             FIXUP: begin
-                // commit the final quotient/remainder, then mark the buffered
+                // commit the final quotient/remainder, then mark the cached
                 // entry as valid again for future combinational hits
                 ds.result <= ds.op_rem ? rem_fixed : quot_fixed;
-                db.quot <= quot_fixed;
-                db.rem <= rem_fixed;
+                div_cache.quot <= quot_fixed;
+                div_cache.rem <= rem_fixed;
                 db_valid <= 1'b1;
             end
 
@@ -307,7 +305,7 @@ always_ff @(posedge clk) begin
 end
 
 // hits bypass the FSM combinationally; otherwise hold the last completed result
-assign result = start_buf_hit ? buf_result : ds.result;
+assign result = start_div_cache_hit ? div_cache_result : ds.result;
 assign busy = (!flush && (state != IDLE));
 
 `ifndef SYNT
