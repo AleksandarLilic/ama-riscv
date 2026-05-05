@@ -281,14 +281,22 @@ always_ff @(posedge clk) begin
         end
     end else if (update_lru) begin
         `IT_P(w, WAYS) begin
-            // if LRU counter is less than the one that hit, increment it
-            // no need to make cnt saturating - can't increment last lru
-            if (a_lru[w][lca.set_idx] < a_lru[lca.way_idx][lca.set_idx]) begin
-                a_lru[w][lca.set_idx] <= a_lru[w][lca.set_idx] + 1;
+            if (WAYS == 2) begin // optimized for 2-way - toggle
+                // way_bits=1: accessed way -> 0, other way -> 1
+                a_lru[w][lca.set_idx] <=
+                    lru_cnt_t'(w[WAY_BITS-1:0] != lca.way_idx);
+            end else begin // WAYS > 2
+                // increment counters ranked below the accessed way's counter
+                // no need to make cnt saturating - can't increment last lru
+                if (a_lru[w][lca.set_idx] <
+                    a_lru[lca.way_idx][lca.set_idx])
+                begin
+                    a_lru[w][lca.set_idx] <= a_lru[w][lca.set_idx] + 1;
+                end
             end
         end
         // hit way becomes LRU 0
-        a_lru[lca.way_idx][lca.set_idx] <= '0;
+        if (WAYS != 2) a_lru[lca.way_idx][lca.set_idx] <= '0;
     end
 end
 
@@ -613,45 +621,31 @@ logic [2:0] load_dw;
 assign load_dw = {1'b0, lfc_d.dtype[1:0]};
 assign load_uns = lfc_d.dtype[2]; // 0: signed, 1: unsigned
 
-// check unaligned access
-logic ua_h, ua_w, ua;
-assign ua_h =
-    ((load_dw == DMEM_DTYPE_HALF) &&
-     ((lfc_d.off == `DMEM_BYTE_OFF_1) || (lfc_d.off == `DMEM_BYTE_OFF_3)));
-assign ua_w =
-    ((load_dw == DMEM_DTYPE_WORD) && (lfc_d.off != `DMEM_BYTE_OFF_0));
-assign ua = /* en && */ (ua_h || ua_w);
-
 // Shift mask
 logic [ARCH_WIDTH-1:0] data_out;
 always_comb begin
-    data_out = 'h0;
-    if (/* en && */ !ua) begin
-        case (load_dw)
-            DMEM_DTYPE_BYTE: begin
-                data_out[7:0] = rd_data[lfc_d.off*8 +: 8];
-                data_out[31:8] =
-                    load_uns ? {24{1'b0}} : {24{rd_data[lfc_d.off*8 + 7]}};
-            end
+    case (load_dw)
+        DMEM_DTYPE_BYTE: begin
+            data_out[7:0] = rd_data[lfc_d.off*8 +: 8];
+            data_out[31:8] =
+                load_uns ? {24{1'b0}} : {24{rd_data[lfc_d.off*8 + 7]}};
+        end
 
-            DMEM_DTYPE_HALF: begin
-                data_out[15:0] = rd_data[lfc_d.off*8 +: 16];
-                data_out[31:16] =
-                    load_uns ? {16{1'b0}} : {16{rd_data[lfc_d.off*8 + 15]}};
-            end
+        DMEM_DTYPE_HALF: begin
+            data_out[15:0] = rd_data[lfc_d.off*8 +: 16];
+            data_out[31:16] =
+                load_uns ? {16{1'b0}} : {16{rd_data[lfc_d.off*8 + 15]}};
+        end
 
-            DMEM_DTYPE_WORD: begin
-                data_out = rd_data;
-            end
+        DMEM_DTYPE_WORD: begin
+            data_out = rd_data;
+        end
 
-            default: begin
-                data_out = 'h0;
-            end
+        default: begin
+            data_out = 'h0;
+        end
 
         endcase
-    end /* else begin
-        TODO: raise exception for unaligned access
-    end */
 end
 
 // TODO: core is currently always ready
@@ -667,6 +661,25 @@ assign pe.rd = load_req;
 assign pe.rd_pend = (cr_pend.active && (cr_pend.cr.rtype == DMEM_READ));
 
 `ifndef SYNT
+always_comb begin
+    if (new_core_req) begin
+        if ((cr.dtype == DMEM_DTYPE_HALF) ||
+            (cr.dtype == DMEM_DTYPE_UHALF))
+        begin
+            assert (!cr.addr[0])
+            else $fatal(1,
+                "DCACHE UNALIGNED HALF ACCESS: addr=0x%0h dtype=%0b rtype=%0b",
+                cr.addr, cr.dtype, cr.rtype);
+        end
+        if (cr.dtype == DMEM_DTYPE_WORD) begin
+            assert (cr.addr[1:0] == 2'b00)
+            else $fatal(1,
+                "DCACHE UNALIGNED WORD ACCESS: addr=0x%0h dtype=%0b rtype=%0b",
+                cr.addr, cr.dtype, cr.rtype);
+        end
+    end
+end
+
 `ifdef DEBUG
 
 `include "ama_riscv_defines.svh"
