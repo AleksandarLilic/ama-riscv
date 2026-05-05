@@ -136,6 +136,49 @@ task automatic run_div_nt(
     run_div(name, test_op, test_a, test_b, expected, 0);
 endtask
 
+// drive a single-cycle start pulse and require a combinational buffer hit:
+// result must be correct while start is high and busy must stay low.
+task automatic run_div_hit(
+    input string name,
+    input div_op_t test_op,
+    input logic [31:0] test_a,
+    input logic [31:0] test_b,
+    input logic [31:0] expected
+);
+    logic result_err_now, result_err_hold, busy_err_now, busy_err_hold;
+
+    test_cnt++;
+
+    @(posedge clk); #1;
+    a = test_a;
+    b = test_b;
+    op = test_op;
+    start = 1'b1;
+
+    #1;
+    result_err_now = (result !== expected);
+    busy_err_now = busy;
+
+    @(posedge clk); #1;
+    start = 1'b0;
+
+    #1;
+    result_err_hold = (result !== expected);
+    busy_err_hold = busy;
+
+    $display(
+        "Test %3d @ cycle %4d: %-36s op=%b a=%h b=%h res=%h exp=%h cyc=0%s%s%s%s",
+        test_cnt, clk_cnt, name, test_op, test_a, test_b, result, expected,
+        result_err_now  ? "  <-- HIT RESULT ERROR" : "",
+        busy_err_now    ? "  <-- HIT BUSY ERROR" : "",
+        result_err_hold ? "  <-- HOLD RESULT ERROR" : "",
+        busy_err_hold   ? "  <-- HOLD BUSY ERROR" : ""
+    );
+
+    if (result_err_now || result_err_hold) err_cnt++;
+    if (busy_err_now || busy_err_hold) err_cnt++;
+endtask
+
 initial begin
     $timeformat(-9, 0, " ns", 20);
 
@@ -303,6 +346,106 @@ initial begin
         // the task preamble)
         run_div_nt("back2back first",  DIV_DIV,  32'd100,  32'd7,  32'd14);
         run_div_nt("back2back second", DIV_DIVU, 32'd1024, 32'd32, 32'd32);
+
+        // ---------- buffer hit / miss checks
+        run_div("buffer seed div 20/3", DIV_DIV, 32'd20, 32'd3, 32'd6, OVERHEAD + 'd5);
+        run_div_hit("buffer hit  div 20/3", DIV_DIV, 32'd20, 32'd3, 32'd6);
+
+        run_div("buffer seed div 100/7", DIV_DIV, 32'd100, 32'd7, 32'd14, OVERHEAD + 'd7);
+        run_div_hit("buffer pair rem 100/7", DIV_REM, 32'd100, 32'd7, 32'd2);
+
+        run_div("buffer seed rem -20/3", DIV_REM, 32'hFFFFFFEC, 32'd3, 32'hFFFFFFFE, OVERHEAD + 'd5);
+        run_div_hit("buffer pair div -20/3", DIV_DIV, 32'hFFFFFFEC, 32'd3, 32'hFFFFFFFA);
+
+        run_div("buffer seed divu F/3", DIV_DIVU, 32'hFFFFFFFF, 32'd3, 32'h55555555, OVERHEAD + 'd32);
+        run_div_hit("buffer pair remu F/3", DIV_REMU, 32'hFFFFFFFF, 32'd3, 32'd0);
+
+        run_div("buffer special seed div-by-0", DIV_DIV, 32'd5, 32'd0, 32'hFFFFFFFF, 'd1);
+        run_div_hit("buffer special pair rem-by-0", DIV_REM, 32'd5, 32'd0, 32'd5);
+
+        run_div("buffer signed seed -20/3", DIV_DIV, 32'hFFFFFFEC, 32'd3, 32'hFFFFFFFA, OVERHEAD + 'd5);
+        run_div("buffer miss unsigned -20/3", DIV_DIVU, 32'hFFFFFFEC, 32'd3, 32'h5555554E, OVERHEAD + 'd32);
+
+        // ---------- reset should clear only buffer valid
+        run_div("buffer reset seed divu 20/3", DIV_DIVU, 32'd20, 32'd3, 32'd6, OVERHEAD + 'd5);
+        run_div_hit("buffer reset hit  divu 20/3", DIV_DIVU, 32'd20, 32'd3, 32'd6);
+
+        rst = 1'b1;
+        @(posedge clk); #1;
+        rst = 1'b0;
+        repeat (2) @(posedge clk);
+        #1;
+
+        run_div("buffer reset miss divu 20/3", DIV_DIVU, 32'd20, 32'd3, 32'd6, OVERHEAD + 'd5);
+
+        // ---------- invalidate old entry on real start, then keep invalid on flush
+        run_div("buffer old seed div 20/3", DIV_DIV, 32'd20, 32'd3, 32'd6, OVERHEAD + 'd5);
+
+        begin
+            @(posedge clk); #1;
+            a = 32'hFFFFFFFF;
+            b = 32'd7;
+            op = DIV_DIVU;
+            start = 1'b1;
+
+            @(posedge clk); #1;
+            start = 1'b0;
+
+            repeat (5) @(posedge clk); #1;
+            flush = 1'b1;
+
+            @(posedge clk); #1;
+            flush = 1'b0;
+
+            test_cnt++;
+            if (busy) begin
+                $display(
+                    "Test %3d @ cycle %4d: %-36s - busy still high after flush <-- ERROR",
+                    test_cnt, clk_cnt, "buffer invalidate flush"
+                );
+                err_cnt++;
+            end else begin
+                $display(
+                    "Test %3d @ cycle %4d: %-36s - OK",
+                    test_cnt, clk_cnt, "buffer invalidate flush"
+                );
+            end
+
+            run_div("buffer old miss after flush", DIV_DIV, 32'd20, 32'd3, 32'd6, OVERHEAD + 'd5);
+            run_div("buffer flush miss F/7", DIV_DIVU, 32'hFFFFFFFF, 32'd7, 32'h24924924, OVERHEAD + 'd32);
+        end
+
+        // ---------- flush should not seed buffer
+        begin
+            @(posedge clk); #1;
+            a = 32'hFFFFFFFF;
+            b = 32'd7;
+            op = DIV_DIVU;
+            start = 1'b1;
+
+            @(posedge clk); #1;
+            start = 1'b0;
+
+            repeat (5) @(posedge clk); #1;
+            flush = 1'b1;
+
+            @(posedge clk); #1;
+            flush = 1'b0;
+
+            test_cnt++;
+            if (busy) begin
+                $display(
+                    "Test %3d @ cycle %4d: %-36s - busy still high after flush <-- ERROR",
+                    test_cnt, clk_cnt, "buffer flush deasserts busy"
+                );
+                err_cnt++;
+            end else begin
+                $display(
+                    "Test %3d @ cycle %4d: %-36s - OK",
+                    test_cnt, clk_cnt, "buffer flush deasserts busy"
+                );
+            end
+        end
 
         done = 1'b1;
     end

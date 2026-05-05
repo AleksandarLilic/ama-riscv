@@ -26,8 +26,8 @@ typedef enum logic [1:0] {
 } state_t;
 
 typedef struct packed {
-    arch_width_t a, abs_a, abs_b;
-    logic op_rem, quot_neg, rem_neg;
+    arch_width_t a, b, abs_a, abs_b;
+    logic op_rem, op_uns, quot_neg, rem_neg;
     logic div_by_zero, overflow;
 } setup_t;
 
@@ -44,6 +44,11 @@ typedef struct packed {
     logic op_rem, quot_neg, rem_neg;
 } div_state_t;
 
+typedef struct packed {
+    arch_width_t a, b, quot, rem;
+    logic op_uns;
+} div_buf_t;
+
 //------------------------------------------------------------------------------
 // start conditions
 logic in_op_rem, in_op_uns, in_a_neg, in_b_neg;
@@ -53,6 +58,9 @@ assign in_a_neg = (!in_op_uns && a[W-1]);
 assign in_b_neg = (!in_op_uns && b[W-1]);
 assign in_abs_a = in_a_neg ? (~a + 1'b1) : a;
 assign in_abs_b = in_b_neg ? (~b + 1'b1) : b;
+
+logic in_overflow;
+assign in_overflow = (!in_op_uns && (a == 32'h8000_0000) && (b == {W{1'b1}}));
 
 logic op_rem, start_a_neg, start_neg;
 arch_width_t start_abs_a, start_abs_b;
@@ -93,11 +101,13 @@ arch_width_t start_pow2_quot, start_pow2_rem;
 assign start_div_by_zero = setup.div_by_zero;
 assign start_overflow = setup.overflow;
 assign start_less_than_divisor = (
-    start_clz_a_empty || (start_abs_a < start_abs_b)
+    !start_div_by_zero && (start_clz_a_empty || (start_abs_a < start_abs_b))
 );
 assign start_abs_b_m1 = (start_abs_b - 1'b1);
 assign start_pow2 = (
-    !start_clz_b_empty && ((start_abs_b & start_abs_b_m1) == '0)
+    !start_less_than_divisor &&
+    !start_clz_b_empty &&
+    ((start_abs_b & start_abs_b_m1) == '0)
 );
 assign start_pow2_shift = (CLZ_WIDTH'(W - 1) - start_clz_b);
 assign start_pow2_quot_mag = (start_abs_a >> start_pow2_shift);
@@ -115,18 +125,43 @@ assign start_special = (
     start_pow2
 );
 
-arch_width_t special_result;
+arch_width_t special_quot, special_rem, special_result;
 always_comb begin
-    special_result = '0;
-    if (start_div_by_zero) special_result = op_rem ? setup.a : {W{1'b1}};
-    else if (start_overflow) special_result = op_rem ? '0 : setup.a;
-    else if (start_less_than_divisor) special_result = op_rem ? setup.a : '0;
-    else if (start_pow2) special_result = op_rem ? start_pow2_rem : start_pow2_quot;
+    special_quot = '0;
+    special_rem = '0;
+    priority case (1'b1)
+        start_div_by_zero: begin
+            special_quot = {W{1'b1}};
+            special_rem = setup.a;
+        end
+
+        start_overflow: begin
+            special_quot = setup.a;
+            special_rem = '0;
+        end
+
+        start_less_than_divisor: begin
+            special_quot = '0;
+            special_rem = setup.a;
+        end
+
+        start_pow2: begin
+            special_quot = start_pow2_quot;
+            special_rem = start_pow2_rem;
+        end
+
+        default: begin
+        end
+    endcase
 end
+assign special_result = op_rem ? special_rem : special_quot;
 
 //------------------------------------------------------------------------------
 // common case
+state_t state, nx_state;
 div_state_t ds;
+div_buf_t db;
+logic db_valid;
 iter_t iter;
 
 assign iter.rem_shift = {ds.rem, ds.dividend[W-1]};
@@ -143,9 +178,20 @@ assign quot_fixed = ds.quot_neg ? (~ds.quot + 1'b1) : ds.quot;
 assign rem_mag = ds.rem;
 assign rem_fixed = ds.rem_neg ? (~rem_mag + 1'b1) : rem_mag;
 
+logic start_buf_hit;
+arch_width_t buf_result;
+assign start_buf_hit = (
+    (state == IDLE) &&
+    start &&
+    db_valid &&
+    (a == db.a) &&
+    (b == db.b) &&
+    (in_op_uns == db.op_uns)
+);
+assign buf_result = in_op_rem ? db.rem : db.quot;
+
 //------------------------------------------------------------------------------
 // state transition
-state_t state, nx_state;
 always_ff @(posedge clk) begin
     if (rst) state <= IDLE;
     else if (flush) state <= IDLE;
@@ -157,7 +203,7 @@ always_comb begin
     nx_state = state;
     unique case (state)
         IDLE: begin
-            if (start) nx_state = SETUP;
+            if (start && !start_buf_hit) nx_state = SETUP;
         end
 
         SETUP: begin
@@ -182,27 +228,49 @@ always_ff @(posedge clk) begin
     if (rst) begin
         ds <= '0;
         setup <= '0;
+        db_valid <= 1'b0;
+    end else if (flush) begin
     end else begin
         unique case (state)
             IDLE: begin
                 if (start) begin
-                    setup.a <= a;
-                    setup.abs_a <= in_abs_a;
-                    setup.abs_b <= in_abs_b;
-                    setup.op_rem <= in_op_rem;
-                    setup.quot_neg <= (in_a_neg ^ in_b_neg);
-                    setup.rem_neg <= in_a_neg;
-                    setup.div_by_zero <= (b == '0);
-                    setup.overflow <= (
-                        !in_op_uns && (a == 32'h8000_0000) && (b == {W{1'b1}})
-                    );
+                    if (start_buf_hit) begin
+                        // mirror the hit result into the holding register so
+                        // `result` does not fall back to an older value once
+                        // the combinational hit condition goes away
+                        ds.result <= buf_result;
+                    end else begin
+                        // miss: flop the request, invalidate the old buffer
+                        // entry, and let SETUP classify the operation
+                        setup.a <= a;
+                        setup.b <= b;
+                        setup.abs_a <= in_abs_a;
+                        setup.abs_b <= in_abs_b;
+                        setup.op_rem <= in_op_rem;
+                        setup.op_uns <= in_op_uns;
+                        setup.quot_neg <= (in_a_neg ^ in_b_neg);
+                        setup.rem_neg <= in_a_neg;
+                        setup.div_by_zero <= (b == '0);
+                        setup.overflow <= in_overflow;
+                        db.a <= a;
+                        db.b <= b;
+                        db.op_uns <= in_op_uns;
+                        db_valid <= 1'b0;
+                    end
                 end
             end
 
             SETUP: begin
                 if (start_special) begin
+                    // special-case completion: produce both outputs without
+                    // entering the iterative datapath and repopulate the buffer
                     ds.result <= special_result;
+                    db.quot <= special_quot;
+                    db.rem <= special_rem;
+                    db_valid <= 1'b1;
                 end else begin
+                    // regular divide: initialize the restoring datapath state
+                    // and enter the iteration loop on the next cycle
                     ds.dividend <= start_dividend_norm;
                     ds.divisor <= start_abs_b;
                     ds.quot <= '0;
@@ -215,6 +283,7 @@ always_ff @(posedge clk) begin
             end
 
             ITER: begin
+                // iterate one restoring-division step
                 ds.dividend <= iter.dividend_next;
                 ds.quot <= iter.quot_next;
                 ds.rem <= iter.rem_next;
@@ -222,16 +291,23 @@ always_ff @(posedge clk) begin
             end
 
             FIXUP: begin
+                // commit the final quotient/remainder, then mark the buffered
+                // entry as valid again for future combinational hits
                 ds.result <= ds.op_rem ? rem_fixed : quot_fixed;
+                db.quot <= quot_fixed;
+                db.rem <= rem_fixed;
+                db_valid <= 1'b1;
             end
 
             default: begin
+                // no state updates
             end
         endcase
     end
 end
 
-assign result = ds.result;
+// hits bypass the FSM combinationally; otherwise hold the last completed result
+assign result = start_buf_hit ? buf_result : ds.result;
 assign busy = (!flush && (state != IDLE));
 
 `ifndef SYNT
