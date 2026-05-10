@@ -27,9 +27,26 @@ typedef enum logic [1:0] {
 
 typedef struct packed {
     arch_width_t a, b, abs_a, abs_b;
-    logic op_rem, op_uns, quot_neg, rem_neg;
+    logic op_rem, op_uns;
+    logic a_neg, b_neg, quot_neg, rem_neg;
     logic div_by_zero, overflow;
-} setup_t;
+} data_in_t;
+
+typedef struct packed {
+    logic [CLZ_WIDTH-1:0] cnt_a, cnt_b;
+    logic empty_a, empty_b;
+    logic [COUNT_WIDTH-1:0] skip, iter_count;
+    arch_width_t dividend_norm;
+} setup_clz_t;
+
+typedef struct packed {
+    logic div_by_zero, overflow, less_than_divisor, pow2;
+    logic [CLZ_WIDTH-1:0] pow2_shift;
+    arch_width_t abs_b_m1;
+    arch_width_t pow2_quot_mag, pow2_rem_mag;
+    arch_width_t pow2_quot, pow2_rem;
+    logic start;
+} setup_special_t;
 
 typedef struct packed {
     logic subtract;
@@ -51,79 +68,67 @@ typedef struct packed {
 
 //------------------------------------------------------------------------------
 // start conditions
-logic in_op_rem, in_op_uns, in_a_neg, in_b_neg;
-arch_width_t in_abs_a, in_abs_b;
-assign {in_op_rem, in_op_uns} = op;
-assign in_a_neg = (!in_op_uns && a[W-1]);
-assign in_b_neg = (!in_op_uns && b[W-1]);
-assign in_abs_a = in_a_neg ? (~a + 1'b1) : a;
-assign in_abs_b = in_b_neg ? (~b + 1'b1) : b;
+data_in_t in;
+assign in.a = a;
+assign in.b = b;
+assign {in.op_rem, in.op_uns} = op;
+assign in.a_neg = (!in.op_uns && a[W-1]);
+assign in.b_neg = (!in.op_uns && b[W-1]);
+assign in.abs_a = in.a_neg ? (~a + 1'b1) : a;
+assign in.abs_b = in.b_neg ? (~b + 1'b1) : b;
+assign in.quot_neg = (in.a_neg ^ in.b_neg);
+assign in.rem_neg = in.a_neg;
+assign in.div_by_zero = (b == '0);
+assign in.overflow = (!in.op_uns && (a == 32'h8000_0000) && (b == {W{1'b1}}));
 
-logic in_div_by_zero, in_overflow;
-assign in_div_by_zero = (b == '0);
-assign in_overflow = (!in_op_uns && (a == 32'h8000_0000) && (b == {W{1'b1}}));
-
-logic op_rem, start_a_neg, start_neg;
-arch_width_t start_abs_a, start_abs_b;
-setup_t setup;
-assign op_rem = setup.op_rem;
-assign start_a_neg = setup.rem_neg;
-assign start_abs_a = setup.abs_a;
-assign start_abs_b = setup.abs_b;
-assign start_neg = setup.quot_neg;
+//------------------------------------------------------------------------------
+// setup
+data_in_t setup;
+setup_clz_t setup_clz;
 
 // count leading zeros
-logic start_clz_a_empty, start_clz_b_empty;
-logic [CLZ_WIDTH-1:0] start_clz_a, start_clz_b;
 lzc #(.WIDTH (W), .MODE (1'b1))
 lzc_dividend_i (
-    .in_i (start_abs_a), .cnt_o (start_clz_a), .empty_o (start_clz_a_empty)
+    .in_i (setup.abs_a), .cnt_o (setup_clz.cnt_a), .empty_o (setup_clz.empty_a)
 );
 
 lzc #(.WIDTH (W), .MODE (1'b1))
 lzc_divisor_i (
-    .in_i (start_abs_b), .cnt_o (start_clz_b), .empty_o (start_clz_b_empty)
+    .in_i (setup.abs_b), .cnt_o (setup_clz.cnt_b), .empty_o (setup_clz.empty_b)
 );
 
-logic [COUNT_WIDTH-1:0] start_clz_skip, start_iter_count;
-arch_width_t start_dividend_norm;
-assign start_clz_skip = {1'b0, start_clz_a};
-assign start_iter_count = (COUNT_WIDTH'(W) - start_clz_skip);
-assign start_dividend_norm = (start_abs_a << start_clz_skip);
+assign setup_clz.skip = {1'b0, setup_clz.cnt_a};
+assign setup_clz.iter_count = (COUNT_WIDTH'(W) - setup_clz.skip);
+assign setup_clz.dividend_norm = (setup.abs_a << setup_clz.skip);
 
 //------------------------------------------------------------------------------
 // special case?
-logic start_div_by_zero, start_overflow, start_less_than_divisor, start_pow2;
-logic [CLZ_WIDTH-1:0] start_pow2_shift;
-arch_width_t start_abs_b_m1;
-arch_width_t start_pow2_quot_mag, start_pow2_rem_mag;
-arch_width_t start_pow2_quot, start_pow2_rem;
+setup_special_t setup_sc;
 
-assign start_div_by_zero = setup.div_by_zero;
-assign start_overflow = setup.overflow;
-assign start_less_than_divisor = (
-    !start_div_by_zero && (start_clz_a_empty || (start_abs_a < start_abs_b))
+assign setup_sc.div_by_zero = setup.div_by_zero;
+assign setup_sc.overflow = setup.overflow;
+assign setup_sc.less_than_divisor = (
+    !setup_sc.div_by_zero && (setup_clz.empty_a || (setup.abs_a < setup.abs_b))
 );
-assign start_abs_b_m1 = (start_abs_b - 1'b1);
-assign start_pow2 = (
-    !start_less_than_divisor &&
-    !start_clz_b_empty &&
-    ((start_abs_b & start_abs_b_m1) == '0)
+assign setup_sc.abs_b_m1 = (setup.abs_b - 1'b1);
+assign setup_sc.pow2 = (
+    !setup_sc.less_than_divisor &&
+    !setup_clz.empty_b &&
+    ((setup.abs_b & setup_sc.abs_b_m1) == '0)
 );
-assign start_pow2_shift = (CLZ_WIDTH'(W - 1) - start_clz_b);
-assign start_pow2_quot_mag = (start_abs_a >> start_pow2_shift);
-assign start_pow2_rem_mag = (start_abs_a & start_abs_b_m1);
-assign start_pow2_quot = start_neg ?
-        (~start_pow2_quot_mag + 1'b1) : start_pow2_quot_mag;
-assign start_pow2_rem = start_a_neg ?
-    (~start_pow2_rem_mag + 1'b1) : start_pow2_rem_mag;
+assign setup_sc.pow2_shift = (CLZ_WIDTH'(W - 1) - setup_clz.cnt_b);
+assign setup_sc.pow2_quot_mag = (setup.abs_a >> setup_sc.pow2_shift);
+assign setup_sc.pow2_rem_mag = (setup.abs_a & setup_sc.abs_b_m1);
+assign setup_sc.pow2_quot = setup.quot_neg ?
+    (~setup_sc.pow2_quot_mag + 1'b1) : setup_sc.pow2_quot_mag;
+assign setup_sc.pow2_rem = setup.rem_neg ?
+    (~setup_sc.pow2_rem_mag + 1'b1) : setup_sc.pow2_rem_mag;
 
-logic start_special;
-assign start_special = (
-    start_div_by_zero ||
-    start_overflow ||
-    start_less_than_divisor ||
-    start_pow2
+assign setup_sc.start = (
+    setup_sc.div_by_zero ||
+    setup_sc.overflow ||
+    setup_sc.less_than_divisor ||
+    setup_sc.pow2
 );
 
 arch_width_t special_quot, special_rem, special_result;
@@ -131,38 +136,36 @@ always_comb begin
     special_quot = '0;
     special_rem = '0;
     priority case (1'b1)
-        start_div_by_zero: begin
+        setup_sc.div_by_zero: begin
             special_quot = {W{1'b1}};
             special_rem = setup.a;
         end
 
-        start_overflow: begin
+        setup_sc.overflow: begin
             special_quot = setup.a;
             special_rem = '0;
         end
 
-        start_less_than_divisor: begin
+        setup_sc.less_than_divisor: begin
             special_quot = '0;
             special_rem = setup.a;
         end
 
-        start_pow2: begin
-            special_quot = start_pow2_quot;
-            special_rem = start_pow2_rem;
+        setup_sc.pow2: begin
+            special_quot = setup_sc.pow2_quot;
+            special_rem = setup_sc.pow2_rem;
         end
 
         default: begin
         end
     endcase
 end
-assign special_result = op_rem ? special_rem : special_quot;
+assign special_result = setup.op_rem ? special_rem : special_quot;
 
 //------------------------------------------------------------------------------
 // common case
 state_t state, nx_state;
 div_state_t ds;
-div_result_cache_t div_cache;
-logic div_cache_valid;
 iter_t iter;
 
 assign iter.rem_shift = {ds.rem, ds.dividend[W-1]};
@@ -179,17 +182,22 @@ assign quot_fixed = ds.quot_neg ? (~ds.quot + 1'b1) : ds.quot;
 assign rem_mag = ds.rem;
 assign rem_fixed = ds.rem_neg ? (~rem_mag + 1'b1) : rem_mag;
 
-logic start_div_cache_hit;
-arch_width_t div_cache_result;
+//------------------------------------------------------------------------------
+// divider cache
+div_result_cache_t div_cache;
+logic div_cache_valid, start_div_cache_hit;
+
 assign start_div_cache_hit = (
     (state == IDLE) &&
     start &&
     div_cache_valid &&
     (a == div_cache.a) &&
     (b == div_cache.b) &&
-    (in_op_uns == div_cache.op_uns)
+    (in.op_uns == div_cache.op_uns)
 );
-assign div_cache_result = in_op_rem ? div_cache.rem : div_cache.quot;
+
+arch_width_t div_cache_result;
+assign div_cache_result = in.op_rem ? div_cache.rem : div_cache.quot;
 
 //------------------------------------------------------------------------------
 // state transition
@@ -208,7 +216,7 @@ always_comb begin
         end
 
         SETUP: begin
-            nx_state = start_special ? IDLE : ITER;
+            nx_state = setup_sc.start ? IDLE : ITER;
         end
 
         ITER: begin
@@ -237,28 +245,19 @@ always_ff @(posedge clk) begin
                 if (start) begin
                     if (start_div_cache_hit) begin
                         // mirror the hit result into the holding register so
-                        // `result` does not fall back to an older value once
+                        // 'result' does not fall back to an older value once
                         // the combinational hit condition goes away
                         ds.result <= div_cache_result;
                     end else begin
                         // miss: flop the request and let SETUP decide whether
                         // this is a special case or real iterative work
-                        setup.a <= a;
-                        setup.b <= b;
-                        setup.abs_a <= in_abs_a;
-                        setup.abs_b <= in_abs_b;
-                        setup.op_rem <= in_op_rem;
-                        setup.op_uns <= in_op_uns;
-                        setup.quot_neg <= (in_a_neg ^ in_b_neg);
-                        setup.rem_neg <= in_a_neg;
-                        setup.div_by_zero <= in_div_by_zero;
-                        setup.overflow <= in_overflow;
+                        setup <= in;
                     end
                 end
             end
 
             SETUP: begin
-                if (start_special) begin
+                if (setup_sc.start) begin
                     // special-case completion: produce the result without
                     // entering the iterative datapath; do not refill the
                     // single-entry div_cache with cheap one-cycle operations
@@ -266,14 +265,14 @@ always_ff @(posedge clk) begin
                 end else begin
                     // regular divide: initialize the restoring datapath state,
                     // invalidate the old div_cache entry, and enter ITER next
-                    ds.dividend <= start_dividend_norm;
-                    ds.divisor <= start_abs_b;
+                    ds.dividend <= setup_clz.dividend_norm;
+                    ds.divisor <= setup.abs_b;
                     ds.quot <= '0;
                     ds.rem <= '0;
-                    ds.iter_count <= start_iter_count;
-                    ds.op_rem <= op_rem;
-                    ds.quot_neg <= start_neg;
-                    ds.rem_neg <= start_a_neg;
+                    ds.iter_count <= setup_clz.iter_count;
+                    ds.op_rem <= setup.op_rem;
+                    ds.quot_neg <= setup.quot_neg;
+                    ds.rem_neg <= setup.rem_neg;
                     div_cache.a <= setup.a;
                     div_cache.b <= setup.b;
                     div_cache.op_uns <= setup.op_uns;
@@ -327,7 +326,7 @@ assert property (@(posedge clk) disable iff (rst)
 
 // at FIXUP entry, quotient * divisor + rem == |dividend| (unsigned magnitudes)
 assert property (@(posedge clk) disable iff (rst)
-    (state == FIXUP) |-> ((ds.quot * ds.divisor + ds.rem) == start_abs_a)
+    (state == FIXUP) |-> ((ds.quot * ds.divisor + ds.rem) == setup.abs_a)
 );
 `endif
 
