@@ -1,12 +1,14 @@
 # RISC-V core
 
-SystemVerilog implementation of RISC-V RV32I_Zmmul & custom packed SIMD ISA as a 5-stage scalar M-mode core, with L1 caches and branch predictors  
+SystemVerilog implementation of RISC-V RV32IM & custom packed SIMD ISA as a 5-stage scalar M-mode core, with L1 caches and branch predictors  
 
 - [RISC-V core](#risc-v-core)
 - [Getting the project](#getting-the-project)
   - [Prerequisites](#prerequisites)
   - [Quick start](#quick-start)
 - [Microarchitecture](#microarchitecture)
+  - [High-level description](#high-level-description)
+    - [Hierarchy](#hierarchy)
 - [Measured Performance - FPGA emulation](#measured-performance---fpga-emulation)
   - [Plots and data](#plots-and-data)
 - [Verification](#verification)
@@ -83,11 +85,71 @@ Add `-k` to keep the build and `-p` to keep already passed tests (together with 
 run --testlist ../testlist.yaml -r testrun_demo -c 5000 -f "riscv_isa_rv32i" -kp
 ```
 
-Running `-v VERBOSE` should be done with care since it will slow down execution. For short tests, the difference is insignificant, while for longer once it can add minutes to the simulation time, and create a large log.
+Running `-v VERBOSE` should be done with care since it will slow down execution. For short tests, the difference is insignificant, while for longer ones it can add minutes to the simulation time, and create a large log.  
+Similarly, running with `-testplusarg enable_konata` and `-testplusarg prof_trace` can create large kanata and profiler trace logs.  
 
 # Microarchitecture
 
 ![](docs/uarch.png)
+
+## High-level description
+
+Core microarchitecture follows a fairly standard 5-stage single issue RISC-style pipeline:
+- FET:
+  - Core select PC source.
+  - Icache does address generation and tag lookup.
+  - Branch predictor logically sits here.
+- FET_DEC pipe:
+  - Icache responds with one instruction.
+  - Next PC is prepared.
+- DEC:
+  - Core decodes the instruction, generates immediate-based next PC for conditional direct branches (`b*`) and unconditional direct branches (`jal`).
+  - Pipeline information is sent to the branch predictor; Next PC is predicted and frontend redirected if needed.
+- DEC_EXE pipe:
+  - Operands are propagated to EXE stage.
+- EXE:
+  - Core executes most of the instructions in this one cycle.
+  - RV32 multiplier and SIMD finish first (out of two) execution cycle.
+  - RV32 iterative divider starts, takes 0 to 34 cycles to finish (data dependent).
+  - First part of Dcache address generation is done.
+- EXE_MEM pipe:
+  - Available results are propagated to MEM stage.
+  - RV32 multiplier and SIMD unit propagates first stage results.
+  - Branch results are propagated to MEM stage.
+- MEM:
+  - RV32 multiplier and SIMD unit finishes second execution cycle.
+  - Resolution of conditional direct branches (`b*`) and unconditional indirect branches (`jalr`) is available.
+  - On branch miss or `jalr` instruction, frontend is redirected, taking 2 cycle miss penalty (`b*`) or 2 cycle stall (`jalr`).
+  - Dcache does second part of the address generation, and tag lookup.
+- MEM_WBK pipe:
+  - Available results are propagated to WBK stage.
+  - RV32 multiplier and SIMD results are propagated to WBK stage
+  - Dcache loads or stores data.
+- WBK:
+  - Result from RV32 multiplier and SIMD unit is ready
+  - Dcache returns loaded data.
+- RETIRE pipe:
+  - Instruction retires, optionally writes to RF.
+  - Performance events about this cycle are collected.
+
+### Hierarchy
+```sh
+ama_riscv_top               # Design top
+├── ama_riscv_core_top      # Core & caches wrapper
+│   ├── ama_riscv_core      # CPU pipeline
+│   │   ├── ...             # All core modules
+│   ├── ama_riscv_icache    # L1 instruction cache
+│   │   └── mem             # memory banks
+│   └── ama_riscv_dcache    # L1 data cache
+│       └── mem             # memory banks
+├── ama_riscv_mem           # Unified backing memory
+└── ama_riscv_uart          # Memory-mapped UART
+    └── uart                # TX & RX subsystem
+        ├── ...             # TX & RX PHYs
+```
+
+For verification, `ama_riscv_top` is instantiated as DUT in the `ama_riscv_tb` testbench.  
+For FPGA emulation, `ama_riscv_top` is instantiated in the `ama_riscv_fpga` FPGA wrapper.
 
 # Measured Performance - FPGA emulation
 
@@ -107,7 +169,7 @@ Emulation is ran at 50MHz on Arty A7-100T board. Since the design is fully synch
 
 SIMD ISA improvements on MLP, measured in inferences per second
 
-| Flavor | `RV32I_Zmmul`<br>[inf/s] | `RV32I_Zmmul_Xsimd`<br>[inf/s] | Improvement |
+| Flavor | `RV32IM`<br>[inf/s] | `RV32IM_Xsimd`<br>[inf/s] | Improvement |
 | ---- | --- | ---- | ---- |
 | w8a8 | 238 | 1968 | 8.3x |
 | w4a8 | 228 | 1984 | 8.7x |
@@ -350,7 +412,7 @@ This replaces HW models present in the ISA sim
 ```
 
 ## Kanata log
-Kanata (pipeline visualizer) log is available as `<test_tag>.kanata.log`
+Konata tool is used to visualize the pipeline and instruction execution. Kanata log is available as `<test_tag>.kanata.log`
 
 ![](examples/dhrystone_dhrystone_out_cosim/konata.png)
 
