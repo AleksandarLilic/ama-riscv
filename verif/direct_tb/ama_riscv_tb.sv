@@ -150,27 +150,33 @@ logic rst;
 logic inst_retired;
 logic uart_serial_in;
 logic uart_serial_out;
-ama_riscv_top #(.CLOCK_FREQ (CLOCK_FREQ), .UART_BR (BR_921600)) `DUT ( .* );
+ama_riscv_top #(.CLOCK_FREQ (CLOCK_FREQ), .UART_BR (BR_921600)) `DUT (
+    .clk,
+    .rst,
+    .uart_serial_in,
+    .uart_serial_out,
+    .inst_retired
+);
 
 // bind to a specific instance
 bind `CORE ama_riscv_core_view ama_riscv_core_view_i (
-    .clk (clk),
-    .rst (rst),
-    .imem_req (imem_req),
-    .imem_rsp (imem_rsp),
-    .dmem_req (dmem_req),
-    .spec (spec),
-    .inst_retired (inst_retired),
+    .clk,
+    .rst,
+    .imem_req,
+    .imem_rsp,
+    .dmem_req,
+    .spec,
+    .inst_retired,
     // internal
-    .ctrl_dec_exe (ctrl_dec_exe),
-    .ctrl_exe_mem (ctrl_exe_mem),
-    .ctrl_mem_wbk (ctrl_mem_wbk),
-    .ctrl_wbk_ret (ctrl_wbk_ret),
-    .be_stalled_d (be_stalled_d),
-    .decoded_exe (decoded_exe),
-    .branch_resolution_mem (branch_resolution_mem),
-    .csr_tohost (`CSR.csr.tohost), // this
-    .dc_stalled (dc_stalled)
+    .ctrl_dec_exe,
+    .ctrl_exe_mem,
+    .ctrl_mem_wbk,
+    .ctrl_wbk_ret,
+    .be_stalled_d,
+    .decoded_exe,
+    .branch_resolution_mem,
+    .csr_tohost (`CSR.csr.tohost),
+    .dc_stalled
 );
 
 rv_if #(.DW(8)) recv_rsp_ch ();
