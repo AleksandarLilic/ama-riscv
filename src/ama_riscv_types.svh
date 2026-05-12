@@ -488,12 +488,12 @@ typedef struct packed {
 
 parameter bp_static_t BP_STATIC_TYPE = BP_STATIC_BTFN;
 parameter bp_t BP_1_TYPE = BP_BIMODAL;
-parameter unsigned BP_1_PC_BITS = 5;
+parameter unsigned BP_1_PC_BITS = 7;
 parameter unsigned BP_1_CNT_BITS = 3;
 parameter bp_t BP_2_TYPE = BP_GLOBAL;
-parameter unsigned BP_2_GHR_BITS = 9;
+parameter unsigned BP_2_GHR_BITS = 8;
 parameter unsigned BP_2_CNT_BITS = 1;
-parameter unsigned BP_C_PC_BITS = 4;
+parameter unsigned BP_C_PC_BITS = 6;
 parameter unsigned BP_C_CNT_BITS = 4;
 
 //parameter bp_t BP_TYPE = BP_STATIC; // static
