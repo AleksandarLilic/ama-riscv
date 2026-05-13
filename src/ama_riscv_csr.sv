@@ -9,7 +9,6 @@ module ama_riscv_csr #(
     input  arch_width_t in,
     input  logic [4:0] imm5,
     input  csr_addr_t addr,
-    input  logic inst_to_be_retired,
     input  perf_event_t perf_events,
     output arch_width_t out
 );
@@ -181,7 +180,7 @@ always_ff @(posedge clk) begin
     end else if (ctrl.we && (|am_minstret)) begin
         if (am_minstret[0]) csr.minstret.r[CSR_LOW] <= wr_data;
         else csr.minstret.r[CSR_HIGH] <= wr_data;
-    end else if (inst_to_be_retired) begin
+    end else if (perf_events.ret_inst) begin
         csr.minstret <= (csr.minstret + 64'h1);
     end
 end

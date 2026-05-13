@@ -408,6 +408,7 @@ typedef struct packed {
 } dmem_req_side_t;
 
 typedef struct packed {
+    logic ret_inst;
     logic bad_spec; // tda
     logic stall_be; // tda
     logic stall_l1d; // tda

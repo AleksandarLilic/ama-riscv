@@ -558,18 +558,16 @@ assign simd_out_p_mem = simd_out.w[1];
 
 // CSR
 arch_width_t csr_out_exe;
-logic inst_to_be_retired; // from retire pipeline
 ama_riscv_csr #(
     .CLOCK_FREQ(CLOCK_FREQ)
 ) ama_riscv_csr_i (
-    .clk (clk),
-    .rst (rst),
+    .clk,
+    .rst,
     .ctrl (decoded_exe.csr_ctrl),
     .in (op_a_r),
     .imm5 (csr_imm5_exe),
     .addr (csr_addr_exe),
-    .inst_to_be_retired (inst_to_be_retired),
-    .perf_events (perf_events),
+    .perf_events,
     .out (csr_out_exe)
 );
 
@@ -768,10 +766,6 @@ always_comb begin
     else writeback_p = e_writeback_p_wbk;
 end
 
-assign inst_to_be_retired = (
-    pc_nz.wbk && !(ctrl_wbk_ret.flush || ctrl_wbk_ret.bubble)
-);
-
 //------------------------------------------------------------------------------
 // retire
 assign ctrl_wbk_ret = '{flush: flush.wbk, en: 1'b1, bubble: (!ctrl_mem_wbk.en)};
@@ -794,26 +788,30 @@ end
 
 `DFF_CI_RI_RVI(ct_gen.wbk, ct.ret)
 
-assign inst_retired = pc_nz.ret;
-
 //------------------------------------------------------------------------------
 // perf
 perf_event_t cpe; // collect perf events
-logic fe_unblocked;
+logic fe_unblocked, be_unblocked;
 always_comb begin
     cpe = '0;
     fe_unblocked = '0;
+    be_unblocked = '0;
+    cpe.ret_inst = pc_nz.ret;
+    inst_retired = cpe.ret_inst; // core output
     // stalls
-    if (!inst_retired) begin
+    if (!cpe.ret_inst) begin
         cpe.bad_spec = ct.ret.bad_spec;
         // be
-        cpe.stall_be = (ct.ret.stall_l1d || ct.ret.stall_be_core);
-        cpe.stall_l1d = ct.ret.stall_l1d;
-        cpe.stall_l1d_r = ct.ret.stall_l1d_r;
-        cpe.stall_l1d_w = ct.ret.stall_l1d_w;
-        cpe.stall_simd = ct.ret.stall_simd;
-        cpe.stall_div = ct.ret.stall_div;
-        cpe.stall_load = ct.ret.stall_load;
+        be_unblocked = (!cpe.bad_spec);
+        if (be_unblocked) begin
+            cpe.stall_be = (ct.ret.stall_l1d || ct.ret.stall_be_core);
+            cpe.stall_l1d = ct.ret.stall_l1d;
+            cpe.stall_l1d_r = ct.ret.stall_l1d_r;
+            cpe.stall_l1d_w = ct.ret.stall_l1d_w;
+            cpe.stall_simd = ct.ret.stall_simd;
+            cpe.stall_div = ct.ret.stall_div;
+            cpe.stall_load = ct.ret.stall_load;
+        end
         // fe
         fe_unblocked = (!cpe.bad_spec && !cpe.stall_be);
         if (fe_unblocked) begin
