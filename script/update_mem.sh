@@ -2,9 +2,9 @@
 
 # NOTES
 # 0. assumed that the design is already synthesized and bitstream generated
-# 1. run `write_mem_info design.mmi -force` in the <project_dir>
-# 2. `export SW_DIR=<path_to_sim/sw/baremetal>`
-# 3. run this script from synt dir, e.g. <project_dir>/synt_proj.runs/impl_1
+# 1. `write_mem_info design.mmi -force` in the <project_dir> (vivado tcl shell)
+# 2. `export SW_DIR=<path_to_sim/sw/baremetal>` (shell)
+# 3. run from synt dir, e.g. <project_dir>/synt_proj.runs/impl_1 (shell)
 
 # check if SW_DIR is set
 if [ -z "$SW_DIR" ]; then

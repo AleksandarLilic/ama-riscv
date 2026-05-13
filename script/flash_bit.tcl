@@ -2,6 +2,7 @@
 # NOTES
 # first `set synth_dir "<path_to_synt_dir>"` as path to the vivado synt dir
 # e.g. <project_dir>/synt_proj.runs/impl_1
+# run from vivado tcl shell: `source script/flash_bit.tcl`
 
 set device xc7a100t_0
 
@@ -17,13 +18,13 @@ lappend workloads {"ama_riscv_fpga.mlp.w2a8.bit"                 2}
 
 lappend workloads {"ama_riscv_fpga.embench.aha-mont64.bit"       8}
 lappend workloads {"ama_riscv_fpga.embench.crc32.bit"            8}
-lappend workloads {"ama_riscv_fpga.embench.cubic.bit"            40}
+lappend workloads {"ama_riscv_fpga.embench.cubic.bit"            15}
 lappend workloads {"ama_riscv_fpga.embench.edn.bit"              8}
 lappend workloads {"ama_riscv_fpga.embench.huffbench.bit"        8}
 lappend workloads {"ama_riscv_fpga.embench.matmult-int.bit"      8}
 lappend workloads {"ama_riscv_fpga.embench.md5sum.bit"           8}
-lappend workloads {"ama_riscv_fpga.embench.minver.bit"           25}
-lappend workloads {"ama_riscv_fpga.embench.nbody.bit"            25}
+lappend workloads {"ama_riscv_fpga.embench.minver.bit"           10}
+lappend workloads {"ama_riscv_fpga.embench.nbody.bit"            8}
 lappend workloads {"ama_riscv_fpga.embench.nettle-aes.bit"       8}
 lappend workloads {"ama_riscv_fpga.embench.nettle-sha256.bit"    8}
 lappend workloads {"ama_riscv_fpga.embench.nsichneu.bit"         8}
@@ -32,7 +33,7 @@ lappend workloads {"ama_riscv_fpga.embench.primecount.bit"       8}
 lappend workloads {"ama_riscv_fpga.embench.qrduino.bit"          8}
 lappend workloads {"ama_riscv_fpga.embench.sglib-combined.bit"   8}
 lappend workloads {"ama_riscv_fpga.embench.slre.bit"             8}
-lappend workloads {"ama_riscv_fpga.embench.st.bit"               25}
+lappend workloads {"ama_riscv_fpga.embench.st.bit"               8}
 lappend workloads {"ama_riscv_fpga.embench.statemate.bit"        8}
 lappend workloads {"ama_riscv_fpga.embench.tarfind.bit"          8}
 lappend workloads {"ama_riscv_fpga.embench.ud.bit"               8}
