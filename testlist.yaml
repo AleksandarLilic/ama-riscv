@@ -1,7 +1,6 @@
 simple:
   - ["sim/sw/baremetal/asm_rv32i", "test.mem"]
   - ["sim/sw/baremetal/asm_rv32i_branches", "test.mem"]
-  - ["sim/sw/baremetal/asm_rv32i_zicsr", "test.mem"]
   - ["sim/sw/baremetal/asm_rv32im", "test.mem"]
   - ["sim/sw/baremetal/asm_rv32i_zbb_min-max", "test.mem"]
 
@@ -20,6 +19,9 @@ simple:
   - ["sim/sw/baremetal/prime_numbers", "n_3000.mem"]
   - ["sim/sw/baremetal/vector_ew_al_uint8", "test.mem"]
   - ["sim/sw/baremetal/vector_ew_mac_uint8", "test.mem"]
+
+csr:
+  - ["sim/sw/baremetal/asm_rv32i_zicsr", "test.mem"]
 
 perf_cnts:
   - ["sim/sw/baremetal/asm_rv32i_zihpm", "test.mem"]
