@@ -34,38 +34,68 @@ MMI=../../design.mmi
 PROC=ama_riscv_top_i/ama_riscv_mem_i/u_mem/xpm_memory_base_inst
 BIT_NAME=ama_riscv_fpga
 
+fail_file="update_mem_tmp_$$" # append pid to avoid conflicts
+
+check_fail() {
+    local msg="$1"
+    echo "Error: $msg"
+    touch "$fail_file"
+    exit 1
+}
+
+check_inputs() {
+    local mem_file="$1"
+    [ -f "$mem_file" ]     || check_fail "$mem_file not found"
+    [ -f "$BIT_NAME.bit" ] || check_fail "$BIT_NAME.bit not found"
+    [ -f "$MMI" ]          || check_fail "$MMI not found"
+}
+
+updatemem_check() {
+    if [ $? -ne 0 ]; then
+        check_fail "updatemem failed"
+    fi
+}
+
 run_g() {
     local wl="$1"
     local test_name="$2"
+    local mem_file="$SW_DIR/$wl/$test_name.mem"
     echo "Running $wl/$test_name"
 
+    check_inputs "$mem_file"
     updatemem -meminfo $MMI \
-    -data "$SW_DIR"/"$wl"/"$test_name".mem \
+    -data "$mem_file" \
     -bit $BIT_NAME.bit \
     -proc $PROC \
     -out $BIT_NAME."$wl"."$test_name".bit \
     -force >> "${run_name}.log"
+    updatemem_check
 }
 
 run_emb() {
     local test_name="$1"
     local wl_emb=embench
+    local mem_file="$SW_DIR/$wl_emb/$test_name/$wl_emb.mem"
     echo "Running $wl_emb/$test_name"
 
+    check_inputs "$mem_file"
     updatemem -meminfo $MMI \
-    -data "$SW_DIR"/"$wl_emb"/"$test_name"/"$wl_emb".mem \
+    -data "$mem_file" \
     -bit $BIT_NAME.bit \
     -proc $PROC \
     -out $BIT_NAME."$wl_emb"."$test_name".bit \
     -force >> "${run_name}.log"
+    updatemem_check
 }
 
 jobs_running=0
 run_job() {
     # $1 = type: "g" or "emb", rest = args
+    [ -f "$fail_file" ] && return
     if (( jobs_running >= MAX_JOBS )); then
         wait -n # wait for any one job to finish
         (( jobs_running-- ))
+        [ -f "$fail_file" ] && return
     fi
     "$@" &
     (( jobs_running++ ))
@@ -105,3 +135,9 @@ run_job run_emb ud
 run_job run_emb wikisort
 
 wait # for all remaining jobs
+
+if [ -f "$fail_file" ]; then
+    rm "$fail_file"
+    echo "Error: one or more updatemem jobs failed"
+    exit 1
+fi
