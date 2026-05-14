@@ -1,11 +1,11 @@
 2K performance run parameters for coremark.
 CoreMark Size    : 666
-Total ticks      : 11604077
+Total ticks      : 11607789
 Total time (secs): 11
 Iterations/Sec   : 145
 Iterations       : 1600
 Compiler version : GCC14.2.1 20240809
-Compiler flags   : -O2 -flto -Wall -Werror -march=rv32i_zmmul_zicsr_zifencei_zicntr_xsimd -mabi=ilp32 -mcmodel=medany -mstrict-align -mcsr-check -static -fno-pic -nostdlib -nostartfiles -ffreestanding -g -ffunction-sections -fdata-sections -msmall-data-limit=8 -T /home/alek/dev/ama-riscv/sim/sw/baremetal/common/link.ld -Wl,--build-id=none -Wl,--gc-sections -Wl,--no-warn-rwx-segments
+Compiler flags   : -O2 -flto -Wall -Werror -march=rv32im_zicsr_zifencei_zicntr_xsimd -mabi=ilp32 -mcmodel=medany -mstrict-align -mcsr-check -static -fno-pic -nostdlib -nostartfiles -ffreestanding -g -ffunction-sections -fdata-sections -msmall-data-limit=8 -T /home/alek/dev/ama-riscv/sim/sw/baremetal/common/link.ld -Wl,--build-id=none -Wl,--gc-sections -Wl,--no-warn-rwx-segments
 Memory location  : STACK
 seedcrc          : 0xe9f5
 [0]crclist       : 0xe714

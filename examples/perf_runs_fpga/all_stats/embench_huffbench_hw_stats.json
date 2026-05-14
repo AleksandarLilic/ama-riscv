@@ -1,35 +1,35 @@
 {
     "core": {
-        "cycles": 130613183,
-        "empty": 11731177,
-        "stalls": 3438796,
-        "lost": 8292381,
-        "lost_other": 1707,
-        "bad_spec": 8290674,
-        "stall_be": 3320910,
-        "stall_l1d": 908598,
-        "stall_be_core": 2412312,
-        "stall_fe": 117886,
-        "stall_l1i": 169,
+        "cycles": 130081934,
+        "empty": 11199927,
+        "stalls": 3426718,
+        "lost": 7773209,
+        "lost_other": 2807,
+        "bad_spec": 7770402,
+        "stall_be": 3308844,
+        "stall_l1d": 897632,
+        "stall_be_core": 2411212,
+        "stall_fe": 117874,
+        "stall_l1i": 157,
         "stall_fe_core": 117717,
-        "ret": 118882006,
+        "ret": 118882007,
         "ret_simd": 0,
-        "ret_int": 118882006,
+        "ret_int": 118882007,
         "ret_ctrl_flow_br": 24952404,
-        "bp_miss": 4145342,
-        "l1i_ref": 127172146,
-        "l1i_miss": 44,
+        "bp_miss": 3885203,
+        "l1i_ref": 126651871,
+        "l1i_miss": 40,
         "l1d_ref": 29154422,
-        "l1d_miss": 95701,
-        "ipc": 0.91
+        "l1d_miss": 94606,
+        "ipc": 0.914
     },
     "icache": {
-        "references": 127172146,
+        "references": 126651871,
         "hits": {
-            "all": 127172102
+            "all": 126651831
         },
         "misses": {
-            "all": 44
+            "all": 40
         },
         "hr": 100.0,
         "mpki": 0.0
@@ -37,18 +37,18 @@
     "dcache": {
         "references": 29154422,
         "hits": {
-            "all": 29058721
+            "all": 29059816
         },
         "misses": {
-            "all": 95701
+            "all": 94606
         },
-        "hr": 99.67,
-        "mpki": 0.81
+        "hr": 99.68,
+        "mpki": 0.8
     },
     "bpred": {
-        "predicted": 20807062,
-        "mispredicted": 4145342,
-        "accuracy": 83.39,
-        "mpki": 34.87
+        "predicted": 21067201,
+        "mispredicted": 3885203,
+        "accuracy": 84.43,
+        "mpki": 32.68
     }
 }

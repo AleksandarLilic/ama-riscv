@@ -1,43 +1,43 @@
 embench_aha-mont64
-IPC: 0.957
+IPC: 0.959
          L1        L2     cycles cycles_e
-0      lost  bad_spec    9940560     9.9M
-1      lost     other         62     62.0
-2  frontend    icache         97     97.0
-3  frontend      core     126917   126.9k
+0      lost  bad_spec    9475330     9.5M
+1      lost     other         61     61.0
+2  frontend    icache         91     91.0
+3  frontend      core     126915   126.9k
 4   backend    dcache          0      0.0
 5   backend      core      84612    84.6k
-6  retiring   integer  224718872   224.7M
+6  retiring   integer  224718869   224.7M
 7  retiring      simd          0      0.0
 
 Performance Counters for 'embench_aha-mont64'
    class          counter     count count_e
-  cycles           cycles 234871120  234.9M
-     ret              ret 224718872  224.7M
-   stall           stalls    211626  211.6k
-    lost             lost   9940622    9.9M
-   ret_*          ret_int 224718872  224.7M
+  cycles           cycles 234405878  234.4M
+     ret              ret 224718869  224.7M
+   stall           stalls    211618  211.6k
+    lost             lost   9475391    9.5M
+   ret_*          ret_int 224718869  224.7M
    ret_* ret_ctrl_flow_br  22905454   22.9M
    ret_*         ret_simd         0     0.0
  stall_*         stall_be     84612   84.6k
  stall_*    stall_be_core     84612   84.6k
- stall_*         stall_fe    127014  127.0k
- stall_*    stall_fe_core    126917  126.9k
+ stall_*         stall_fe    127006  127.0k
+ stall_*    stall_fe_core    126915  126.9k
  stall_*        stall_l1d         0     0.0
- stall_*        stall_l1i        97    97.0
-bad_spec         bad_spec   9940560    9.9M
-   l1i_*          l1i_ref 234659453  234.7M
+ stall_*        stall_l1i        91    91.0
+bad_spec         bad_spec   9475330    9.5M
+   l1i_*          l1i_ref 234194220  234.2M
    l1i_*         l1i_miss        21    21.0
    l1d_*          l1d_ref    486503  486.5k
    l1d_*         l1d_miss         0     0.0
-    bp_*          bp_miss   4970287    5.0M
+    bp_*          bp_miss   4737668    4.7M
 
 
 core:
-    Cycles: 234.9M, Retired: 224.7M, Empty: 10.2M, IPC: 0.957 
+    Cycles: 234.4M, Retired: 224.7M, Empty: 9.7M, IPC: 0.959 
 icache:
-    Ref: 234.7M, H: 234.7M, M: 21.0, HR: 100.00%, MPKI: 0.00 
+    Ref: 234.2M, H: 234.2M, M: 21.0, HR: 100.00%, MPKI: 0.00 
 dcache:
     Ref: 486.5k, H: 486.5k, M: 0.0, HR: 100.00%, MPKI: 0.00 
 bpred:
-    P: 17.9M, M: 5.0M, ACC: 78.30%, MPKI: 22.12 
+    P: 18.2M, M: 4.7M, ACC: 79.32%, MPKI: 21.08 

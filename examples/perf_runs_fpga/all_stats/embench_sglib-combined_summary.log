@@ -1,43 +1,43 @@
 embench_sglib-combined
-IPC: 0.815
+IPC: 0.829
          L1        L2     cycles cycles_e
-0      lost  bad_spec   12771612    12.8M
-1      lost     other         66     66.0
-2  frontend    icache     122004   122.0k
-3  frontend      core    3039217     3.0M
-4   backend    dcache     820768   820.8k
-5   backend      core    9555511     9.6M
+0      lost  bad_spec   10445790    10.4M
+1      lost     other         57     57.0
+2  frontend    icache     121957   122.0k
+3  frontend      core    3039218     3.0M
+4   backend    dcache     826632   826.6k
+5   backend      core    9555512     9.6M
 6  retiring   integer  116050832   116.1M
 7  retiring      simd          0      0.0
 
 Performance Counters for 'embench_sglib-combined'
    class          counter     count count_e
-  cycles           cycles 142360010  142.4M
+  cycles           cycles 140039998  140.0M
      ret              ret 116050832  116.1M
-   stall           stalls  13537500   13.5M
-    lost             lost  12771678   12.8M
+   stall           stalls  13543319   13.5M
+    lost             lost  10445847   10.4M
    ret_*          ret_int 116050832  116.1M
    ret_* ret_ctrl_flow_br  25911504   25.9M
    ret_*         ret_simd         0     0.0
- stall_*         stall_be  10376279   10.4M
- stall_*    stall_be_core   9555511    9.6M
- stall_*         stall_fe   3161221    3.2M
- stall_*    stall_fe_core   3039217    3.0M
- stall_*        stall_l1d    820768  820.8k
- stall_*        stall_l1i    122004  122.0k
-bad_spec         bad_spec  12771612   12.8M
-   l1i_*          l1i_ref 128818111  128.8M
-   l1i_*         l1i_miss    165347  165.3k
+ stall_*         stall_be  10382144   10.4M
+ stall_*    stall_be_core   9555512    9.6M
+ stall_*         stall_fe   3161175    3.2M
+ stall_*    stall_fe_core   3039218    3.0M
+ stall_*        stall_l1d    826632  826.6k
+ stall_*        stall_l1i    121957  122.0k
+bad_spec         bad_spec  10445790   10.4M
+   l1i_*          l1i_ref 126480691  126.5M
+   l1i_*         l1i_miss     37734   37.7k
    l1d_*          l1d_ref  44011893   44.0M
-   l1d_*         l1d_miss     82659   82.7k
-    bp_*          bp_miss   6385813    6.4M
+   l1d_*         l1d_miss     82666   82.7k
+    bp_*          bp_miss   5222903    5.2M
 
 
 core:
-    Cycles: 142.4M, Retired: 116.1M, Empty: 26.3M, IPC: 0.815 
+    Cycles: 140.0M, Retired: 116.1M, Empty: 24.0M, IPC: 0.829 
 icache:
-    Ref: 128.8M, H: 128.7M, M: 165.3k, HR: 99.87%, MPKI: 1.42 
+    Ref: 126.5M, H: 126.4M, M: 37.7k, HR: 99.97%, MPKI: 0.33 
 dcache:
     Ref: 44.0M, H: 43.9M, M: 82.7k, HR: 99.81%, MPKI: 0.71 
 bpred:
-    P: 19.5M, M: 6.4M, ACC: 75.36%, MPKI: 55.03 
+    P: 20.7M, M: 5.2M, ACC: 79.84%, MPKI: 45.01 

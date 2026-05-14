@@ -1,43 +1,43 @@
 {
     "core": {
-        "cycles": 225435264,
-        "empty": 29925208,
-        "stalls": 29260114,
-        "lost": 665094,
-        "lost_other": 54,
-        "bad_spec": 665040,
+        "cycles": 225316494,
+        "empty": 29165188,
+        "stalls": 28547596,
+        "lost": 617592,
+        "lost_other": 57,
+        "bad_spec": 617535,
         "stall_be": 570012,
         "stall_l1d": 0,
         "stall_be_core": 570012,
-        "stall_fe": 28690102,
-        "stall_l1i": 28072585,
-        "stall_fe_core": 617517,
-        "ret": 195510056,
+        "stall_fe": 27977584,
+        "stall_l1i": 27217566,
+        "stall_fe_core": 760018,
+        "ret": 196151306,
         "ret_simd": 0,
-        "ret_int": 195510056,
-        "ret_ctrl_flow_br": 2683753,
-        "bp_miss": 332524,
-        "l1i_ref": 196103856,
-        "l1i_miss": 4750028,
-        "l1d_ref": 20852522,
+        "ret_int": 196151306,
+        "ret_ctrl_flow_br": 2683754,
+        "bp_miss": 308775,
+        "l1i_ref": 196721362,
+        "l1i_miss": 4583770,
+        "l1d_ref": 21137522,
         "l1d_miss": 0,
-        "ipc": 0.867
+        "ipc": 0.871
     },
     "icache": {
-        "references": 196103856,
+        "references": 196721362,
         "hits": {
-            "all": 191353828
+            "all": 192137592
         },
         "misses": {
-            "all": 4750028
+            "all": 4583770
         },
-        "hr": 97.58,
-        "mpki": 24.3
+        "hr": 97.67,
+        "mpki": 23.37
     },
     "dcache": {
-        "references": 20852522,
+        "references": 21137522,
         "hits": {
-            "all": 20852522
+            "all": 21137522
         },
         "misses": {
             "all": 0
@@ -46,9 +46,9 @@
         "mpki": 0
     },
     "bpred": {
-        "predicted": 2351229,
-        "mispredicted": 332524,
-        "accuracy": 87.61,
-        "mpki": 1.7
+        "predicted": 2374979,
+        "mispredicted": 308775,
+        "accuracy": 88.49,
+        "mpki": 1.57
     }
 }

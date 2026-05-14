@@ -1,43 +1,43 @@
 embench_qrduino
-IPC: 0.902
+IPC: 0.909
          L1        L2     cycles cycles_e
-0      lost  bad_spec   10016552    10.0M
-1      lost     other         55     55.0
-2  frontend    icache     307067   307.1k
-3  frontend      core     228520   228.5k
+0      lost  bad_spec    8896526     8.9M
+1      lost     other         52     52.0
+2  frontend    icache     311559   311.6k
+3  frontend      core     227525   227.5k
 4   backend    dcache         10     10.0
-5   backend      core    4368512     4.4M
-6  retiring   integer  138097821   138.1M
+5   backend      core    4367262     4.4M
+6  retiring   integer  138094821   138.1M
 7  retiring      simd          0      0.0
 
 Performance Counters for 'embench_qrduino'
    class          counter     count count_e
-  cycles           cycles 153018537  153.0M
-     ret              ret 138097821  138.1M
-   stall           stalls   4904109    4.9M
-    lost             lost  10016607   10.0M
-   ret_*          ret_int 138097821  138.1M
-   ret_* ret_ctrl_flow_br  19376504   19.4M
+  cycles           cycles 151897755  151.9M
+     ret              ret 138094821  138.1M
+   stall           stalls   4906356    4.9M
+    lost             lost   8896578    8.9M
+   ret_*          ret_int 138094821  138.1M
+   ret_* ret_ctrl_flow_br  19376254   19.4M
    ret_*         ret_simd         0     0.0
- stall_*         stall_be   4368522    4.4M
- stall_*    stall_be_core   4368512    4.4M
- stall_*         stall_fe    535587  535.6k
- stall_*    stall_fe_core    228520  228.5k
+ stall_*         stall_be   4367272    4.4M
+ stall_*    stall_be_core   4367262    4.4M
+ stall_*         stall_fe    539084  539.1k
+ stall_*    stall_fe_core    227525  227.5k
  stall_*        stall_l1d        10    10.0
- stall_*        stall_l1i    307067  307.1k
-bad_spec         bad_spec  10016552   10.0M
-   l1i_*          l1i_ref 148018892  148.0M
-   l1i_*         l1i_miss     96268   96.3k
+ stall_*        stall_l1i    311559  311.6k
+bad_spec         bad_spec   8896526    8.9M
+   l1i_*          l1i_ref 146956113  147.0M
+   l1i_*         l1i_miss     77262   77.3k
    l1d_*          l1d_ref  27554032   27.6M
-   l1d_*         l1d_miss         1     1.0
-    bp_*          bp_miss   5008282    5.0M
+   l1d_*         l1d_miss         2     2.0
+    bp_*          bp_miss   4448269    4.4M
 
 
 core:
-    Cycles: 153.0M, Retired: 138.1M, Empty: 14.9M, IPC: 0.902 
+    Cycles: 151.9M, Retired: 138.1M, Empty: 13.8M, IPC: 0.909 
 icache:
-    Ref: 148.0M, H: 147.9M, M: 96.3k, HR: 99.93%, MPKI: 0.70 
+    Ref: 147.0M, H: 146.9M, M: 77.3k, HR: 99.95%, MPKI: 0.56 
 dcache:
-    Ref: 27.6M, H: 27.6M, M: 1.0, HR: 100.00%, MPKI: 0.00 
+    Ref: 27.6M, H: 27.6M, M: 2.0, HR: 100.00%, MPKI: 0.00 
 bpred:
-    P: 14.4M, M: 5.0M, ACC: 74.15%, MPKI: 36.27 
+    P: 14.9M, M: 4.4M, ACC: 77.04%, MPKI: 32.21 
