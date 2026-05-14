@@ -2,9 +2,9 @@
 `define AMA_RISCV_DEFINES
 
 // Memory map
-`define RESET_VECTOR 32'h4_0000
-`define DMEM_RANGE 4'b0100
-`define MMIO_RANGE 4'b0101
+`define RESET_VECTOR 32'h8000_0000
+`define DMEM_RANGE 15'h4000
+`define UART_RANGE 20'h10013
 
 `define UART_SIZE 12 // 3 32-bit registers per UART {ctrl, rx_data, tx_data}
 

@@ -48,23 +48,23 @@ parameter unsigned RF_BANKED = 1;
 // *_L - line (module-specific)
 
 /* verilator lint_off UNUSEDPARAM */
-parameter unsigned MEM_SIZE_B = 65536;
-parameter unsigned MEM_SIZE_W = MEM_SIZE_B >> 2;
-parameter unsigned MEM_SIZE_Q = MEM_SIZE_W >> 2;
-parameter unsigned CORE_WORD_ADDR_BUS = $clog2(MEM_SIZE_W); // 14
-parameter unsigned CORE_BYTE_ADDR_BUS = CORE_WORD_ADDR_BUS + 2; // 16
+parameter unsigned MEM_SIZE_B = (1 << 17); // 131,072 B
+parameter unsigned MEM_SIZE_W = (MEM_SIZE_B >> 2);
+parameter unsigned MEM_SIZE_Q = (MEM_SIZE_W >> 2);
+parameter unsigned CORE_WORD_ADDR_BUS = $clog2(MEM_SIZE_W); // 15
+parameter unsigned CORE_BYTE_ADDR_BUS = (CORE_WORD_ADDR_BUS + 2); // 17
 
 parameter unsigned MEM_DATA_BUS = 128;
-parameter unsigned MEM_DATA_BUS_B = MEM_DATA_BUS >> 3; // 16
+parameter unsigned MEM_DATA_BUS_B = (MEM_DATA_BUS >> 3); // 16
 parameter unsigned CORE_DATA_BUS_B = 4;
 parameter unsigned CACHE_LINE_SIZE_B = 64;
-parameter unsigned CACHE_LINE_B_MASK = CACHE_LINE_SIZE_B - 1; // 63 aka 0x3F
-parameter unsigned CACHE_LINE_SIZE = CACHE_LINE_SIZE_B << 3; // 512
-parameter unsigned MEM_TRANSFERS_PER_CL = CACHE_LINE_SIZE/MEM_DATA_BUS; // 4
+parameter unsigned CACHE_LINE_B_MASK = (CACHE_LINE_SIZE_B - 1); // 63 aka 0x3F
+parameter unsigned CACHE_LINE_SIZE = (CACHE_LINE_SIZE_B << 3); // 512
+parameter unsigned MEM_TRANSFERS_PER_CL = (CACHE_LINE_SIZE / MEM_DATA_BUS); // 4
 
 parameter unsigned CACHE_LINE_BYTE_ADDR = $clog2(CACHE_LINE_SIZE_B); // 6
 parameter unsigned CACHE_TO_MEM_OFFSET = $clog2(MEM_DATA_BUS_B); // 4 bits less -> 128 (mem) vs 32 bits ($)
-parameter unsigned MEM_ADDR_BUS = CORE_BYTE_ADDR_BUS - CACHE_TO_MEM_OFFSET; // 16 - 4 = 12
+parameter unsigned MEM_ADDR_BUS = (CORE_BYTE_ADDR_BUS - CACHE_TO_MEM_OFFSET); // 16 - 4 = 12
 /* verilator lint_on UNUSEDPARAM */
 
 parameter unsigned ICACHE_SETS = 32;

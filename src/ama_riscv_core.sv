@@ -593,8 +593,8 @@ assign dmem_addr = (op_a_r + {{20{dmem_offset_exe[11]}}, dmem_offset_exe});
 
 // memory map
 logic map_dmem_exe, map_uart_exe;
-assign map_dmem_exe = (dmem_addr[19:16] == `DMEM_RANGE);
-assign map_uart_exe = (dmem_addr[19:16] == `MMIO_RANGE);
+assign map_dmem_exe = (dmem_addr[31:17] == `DMEM_RANGE);
+assign map_uart_exe = (dmem_addr[31:12] == `UART_RANGE);
 
 // DMEM
 dmem_req_side_t dmem_req_exe;
