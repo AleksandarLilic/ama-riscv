@@ -1,16 +1,3 @@
-//-----------------------------------------------------------------------------
-// Project:         AMA-RISCV
-// Module:          Synchronizer RTL
-// File:            synchronizer.v
-// Date created:    2021-05-31
-// Author:          Aleksandar Lilic
-// Description:     Simple sync module with two 1-bit FFs in series
-//
-// Version history:
-//      2021-05-31  AL  0.1.0 - Initial
-//      2021-05-31  AL  1.0.0 - Release
-//-----------------------------------------------------------------------------
-
 module synchronizer #(
     parameter WIDTH = 1
 )(

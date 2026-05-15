@@ -1,18 +1,3 @@
-//-----------------------------------------------------------------------------
-// Project:         AMA-RISCV
-// Module:          Edge Detector RTL
-// File:            edge_detector.v
-// Date created:    2021-05-31
-// Author:          Aleksandar Lilic
-// Description:     Simple edge detector module that detects rising edge
-//                  on the input signal
-//                  Creates a one clock wide pulse on successful detection
-//
-// Version history:
-//      2021-05-31  AL  0.1.0 - Initial
-//      2021-05-31  AL  1.0.0 - Release
-//-----------------------------------------------------------------------------
-
 module edge_detector #(
     parameter WIDTH = 1
 )(

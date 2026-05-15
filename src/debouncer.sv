@@ -1,18 +1,3 @@
-//-----------------------------------------------------------------------------
-// Project:         AMA-RISCV
-// Module:          Debouncer RTL
-// File:            debouncer.v
-// Date created:    2021-05-31
-// Author:          Aleksandar Lilic
-// Description:     Simple debouncer module with 
-//                  one wrapping counter total and 
-//                  one saturating counter for each bit of the input
-//
-// Version history:
-//      2021-05-31  AL  0.1.0 - Initial
-//      2021-05-31  AL  1.0.0 - Release
-//-----------------------------------------------------------------------------
-
 module debouncer #(
     parameter WIDTH                     = 1,
     parameter SAMPLE_COUNT_MAX          = 25000,

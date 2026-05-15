@@ -1,19 +1,3 @@
-//-----------------------------------------------------------------------------
-// Project:         AMA-RISCV
-// Module:          Button Parser RTL
-// File:            button_parser.v
-// Date created:    2021-05-31
-// Author:          Aleksandar Lilic
-// Description:     Module instantiates the 
-//                  (synchronizer -> debouncer -> edge_detector) signal chain
-//                  for the button inputs
-//
-// Version history:
-//      2021-05-31  AL  0.1.0 - Initial
-//      2021-06-01  AL  1.0.0 - Release (on account of FPGA version passing TB
-//                              and implementation)
-//-----------------------------------------------------------------------------
-
 module button_parser #(
     parameter WIDTH             = 1,
     parameter SAMPLE_COUNT_MAX  = 25000,

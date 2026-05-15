@@ -1,17 +1,3 @@
-//-----------------------------------------------------------------------------
-// Project:         AMA-RISCV
-// Module:          Button Parser for FPGA implementation Testbench
-// File:            button_parser_fpga_tb.v
-// Date created:    2021-06-01
-// Author:          Aleksandar Lilic
-// Description:     Checks the whole chain of 
-//                  (synchronizer -> debouncer -> edge_detector)
-//
-// Version history:
-//      2021-06-01  AL  0.1.0 (RTL 0.1.0) - Initial
-//      2021-06-01  AL  1.0.0 (RTL 0.1.0) - Sign-off
-//-----------------------------------------------------------------------------
-
 `timescale 1ns/1ns
 
 `define CLK_PERIOD               8
@@ -29,7 +15,7 @@ reg         clk = 0;
 reg         rst;
 wire  [5:0] leds;
 reg   [3:0] buttons  = 4'h0;
-reg   [1:0] switches = 2'b00;
+reg   [3:0] switches = 4'h0;
 
 //-----------------------------------------------------------------------------
 // Clock gen: 125 MHz
@@ -37,7 +23,7 @@ always #(`CLK_PERIOD/2) clk = ~clk;
 
 //-----------------------------------------------------------------------------
 // DUT instance
-button_parser_fpga DUT (
+button_parser_fpga #(.MODE(1)) DUT (
     .CLK_125MHZ_FPGA    (clk),
     .RST                (rst),
     .BUTTONS            (buttons),

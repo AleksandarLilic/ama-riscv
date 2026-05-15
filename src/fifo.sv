@@ -1,16 +1,3 @@
-//-----------------------------------------------------------------------------
-// Project:         AMA-RISCV
-// Module:          FIFO RTL
-// File:            fifo.v
-// Date created:    2021-06-07
-// Author:          Aleksandar Lilic
-// Description:     Parametrized FIFO module
-//
-// Version history:
-//      2021-06-07  AL  0.1.0 - Initial
-//      2021-06-07  AL  1.0.0 - Release
-//-----------------------------------------------------------------------------
-
 module fifo #(
     parameter DATA_WIDTH = 16,
     parameter FIFO_DEPTH = 32,
@@ -31,7 +18,7 @@ module fifo #(
 //-----------------------------------------------------------------------------
 // Signals
 // FIFO memory
-logic [DATA_WIDTH-1:0] fifo_logic[FIFO_DEPTH-1:0];
+logic [DATA_WIDTH-1:0] fifo_reg[FIFO_DEPTH-1:0];
 
 // Pointers
 // with added MSB in order to implement full/empty flags

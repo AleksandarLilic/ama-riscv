@@ -1,16 +1,3 @@
-//-----------------------------------------------------------------------------
-// Project:         AMA-RISCV
-// Module:          Debouncer Testbench
-// File:            debouncer_tb.v
-// Date created:    2021-05-31
-// Author:          Aleksandar Lilic
-// Description:     Checks that debouncer module smooths-out all input signals
-//
-// Version history:
-//      2021-05-31  AL  0.1.0 (RTL 0.1.0) - Initial
-//      2021-05-31  AL  1.0.0 (RTL 0.1.0) - Sign-off
-//-----------------------------------------------------------------------------
-
 `timescale 1ns/100ps
 
 `define CLK_PERIOD          10

@@ -1,20 +1,3 @@
-//-----------------------------------------------------------------------------
-// Project:         AMA-RISCV
-// Module:          FIFO Testbench
-// File:            fifo_tb.v
-// Date created:    2021-06-07
-// Author:          Aleksandar Lilic
-// Description:     Test covers multiple scenarios:
-//                      - Writing to a full FIFO
-//                      - Reading from an empty FIFO
-//                      - Concurrent read and write to and from FIFO
-//                      - Burst mode read and write
-//
-// Version history:
-//      2021-06-07  AL  0.1.0 - Initial
-//      2021-06-07  AL  1.0.0 - Sign-off
-//-----------------------------------------------------------------------------
-
 `timescale 1ns/100ps
 
 `define CLK_PERIOD       8
