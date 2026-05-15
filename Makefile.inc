@@ -20,7 +20,7 @@ INC_DIRS :=
 SRC_INC :=
 PLUS_INCDIR :=
 else
-SOURCE_FILES := $(REPO_ROOT)/sources.f
+SOURCE_FILES := $(REPO_ROOT)/filelist/sources.f
 SRC_VERIF := $(call get_sources_v,$(SOURCE_FILES))
 SRC_DESIGN := $(call get_sources_d,$(SOURCE_FILES))
 INC_DIRS := $(call get_include_dirs,$(SOURCE_FILES))

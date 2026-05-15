@@ -181,7 +181,7 @@ UT_TOP ?=
 # as each top will have its own dir under xsim.dir
 UT_WORKLIB := unit_test
 
-# example usage: 'make unit_test UT_F=sources_uart.f UT_TOP=uart_tb'
+# example usage: 'make unit_test UT_F=../filelist/sources_uart.f UT_TOP=uart_tb'
 unit_test:
 	@if [ -z "$(UT_F)" ]; then \
 		echo "Error: Please provide UT_F variable (unit_test testbench sources file path)"; \
