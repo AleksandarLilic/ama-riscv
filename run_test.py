@@ -333,6 +333,8 @@ def main():
             filters = [f.strip() for f in args.filter.split(',')]
             print(f"Applying filter(s): {filters}")
         all_tests = find_all_tests(read_from_yaml(args.testlist), filters)
+        if not all_tests:
+            raise ValueError("Error: No tests found after filtering.")
         print(f"\nTestlist:")
         print("   " + "\n   ".join(all_tests))
         print(f"Running {len(all_tests)} test(s) total")
