@@ -226,11 +226,18 @@ def build_tb(build_dir, force_rebuild):
 
     print_runtime(start_time, "Build done,")
 
-def run_test(test_path, run_dir, build_dir, make_args, mgr, keep_pass=False):
+def run_test(
+    test_path, run_dir, build_dir, make_args, mgr,
+    keep_pass=False, stop_on_fail=False
+    ) -> None:
 
     start_time = datetime.datetime.now()
     test_name = format_test_name(test_path)
     test_path_make = os.path.splitext(test_path)[0]
+
+    if stop_on_fail and mgr["stop"].is_set():
+        print(f"Skipping test <{test_name}> (stop_on_fail).")
+        return
 
     with mgr["lock"]:
         mgr["test_cnt"].value += 1
@@ -320,6 +327,10 @@ def run_test(test_path, run_dir, build_dir, make_args, mgr, keep_pass=False):
     with open(p['status_file'], 'w') as status_file: # write to test.status
         status_file.write(f"Test <{test_name}> {status_str} {msg}\n")
 
+    if not s and stop_on_fail:
+        mgr["stop"].set()
+        raise ValueError(f"Test <{test_name}> failed. Stopping.")
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Run RTL simulation.")
     parser.add_argument('-t', '--test', help="Specify single test to run")
@@ -330,12 +341,14 @@ def parse_args():
     parser.add_argument('-k', '--keep_build', action='store_true', default=False, help="Reuse existing build if available")
     parser.add_argument('-b', '--rebuild_all', action='store_true', default=False, help="Rebuild everything: RTL, ISA sim, cosim. Takes priority over -k if both are specified")
     parser.add_argument('-p', '--keep_pass', action='store_true', default=False, help="Keep rundir of passed tests. Applicable only if -k is used")
+    parser.add_argument('-s', '--stop_on_fail', action='store_true', default=False, help="Stop execution after the first test failure")
     parser.add_argument('-j', '--jobs', type=int, default=MAX_WORKERS, help="Number of parallel jobs to run (default: number of CPU cores)")
     parser.add_argument('-c', '--timeout_clocks', type=int, default=2_000_000, help="Number of clocks before simulations times out")
     parser.add_argument('-v', '--log_level', type=str, default="WARN", help="Log level during simulation")
     #parser.add_argument('--coverage', action='store_true', help="Enable coverage analysis")
     #parser.add_argument('--coverage-only', action='store_true', help="Only run coverage analysis. Relies on the existing test directories for the specified tests")
     #parser.add_argument('--seed', type=int, help="Seed value for the tests")
+    parser.add_argument('-d', '--dry_run', action='store_true', default=False, help="Print tests that would run without building or simulating")
     parser.add_argument('--log_wave', action='store_true', help="Collect .wdb waveform, all modules from the top down")
     parser.add_argument('--log_vcd', action='store_true', help="Collect .vcd waveform, all modules from the top down")
     return parser.parse_args()
@@ -352,7 +365,9 @@ def main():
         raise ValueError("Cannot use -f|--filter with -t|--test. " +
                          "Filter can only be applied to testlist.")
 
-    create_run_cfg(args.log_wave, args.log_vcd)
+    if not args.dry_run:
+        create_run_cfg(args.log_wave, args.log_vcd)
+
     if args.test:
         all_tests = find_all_tests(
             { "test" :
@@ -373,6 +388,10 @@ def main():
         print(f"Running {len(all_tests)} test(s) total")
     else:
         raise ValueError("Error: No test specified.")
+
+    if args.dry_run:
+        print(f"\nDry run completed. Exiting.")
+        sys.exit(0)
 
     # handle run directory
     if args.rundir:
@@ -424,6 +443,7 @@ def main():
                         make_args=ma,
                         mgr=mgr,
                         keep_pass=args.keep_pass,
+                        stop_on_fail=args.stop_on_fail
                     )
                 # imap_unordered yields results as workers finish, so the main
                 # process can react to the first failure immediately rather than
@@ -432,6 +452,10 @@ def main():
                     for _ in pool.imap_unordered(partial_run_test, all_tests):
                         pass
                 except Exception:
+                    if args.stop_on_fail:
+                        # terminate sends SIGTERM to workers; _sigterm_handler
+                        # in each worker kills the simulator process group
+                        pool.terminate()
                     raise
 
     except KeyboardInterrupt:
