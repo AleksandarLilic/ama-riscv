@@ -10,6 +10,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import signal
 import sys
 import time
 from collections import deque
@@ -23,8 +24,10 @@ CC_YELLOW = "93m"
 CC_GREEN = "32m"
 INDENT = " " * 4
 TEST_LOG = "test.log"
-REPO_ROOT = os.getenv("REPO_ROOT")
+REPO_ROOT = os.getenv("REPO_ROOT") \
+    or sys.exit("Error: REPO_ROOT not set. Source setup.sh first.")
 RUN_CFG = os.path.join(REPO_ROOT, "run_cfg_suite.tcl")
+MAX_WORKERS = int(os.cpu_count())
 TEST_STATUS = "test.status"
 
 MSG_PASS = "==== PASS ===="
@@ -69,10 +72,12 @@ def create_run_cfg(log_wave, log_vcd):
     with open(RUN_CFG, 'w') as file:
         file.writelines(line + '\n' for line in tcl_content)
 
-def find_all_tests(test_list, filters=[]):
+def find_all_tests(test_list, filters=None):
     # if filtering is used, apply on top level keys, and put only those entires
     # otherwise, just flatten the entire test_list
 
+    if filters is None:
+        filters = []
     tl_flat = [item for sublist in test_list.values() for item in sublist]
     tl_filt = tl_flat
     if filters:
@@ -80,15 +85,14 @@ def find_all_tests(test_list, filters=[]):
         mode = "neg" if all(f.startswith('~') for f in filters) else "pos"
 
         tl = {"inc" : [], "exc" : []}
-        if filters:
-            for key in test_list:
-                for f in filters:
-                    idx = "inc"
-                    if f.startswith('~'):
-                        f = f[1:]
-                        idx = "exc"
-                    if re.search(f, key):
-                        tl[idx].extend(test_list[key])
+        for key in test_list:
+            for f in filters:
+                idx = "inc"
+                if f.startswith('~'):
+                    f = f[1:]
+                    idx = "exc"
+                if re.search(f, key):
+                    tl[idx].extend(test_list[key])
 
         if mode == "pos":
             # include all from inc, and remove items from exc
@@ -126,7 +130,9 @@ def find_all_tests(test_list, filters=[]):
             print("Proceeding with the valid tests")
             time.sleep(3)
 
-    return list(set(valid_tests)) # deduplicate after globbing
+    dedup = list(set(valid_tests)) # deduplicate after globbing
+    dedup.sort()
+    return dedup
 
 def format_test_name(test_path):
     return f"{os.path.basename(os.path.dirname(test_path))}_" + \
@@ -143,7 +149,8 @@ def get_paths_for_test(run_dir, test_name):
 def check_test_status(test_log_path, test_name):
     if os.path.exists(test_log_path):
         errors = []
-        last_lines = deque(open(test_log_path, 'r'), maxlen=100)
+        with open(test_log_path, 'r') as f:
+            last_lines = deque(f, maxlen=100)
         for line in last_lines:
             if "ERROR" in line or "'tohost' failed #" in line:
                 errors.append(f"\n{INDENT}{line.strip()}")
@@ -162,17 +169,19 @@ def check_test_status(test_log_path, test_name):
         return False, f"{TEST_LOG} not found at {test_log_path}. " + \
             "Cannot determine test result."
 
-def print_runtime(start_time, process_name=''):
+def print_runtime(start_time, process_name='', guard_char=''):
     end_time = datetime.datetime.now()
     elapsed_time = end_time - start_time
     hours, remainder = divmod(elapsed_time.seconds, 3600)
     minutes, seconds = divmod(remainder+1, 60) # rounds down, correct +1 for sec
     print(
+        f"{guard_char}" if guard_char else "",
         f"{process_name} runtime: " if process_name else "(",
         f"{hours}h" if hours else "",
         f"{minutes}m" if minutes else "",
         f"{seconds}s",
         "" if process_name else ")",
+        f"{guard_char}" if guard_char else "",
         end="\n",
         sep=''
     )
@@ -217,13 +226,18 @@ def build_tb(build_dir, force_rebuild):
 
     print_runtime(start_time, "Build done,")
 
-def run_test(test_path, run_dir, build_dir, make_args, cnt, keep_pass=False):
+def run_test(test_path, run_dir, build_dir, make_args, mgr, keep_pass=False):
+
     start_time = datetime.datetime.now()
     test_name = format_test_name(test_path)
     test_path_make = os.path.splitext(test_path)[0]
-    with cnt["lock"]:
-        cnt["t"].value += 1
-        print(f"Running test {cnt['t'].value}/{cnt['total']}: <{test_name}>")
+
+    with mgr["lock"]:
+        mgr["test_cnt"].value += 1
+        print(
+            f"Running test {mgr['test_cnt'].value}/{mgr['all_tests']}: " \
+            f"<{test_name}>"
+        )
 
     p = get_paths_for_test(run_dir, test_name)
     if os.path.exists(p['test_dir']):
@@ -258,19 +272,38 @@ def run_test(test_path, run_dir, build_dir, make_args, cnt, keep_pass=False):
         f.write("\n")
     os.chmod(p['run_sh'], 0o755)
 
-    make_status = subprocess.run(
+    # start_new_session puts make + simulator in their own process group
+    # (pgid == proc.pid),
+    # so killpg can reach all descendants, not just the direct make child
+    proc = subprocess.Popen(
         make_cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        cwd=p['test_dir']
+        cwd=p['test_dir'],
+        start_new_session=True
     )
 
+    # on SIGTERM (sent by pool.terminate() on Ctrl+C), kill whole process group
+    # so simulator orphans don't keep running after the pool workers are gone
+    def _sigterm_handler(sig, frame):
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        sys.exit(1)
+
+    old_handler = signal.signal(signal.SIGTERM, _sigterm_handler)
+    try:
+        stdout, stderr = proc.communicate()
+    finally:
+        signal.signal(signal.SIGTERM, old_handler) # restore for next iteration
+
     with open(p['test_log'], 'w') as f:
-        f.write(make_status.stdout.decode('utf-8'))
-        f.write(make_status.stderr.decode('utf-8'))
+        f.write(stdout.decode('utf-8'))
+        f.write(stderr.decode('utf-8'))
 
     print(f"Test <{test_name}> DONE.", end=" ")
-    if make_status.returncode != 0:
+    if proc.returncode != 0:
         print(color_code_string("FAILED", CC_RED))
         # something went wrong at the make/simulator level
         raise ValueError(f"Error: Run test <{test_name}> failed. "
@@ -377,10 +410,11 @@ def main():
     start_time = datetime.datetime.now()
     try:
         with Manager() as manager:
-            cnt = manager.dict()
-            cnt["t"] = manager.Value('i', 0)
-            cnt["lock"] = manager.Lock()
-            cnt["total"] = len(all_tests)
+            mgr = manager.dict()
+            mgr["test_cnt"] = manager.Value('i', 0)
+            mgr["lock"] = manager.Lock()
+            mgr["all_tests"] = len(all_tests)
+            mgr["stop"] = manager.Event()
             with Pool(w) as pool:
                 partial_run_test = \
                     functools.partial(
@@ -388,17 +422,23 @@ def main():
                         run_dir=run_dir,
                         build_dir=build_dir,
                         make_args=ma,
-                        cnt=cnt,
-                        keep_pass=args.keep_pass
+                        mgr=mgr,
+                        keep_pass=args.keep_pass,
                     )
-                pool.map(partial_run_test, all_tests) # , chunksize=2
+                # imap_unordered yields results as workers finish, so the main
+                # process can react to the first failure immediately rather than
+                # waiting for all tasks to complete (pool.map behavior)
+                try:
+                    for _ in pool.imap_unordered(partial_run_test, all_tests):
+                        pass
+                except Exception:
+                    raise
 
     except KeyboardInterrupt:
         print("KeyboardInterrupt received. Terminating.")
-        # __exit__ in Pool should handle these, but it doesn't always...
-        pool.terminate()
-        pool.join() # wait for them to actually exit
         sys.exit(1)
+    except Exception as e:
+        print(f"Error during test execution: {e}")
 
     print_runtime(start_time, "Simulation")
     # check test suite results
@@ -422,7 +462,9 @@ def main():
                     cc = CC_GREEN
                 print(color_code_string(status, cc), end='')
         else:
-            print(f"Status for <{test_name}> not found.")
+            cc = CC_YELLOW
+            status = f"Status for <{test_name}> not found."
+            print(color_code_string(status, cc))
             all_tests_passed = False
 
     print(f"\nTest suite DONE. Pass rate: {tests_passed}/{tests_num} passed;",
@@ -431,12 +473,11 @@ def main():
         print(color_code_string("Test suite PASSED.", CC_GREEN))
     else:
         print(color_code_string("Test suite FAILED.", CC_RED))
-        print("\nFailed tests:", end='')
+        print("\nFailed test(s):", end='')
         print("".join(failed_tests))
 
-    print_runtime(start_time_suite, "Test suite")
-    print()
+    print_runtime(start_time_suite, "Test suite", "\n")
+    sys.exit(0 if all_tests_passed else 1)
 
 if __name__ == "__main__":
-    MAX_WORKERS = int(os.cpu_count())
     main()
