@@ -155,17 +155,17 @@ For FPGA emulation, `ama_riscv_top` is instantiated in the `ama_riscv_fpga` FPGA
 
 Emulation is ran at 50MHz on Arty A7-100T board. Since the design is fully synchronous, change in clock frequency by X would yield the same change in speed by X, thus keeping the 'per MHz' result the same.
 
-- Dhrystone: 63 DMIPS, 1.26 DMIPS/MHz (IPC: 0.89)
-- Coremark: 145 Coremarks, 2.9 Coremarks/MHz (IPC: 0.88)
+- Dhrystone: 81 DMIPS, 1.63 DMIPS/MHz (IPC: 0.90)
+- Coremark: 145 Coremarks, 2.9 Coremarks/MHz (IPC: 0.89)
 - STREAM-INT: 
   - Copy: 66 MB/s
   - Scale: 49 MB/s
   - Add: 64 MB/s
   - Triad: 57 MB/s
-- Embench_1.0 (with [detailed breakdown](examples/perf_runs_fpga/benchmark_results/embench_results.md)): 
-  - Size: 7.85 (3.56 - 17.31)
-  - Speed: 37.08 (16.33 - 84.21)
-  - Speed/MHz: 0.74 (0.33 - 1.68)
+- Embench_1.0 compiled for speed (with [detailed breakdown](examples/perf_runs_fpga/benchmark_results/embench_results.md)): 
+  - Size: 7.26 (3.32 - 15.87)
+  - Speed: 50.76 (33.20 - 77.60)
+  - Speed/MHz: 1.02 (0.66 - 1.55)
 
 SIMD ISA improvements on MLP, measured in inferences per second
 
@@ -185,12 +185,10 @@ With CSV summaries under the same directory
 - [hw_stats_benchmarks.csv](examples/perf_runs_fpga/hw_stats_benchmarks.csv)
 - [hw_stats_mlp.csv](examples/perf_runs_fpga/hw_stats_mlp.csv)
 
-More detailed breakdowns are available under [examples/perf_runs_fpga/all_stats](examples/perf_runs_fpga/all_stats)  
+All breakdowns are available under [examples/perf_runs_fpga/all_stats](examples/perf_runs_fpga/all_stats)  
 
-***Coremark***  
 ![](examples/perf_runs_fpga/pngs/coremark_tda.png)
 
-***Dhrystone***  
 ![](examples/perf_runs_fpga/pngs/dhrystone_tda.png)
 
 # Verification
