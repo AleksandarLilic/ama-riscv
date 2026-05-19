@@ -90,8 +90,8 @@
         csr_ctrl: '{en: 1'b0, re: 1'b0, we: 1'b0, ui: 1'b0, op: CSR_OP_NONE}, \
         alu_op: ALU_OP_OFF, \
         simd_arith_op: SIMD_ARITH_OP_MUL, \
-        simd_data_fmt_op: SIMD_DATA_FMT_OP_16, \
-        simd_data_fmt_type: SIMD_DATA_FMT_TYPE_NONE, \
+        simd_data_fmt_class: SIMD_DATA_FMT_CLASS_NONE, \
+        simd_data_fmt_op: 'h0, \
         div_op: DIV_DIV, \
         a_sel: A_SEL_RS1, \
         b_sel: B_SEL_RS2, \

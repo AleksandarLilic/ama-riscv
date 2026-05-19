@@ -253,18 +253,18 @@ typedef enum logic [2:0] {
     SIMD_WIDEN_OP_2U = 3'h7
 } simd_widen_op_t;
 
-typedef enum logic [1:0] {
-    SIMD_TXP_OP_16 = 2'h0,
-    SIMD_TXP_OP_8 = 2'h1,
-    SIMD_TXP_OP_4 = 2'h2,
-    SIMD_TXP_OP_2 = 2'h3
+typedef enum logic [2:0] {
+    SIMD_TXP_OP_16 = 3'h0,
+    SIMD_TXP_OP_8 = 3'h2,
+    SIMD_TXP_OP_4 = 3'h4,
+    SIMD_TXP_OP_2 = 3'h6
 } simd_txp_op_t;
 
 typedef enum logic [1:0] {
-    SIMD_DATA_FMT_TYPE_NONE = 2'h0,
-    SIMD_DATA_FMT_TYPE_WIDEN = 2'h1,
-    SIMD_DATA_FMT_TYPE_TXP = 2'h2
-} simd_data_fmt_type_t;
+    SIMD_DATA_FMT_CLASS_NONE = 2'h0,
+    SIMD_DATA_FMT_CLASS_WIDEN = 2'h1,
+    SIMD_DATA_FMT_CLASS_TXP = 2'h2
+} simd_data_fmt_class_t;
 
 typedef enum logic [1:0] {
     DIV_DIV = 2'b00,
@@ -366,8 +366,8 @@ typedef struct packed {
     csr_ctrl_t csr_ctrl;
     alu_op_t alu_op;
     simd_arith_op_t simd_arith_op;
-    simd_data_fmt_op_t simd_data_fmt_op;
-    simd_data_fmt_type_t simd_data_fmt_type;
+    simd_data_fmt_class_t simd_data_fmt_class;
+    logic [2:0] simd_data_fmt_op;
     div_op_t div_op;
     a_sel_t a_sel;
     b_sel_t b_sel;

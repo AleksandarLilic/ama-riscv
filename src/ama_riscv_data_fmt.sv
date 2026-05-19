@@ -1,8 +1,8 @@
 `include "ama_riscv_defines.svh"
 
 module ama_riscv_data_fmt (
-    input  simd_data_fmt_op_t op,
-    input  simd_data_fmt_type_t op_t,
+    input  simd_data_fmt_class_t op_class,
+    input  [2:0] op,
     input  simd_t a,
     input  simd_t b,
     output simd_d_t s
@@ -31,7 +31,7 @@ simd_t txp_a, txp_b;
 always_comb begin
     txp_a = 'h0;
     txp_b = 'h0;
-    unique case (simd_txp_op_t'(op[2:1]))
+    unique case (simd_txp_op_t'({op[2:1], 1'b0}))
         SIMD_TXP_OP_16: begin
             txp_a.h[0] = a.h[0];
             txp_a.h[1] = b.h[0];
@@ -68,10 +68,10 @@ end
 //------------------------------------------------------------------------------
 // output
 always_comb begin
-    unique case (op_t)
-        SIMD_DATA_FMT_TYPE_NONE: s = 'h0;
-        SIMD_DATA_FMT_TYPE_WIDEN: s = wo;
-        SIMD_DATA_FMT_TYPE_TXP: s = {txp_b, txp_a}; // w1 = txp_b, w0 = txp_a
+    unique case (op_class)
+        SIMD_DATA_FMT_CLASS_NONE: s = 'h0;
+        SIMD_DATA_FMT_CLASS_WIDEN: s = wo;
+        SIMD_DATA_FMT_CLASS_TXP: s = {txp_b, txp_a}; // w1 = txp_b, w0 = txp_a
     endcase
 end
 
