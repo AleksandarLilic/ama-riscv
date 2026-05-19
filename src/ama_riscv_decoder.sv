@@ -1,5 +1,7 @@
 `include "ama_riscv_defines.svh"
 
+`define INST_ERR(x) $error($sformatf("Unsupported %0s instruction", x))
+
 module ama_riscv_decoder (
     input  arch_width_t inst_dec,
     output decoder_t decoded,
@@ -24,6 +26,11 @@ assign fn7_b0 = get_fn7_b0(inst_dec);
 assign fn7_b2 = get_fn7_b2(inst_dec);
 assign fn7_b5 = get_fn7_b5(inst_dec);
 
+`ifndef SYNT
+logic no_inst, unsupported_inst;
+assign no_inst = (inst_dec == 'h0);
+`endif
+
 logic [2:0] fn7_simd_arith;
 assign fn7_simd_arith = fn7[2:0];
 
@@ -39,6 +46,9 @@ assign fe_ctrl = fc;
 always_comb begin
     d = `DECODER_INIT_VAL;
     fc = `FE_CTRL_INIT_VAL;
+    `ifndef SYNT
+    unsupported_inst = 'b0;
+    `endif
 
     // decoder assumes frontend can always progress (pc_sel/pc_we)
     // fe_ctrl module overwrites if/when it can't
@@ -56,6 +66,15 @@ always_comb begin
             d.wb_sel = d.itype.mult ? WB_SEL_SIMD : WB_SEL_EWB;
             d.rd_we = rd_nz;
             d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 0};
+            `ifndef SYNT
+            unsupported_inst = !(
+                (fn7 == 7'h0) || // rv32i
+                ((fn7 == 7'h20) && ((fn3 == 3'h0) || (fn3 == 3'h5))) || // rv32i
+                (fn7 == 7'h1) || // rv32m
+                ((fn7 == 7'h5) && fn3[2]) // rv32 zbb partial
+            );
+            if (unsupported_inst) `INST_ERR("R_TYPE");
+            `endif
         end
 
         OPC7_I_TYPE: begin
@@ -67,6 +86,16 @@ always_comb begin
             d.ig_sel = IG_I_TYPE;
             d.rd_we = rd_nz;
             d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 0, rs3: 0};
+            `ifndef SYNT
+            unsupported_inst = !(
+                (fn3 != 3'h1) ||
+                (fn3 != 3'h5) ||
+                ((fn3 == 3'h1) && (inst_dec[31:15] == 'h0)) || // slli
+                ((fn3 == 3'h5) && (inst_dec[31:15] == 'h0)) || // srli
+                ((fn3 == 3'h5) && (inst_dec[31:15] == 'h8000)) // srai
+            );
+            if (unsupported_inst) `INST_ERR("I_TYPE");
+            `endif
         end
 
         OPC7_LOAD: begin
@@ -78,6 +107,12 @@ always_comb begin
             d.wb_sel = WB_SEL_DMEM;
             d.rd_we = rd_nz;
             d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 0, rs3: 0};
+            `ifndef SYNT
+            unsupported_inst = (
+                (fn3 == 3'h3) || (fn3 == 3'h6) || (fn3 == 3'h7)
+            );
+            if (unsupported_inst) `INST_ERR("LOAD");
+            `endif
         end
 
         OPC7_STORE: begin
@@ -87,6 +122,10 @@ always_comb begin
             d.ig_sel = IG_S_TYPE;
             d.dmem_en = 1'b1;
             d.has_reg = '{rd: 0, rdp: 0, rs1: 1, rs2: 1, rs3: 0};
+            `ifndef SYNT
+            unsupported_inst = ((fn3 == 3'h3) || fn3[2]);
+            if (unsupported_inst) `INST_ERR("STORE");
+            `endif
         end
 
         OPC7_BRANCH: begin
@@ -98,6 +137,10 @@ always_comb begin
             d.ig_sel = IG_B_TYPE;
             d.branch_u = fn3[1];
             d.has_reg = '{rd: 0, rdp: 0, rs1: 1, rs2: 1, rs3: 0};
+            `ifndef SYNT
+            unsupported_inst = ((fn3 == 3'h2) || (fn3 == 3'h3));
+            if (unsupported_inst) `INST_ERR("BRANCH");
+            `endif
         end
 
         OPC7_JAL: begin
@@ -119,6 +162,10 @@ always_comb begin
             d.ewb_sel = EWB_SEL_PC_INC4;
             d.rd_we = rd_nz;
             d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 0, rs3: 0};
+            `ifndef SYNT
+            unsupported_inst = !(fn3 == 3'h0);
+            if (unsupported_inst) `INST_ERR("JALR");
+            `endif
         end
 
         OPC7_LUI: begin
@@ -149,6 +196,10 @@ always_comb begin
                     d.wb_sel = WB_SEL_SIMD;
                     d.rd_we = rd_nz;
                     d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 1};
+                    `ifndef SYNT
+                    unsupported_inst = ((fn3 == 3'h1) || (fn3 == 3'h3));
+                    if (unsupported_inst) `INST_ERR("SIMD_MUL");
+                    `endif
                 end
                 CUSTOM_ISA_FN7_SIMD_WMUL: begin
                     fc.pc_we = 1'b1;
@@ -157,6 +208,10 @@ always_comb begin
                     d.wb_sel = WB_SEL_SIMD;
                     d.rd_we = rd_nz;
                     d.has_reg = '{rd: 1, rdp: 1, rs1: 1, rs2: 1, rs3: 1};
+                    `ifndef SYNT
+                    unsupported_inst = (fn3[2]);
+                    if (unsupported_inst) `INST_ERR("SIMD_WMUL");
+                    `endif
                 end
                 CUSTOM_ISA_FN7_SIMD_DOT: begin
                     fc.pc_we = 1'b1;
@@ -183,8 +238,17 @@ always_comb begin
                     d.ewb_sel = EWB_SEL_DATA_FMT;
                     d.rd_we = rd_nz;
                     d.has_reg = '{rd: 1, rdp: 1, rs1: 1, rs2: 1, rs3: 0};
+                    `ifndef SYNT
+                    unsupported_inst = (fn3[0]);
+                    if (unsupported_inst) `INST_ERR("SIMD_TXP");
+                    `endif
                 end
-                default: ;
+                default: begin
+                    `ifndef SYNT
+                    unsupported_inst = !no_inst;
+                    if (unsupported_inst) `INST_ERR("custom");
+                    `endif
+                end
             endcase
         end
 
@@ -198,14 +262,28 @@ always_comb begin
             d.ewb_sel = EWB_SEL_CSR;
             d.rd_we = rd_nz;
             d.has_reg = '{rd: 1, rdp: 0 , rs1: !fn3[2], rs2: 0, rs3: 0};
+            `ifndef SYNT
+            unsupported_inst = ((fn3 == 3'h0) || (fn3 == 3'h4));
+            if (unsupported_inst) `INST_ERR("SYSTEM");
+            `endif
         end
 
         default: begin
-            d = `DECODER_INIT_VAL;
-            fc = `FE_CTRL_INIT_VAL;
+            `ifndef SYNT
+            unsupported_inst = !no_inst;
+            if (unsupported_inst) `INST_ERR(" ");
+            `endif
         end
 
     endcase
 end
+
+`ifndef SYNT
+`include "ama_riscv_tb_defines.svh"
+always_ff @(posedge `TB.clk) begin
+    assert (!unsupported_inst || `CORE.flush.dec || `CORE.rst)
+    else $fatal(1, "DECODER ERROR - unsupported instruction");
+end
+`endif
 
 endmodule
