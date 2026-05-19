@@ -3,6 +3,7 @@ simple:
   - ["sim/sw/baremetal/asm_rv32i_branches", "test.mem"]
   - ["sim/sw/baremetal/asm_rv32im", "test.mem"]
   - ["sim/sw/baremetal/asm_rv32i_zbb_min-max", "test.mem"]
+  - ["sim/sw/baremetal/asm_rv32i_zifencei", "test.mem"]
 
   - ["sim/sw/baremetal/asm_rv32i_custom-simd-dot", "test.mem"]
   - ["sim/sw/baremetal/asm_rv32i_custom-simd-widen", "test.mem"]

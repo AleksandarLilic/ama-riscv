@@ -76,10 +76,10 @@ always_comb begin
     inst_shadow.wbk = classify_inst(inst.wbk);
     inst_shadow_ret = classify_inst(inst.ret);
 
-    nop.dec = (inst.dec == `NOP);
-    nop.exe = (inst.exe == `NOP);
-    nop.mem = (inst.mem == `NOP);
-    nop.wbk = (inst.wbk == `NOP);
+    nop.dec = (inst.dec == `INST_NOP);
+    nop.exe = (inst.exe == `INST_NOP);
+    nop.mem = (inst.mem == `INST_NOP);
+    nop.wbk = (inst.wbk == `INST_NOP);
 
     flush.dec = (inst.dec == 'h0);
     flush.exe = (inst.exe == 'h0);

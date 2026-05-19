@@ -9,7 +9,8 @@
 `define UART_SIZE 12 // 3 32-bit registers per UART {ctrl, rx_data, tx_data}
 
 // NOP inst
-`define NOP 32'h13 // addi x0 x0 0
+`define INST_NOP 32'h13 // addi x0 x0 0
+`define INST_FENCE_I 32'h0000100f
 
 `define TO_STRING(x) `"x`"
 

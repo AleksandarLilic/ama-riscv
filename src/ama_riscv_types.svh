@@ -83,6 +83,7 @@ typedef enum logic [6:0] {
     OPC7_JAL = 7'b110_1111,
     OPC7_LUI = 7'b011_0111,
     OPC7_AUIPC = 7'b001_0111,
+    OPC7_MISC_MEM = 7'b000_1111,
     OPC7_CUSTOM = 7'b000_1011,
     OPC7_SYSTEM = 7'b111_0011
 } opc7_t;

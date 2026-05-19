@@ -250,6 +250,17 @@ always_comb begin
             endcase
         end
 
+        OPC7_MISC_MEM: begin
+            fc.pc_we = 1'b1;
+            `ifndef SYNT
+            unsupported_inst = !(
+                (fn3 == 3'h0) || //fence: fm/pred/succ fields are ordering hints
+                (inst_dec == `INST_FENCE_I)
+            );
+            if (unsupported_inst) `INST_ERR("MISC_MEM");
+            `endif
+        end
+
         OPC7_SYSTEM: begin
             fc.pc_we = 1'b1;
             d.csr_ctrl.en = 1'b1;
