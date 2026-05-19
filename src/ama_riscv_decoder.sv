@@ -87,13 +87,11 @@ always_comb begin
             d.rd_we = rd_nz;
             d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 0, rs3: 0};
             `ifndef SYNT
-            unsupported_inst = !(
-                (fn3 != 3'h1) ||
-                (fn3 != 3'h5) ||
-                ((fn3 == 3'h1) && (inst_dec[31:15] == 'h0)) || // slli
-                ((fn3 == 3'h5) && (inst_dec[31:15] == 'h0)) || // srli
-                ((fn3 == 3'h5) && (inst_dec[31:15] == 'h8000)) // srai
-            );
+            // shifts have fn7 constraints
+            // all other fn3 values use full imm[11:0]
+            unsupported_inst =
+                ((fn3 == 3'h1) && (fn7 != 7'h00)) || // slli: fn7 must be 0x00
+                ((fn3 == 3'h5) && (fn7 != 7'h00) && (fn7 != 7'h20)); //srli/srai
             if (unsupported_inst) `INST_ERR("I_TYPE");
             `endif
         end
