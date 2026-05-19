@@ -629,7 +629,11 @@ task automatic single_step();
         return;
     end
 
+    `ifndef SYNT
     core_ret = $sformatf("Core [R] %5h: %8h", `CORE.pc.ret, `CORE.inst.ret);
+    `else
+    core_ret = $sformatf("Core [R] %8h", `CORE.inst.ret);
+    `endif
     `LOG_V(core_ret);
 
     `ifdef ENABLE_COSIM
