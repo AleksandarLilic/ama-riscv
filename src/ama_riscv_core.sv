@@ -97,6 +97,13 @@ end
 `DFF_CI_RI_RVI(inst.dec, inst_dec_d)
 `DFF_CI_RI_RVI(pc.dec, pc_dec_d)
 
+`ifndef SYNT
+always_ff @(posedge clk) begin
+    assert (!(imem_rsp.valid && imem_rsp.data == 'h0) || rst)
+    else $fatal(1, "IMEM returned zero-word instruction");
+end
+`endif
+
 fe_ctrl_t decoded_fe_ctrl;
 ama_riscv_decoder ama_riscv_decoder_i (
     .inst_dec (inst.dec), .decoded (decoded), .fe_ctrl (decoded_fe_ctrl)
