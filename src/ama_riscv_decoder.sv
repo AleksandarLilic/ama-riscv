@@ -1,6 +1,10 @@
 `include "ama_riscv_defines.svh"
 
-`define INST_ERR(x) $error($sformatf("Unsupported %0s instruction", x))
+`define INST_WARN(x) \
+    $display($sformatf( \
+        "WARNING: decoder received unsupported %0s instruction: %8h", \
+        x, inst_dec) \
+    )
 
 module ama_riscv_decoder (
     input  arch_width_t inst_dec,
@@ -73,7 +77,7 @@ always_comb begin
                 (fn7 == 7'h1) || // rv32m
                 ((fn7 == 7'h5) && fn3[2]) // rv32 zbb partial
             );
-            if (unsupported_inst) `INST_ERR("R_TYPE");
+            if (unsupported_inst) `INST_WARN("R_TYPE");
             `endif
         end
 
@@ -92,7 +96,7 @@ always_comb begin
             unsupported_inst =
                 ((fn3 == 3'h1) && (fn7 != 7'h00)) || // slli: fn7 must be 0x00
                 ((fn3 == 3'h5) && (fn7 != 7'h00) && (fn7 != 7'h20)); //srli/srai
-            if (unsupported_inst) `INST_ERR("I_TYPE");
+            if (unsupported_inst) `INST_WARN("I_TYPE");
             `endif
         end
 
@@ -109,7 +113,7 @@ always_comb begin
             unsupported_inst = (
                 (fn3 == 3'h3) || (fn3 == 3'h6) || (fn3 == 3'h7)
             );
-            if (unsupported_inst) `INST_ERR("LOAD");
+            if (unsupported_inst) `INST_WARN("LOAD");
             `endif
         end
 
@@ -122,7 +126,7 @@ always_comb begin
             d.has_reg = '{rd: 0, rdp: 0, rs1: 1, rs2: 1, rs3: 0};
             `ifndef SYNT
             unsupported_inst = ((fn3 == 3'h3) || fn3[2]);
-            if (unsupported_inst) `INST_ERR("STORE");
+            if (unsupported_inst) `INST_WARN("STORE");
             `endif
         end
 
@@ -137,7 +141,7 @@ always_comb begin
             d.has_reg = '{rd: 0, rdp: 0, rs1: 1, rs2: 1, rs3: 0};
             `ifndef SYNT
             unsupported_inst = ((fn3 == 3'h2) || (fn3 == 3'h3));
-            if (unsupported_inst) `INST_ERR("BRANCH");
+            if (unsupported_inst) `INST_WARN("BRANCH");
             `endif
         end
 
@@ -162,7 +166,7 @@ always_comb begin
             d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 0, rs3: 0};
             `ifndef SYNT
             unsupported_inst = !(fn3 == 3'h0);
-            if (unsupported_inst) `INST_ERR("JALR");
+            if (unsupported_inst) `INST_WARN("JALR");
             `endif
         end
 
@@ -196,7 +200,7 @@ always_comb begin
                     d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 1};
                     `ifndef SYNT
                     unsupported_inst = ((fn3 == 3'h1) || (fn3 == 3'h3));
-                    if (unsupported_inst) `INST_ERR("SIMD_MUL");
+                    if (unsupported_inst) `INST_WARN("SIMD_MUL");
                     `endif
                 end
                 CUSTOM_ISA_FN7_SIMD_WMUL: begin
@@ -208,7 +212,7 @@ always_comb begin
                     d.has_reg = '{rd: 1, rdp: 1, rs1: 1, rs2: 1, rs3: 1};
                     `ifndef SYNT
                     unsupported_inst = (fn3[2]);
-                    if (unsupported_inst) `INST_ERR("SIMD_WMUL");
+                    if (unsupported_inst) `INST_WARN("SIMD_WMUL");
                     `endif
                 end
                 CUSTOM_ISA_FN7_SIMD_DOT: begin
@@ -238,13 +242,13 @@ always_comb begin
                     d.has_reg = '{rd: 1, rdp: 1, rs1: 1, rs2: 1, rs3: 0};
                     `ifndef SYNT
                     unsupported_inst = (fn3[0]);
-                    if (unsupported_inst) `INST_ERR("SIMD_TXP");
+                    if (unsupported_inst) `INST_WARN("SIMD_TXP");
                     `endif
                 end
                 default: begin
                     `ifndef SYNT
                     unsupported_inst = !no_inst;
-                    if (unsupported_inst) `INST_ERR("custom");
+                    if (unsupported_inst) `INST_WARN("custom");
                     `endif
                 end
             endcase
@@ -257,7 +261,7 @@ always_comb begin
                 (fn3 == 3'h0) || //fence: fm/pred/succ fields are ordering hints
                 (inst_dec == `INST_FENCE_I)
             );
-            if (unsupported_inst) `INST_ERR("MISC_MEM");
+            if (unsupported_inst) `INST_WARN("MISC_MEM");
             `endif
         end
 
@@ -273,14 +277,14 @@ always_comb begin
             d.has_reg = '{rd: 1, rdp: 0 , rs1: !fn3[2], rs2: 0, rs3: 0};
             `ifndef SYNT
             unsupported_inst = ((fn3 == 3'h0) || (fn3 == 3'h4));
-            if (unsupported_inst) `INST_ERR("SYSTEM");
+            if (unsupported_inst) `INST_WARN("SYSTEM");
             `endif
         end
 
         default: begin
             `ifndef SYNT
             unsupported_inst = !no_inst;
-            if (unsupported_inst) `INST_ERR(" ");
+            if (unsupported_inst) `INST_WARN(" ");
             `endif
         end
 
