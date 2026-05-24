@@ -23,8 +23,9 @@ localparam unsigned CNT_WIDTH = $clog2(CLOCKS_PER_US);
 //localparam logic [MHPMEVENT_PAD_WIDTH-1:0] MHPMEVENT_PAD = 'h0;
 localparam unsigned MHPM_MASK_BITS = $clog2(MHPMCOUNTERS + MHPM_IDX_L);
 
-function automatic logic get_event(
-    input perf_event_t pe, input mhpmevent_t ev);
+/* verilator lint_off UNUSEDSIGNAL */
+function automatic logic get_event(input perf_event_t pe, input mhpmevent_t ev);
+    // ret_inst not used from pe
     case (ev)
         MHPMEVENT_BAD_SPEC: get_event = pe.bad_spec;
         MHPMEVENT_STALL_BE : get_event = pe.stall_be;
@@ -61,6 +62,7 @@ function automatic logic get_event(
         default: get_event = 1'b0;
     endcase
 endfunction
+/* verilator lint_on UNUSEDSIGNAL */
 
 //------------------------------------------------------------------------------
 // implementation
