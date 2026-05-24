@@ -103,6 +103,7 @@ ustress:
   - ["sim/sw/baremetal/ustress/branch_indirect", "ustress.mem"]
   - ["sim/sw/baremetal/ustress/call_return", "ustress.mem"]
   - ["sim/sw/baremetal/ustress/l1d_cache", "ustress.mem"]
+  - ["sim/sw/baremetal/ustress/l1i_cache", "ustress.mem"]
   - ["sim/sw/baremetal/ustress/load_after_store", "ustress.mem"]
   - ["sim/sw/baremetal/ustress/mac32", "ustress.mem"]
   - ["sim/sw/baremetal/ustress/mac64", "ustress.mem"]
