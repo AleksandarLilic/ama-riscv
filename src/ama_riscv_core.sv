@@ -62,7 +62,7 @@ always_comb begin
         default: pc.fet = pc_fet_last;
     endcase
 end
-assign imem_req.data = pc.fet[15:2];
+assign imem_req.data = pc.fet[CORE_WORD_ADDR_BUS+2-1:2];
 
 `DFF_CI_RI_RV_EN(`RESET_VECTOR, fe_ctrl.pc_we, pc.fet, pc_fet_last)
 
