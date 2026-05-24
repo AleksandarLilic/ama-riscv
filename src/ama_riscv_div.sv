@@ -308,7 +308,7 @@ end
 
 // hits bypass the FSM combinationally; otherwise hold the last completed result
 assign result = start_div_cache_hit ? div_cache_result : ds.result;
-assign busy = (!flush && (state != IDLE));
+assign busy = (!flush && ((state != IDLE) || (start && !start_div_cache_hit)));
 
 `ifndef SYNT
 // during normal iteration, divisor should be nonzero
