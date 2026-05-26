@@ -4,6 +4,7 @@
 # e.g. <project_dir>/synt_proj.runs/impl_1
 # run from vivado tcl shell: `source script/flash_bit.tcl`
 
+set start [expr {[clock seconds] - 1}]
 set device xc7a100t_0
 
 # {bitfile_suffix  wait_time_seconds}
@@ -57,3 +58,4 @@ foreach workload $workloads {
 }
 
 puts "All workloads complete."
+puts "Runtime: [expr {[clock seconds] - $start}]s"

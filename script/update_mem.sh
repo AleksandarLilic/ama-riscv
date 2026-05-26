@@ -26,6 +26,7 @@ fi
 
 echo "Running with up to $MAX_JOBS concurrent jobs"
 
+time_start=$(date +%s)
 now=$(date +%Y-%m-%d_%H-%M-%S)
 tag="testrun"
 run_name="updatemem_${now}_${tag}"
@@ -141,3 +142,7 @@ if [ -f "$fail_file" ]; then
     echo "Error: one or more updatemem jobs failed"
     exit 1
 fi
+
+time_end=$(date +%s)
+time_diff=$((time_end - time_start))
+echo "Runtime: $time_diff seconds"
