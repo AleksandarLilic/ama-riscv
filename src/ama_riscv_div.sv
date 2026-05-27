@@ -252,9 +252,6 @@ always_ff @(posedge clk) begin
             IDLE: begin
                 if (start) begin
                     if (start_div_cache_hit) begin
-                        // mirror the hit result into the holding register so
-                        // 'result' does not fall back to an older value once
-                        // the combinational hit condition goes away
                         ds.result <= div_cache_result;
                     end else begin
                         // miss: flop the request and let SETUP decide whether
@@ -312,9 +309,8 @@ always_ff @(posedge clk) begin
     end
 end
 
-// hits bypass the FSM combinationally; otherwise hold the last completed result
-assign result = start_div_cache_hit ? div_cache_result : ds.result;
-assign busy = (!flush && ((state != IDLE) || (start && !start_div_cache_hit)));
+assign result = ds.result;
+assign busy = (!flush && (state != IDLE));
 
 `ifndef SYNT
 // during normal iteration, divisor should be nonzero

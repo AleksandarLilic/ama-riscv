@@ -156,7 +156,7 @@ task automatic run_div_hit(
     op = test_op;
     start = 1'b1;
 
-    #1;
+    @(posedge clk); #1;
     result_err_now = (result !== expected);
     busy_err_now = busy;
 

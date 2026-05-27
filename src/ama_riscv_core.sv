@@ -486,10 +486,11 @@ logic div_start, div_busy, div_issued;
 assign div_start = (
     decoded_exe.itype.div &&
     !div_issued &&
+    !div_busy &&
     !hazard.to_exe &&
     !(flush.dec || flush.exe)
 );
-assign div_stalled = div_busy;
+assign div_stalled = (div_start || div_busy);
 
 always_ff @(posedge clk) begin
     if (rst) div_issued <= 1'b0;
