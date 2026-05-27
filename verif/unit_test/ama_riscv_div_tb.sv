@@ -16,7 +16,8 @@ parameter unsigned BUSY_RELEASE_TO = 50; // max cycles wait for busy to deassert
 // OVERHEAD = non-iteration cycles counted in busy = 2 (SETUP + FIXUP)
 // CLZ is computed in SETUP from registered inputs.
 // all timing checks: max_busy_cyc = OVERHEAD + N_ITER
-// N_ITER = W - clz(|dividend|); pow2/a<b/overflow/div-by-0 finish from SETUP
+// N_ITER = cnt_b - cnt_a + 1  (cnt_a=clz(|dividend|), cnt_b=clz(|divisor|))
+// pow2/a<b/overflow/div-by-0 finish from SETUP (busy = 1 cycle)
 parameter unsigned OVERHEAD = 2;
 
 `define FAILED \
@@ -268,31 +269,43 @@ initial begin
         run_div_nt("rem -21/ 4 pow2",  DIV_REM, 32'hFFFFFFEB, 32'd4, 32'hFFFFFFFF);
 
         // ---------- Timing: max_busy_cyc = OVERHEAD + N_ITER
-        // N_ITER = W - clz(|dividend|); use non-pow2 divisors to exercise ITER path
+        // N_ITER = cnt_b - cnt_a + 1; use non-pow2 divisors to exercise ITER path
 
-        // N=32 (clz=0): a has all bits set, b non-pow2 -> full 32 iterations
+        // N=31 (cnt_a=0, cnt_b=30): a has all bits set, b=3 (2-bit divisor)
         //   0xFFFFFFFF / 3 = 0x55555555 (exact)
-        run_div("timing N=32 (clz=0)",
+        run_div("timing N=31 (cnt_a=0,  cnt_b=30) F/3",
                 DIV_DIVU, 32'hFFFFFFFF, 32'd3, 32'h55555555,
-                OVERHEAD + 'd32);
+                OVERHEAD + 'd31);
 
-        // N=8 (clz=24): light dividend, non-pow2 divisor
+        // N=6 (cnt_a=24, cnt_b=29): light dividend, b=7 (3-bit divisor)
         //   255(0xFF) / 7 = 36 rem 3
-        run_div("timing N=8  (clz=24) 255/7",
+        run_div("timing N=6  (cnt_a=24, cnt_b=29) 255/7",
                 DIV_DIVU, 32'h000000FF, 32'd7, 32'd36,
-                OVERHEAD + 'd8);
+                OVERHEAD + 'd6);
 
-        // N=5 (clz=27): same dividend as div 20/3 above
+        // N=4 (cnt_a=27, cnt_b=30): same dividend as div 20/3 above
         //   20 / 3 = 6 rem 2
-        run_div("timing N=5  (clz=27) 20/3",
+        run_div("timing N=4  (cnt_a=27, cnt_b=30) 20/3",
                 DIV_DIVU, 32'd20, 32'd3, 32'd6,
-                OVERHEAD + 'd5);
+                OVERHEAD + 'd4);
 
-        // N=2 (clz=30): near-minimum; a=b=3 (equal, not less-than, b non-pow2)
+        // N=1 (cnt_a=30, cnt_b=30): a=b=3 (equal, not less-than, b non-pow2)
         //   3 / 3 = 1 rem 0
-        run_div("timing N=2  (clz=30) 3/3",
+        run_div("timing N=1  (cnt_a=30, cnt_b=30) 3/3",
                 DIV_DIVU, 32'd3, 32'd3, 32'd1,
-                OVERHEAD + 'd2);
+                OVERHEAD + 'd1);
+
+        // N=1 (cnt_a=8, cnt_b=8): same-width operands, both 24-bit
+        //   0x00FFFFFF / 0x00FF00FF = 1 rem 0xFF00
+        run_div("timing N=1  (cnt_a=8,  cnt_b=8)  FFFFFF/FF00FF",
+                DIV_DIVU, 32'h00FFFFFF, 32'h00FF00FF, 32'h00000001,
+                OVERHEAD + 'd1);
+
+        // N=3 (cnt_a=16, cnt_b=18): divisor CLZ saves 13 iters
+        //   0x0000FFFF / 0x00003FFF = 4 rem 3
+        run_div("timing N=3  (cnt_a=16, cnt_b=18) FFFF/3FFF",
+                DIV_DIVU, 32'h0000FFFF, 32'h00003FFF, 32'h00000004,
+                OVERHEAD + 'd3);
 
         // SPECIAL a<b: result is written in SETUP, so busy is 1 cycle
         run_div("timing SPECIAL a<b",
@@ -348,29 +361,29 @@ initial begin
         run_div_nt("back2back second", DIV_DIVU, 32'd1024, 32'd32, 32'd32);
 
         // ---------- buffer hit / miss checks
-        run_div("buffer seed div 20/3", DIV_DIV, 32'd20, 32'd3, 32'd6, OVERHEAD + 'd5);
+        run_div("buffer seed div 20/3", DIV_DIV, 32'd20, 32'd3, 32'd6, OVERHEAD + 'd4);
         run_div_hit("buffer hit  div 20/3", DIV_DIV, 32'd20, 32'd3, 32'd6);
 
-        run_div("buffer seed div 100/7", DIV_DIV, 32'd100, 32'd7, 32'd14, OVERHEAD + 'd7);
+        run_div("buffer seed div 100/7", DIV_DIV, 32'd100, 32'd7, 32'd14, OVERHEAD + 'd5);
         run_div_hit("buffer pair rem 100/7", DIV_REM, 32'd100, 32'd7, 32'd2);
 
-        run_div("buffer seed rem -20/3", DIV_REM, 32'hFFFFFFEC, 32'd3, 32'hFFFFFFFE, OVERHEAD + 'd5);
+        run_div("buffer seed rem -20/3", DIV_REM, 32'hFFFFFFEC, 32'd3, 32'hFFFFFFFE, OVERHEAD + 'd4);
         run_div_hit("buffer pair div -20/3", DIV_DIV, 32'hFFFFFFEC, 32'd3, 32'hFFFFFFFA);
 
-        run_div("buffer seed divu F/3", DIV_DIVU, 32'hFFFFFFFF, 32'd3, 32'h55555555, OVERHEAD + 'd32);
+        run_div("buffer seed divu F/3", DIV_DIVU, 32'hFFFFFFFF, 32'd3, 32'h55555555, OVERHEAD + 'd31);
         run_div_hit("buffer pair remu F/3", DIV_REMU, 32'hFFFFFFFF, 32'd3, 32'd0);
 
         run_div("buffer special seed div-by-0", DIV_DIV, 32'd5, 32'd0, 32'hFFFFFFFF, 'd1);
         run_div("buffer special pair rem-by-0", DIV_REM, 32'd5, 32'd0, 32'd5, 'd1);
-        run_div("buffer keep seed div 20/3", DIV_DIV, 32'd20, 32'd3, 32'd6, OVERHEAD + 'd5);
+        run_div("buffer keep seed div 20/3", DIV_DIV, 32'd20, 32'd3, 32'd6, OVERHEAD + 'd4);
         run_div("buffer keep special div-by-0", DIV_DIV, 32'd9, 32'd0, 32'hFFFFFFFF, 'd1);
         run_div_hit("buffer keep hit div 20/3", DIV_DIV, 32'd20, 32'd3, 32'd6);
 
-        run_div("buffer signed seed -20/3", DIV_DIV, 32'hFFFFFFEC, 32'd3, 32'hFFFFFFFA, OVERHEAD + 'd5);
-        run_div("buffer miss unsigned -20/3", DIV_DIVU, 32'hFFFFFFEC, 32'd3, 32'h5555554E, OVERHEAD + 'd32);
+        run_div("buffer signed seed -20/3", DIV_DIV, 32'hFFFFFFEC, 32'd3, 32'hFFFFFFFA, OVERHEAD + 'd4);
+        run_div("buffer miss unsigned -20/3", DIV_DIVU, 32'hFFFFFFEC, 32'd3, 32'h5555554E, OVERHEAD + 'd31);
 
         // ---------- reset should clear only buffer valid
-        run_div("buffer reset seed divu 20/3", DIV_DIVU, 32'd20, 32'd3, 32'd6, OVERHEAD + 'd5);
+        run_div("buffer reset seed divu 20/3", DIV_DIVU, 32'd20, 32'd3, 32'd6, OVERHEAD + 'd4);
         run_div_hit("buffer reset hit  divu 20/3", DIV_DIVU, 32'd20, 32'd3, 32'd6);
 
         rst = 1'b1;
@@ -379,10 +392,10 @@ initial begin
         repeat (2) @(posedge clk);
         #1;
 
-        run_div("buffer reset miss divu 20/3", DIV_DIVU, 32'd20, 32'd3, 32'd6, OVERHEAD + 'd5);
+        run_div("buffer reset miss divu 20/3", DIV_DIVU, 32'd20, 32'd3, 32'd6, OVERHEAD + 'd4);
 
         // ---------- invalidate old entry on real start, then keep invalid on flush
-        run_div("buffer old seed div 20/3", DIV_DIV, 32'd20, 32'd3, 32'd6, OVERHEAD + 'd5);
+        run_div("buffer old seed div 20/3", DIV_DIV, 32'd20, 32'd3, 32'd6, OVERHEAD + 'd4);
 
         begin
             @(posedge clk); #1;
@@ -414,8 +427,8 @@ initial begin
                 );
             end
 
-            run_div("buffer old miss after flush", DIV_DIV, 32'd20, 32'd3, 32'd6, OVERHEAD + 'd5);
-            run_div("buffer flush miss F/7", DIV_DIVU, 32'hFFFFFFFF, 32'd7, 32'h24924924, OVERHEAD + 'd32);
+            run_div("buffer old miss after flush", DIV_DIV, 32'd20, 32'd3, 32'd6, OVERHEAD + 'd4);
+            run_div("buffer flush miss F/7", DIV_DIVU, 32'hFFFFFFFF, 32'd7, 32'h24924924, OVERHEAD + 'd30);
         end
 
         // ---------- flush should not seed buffer

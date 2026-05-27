@@ -35,8 +35,8 @@ typedef struct packed {
 typedef struct packed {
     logic [CLZ_WIDTH-1:0] cnt_a, cnt_b;
     logic empty_a, empty_b;
-    logic [COUNT_WIDTH-1:0] skip, iter_count;
-    arch_width_t dividend_norm;
+    logic [COUNT_WIDTH-1:0] skip, skip_a, skip_b, iter_count;
+    arch_width_t dividend_norm, rem_norm;
 } setup_clz_t;
 
 typedef struct packed {
@@ -99,9 +99,14 @@ lzc_divisor_i (
     .in_i (setup.abs_b), .cnt_o (setup_clz.cnt_b), .empty_o (setup_clz.empty_b)
 );
 
-assign setup_clz.skip = {1'b0, setup_clz.cnt_a};
+assign setup_clz.skip_a = {1'b0, setup_clz.cnt_a};
+assign setup_clz.skip_b = (COUNT_WIDTH'(W) - COUNT_WIDTH'(setup_clz.cnt_b) - 1);
+assign setup_clz.skip = (setup_clz.skip_a + setup_clz.skip_b);
 assign setup_clz.iter_count = (COUNT_WIDTH'(W) - setup_clz.skip);
 assign setup_clz.dividend_norm = (setup.abs_a << setup_clz.skip);
+assign setup_clz.rem_norm = (
+    (setup.abs_a << setup_clz.skip_a) >> (setup_clz.cnt_b + 1)
+);
 
 //------------------------------------------------------------------------------
 // special case?
@@ -178,7 +183,8 @@ assign iter.rem_next = iter.subtract ? iter.rem_sub : iter.rem_shift[W-1:0];
 assign iter.quot_next = {ds.quot[W-2:0], iter.subtract};
 assign iter.dividend_next = {ds.dividend[W-2:0], 1'b0};
 
-// fixup at the end
+//------------------------------------------------------------------------------
+// fixup
 arch_width_t quot_fixed, rem_mag, rem_fixed;
 assign quot_fixed = ds.quot_neg ? (~ds.quot + 1'b1) : ds.quot;
 assign rem_mag = ds.rem;
@@ -270,7 +276,7 @@ always_ff @(posedge clk) begin
                     ds.dividend <= setup_clz.dividend_norm;
                     ds.divisor <= setup.abs_b;
                     ds.quot <= '0;
-                    ds.rem <= '0;
+                    ds.rem <= setup_clz.rem_norm;
                     ds.iter_count <= setup_clz.iter_count;
                     ds.op_rem <= setup.op_rem;
                     ds.quot_neg <= setup.quot_neg;
