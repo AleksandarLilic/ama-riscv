@@ -99,14 +99,14 @@ lzc_divisor_i (
     .in_i (setup.abs_b), .cnt_o (setup_clz.cnt_b), .empty_o (setup_clz.empty_b)
 );
 
+// NOTE: this is likely to become a critical path in the future
+// consider adding SETUP_P2 to cut at 'skip_a + skip_b' or similar
 assign setup_clz.skip_a = {1'b0, setup_clz.cnt_a};
 assign setup_clz.skip_b = (COUNT_WIDTH'(W) - COUNT_WIDTH'(setup_clz.cnt_b) - 1);
 assign setup_clz.skip = (setup_clz.skip_a + setup_clz.skip_b);
 assign setup_clz.iter_count = (COUNT_WIDTH'(W) - setup_clz.skip);
 assign setup_clz.dividend_norm = (setup.abs_a << setup_clz.skip);
-assign setup_clz.rem_norm = (
-    (setup.abs_a << setup_clz.skip_a) >> (setup_clz.cnt_b + 1)
-);
+assign setup_clz.rem_norm = (setup.abs_a >> setup_clz.iter_count);
 
 //------------------------------------------------------------------------------
 // special case?
