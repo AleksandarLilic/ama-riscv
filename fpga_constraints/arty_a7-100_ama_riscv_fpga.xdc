@@ -1,3 +1,6 @@
+set_property CFGBVS VCCO [current_design]
+set_property CONFIG_VOLTAGE 3.3 [current_design]
+
 set_property -dict { PACKAGE_PIN E3    IOSTANDARD LVCMOS33 } [get_ports { CLK100MHZ }]; #IO_L12P_T1_MRCC_35 Sch=gclk[100]
 create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports { CLK100MHZ }];
 
@@ -13,3 +16,9 @@ set_property -dict { PACKAGE_PIN D9    IOSTANDARD LVCMOS33 } [get_ports { RST }]
 ## Pmod Header JA
 set_property -dict { PACKAGE_PIN B18   IOSTANDARD LVCMOS33 } [get_ports { FPGA_SERIAL_TX }]; #IO_L10P_T1_AD11P_15 Sch=ja[8]
 set_property -dict { PACKAGE_PIN A18   IOSTANDARD LVCMOS33 } [get_ports { FPGA_SERIAL_RX }]; #IO_L10N_T1_AD11N_15 Sch=ja[9]
+
+## Async I/O false paths
+set_false_path -from [get_ports { RST }]
+set_false_path -to   [get_ports { LEDS[*] }]
+set_false_path -to   [get_ports { FPGA_SERIAL_TX }]
+set_false_path -from [get_ports { FPGA_SERIAL_RX }]
