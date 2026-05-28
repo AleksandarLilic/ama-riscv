@@ -1,54 +1,54 @@
 {
     "core": {
-        "cycles": 25278,
-        "empty": 3024,
-        "stalls": 2833,
-        "lost": 191,
-        "lost_other": 117,
-        "bad_spec": 74,
-        "stall_be": 2667,
-        "stall_l1d": 1286,
-        "stall_be_core": 1381,
-        "stall_fe": 166,
-        "stall_l1i": 157,
-        "stall_fe_core": 9,
-        "ret": 22254,
+        "cycles": 25303,
+        "empty": 3035,
+        "stalls": 2841,
+        "lost": 194,
+        "lost_other": 122,
+        "bad_spec": 72,
+        "stall_be": 2672,
+        "stall_l1d": 1292,
+        "stall_be_core": 1380,
+        "stall_fe": 169,
+        "stall_l1i": 150,
+        "stall_fe_core": 19,
+        "ret": 22268,
         "ret_simd": 9456,
-        "ret_int": 12798,
-        "ret_ctrl_flow_br": 903,
-        "bp_miss": 43,
-        "l1i_ref": 22344,
-        "l1i_miss": 36,
-        "l1d_ref": 8167,
-        "l1d_miss": 211,
+        "ret_int": 12812,
+        "ret_ctrl_flow_br": 904,
+        "bp_miss": 39,
+        "l1i_ref": 22349,
+        "l1i_miss": 33,
+        "l1d_ref": 8171,
+        "l1d_miss": 212,
         "ipc": 0.88
     },
     "icache": {
-        "references": 22344,
+        "references": 22349,
         "hits": {
-            "all": 22308
+            "all": 22316
         },
         "misses": {
-            "all": 36
+            "all": 33
         },
-        "hr": 99.84,
-        "mpki": 1.62
+        "hr": 99.85,
+        "mpki": 1.48
     },
     "dcache": {
-        "references": 8167,
+        "references": 8171,
         "hits": {
-            "all": 7956
+            "all": 7959
         },
         "misses": {
-            "all": 211
+            "all": 212
         },
-        "hr": 97.42,
-        "mpki": 9.48
+        "hr": 97.41,
+        "mpki": 9.52
     },
     "bpred": {
-        "predicted": 860,
-        "mispredicted": 43,
-        "accuracy": 95.24,
-        "mpki": 1.93
+        "predicted": 865,
+        "mispredicted": 39,
+        "accuracy": 95.69,
+        "mpki": 1.75
     }
 }

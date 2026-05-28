@@ -110,7 +110,7 @@ Core microarchitecture follows a fairly standard 5-stage single issue RISC-style
 - EXE:
   - Core executes most of the instructions in this one cycle.
   - RV32 multiplier and SIMD finish first (out of two) execution cycle.
-  - RV32 iterative divider starts, takes 0 to 34 cycles to finish (data dependent).
+  - RV32 restoring binary divider starts, takes 1 to 34 cycles to finish (data dependent).
   - First part of Dcache address generation is done.
 - EXE_MEM pipe:
   - Available results are propagated to MEM stage.
@@ -155,7 +155,7 @@ For FPGA emulation, `ama_riscv_top` is instantiated in the `ama_riscv_fpga` FPGA
 
 Emulation is ran at 50MHz on Arty A7-100T board. Since the design is fully synchronous, change in clock frequency by X would yield the same change in speed by X, thus keeping the 'per MHz' result the same.
 
-- Dhrystone: 81 DMIPS, 1.63 DMIPS/MHz (IPC: 0.90)
+- Dhrystone: 81 DMIPS, 1.63 DMIPS/MHz (IPC: 0.91)
 - Coremark: 145 Coremarks, 2.9 Coremarks/MHz (IPC: 0.89)
 - STREAM-INT: 
   - Copy: 66 MB/s
@@ -163,9 +163,9 @@ Emulation is ran at 50MHz on Arty A7-100T board. Since the design is fully synch
   - Add: 64 MB/s
   - Triad: 57 MB/s
 - Embench_1.0 compiled for speed (with [detailed breakdown](examples/perf_runs_fpga/benchmark_results/embench_results.md)): 
-  - Size: 7.26 (3.32 - 15.87)
-  - Speed: 50.76 (33.20 - 77.60)
-  - Speed/MHz: 1.02 (0.66 - 1.55)
+  - Size: 9.49 (4.32 - 20.85)
+  - Speed: 51.01 (33.49 - 77.69)
+  - Speed/MHz: 1.02 (0.67 - 1.55)
 
 SIMD ISA improvements on MLP, measured in inferences per second
 
@@ -297,7 +297,7 @@ Running with `-v VERBOSE` adds per cycle logs
 ```
 
 ## Callstack
-Folded callstack is saved as `callstack_folded_clk_cycle.txt`, cunting the number of cycles spent in each stack
+Folded callstack is saved as `callstack_folded_clk_cycle.txt`, counting the number of cycles spent in each stack  
 Example snippet from the folded callstack
 ```
 ...
@@ -329,7 +329,7 @@ Note that cycle count reports how long it took for that instruction to retire. T
 Execution trace, saved as `trace_clk.bin`, contains `trace_entry` struct for each simulation cycle, and it's needed as an input for the analysis scripts (below)
 
 ## Hardware stats
-Stats for core, icache, dcache, and branch predictor are available as `hw_stats.json`
+Stats for core, icache, dcache, and branch predictor are available as `hw_stats.json`  
 This replaces HW models present in the ISA sim
 
 ```json
@@ -496,8 +496,8 @@ IPC : 0.855
 ![](examples/dhrystone_dhrystone_out_cosim/prof_stats_ipc_plot.png)
 
 ### TDA
-Top-down analysis can be run based on the collected performance counters
-By default, script will open up plots in the default browser. The `-r <arg>` passes argument straight to `plotly`'s renderer argument. Using `-r notebook` or `-r png` is useful when running form jupyter notebook. The `-r png` will simply stream put png contets to stdout
+Top-down analysis can be run based on the collected performance counters  
+By default, script will open up plots in the default browser. The `-r <arg>` passes argument straight to `plotly`'s renderer argument. Using `-r notebook` or `-r png` is useful when running form jupyter notebook. The `-r png` simply streams png contents to stdout
 
 ```sh
 ./sim/script/tda.py examples/dhrystone_dhrystone_out_cosim/hw_stats.json

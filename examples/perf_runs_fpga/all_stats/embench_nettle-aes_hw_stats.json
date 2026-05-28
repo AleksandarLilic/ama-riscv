@@ -1,35 +1,35 @@
 {
     "core": {
-        "cycles": 234585391,
-        "empty": 30053727,
-        "stalls": 29304846,
-        "lost": 748881,
-        "lost_other": 65,
-        "bad_spec": 748816,
-        "stall_be": 29265648,
-        "stall_l1d": 28454436,
-        "stall_be_core": 811212,
-        "stall_fe": 39198,
-        "stall_l1i": 181,
-        "stall_fe_core": 39017,
-        "ret": 204531664,
+        "cycles": 236909845,
+        "empty": 32378180,
+        "stalls": 31629304,
+        "lost": 748876,
+        "lost_other": 56,
+        "bad_spec": 748820,
+        "stall_be": 31590046,
+        "stall_l1d": 30778828,
+        "stall_be_core": 811218,
+        "stall_fe": 39258,
+        "stall_l1i": 237,
+        "stall_fe_core": 39021,
+        "ret": 204531665,
         "ret_simd": 0,
-        "ret_int": 204531664,
+        "ret_int": 204531665,
         "ret_ctrl_flow_br": 3825904,
-        "bp_miss": 374413,
-        "l1i_ref": 205276591,
-        "l1i_miss": 44,
+        "bp_miss": 374414,
+        "l1i_ref": 205276598,
+        "l1i_miss": 53,
         "l1d_ref": 43212028,
-        "l1d_miss": 4625404,
-        "ipc": 0.872
+        "l1d_miss": 4992003,
+        "ipc": 0.863
     },
     "icache": {
-        "references": 205276591,
+        "references": 205276598,
         "hits": {
-            "all": 205276547
+            "all": 205276545
         },
         "misses": {
-            "all": 44
+            "all": 53
         },
         "hr": 100.0,
         "mpki": 0.0
@@ -37,17 +37,17 @@
     "dcache": {
         "references": 43212028,
         "hits": {
-            "all": 38586624
+            "all": 38220025
         },
         "misses": {
-            "all": 4625404
+            "all": 4992003
         },
-        "hr": 89.3,
-        "mpki": 22.61
+        "hr": 88.45,
+        "mpki": 24.41
     },
     "bpred": {
-        "predicted": 3451491,
-        "mispredicted": 374413,
+        "predicted": 3451490,
+        "mispredicted": 374414,
         "accuracy": 90.21,
         "mpki": 1.83
     }

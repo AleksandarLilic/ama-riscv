@@ -1,43 +1,43 @@
 embench_nsichneu
-IPC: 0.486
+IPC: 0.474
          L1        L2     cycles cycles_e
-0      lost  bad_spec    3569937     3.6M
-1      lost     other         55     55.0
-2  frontend    icache   77183761    77.2M
-3  frontend      core         18     18.0
+0      lost  bad_spec    3693049     3.7M
+1      lost     other         48     48.0
+2  frontend    icache   86293159    86.3M
+3  frontend      core         25     25.0
 4   backend    dcache          0      0.0
-5   backend      core   37607062    37.6M
+5   backend      core   34160262    34.2M
 6  retiring   integer  111836414   111.8M
 7  retiring      simd          0      0.0
 
 Performance Counters for 'embench_nsichneu'
    class          counter     count count_e
-  cycles           cycles 230197247  230.2M
+  cycles           cycles 235982957  236.0M
      ret              ret 111836414  111.8M
-   stall           stalls 114790841  114.8M
-    lost             lost   3569992    3.6M
+   stall           stalls 120453446  120.5M
+    lost             lost   3693097    3.7M
    ret_*          ret_int 111836414  111.8M
    ret_* ret_ctrl_flow_br  38468754   38.5M
    ret_*         ret_simd         0     0.0
- stall_*         stall_be  37607062   37.6M
- stall_*    stall_be_core  37607062   37.6M
- stall_*         stall_fe  77183779   77.2M
- stall_*    stall_fe_core        18    18.0
+ stall_*         stall_be  34160262   34.2M
+ stall_*    stall_be_core  34160262   34.2M
+ stall_*         stall_fe  86293184   86.3M
+ stall_*    stall_fe_core        25    25.0
  stall_*        stall_l1d         0     0.0
- stall_*        stall_l1i  77183761   77.2M
-bad_spec         bad_spec   3569937    3.6M
-   l1i_*          l1i_ref 114790867  114.8M
-   l1i_*         l1i_miss  14033419   14.0M
+ stall_*        stall_l1i  86293159   86.3M
+bad_spec         bad_spec   3693049    3.7M
+   l1i_*          l1i_ref 114852431  114.9M
+   l1i_*         l1i_miss  15756825   15.8M
    l1d_*          l1d_ref  61488468   61.5M
    l1d_*         l1d_miss         0     0.0
-    bp_*          bp_miss   1784975    1.8M
+    bp_*          bp_miss   1846527    1.8M
 
 
 core:
-    Cycles: 230.2M, Retired: 111.8M, Empty: 118.4M, IPC: 0.486 
+    Cycles: 236.0M, Retired: 111.8M, Empty: 124.1M, IPC: 0.474 
 icache:
-    Ref: 114.8M, H: 100.8M, M: 14.0M, HR: 87.77%, MPKI: 125.48 
+    Ref: 114.9M, H: 99.1M, M: 15.8M, HR: 86.28%, MPKI: 140.89 
 dcache:
     Ref: 61.5M, H: 61.5M, M: 0.0, HR: 100.00%, MPKI: 0.00 
 bpred:
-    P: 36.7M, M: 1.8M, ACC: 95.36%, MPKI: 15.96 
+    P: 36.6M, M: 1.8M, ACC: 95.20%, MPKI: 16.51 
