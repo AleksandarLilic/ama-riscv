@@ -57,6 +57,7 @@ updatemem_check() {
     fi
 }
 
+# general test structure
 run_g() {
     local wl="$1"
     local test_name="$2"
@@ -73,18 +74,19 @@ run_g() {
     updatemem_check
 }
 
-run_emb() {
-    local test_name="$1"
-    local wl_emb=embench
-    local mem_file="$SW_DIR/$wl_emb/$test_name/$wl_emb.mem"
-    echo "Running $wl_emb/$test_name"
+# different flavours under the same test group
+run_f() {
+    local wl="$1"
+    local test_name="$2"
+    local mem_file="$SW_DIR/$wl/$test_name/$wl.mem"
+    echo "Running $wl/$test_name"
 
     check_inputs "$mem_file"
     updatemem -meminfo $MMI \
     -data "$mem_file" \
     -bit $BIT_NAME.bit \
     -proc $PROC \
-    -out $BIT_NAME."$wl_emb"."$test_name".bit \
+    -out $BIT_NAME."$wl"."$test_name".bit \
     -force >> "${run_name}.log"
     updatemem_check
 }
@@ -112,28 +114,42 @@ run_job run_g mlp w8a8
 run_job run_g mlp w4a8
 run_job run_g mlp w2a8
 
-run_job run_emb aha-mont64
-run_job run_emb crc32
-run_job run_emb cubic
-run_job run_emb edn
-run_job run_emb huffbench
-run_job run_emb matmult-int
-run_job run_emb md5sum
-run_job run_emb minver
-run_job run_emb nbody
-run_job run_emb nettle-aes
-run_job run_emb nettle-sha256
-run_job run_emb nsichneu
-run_job run_emb picojpeg
-run_job run_emb primecount
-run_job run_emb qrduino
-run_job run_emb sglib-combined
-run_job run_emb slre
-run_job run_emb st
-run_job run_emb statemate
-run_job run_emb tarfind
-run_job run_emb ud
-run_job run_emb wikisort
+run_job run_f embench aha-mont64
+run_job run_f embench crc32
+run_job run_f embench cubic
+run_job run_f embench edn
+run_job run_f embench huffbench
+run_job run_f embench matmult-int
+run_job run_f embench md5sum
+run_job run_f embench minver
+run_job run_f embench nbody
+run_job run_f embench nettle-aes
+run_job run_f embench nettle-sha256
+run_job run_f embench nsichneu
+run_job run_f embench picojpeg
+run_job run_f embench primecount
+run_job run_f embench qrduino
+run_job run_f embench sglib-combined
+run_job run_f embench slre
+run_job run_f embench st
+run_job run_f embench statemate
+run_job run_f embench tarfind
+run_job run_f embench ud
+run_job run_f embench wikisort
+
+run_job run_f ustress branch_direct
+run_job run_f ustress branch_indirect
+run_job run_f ustress call_return
+run_job run_f ustress div32
+run_job run_f ustress div64
+run_job run_f ustress l1d_cache
+run_job run_f ustress l1i_cache
+run_job run_f ustress load_after_store
+run_job run_f ustress mac32
+run_job run_f ustress mac64
+run_job run_f ustress memcpy
+run_job run_f ustress mul32
+run_job run_f ustress mul64
 
 wait # for all remaining jobs
 

@@ -40,6 +40,20 @@ lappend workloads {"ama_riscv_fpga.embench.tarfind.bit"          5}
 lappend workloads {"ama_riscv_fpga.embench.ud.bit"               6}
 lappend workloads {"ama_riscv_fpga.embench.wikisort.bit"         3}
 
+lappend workloads {"ama_riscv_fpga.ustress.branch_direct.bit"    2}
+lappend workloads {"ama_riscv_fpga.ustress.branch_indirect.bit"  2}
+lappend workloads {"ama_riscv_fpga.ustress.call_return.bit"      2}
+lappend workloads {"ama_riscv_fpga.ustress.div32.bit"            2}
+lappend workloads {"ama_riscv_fpga.ustress.div64.bit"            2}
+lappend workloads {"ama_riscv_fpga.ustress.l1d_cache.bit"        2}
+lappend workloads {"ama_riscv_fpga.ustress.l1i_cache.bit"        2}
+lappend workloads {"ama_riscv_fpga.ustress.load_after_store.bit" 2}
+lappend workloads {"ama_riscv_fpga.ustress.mac32.bit"            2}
+lappend workloads {"ama_riscv_fpga.ustress.mac64.bit"            2}
+lappend workloads {"ama_riscv_fpga.ustress.memcpy.bit"           2}
+lappend workloads {"ama_riscv_fpga.ustress.mul32.bit"            2}
+lappend workloads {"ama_riscv_fpga.ustress.mul64.bit"            2}
+
 foreach workload $workloads {
     set bitfile  [lindex $workload 0]
     set wait_sec [lindex $workload 1]

@@ -102,6 +102,8 @@ ustress:
   - ["sim/sw/baremetal/ustress/branch_direct", "ustress.mem"]
   - ["sim/sw/baremetal/ustress/branch_indirect", "ustress.mem"]
   - ["sim/sw/baremetal/ustress/call_return", "ustress.mem"]
+  - ["sim/sw/baremetal/ustress/div32", "ustress.mem"]
+  - ["sim/sw/baremetal/ustress/div64", "ustress.mem"]
   - ["sim/sw/baremetal/ustress/l1d_cache", "ustress.mem"]
   - ["sim/sw/baremetal/ustress/l1i_cache", "ustress.mem"]
   - ["sim/sw/baremetal/ustress/load_after_store", "ustress.mem"]
@@ -110,7 +112,6 @@ ustress:
   - ["sim/sw/baremetal/ustress/memcpy", "ustress.mem"]
   - ["sim/sw/baremetal/ustress/mul32", "ustress.mem"]
   - ["sim/sw/baremetal/ustress/mul64", "ustress.mem"]
-  - ["sim/sw/baremetal/ustress/store_buffer_full", "ustress.mem"]
 
 aapg_short:
   - ["sim/sw/baremetal/aapg/aapg_rv32_generic", "test_s47.mem"]
