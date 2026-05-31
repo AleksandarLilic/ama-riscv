@@ -94,6 +94,8 @@ Similarly, running with `-testplusarg enable_konata` and `-testplusarg prof_trac
 
 ## High-level description
 
+Core supports `RV32IM_zicsr_zifencei_zicntr_zihpm_xsimd` ([rv drom](https://rv.drom.io/?RV32IM_zicsr_zifencei_zicntr_zihpm_xsimd)) or any legal subset ([gcc `-march` options](https://gcc.gnu.org/onlinedocs/gcc-14.2.0/gcc/RISC-V-Options.html#index-march-14))
+
 Core microarchitecture follows a fairly standard 5-stage single issue RISC-style pipeline:
 - FET:
   - Core select PC source.
@@ -105,24 +107,28 @@ Core microarchitecture follows a fairly standard 5-stage single issue RISC-style
 - DEC:
   - Core decodes the instruction, generates immediate-based next PC for conditional direct branches (`b*`) and unconditional direct branches (`jal`).
   - Pipeline information is sent to the branch predictor; Next PC is predicted and frontend redirected if needed.
+  - Source registers are either read, or bypassed from the backend. Core progresses even if not all operands are available.
 - DEC_EXE pipe:
-  - Operands are propagated to EXE stage.
+  - Control signals and (all available) operands are propagated to EXE stage.
 - EXE:
-  - Core executes most of the instructions in this one cycle.
+  - Core executes arithmetic, logic, and control flow instructions in this one cycle.
   - RV32 multiplier and SIMD finish first (out of two) execution cycle.
-  - RV32 restoring binary divider starts, takes 1 to 34 cycles to finish (data dependent).
+  - RV32 restoring binary divider starts, takes 2 to 34 cycles to finish (data dependent).
+  - SIMD data formatting unit executes.
   - First part of Dcache address generation is done.
+  - If source operand(s) are not available through register read nor in the bypass network, machine stalls.
 - EXE_MEM pipe:
-  - Available results are propagated to MEM stage.
+  - Available results and relevant control signals are propagated to MEM stage.
   - RV32 multiplier and SIMD unit propagates first stage results.
   - Branch results are propagated to MEM stage.
 - MEM:
   - RV32 multiplier and SIMD unit finishes second execution cycle.
+    - SIMD unit takes in `late_c` in case it's a dot product instruction either from EXE_MEM pipe or bypass network, so no penalty is incurred on back-to-back `dot`s to the same accumulator.
   - Resolution of conditional direct branches (`b*`) and unconditional indirect branches (`jalr`) is available.
   - On branch miss or `jalr` instruction, frontend is redirected, taking 2 cycle miss penalty (`b*`) or 2 cycle stall (`jalr`).
   - Dcache does second part of the address generation, and tag lookup.
 - MEM_WBK pipe:
-  - Available results are propagated to WBK stage.
+  - Available results and relevant control signals are propagated to WBK stage.
   - RV32 multiplier and SIMD results are propagated to WBK stage
   - Dcache loads or stores data.
 - WBK:
