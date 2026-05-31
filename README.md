@@ -266,17 +266,17 @@ Simulation runtime: 138s
 Running with `-v VERBOSE` adds per cycle logs
 ```
        21 ns: INFO: Reset released
-       30 ns: VERBOSE: Core [R] empty cycle
-       40 ns: VERBOSE: Core [R] empty cycle
-       50 ns: VERBOSE: Core [R] empty cycle
-       60 ns: VERBOSE: Core [R] empty cycle
-       70 ns: VERBOSE: Core [R] empty cycle
-       80 ns: VERBOSE: Core [R] empty cycle
-       90 ns: VERBOSE: Core [R] empty cycle
-      100 ns: VERBOSE: Core [R] empty cycle
-      110 ns: VERBOSE: Core [R] empty cycle
-      120 ns: VERBOSE: Core [R] empty cycle
-      130 ns: VERBOSE: Core [R] empty cycle
+       30 ns: VERBOSE: Core empty cycle (stall: backend)
+       40 ns: VERBOSE: Core empty cycle (lost: other)
+       50 ns: VERBOSE: Core empty cycle (lost: other)
+       60 ns: VERBOSE: Core empty cycle (lost: other)
+       70 ns: VERBOSE: Core empty cycle (lost: other)
+       80 ns: VERBOSE: Core empty cycle (stall: frontend)
+       90 ns: VERBOSE: Core empty cycle (stall: frontend)
+      100 ns: VERBOSE: Core empty cycle (stall: frontend)
+      110 ns: VERBOSE: Core empty cycle (stall: frontend)
+      120 ns: VERBOSE: Core empty cycle (stall: frontend)
+      130 ns: VERBOSE: Core empty cycle (stall: frontend)
       140 ns: VERBOSE: Core [R] 40000: 00000093
       140 ns: VERBOSE: COSIM    40000: 00000093 addi x1,x0,0                  x1 : 0x00000000  
       141 ns: VERBOSE: First write to x1. Checker activated
