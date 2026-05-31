@@ -1,0 +1,43 @@
+ustress_load_after_store
+IPC: 0.587
+         L1        L2    cycles cycles_e
+0      lost  bad_spec        14     14.0
+1      lost     other        73     73.0
+2  frontend    icache       226    226.0
+3  frontend      core        16     16.0
+4   backend    dcache  23602612    23.6M
+5   backend      core        12     12.0
+6  retiring   integer  33562374    33.6M
+7  retiring      simd         0      0.0
+
+Performance Counters for 'ustress_load_after_store'
+   class          counter    count count_e
+  cycles           cycles 57165327   57.2M
+     ret              ret 33562374   33.6M
+   stall           stalls 23602866   23.6M
+    lost             lost       87    87.0
+   ret_*          ret_int 33562374   33.6M
+   ret_* ret_ctrl_flow_br    54100   54.1k
+   ret_*         ret_simd        0     0.0
+ stall_*         stall_be 23602624   23.6M
+ stall_*    stall_be_core       12    12.0
+ stall_*         stall_fe      242   242.0
+ stall_*    stall_fe_core       16    16.0
+ stall_*        stall_l1d 23602612   23.6M
+ stall_*        stall_l1i      226   226.0
+bad_spec         bad_spec       14    14.0
+   l1i_*          l1i_ref 33562405   33.6M
+   l1i_*         l1i_miss       51    51.0
+   l1d_*          l1d_ref 11554130   11.6M
+   l1d_*         l1d_miss  2900261    2.9M
+    bp_*          bp_miss       13    13.0
+
+
+core:
+    Cycles: 57.2M, Retired: 33.6M, Empty: 23.6M, IPC: 0.587 
+icache:
+    Ref: 33.6M, H: 33.6M, M: 51.0, HR: 100.00%, MPKI: 0.00 
+dcache:
+    Ref: 11.6M, H: 8.7M, M: 2.9M, HR: 74.90%, MPKI: 86.41 
+bpred:
+    P: 54.1k, M: 13.0, ACC: 99.98%, MPKI: 0.00 

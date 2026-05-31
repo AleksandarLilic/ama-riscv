@@ -1,0 +1,43 @@
+ustress_div64
+IPC: 0.654
+         L1        L2    cycles cycles_e
+0      lost  bad_spec    809131   809.1k
+1      lost     other        63     63.0
+2  frontend    icache       106    106.0
+3  frontend      core    800021   800.0k
+4   backend    dcache         6      6.0
+5   backend      core  15381830    15.4M
+6  retiring   integer  32100584    32.1M
+7  retiring      simd         0      0.0
+
+Performance Counters for 'ustress_div64'
+   class          counter    count count_e
+  cycles           cycles 49091741   49.1M
+     ret              ret 32100584   32.1M
+   stall           stalls 16181963   16.2M
+    lost             lost   809194  809.2k
+   ret_*          ret_int 32100584   32.1M
+   ret_* ret_ctrl_flow_br  4180004    4.2M
+   ret_*         ret_simd        0     0.0
+ stall_*         stall_be 15381836   15.4M
+ stall_*    stall_be_core 15381830   15.4M
+ stall_*         stall_fe   800127  800.1k
+ stall_*    stall_fe_core   800021  800.0k
+ stall_*        stall_l1d        6     6.0
+ stall_*        stall_l1i      106   106.0
+bad_spec         bad_spec   809131  809.1k
+   l1i_*          l1i_ref 32909726   32.9M
+   l1i_*         l1i_miss       31    31.0
+   l1d_*          l1d_ref   400038  400.0k
+   l1d_*         l1d_miss        1     1.0
+    bp_*          bp_miss   404570  404.6k
+
+
+core:
+    Cycles: 49.1M, Retired: 32.1M, Empty: 17.0M, IPC: 0.654 
+icache:
+    Ref: 32.9M, H: 32.9M, M: 31.0, HR: 100.00%, MPKI: 0.00 
+dcache:
+    Ref: 400.0k, H: 400.0k, M: 1.0, HR: 100.00%, MPKI: 0.00 
+bpred:
+    P: 3.8M, M: 404.6k, ACC: 90.32%, MPKI: 12.60 

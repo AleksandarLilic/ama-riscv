@@ -35,6 +35,19 @@ WORKLOADS = [
     "embench_tarfind",
     "embench_ud",
     "embench_wikisort",
+    "ustress_branch_direct",
+    "ustress_branch_indirect",
+    "ustress_call_return",
+    "ustress_div32",
+    "ustress_div64",
+    "ustress_l1d_cache",
+    "ustress_l1i_cache",
+    "ustress_load_after_store",
+    "ustress_mac32",
+    "ustress_mac64",
+    "ustress_memcpy",
+    "ustress_mul32",
+    "ustress_mul64",
 ]
 
 def parse_odd_jsons(path: Path) -> list[dict]:

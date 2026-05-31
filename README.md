@@ -180,10 +180,12 @@ SIMD ISA improvements on MLP, measured in inferences per second
 All TDA and counter plots are available under [examples/perf_runs_fpga](examples/perf_runs_fpga)  
 - [plots_benchmarks.pdf](examples/perf_runs_fpga/plots_benchmarks.pdf)
 - [plots_mlp.pdf](examples/perf_runs_fpga/plots_mlp.pdf)
+- [plots_ustress.pdf](examples/perf_runs_fpga/plots_ustress.pdf)
 
 With CSV summaries under the same directory
 - [hw_stats_benchmarks.csv](examples/perf_runs_fpga/hw_stats_benchmarks.csv)
 - [hw_stats_mlp.csv](examples/perf_runs_fpga/hw_stats_mlp.csv)
+- [hw_stats_ustress.csv](examples/perf_runs_fpga/hw_stats_ustress.csv)
 
 All breakdowns are available under [examples/perf_runs_fpga/all_stats](examples/perf_runs_fpga/all_stats)  
 

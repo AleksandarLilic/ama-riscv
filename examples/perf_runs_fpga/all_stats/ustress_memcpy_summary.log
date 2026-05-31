@@ -1,0 +1,43 @@
+ustress_memcpy
+IPC: 0.995
+         L1        L2    cycles cycles_e
+0      lost  bad_spec    160088   160.1k
+1      lost     other        63     63.0
+2  frontend    icache       306    306.0
+3  frontend      core     80046    80.0k
+4   backend    dcache       592    592.0
+5   backend      core        24     24.0
+6  retiring   integer  52242024    52.2M
+7  retiring      simd         0      0.0
+
+Performance Counters for 'ustress_memcpy'
+   class          counter    count count_e
+  cycles           cycles 52483143   52.5M
+     ret              ret 52242024   52.2M
+   stall           stalls    80968   81.0k
+    lost             lost   160151  160.2k
+   ret_*          ret_int 52242024   52.2M
+   ret_* ret_ctrl_flow_br  2840315    2.8M
+   ret_*         ret_simd        0     0.0
+ stall_*         stall_be      616   616.0
+ stall_*    stall_be_core       24    24.0
+ stall_*         stall_fe    80352   80.4k
+ stall_*    stall_fe_core    80046   80.0k
+ stall_*        stall_l1d      592   592.0
+ stall_*        stall_l1i      306   306.0
+bad_spec         bad_spec   160088  160.1k
+   l1i_*          l1i_ref 52402116   52.4M
+   l1i_*         l1i_miss       79    79.0
+   l1d_*          l1d_ref 41001179   41.0M
+   l1d_*         l1d_miss       79    79.0
+    bp_*          bp_miss    80050   80.0k
+
+
+core:
+    Cycles: 52.5M, Retired: 52.2M, Empty: 241.1k, IPC: 0.995 
+icache:
+    Ref: 52.4M, H: 52.4M, M: 79.0, HR: 100.00%, MPKI: 0.00 
+dcache:
+    Ref: 41.0M, H: 41.0M, M: 79.0, HR: 100.00%, MPKI: 0.00 
+bpred:
+    P: 2.8M, M: 80.0k, ACC: 97.18%, MPKI: 1.53 

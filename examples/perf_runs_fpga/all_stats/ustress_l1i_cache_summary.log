@@ -1,0 +1,43 @@
+ustress_l1i_cache
+IPC: 0.308
+         L1        L2    cycles cycles_e
+0      lost  bad_spec        47     47.0
+1      lost     other        59     59.0
+2  frontend    icache  23400027    23.4M
+3  frontend      core   9000019     9.0M
+4   backend    dcache        12     12.0
+5   backend      core    600026   600.0k
+6  retiring   integer  14700501    14.7M
+7  retiring      simd         0      0.0
+
+Performance Counters for 'ustress_l1i_cache'
+   class          counter    count count_e
+  cycles           cycles 47700691   47.7M
+     ret              ret 14700501   14.7M
+   stall           stalls 33000084   33.0M
+    lost             lost      106   106.0
+   ret_*          ret_int 14700501   14.7M
+   ret_* ret_ctrl_flow_br   300200  300.2k
+   ret_*         ret_simd        0     0.0
+ stall_*         stall_be   600038  600.0k
+ stall_*    stall_be_core   600026  600.0k
+ stall_*         stall_fe 32400046   32.4M
+ stall_*    stall_fe_core  9000019    9.0M
+ stall_*        stall_l1d       12    12.0
+ stall_*        stall_l1i 23400027   23.4M
+bad_spec         bad_spec       47    47.0
+   l1i_*          l1i_ref 14700569   14.7M
+   l1i_*         l1i_miss  3900010    3.9M
+   l1d_*          l1d_ref  5100120    5.1M
+   l1d_*         l1d_miss        2     2.0
+    bp_*          bp_miss       31    31.0
+
+
+core:
+    Cycles: 47.7M, Retired: 14.7M, Empty: 33.0M, IPC: 0.308 
+icache:
+    Ref: 14.7M, H: 10.8M, M: 3.9M, HR: 73.47%, MPKI: 265.30 
+dcache:
+    Ref: 5.1M, H: 5.1M, M: 2.0, HR: 100.00%, MPKI: 0.00 
+bpred:
+    P: 300.2k, M: 31.0, ACC: 99.99%, MPKI: 0.00 

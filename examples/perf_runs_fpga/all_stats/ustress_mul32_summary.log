@@ -1,0 +1,43 @@
+ustress_mul32
+IPC: 0.75
+         L1        L2    cycles cycles_e
+0      lost  bad_spec         9      9.0
+1      lost     other        62     62.0
+2  frontend    icache        31     31.0
+3  frontend      core        14     14.0
+4   backend    dcache         0      0.0
+5   backend      core  14000012    14.0M
+6  retiring   integer  42000040    42.0M
+7  retiring      simd         0      0.0
+
+Performance Counters for 'ustress_mul32'
+   class          counter    count count_e
+  cycles           cycles 56000168   56.0M
+     ret              ret 42000040   42.0M
+   stall           stalls 14000057   14.0M
+    lost             lost       71    71.0
+   ret_*          ret_int 42000040   42.0M
+   ret_* ret_ctrl_flow_br  7000003    7.0M
+   ret_*         ret_simd        0     0.0
+ stall_*         stall_be 14000012   14.0M
+ stall_*    stall_be_core 14000012   14.0M
+ stall_*         stall_fe       45    45.0
+ stall_*    stall_fe_core       14    14.0
+ stall_*        stall_l1d        0     0.0
+ stall_*        stall_l1i       31    31.0
+bad_spec         bad_spec        9     9.0
+   l1i_*          l1i_ref 42000070   42.0M
+   l1i_*         l1i_miss       11    11.0
+   l1d_*          l1d_ref       15    15.0
+   l1d_*         l1d_miss        0     0.0
+    bp_*          bp_miss       11    11.0
+
+
+core:
+    Cycles: 56.0M, Retired: 42.0M, Empty: 14.0M, IPC: 0.750 
+icache:
+    Ref: 42.0M, H: 42.0M, M: 11.0, HR: 100.00%, MPKI: 0.00 
+dcache:
+    Ref: 15.0, H: 15.0, M: 0.0, HR: 100.00%, MPKI: 0.00 
+bpred:
+    P: 7.0M, M: 11.0, ACC: 100.00%, MPKI: 0.00 

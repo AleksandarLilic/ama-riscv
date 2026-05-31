@@ -1,0 +1,43 @@
+ustress_branch_direct
+IPC: 0.936
+         L1        L2    cycles cycles_e
+0      lost  bad_spec   3204294     3.2M
+1      lost     other        60     60.0
+2  frontend    icache       127    127.0
+3  frontend      core        13     13.0
+4   backend    dcache         0      0.0
+5   backend      core        12     12.0
+6  retiring   integer  46800116    46.8M
+7  retiring      simd         0      0.0
+
+Performance Counters for 'ustress_branch_direct'
+   class          counter    count count_e
+  cycles           cycles 50004622   50.0M
+     ret              ret 46800116   46.8M
+   stall           stalls      152   152.0
+    lost             lost  3204354    3.2M
+   ret_*          ret_int 46800116   46.8M
+   ret_* ret_ctrl_flow_br  3400003    3.4M
+   ret_*         ret_simd        0     0.0
+ stall_*         stall_be       12    12.0
+ stall_*    stall_be_core       12    12.0
+ stall_*         stall_fe      140   140.0
+ stall_*    stall_fe_core       13    13.0
+ stall_*        stall_l1d        0     0.0
+ stall_*        stall_l1i      127   127.0
+bad_spec         bad_spec  3204294    3.2M
+   l1i_*          l1i_ref 50004424   50.0M
+   l1i_*         l1i_miss       33    33.0
+   l1d_*          l1d_ref       11    11.0
+   l1d_*         l1d_miss        0     0.0
+    bp_*          bp_miss  1602153    1.6M
+
+
+core:
+    Cycles: 50.0M, Retired: 46.8M, Empty: 3.2M, IPC: 0.936 
+icache:
+    Ref: 50.0M, H: 50.0M, M: 33.0, HR: 100.00%, MPKI: 0.00 
+dcache:
+    Ref: 11.0, H: 11.0, M: 0.0, HR: 100.00%, MPKI: 0.00 
+bpred:
+    P: 1.8M, M: 1.6M, ACC: 52.88%, MPKI: 34.23 
