@@ -437,6 +437,7 @@ assign bp_hit = (
 assign bp_miss = (spec.resolve && !bp_hit);
 assign spec.wrong = bp_miss;
 assign spec.exec_n = (nx_state_e == SPEC_E);
+assign spec.active = (state_e == SPEC_E);
 
 // state transition
 `DFF_CI_RI_RV(NS_E, nx_state_e, state_e)

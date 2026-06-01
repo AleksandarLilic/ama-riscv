@@ -1,10 +1,14 @@
 `include "ama_riscv_defines.svh"
 
+`ifndef SYNT
+`include "ama_riscv_tb_defines.svh"
+
 `define INST_WARN(x) \
-    $display($sformatf( \
-        "WARNING: decoder received unsupported %0s instruction: %8h", \
-        x, inst_dec) \
+    `LOG($sformatf( \
+        "WARNING: decoder received unsupported %0s instruction: %8h at %8h", \
+        x, inst_dec, `CORE.pc.dec) \
     )
+`endif
 
 module ama_riscv_decoder (
     input  arch_width_t inst_dec,
@@ -284,7 +288,7 @@ always_comb begin
         default: begin
             `ifndef SYNT
             unsupported_inst = !no_inst;
-            if (unsupported_inst) `INST_WARN(" ");
+            if (unsupported_inst) `INST_WARN("UNKNOWN");
             `endif
         end
 
@@ -292,9 +296,10 @@ always_comb begin
 end
 
 `ifndef SYNT
-`include "ama_riscv_tb_defines.svh"
+logic non_spec_unsupported;
+assign non_spec_unsupported = (unsupported_inst && !`CORE.spec.active);
 always_ff @(posedge `TB.clk) begin
-    assert (!unsupported_inst || `CORE.flush.dec || `CORE.rst)
+    assert (!non_spec_unsupported || `CORE.flush.dec || `CORE.rst)
     else $fatal(1, "DECODER ERROR - unsupported instruction");
 end
 `endif

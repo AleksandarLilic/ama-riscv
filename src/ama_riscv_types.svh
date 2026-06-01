@@ -385,6 +385,7 @@ typedef struct packed {
     logic exec_n;
     logic resolve;
     logic wrong;
+    logic active;
 } spec_exec_t; // speculative execution
 
 typedef struct packed {
