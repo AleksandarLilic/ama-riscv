@@ -732,10 +732,14 @@ It also backannotates the disassembly and saves it as `dhrystone.prof.dasm`
 ```
 
 ### Hardware performance estimates correlation
-Same as with ISA sim, except now `-c <cycles>` can be passed in to get correlation with the estimates  
+Same as with ISA sim, except now `-c/--corr` can be passed in to get correlation against the estimates  
 Run with positional arguments as
 ```sh
-./sim/script/perf_est_v2.py sim/examples/dhrystone_dhrystone_out/inst_profile.json sim/examples/dhrystone_dhrystone_out/hw_stats.json -e sim/examples/dhrystone_dhrystone_out/exec.log -c 609603
+./sim/script/perf_est_v2.py \
+    sim/examples/dhrystone_dhrystone_out/inst_profile.json \
+    sim/examples/dhrystone_dhrystone_out/hw_stats.json \
+    sim/examples/dhrystone_dhrystone_out/rf_trace.bin \
+    -c examples/dhrystone_dhrystone_out_cosim/hw_stats.json
 ```
 
 ```
@@ -743,31 +747,53 @@ Performance estimate breakdown for:
     sim/examples/dhrystone_dhrystone_out/inst_profile.json
     sim/examples/dhrystone_dhrystone_out/hw_stats.json
     <home_path>/sim/script/hw_perf_metrics_v2.yaml
+    sim/examples/dhrystone_dhrystone_out/rf_trace.bin
 
-Peak Stack usage: 368 bytes
-Instructions executed: 521.1k
-    icache (32 sets, 2 ways, 4096B data): References: 522.7k, Hits: 519.6k, Misses: 3.13k, Hit Rate: 99.40%, MPKI: 6.02
-DMEM inst: 166.1k - L/S: 87.9k/78.2k (31.87% instructions)
-    dcache (16 sets, 4 ways, 4096B data): References: 162.7k, Hits: 162.5k, Misses: 206, Writebacks: 142, Hit Rate: 99.87%, MPKI: 0.40
-Branches: 63985 (12.28% instructions)
-    Branch Predictor (combined): Predicted: 62.4k, Mispredicted: 1.57k, Accuracy: 97.54%, MPKI: 3.01
+Peak Stack usage: 352 bytes
+Instructions executed: 76.2k
+    icache (32 sets, 2 ways, 4096B data): References: 76.6k, Hits: 76.2k, Misses: 368, Hit Rate: 99.52%, MPKI: 4.83
+DMEM inst: 25.0k - L/S: 13.6k/11.3k (32.74% instructions)
+    dcache (16 sets, 4 ways, 4096B data): References: 21.6k, Hits: 21.4k, Misses: 209, Writebacks: 145, Hit Rate: 99.03%, MPKI: 2.74
+Branch inst: 10239 (13.43% instructions)
+    bpred (combined): Predicted: 9.90k, Mispredicted: 341, Accuracy: 96.67%, MPKI: 4.47
+DIV/REM inst: 484 (0.64% instructions)
+    divider (16B): Cache: 108 (22.31%), Special: 328 (67.77%), Common: 48 (9.92%), 469 b, 9.77 b/d
 
 Pipeline stalls (max): 
-    Bad spec: 3.14k
-    FE bound: 61.1k - ICache: 15.7k (AMAT: 1.02), Core: 45.4k
-    BE bound: 6.30k - DCache: 1.46k (AMAT: 1.01), Core: 4.84k
+    Bad spec: 682
+    FE bound: 10.4k - ICache: 2.21k (AMAT: 1.03), Core: 8.19k
+    BE bound: 6.66k - DCache: 1.69k (AMAT: 1.08), Core: 4.97k (Divider 1.38k)
 
 Estimated HW performance at 100MHz:
-    Best:  Cycles: 585.4k, CPI: 1.123 (IPC: 0.890), Time: 5.85ms, MIPS: 89.0
-    Worst: Cycles: 591.6k, CPI: 1.135 (IPC: 0.881), Time: 5.92ms, MIPS: 88.1
-    Estimated Cycles range: 6.30k cycles, midpoint: 588.5k, ratio: 1.07%
+    Best:     87.3k cycles (873.0µs), IPC: 0.873; BW (avg MB/s) - icache: 334.5, dcache (R/W): 84.6 (44.0/40.6), mem (R/W): 50.5 (40.3/10.1)
+    Expected: 94.0k cycles (939.6µs), IPC: 0.811; BW (avg MB/s) - icache: 310.8, dcache (R/W): 78.6 (40.9/37.7), mem (R/W): 46.9 (37.5/9.4)
+    Estimated Cycles range: 6.66k cycles, midpoint: 90.6k, ratio: 7.34%
 
-Cycles Correlation
-    Achieved cycles: 609.6k - result is OUTSIDE (ABOVE) estimated range
-    Edge diff: 17956 cycles (3.03% of worst estimate)
-    Mid diff : 21105 cycles (3.59% of midpoint estimate)
+Correlation:
+          metric   est   rtl  diff    diff%
+          cycles 93958 94283  -325   -0.345
+           empty 17737 18067  -330   -1.827
+          stalls 17055 17039    16    0.094
+            lost   682  1028  -346  -33.658
+      lost_other     0    22   -22 -100.000
+        bad_spec   682  1006  -324  -32.207
+        stall_be  6655  6781  -126   -1.858
+       stall_l1d  1689  1835  -146   -7.956
+   stall_be_core  4966  4946    20    0.404
+        stall_fe 10400 10258   142    1.384
+       stall_l1i  2208  2063   145    7.029
+   stall_fe_core  8192  8195    -3   -0.037
+             ret 76216 76216     0    0.000
+        ret_simd     0     0     0    0.000
+         ret_int 76216 76216     0    0.000
+ret_ctrl_flow_br 10239 10239     0    0.000
+         bp_miss   341   503  -162  -32.207
+         l1i_ref 76557 77189  -632   -0.819
+        l1i_miss   368   395   -27   -6.835
+         l1d_ref 21594 21594     0    0.000
+        l1d_miss   209   209     0    0.000
 ```
 
-![](examples/dhrystone_dhrystone_out_cosim/perf_est_correlation.png)
+![](examples/dhrystone_dhrystone_out_cosim/perf_est_correlation_cycles.png)
 
-Estimates can than be compared with the [TDA](#tda) counters above to complete the correlation
+![](examples/dhrystone_dhrystone_out_cosim/perf_est_correlation_all.png)
