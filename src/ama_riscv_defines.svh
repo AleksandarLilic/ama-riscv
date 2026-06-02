@@ -24,6 +24,8 @@
 `endif
 `endif
 
+`define USE_BP
+
 `include "ama_riscv_types.svh"
 
 // DMEM Offset
