@@ -8,11 +8,19 @@ SystemVerilog implementation of RISC-V RV32IM & custom packed SIMD ISA as a 5-st
   - [Quick start](#quick-start)
 - [Microarchitecture](#microarchitecture)
   - [High-level description](#high-level-description)
+    - [Icache](#icache)
+    - [Branch predictor](#branch-predictor)
+    - [Dcache](#dcache)
+    - [Register File](#register-file)
+    - [RV32 integer multiplier \& SIMD unit](#rv32-integer-multiplier--simd-unit)
+    - [RV32 restoring binary divider](#rv32-restoring-binary-divider)
+    - [Main memory](#main-memory)
     - [Hierarchy](#hierarchy)
 - [Measured Performance - FPGA emulation](#measured-performance---fpga-emulation)
   - [Plots and data](#plots-and-data)
 - [Verification](#verification)
   - [Environment](#environment)
+- [FPGA emulation](#fpga-emulation)
 - [Analysis example use-case: Dhrystone](#analysis-example-use-case-dhrystone)
   - [Execution log](#execution-log)
   - [Callstack](#callstack)
@@ -138,6 +146,54 @@ Core microarchitecture follows a fairly standard 5-stage single issue RISC-style
   - Instruction retires, optionally writes to RF.
   - Performance events about this cycle are collected.
 
+Default parameters are set in `src/ama_riscv_defines.svh` and `src/ama_riscv_types.svh`  
+
+### Icache
+- 4KB, 32-set, 2-way, 64B lines, 128-bit bus, LRU replacement policy
+- Parametrizable for number of sets and ways, with one bank per way
+- 1 clock cycle on hit, 7 on miss
+- Speculative misses are immediately aborted on a branch miss (upon resolution)
+- Configuration driven by sweeps via [hw_model_sweep.py](sim/script/hw_model_sweep.py) and [cache config](sim/script/hw_model_sweep_params_caches.json); results are under [examples/hw_sweeps](examples/hw_sweeps)
+
+### Branch predictor
+Follows the combined predictor from [McFarling's "Combining Branch Predictors"](https://american.cs.ucdavis.edu/academic/readings/papers/mcfarling.pdf)
+- Combined predictor: bimodal + global, with a meta predictor
+- No penalty on hit, 2 cycle penalty on miss, predicts back-to-back branches
+- Parametrizable - options: static, bimodal, global, gshare, gselect, combined
+- Chosen through sweeps + config constraints: due to timing considerations, no PHT is bigger than 2^8 entries, i.e. no more than 8 bits are used for indexing
+- Configuration driven by sweeps via [hw_model_sweep.py](sim/script/hw_model_sweep.py) and [bp config](sim/script/hw_model_sweep_params_bp_guided_focused.json) (see [sim sweeps](sim/README.md#hardware-model-sweeps)); results are under [examples/hw_sweeps](examples/hw_sweeps)
+
+### Dcache
+- 4KB, 16-set, 4-way, 64B lines, 128-bit bus, LRU replacement policy with writeback
+- Parametrizable for number of sets and ways, with one bank per way
+- 1 clock cycle on hit, 7 on miss, 10 on miss with writeback; 1 cycle penalty on load to use
+- Configuration driven by sweeps, same flow and config as Icache (results are under [examples/hw_sweeps](examples/hw_sweeps))
+
+### Register File
+3R2W design, banked by default
+- Address of a 2nd write port is `rd_addr + 1`
+- Address of rs3 is rd (used only for dot* instructions)
+- Optionally banked as odd/even such that rd and rdp paired writes always land in a different bank
+
+### RV32 integer multiplier & SIMD unit
+2-cycle pipelined unit (EXE -> MEM), shared across rv32 `mul*` and packed SIMD arithmetic instructions
+- Single 32x32 Baugh-Wooley partial product array reduced through a CSA tree, reused across all element widths via diagonal lane masks: the full products are computed once, and the narrower (or accumulated) results are picked at the output mux
+- First stage builds and reduces the partial products, second stage finishes reduction and does the final add and result select
+- For `dot*` instructions, `rs3` is passed or forwarded as `late_c` in SIMD unit second stage, so back-to-back `dot`s to the same accumulator don't cause stalls
+
+### RV32 restoring binary divider
+32-bit restoring binary divider with clz-based normalization and a one-entry result cache
+- Common case: `3 + (cnt_b - cnt_a + 1)` (cnt_a=clz(|dividend|), cnt_b=clz(|divisor|)) - 1 cycle start, 1 cycle setup, 1 cycle per dividend bit offset for the number of cnt_b bits, 1 cycle fixup
+- Special case: `2` - 1 cycle start and 1 cycle setup
+- Cache hit: `1` - combinational hit + flop the output
+
+### Main memory
+- Caches are backed by a single main memory, parametrizable size, defaults to 128K
+- True dual port, 128-bit bus, 16B words
+- `$readmemh` is used to load in the workload's `.mem` file
+  - For verification, `ama_riscv_tb` writes the file
+  - For FPGA emulation, synthesis writes the initial file, later patched as needed (check [FPGA emulation](#fpga-emulation) for details).
+
 ### Hierarchy
 ```sh
 ama_riscv_top               # Design top
@@ -212,6 +268,58 @@ Full usage available in [examples/run.help](examples/run.help)
 
 ## Environment
 ![](docs/tb.png)
+
+# FPGA emulation
+
+Design is synthesized with conservative 50MHz constraint for the emulation purposes, targeting `xc7a100tcsg324-1` part on Arty A7-100T board.  
+
+Defines used for synthesis:  
+```tcl
+set_property verilog_define { SYNT FPGA FPGA_HEX_PATH=<workdir>/ama-riscv/sim/sw/baremetal/uart_direct_send/hello_world.mem } [current_fileset]
+```
+
+Main memory is later patched with workload(s) of interest via [script/update_mem.sh](script/update_mem.sh) and loaded into the FPGA with [script/flash_bit.tcl](script/flash_bit.tcl).
+
+Utilization overview:  
+```
++----------------------------+-------+-------+------------+-----------+-------+
+|          Site Type         |  Used | Fixed | Prohibited | Available | Util% |
++----------------------------+-------+-------+------------+-----------+-------+
+| Slice LUTs                 | 11264 |     0 |          0 |     63400 | 17.77 |
+|   LUT as Logic             | 11132 |     0 |          0 |     63400 | 17.56 |
+|   LUT as Memory            |   132 |     0 |          0 |     19000 |  0.69 |
+|     LUT as Distributed RAM |   132 |     0 |            |           |       |
+|     LUT as Shift Register  |     0 |     0 |            |           |       |
+| Slice Registers            |  4964 |     0 |          0 |    126800 |  3.91 |
+|   Register as Flip Flop    |  4964 |     0 |          0 |    126800 |  3.91 |
+|   Register as Latch        |     0 |     0 |          0 |    126800 |  0.00 |
+| F7 Muxes                   |   398 |     0 |          0 |     31700 |  1.26 |
+| F8 Muxes                   |   151 |     0 |          0 |     15850 |  0.95 |
++----------------------------+-------+-------+------------+-----------+-------+
+```
+
+First three logic levels, with percentage contribution compared to part's total resource availability  
+```
++--------------------------+--------------------+---------------+---------------+------------+-------------+------------+----------+------------+
+|         Instance         |       Module       |   Total LUTs  |   Logic LUTs  |   LUTRAMs  |     FFs     |   RAMB36   |  RAMB18  | DSP Blocks |
++--------------------------+--------------------+---------------+---------------+------------+-------------+------------+----------+------------+
+| ama_riscv_fpga           |              (top) | 11264(17.77%) | 11132(17.56%) | 132(0.69%) | 4964(3.91%) | 44(32.59%) | 0(0.00%) |   0(0.00%) |
+|   (ama_riscv_fpga)       |              (top) |      8(0.01%) |      8(0.01%) |   0(0.00%) |   28(0.02%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
+|   ama_riscv_top_i        |      ama_riscv_top | 11256(17.75%) | 11124(17.55%) | 132(0.69%) | 4936(3.89%) | 44(32.59%) | 0(0.00%) |   0(0.00%) |
+|     ama_riscv_core_top_i | ama_riscv_core_top | 11155(17.59%) | 11023(17.39%) | 132(0.69%) | 4842(3.82%) |  12(8.89%) | 0(0.00%) |   0(0.00%) |
+|       ama_riscv_core_i   |     ama_riscv_core |  8912(14.06%) |  8780(13.85%) | 132(0.69%) | 3513(2.77%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
+|       ama_riscv_dcache_i |   ama_riscv_dcache |   1776(2.80%) |   1776(2.80%) |   0(0.00%) |  789(0.62%) |   8(5.93%) | 0(0.00%) |   0(0.00%) |
+|       ama_riscv_icache_i |   ama_riscv_icache |    467(0.74%) |    467(0.74%) |   0(0.00%) |  540(0.43%) |   4(2.96%) | 0(0.00%) |   0(0.00%) |
+|     ama_riscv_mem_i      |      ama_riscv_mem |     27(0.04%) |     27(0.04%) |   0(0.00%) |    2(0.01%) | 32(23.70%) | 0(0.00%) |   0(0.00%) |
+|       (ama_riscv_mem_i)  |      ama_riscv_mem |      9(0.01%) |      9(0.01%) |   0(0.00%) |    2(0.01%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
+|       u_mem              |  xpm_memory_tdpram |     20(0.03%) |     20(0.03%) |   0(0.00%) |    0(0.00%) | 32(23.70%) | 0(0.00%) |   0(0.00%) |
+|     ama_riscv_uart_i     |     ama_riscv_uart |     75(0.12%) |     75(0.12%) |   0(0.00%) |   92(0.07%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
+|       (ama_riscv_uart_i) |     ama_riscv_uart |     21(0.03%) |     21(0.03%) |   0(0.00%) |   44(0.03%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
+|       uart_i             |               uart |     54(0.09%) |     54(0.09%) |   0(0.00%) |   48(0.04%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
++--------------------------+--------------------+---------------+---------------+------------+-------------+------------+----------+------------+
+```
+
+Detailed utilization reports are available under [examples/perf_runs_fpga/fpga_synt_reports](examples/perf_runs_fpga/fpga_synt_reports)
 
 # Analysis example use-case: Dhrystone
 > [!NOTE]
