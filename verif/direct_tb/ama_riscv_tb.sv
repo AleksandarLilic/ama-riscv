@@ -31,7 +31,7 @@ import "DPI-C" function void cosim_exec(
 import "DPI-C" function int unsigned cosim_get_inst_cnt();
 import "DPI-C" function void cosim_finish();
 
-export "DPI-C" function cosim_sync_csrs;
+export "DPI-C" function get_rtl_rf_value;
 
 // cosim tracing and stats
 import "DPI-C" function void cosim_add_te(
@@ -115,9 +115,7 @@ string core_ret;
 string isa_ret;
 
 longint unsigned clk_cnt = 0;
-logic [ARCH_WIDTH_D-1:0] mtime_d[3];
 logic [ARCH_WIDTH_D-1:0] clk_cnt_d[3];
-csr_sync_t csr_d[3];
 
 // cosim
 bit [RF_NUM-1:0] rf_chk_act;
@@ -526,11 +524,31 @@ add_trace_entry(longint unsigned clk_cnt, byte ic_hm, byte dc_hm, byte bp_hm);
     );
 endfunction
 
-function void cosim_sync_csrs(output csr_sync_t csr);
-    csr.mtime = mtime_d[2];
-    `IT((MHPMCOUNTERS+MHPM_IDX_L)) begin
-        csr.mhpmcounter[i] = csr_d[2].mhpmcounter[i];
+// CSRs that increment by core logic (time, cycles, uarch counters) can't be
+// emulated in a timed environment, so the ISA sim trusts the RTL on them:
+// it asks for the retiring CSR instruction's destination register value and
+// injects it into its own register file
+function int unsigned get_rtl_rf_value(input int unsigned reg_idx);
+    logic [4:0] rd;
+    logic [2:0] fn3;
+    opc7_t opc7;
+    rd = get_rd(`CORE.inst.ret, 1'b1);
+    fn3 = get_fn3(`CORE.inst.ret);
+    opc7 = get_opc7(`CORE.inst.ret);
+
+    // guard against accidental usage/silent ISA-RTL drift
+    if (!`CORE.inst_retired) begin
+        `LOG_E("get_rtl_rf_value called outside instruction retire", 1);
+    end else if (!((opc7 == OPC7_SYSTEM) && (fn3 != 3'b0))) begin
+        `LOG_E("get_rtl_rf_value called on a non-CSR instruction", 1);
+    end else if (reg_idx !== rd) begin
+        `LOG_E($sformatf(
+            "get_rtl_rf_value rd mismatch: requested x%0d, RTL retiring x%0d",
+            reg_idx, rd),
+        1);
     end
+
+    return `RF.rf_v[reg_idx];
 endfunction
 `endif
 
@@ -692,26 +710,11 @@ endtask
 always #(`CLK_HALF_PERIOD) clk = ~clk;
 always @(posedge clk) clk_cnt += 1;
 
-// TODO: pipelining things from core, needs to be moved out to view or something
-// 3 clk delay between CSR access and inst ret
-`DFF_CI_RI_RVI(
-    {`CSR.csr.mtime, mtime_d[0], mtime_d[1]},
-    {mtime_d[0], mtime_d[1], mtime_d[2]}
-)
-
+// delayed clk count fed to cosim_exec for profiling window alignment
 `DFF_CI_RI_RVI(
     {clk_cnt, clk_cnt_d[0], clk_cnt_d[1]},
     {clk_cnt_d[0], clk_cnt_d[1], clk_cnt_d[2]}
 )
-
-// perf counters only 1 clk delay
-always_ff @(posedge clk) begin
-    `IT((MHPMCOUNTERS + MHPM_IDX_L)) begin
-        csr_d[0].mhpmcounter[i] <= {MHPMCOUNTER_PAD, `CSR.csr.mhpmcounter[i]};
-        csr_d[1].mhpmcounter[i] <= csr_d[0].mhpmcounter[i];
-        csr_d[2].mhpmcounter[i] <= csr_d[1].mhpmcounter[i];
-    end
-end
 
 initial begin
     // set %t:

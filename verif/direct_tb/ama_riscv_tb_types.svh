@@ -47,11 +47,6 @@ typedef struct {
     string stack_top;
 } cosim_str_t;
 
-typedef struct {
-    longint unsigned mtime;
-    longint unsigned mhpmcounter[MHPMCOUNTERS+MHPM_IDX_L];
-} csr_sync_t;
-
 // profiling from isa sim
 // enum class hw_status_t { miss, hit, none };
 typedef enum logic [1:0] {

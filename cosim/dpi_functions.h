@@ -60,17 +60,11 @@ DPI_LINKER_DECL DPI_DLLESPEC
  void cosim_finish(
 );
 
-typedef struct {
-	uint64_t mtime;
-	uint64_t mhpmcounter[9];
-} csr_sync_t;
-
-
 
 /* Exported (from SV) function */
 DPI_LINKER_DECL 
- void cosim_sync_csrs(
-	csr_sync_t* csr
+ unsigned int get_rtl_rf_value(
+	unsigned int reg_idx
 );
 
 

@@ -26,7 +26,7 @@ csr:
 
 perf_cnts:
   - ["sim/sw/baremetal/asm_rv32i_zihpm", "test.mem"]
-  #- ["sim/sw/baremetal/rv32i_zihpm_tda", "test.mem"]
+  - ["sim/sw/baremetal/rv32i_zihpm_tda", "test.mem"]
   - ["sim/sw/baremetal/rv32i_zihpm_all", "test.mem"]
 
 dcache:
