@@ -556,8 +556,12 @@ typedef enum logic [11:0] {
     CSR_MHPMEVENT6 = 12'h326,
     CSR_MHPMEVENT7 = 12'h327,
     CSR_MHPMEVENT8 = 12'h328,
+    CSR_CYCLE = 12'hC00, // URO
     CSR_TIME = 12'hC01, // URO
-    CSR_TIMEH = 12'hC81 // URO
+    CSR_INSTRET = 12'hC02, // URO
+    CSR_CYCLEH = 12'hC80, // URO
+    CSR_TIMEH = 12'hC81, // URO
+    CSR_INSTRETH = 12'hC82 // URO
 } csr_addr_t;
 
 typedef enum logic {

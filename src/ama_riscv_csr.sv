@@ -85,9 +85,13 @@ always_comb begin
     if (ctrl.re) begin
         case (addr_en)
             CSR_TOHOST: out = csr.tohost;
+            CSR_CYCLE,
             CSR_MCYCLE: out = csr.mcycle.r[CSR_LOW];
+            CSR_CYCLEH,
             CSR_MCYCLEH: out = csr.mcycle.r[CSR_HIGH];
+            CSR_INSTRET,
             CSR_MINSTRET: out = csr.minstret.r[CSR_LOW];
+            CSR_INSTRETH,
             CSR_MINSTRETH: out = csr.minstret.r[CSR_HIGH];
             CSR_MSCRATCH: out = csr.mscratch;
             CSR_TIME: out = csr.mtime.r[CSR_LOW];
