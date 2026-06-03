@@ -9,14 +9,16 @@ void cosim_stats::profiling(bool enable) {
 }
 
 void cosim_stats::show() {
-    std::cout << "Simulation cycles: " << core_stats.get_cycles_all() << "\n";
+    std::cout << "Simulation cycles: " << core_stats.get_cycles_all()
+              << ", executed instructions: " << core_stats.get_inst_all()
+              << "\n\n";
     std::cout << "Stats - Profiling Summary:\n";
     std::cout << "core (TDA counters)";
     std::cout << "\n" << INDENT;
     core_stats.show_tda();
     std::cout << "\n";
 
-    uint64_t total_insts = core_stats.get_total_insts();
+    uint64_t total_insts = core_stats.get_insts_profiled();
     std::cout << "bpred";
     std::cout << "\n" << INDENT;
     bp_stats.summarize(total_insts);

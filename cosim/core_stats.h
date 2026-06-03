@@ -67,6 +67,7 @@ struct core_stats_t {
         uint64_t cycles_all;
         uint64_t cycles;
         uint64_t ret;
+        uint64_t ret_all;
         uint64_t bad_spec;
         uint64_t stall_be;
         uint64_t stall_l1d;
@@ -129,6 +130,7 @@ struct core_stats_t {
         void profiling(bool enable) { prof_active = enable; }
         void add_events(const core_events_t* ev) {
             cycles_all++;
+            ret_all += ev->ret;
             if (!prof_active) return;
             cycles += 1;
             ret += ev->ret;
@@ -231,10 +233,7 @@ struct core_stats_t {
         void log(std::ofstream& hw_ofs) const {
             hw_ofs << CORE_STATS_JSON_ENTRY;
         }
-        uint64_t get_total_insts() const {
-            return ret;
-        }
-        uint64_t get_cycles_all() const {
-            return cycles_all;
-        }
+        uint64_t get_insts_profiled() const { return ret; }
+        uint64_t get_cycles_all() const { return cycles_all; }
+        uint64_t get_inst_all() const { return ret_all; }
 };

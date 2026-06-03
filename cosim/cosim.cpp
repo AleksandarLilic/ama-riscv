@@ -32,6 +32,7 @@ void cosim_setup(
     cfg.prof_pc.single_match_num = prof_pc_single_match;
     cfg.prof_trace = (prof_trace == 1);
     cfg.log = (log_isa_sim == 1);
+    cfg.log_always = (log_isa_sim == 1);
     cfg.sink_uart = true;
 
     std::string l_test_elf(test_elf);
