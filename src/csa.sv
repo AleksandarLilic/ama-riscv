@@ -2,11 +2,15 @@
 
 module csa #(
     parameter unsigned W = 8, // data witdth
-    parameter unsigned A = 0 // align output
+    parameter unsigned A = 0, // align output
+    parameter unsigned CKL = 0 // carry kill
 )(
     input logic [W-1:0] x,
     input logic [W-1:0] y,
     input logic [W-1:0] z,
+    /* verilator lint_off UNUSEDSIGNAL */
+    input logic ckl, // carry kill, active high
+    /* verilator lint_on UNUSEDSIGNAL */
     output logic [W-1:0] s,
     output logic [W-1:0] c
 );
@@ -21,10 +25,17 @@ always_comb begin
     // csa_b csa_b_i (.x (x[i]), .y (y[i]), .z (z[i]), .s (s[i]), .c (ct[i]));
 end
 
+logic [W-1:0] ctk;
+if (CKL) begin: gen_carry_kill
+assign ctk = (ct & {W{!ckl}});
+end else begin: gen_carry_keep
+assign ctk = ct;
+end
+
 if (A) begin: gen_align
-assign c = (ct << 1);
+assign c = (ctk << 1);
 end else begin: gen_pass
-assign c = ct;
+assign c = ctk;
 end
 
 endmodule

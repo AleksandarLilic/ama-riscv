@@ -9,8 +9,8 @@ module csa_tree_4 #(
 
 simd_d_t s_l0, c_l0, s_l1, c_l1;
 
-csa #(.W(W), .A(1)) csa_i_l0_0 (.x(a[0]), .y(a[1]), .z(a[2]), .s(s_l0), .c(c_l0));
-csa #(.W(W), .A(1)) csa_i_l1_0 (.x(s_l0), .y(c_l0), .z(a[3]), .s(s_l1), .c(c_l1));
+csa #(.W(W), .A(1)) csa_i_l0_0 (.x(a[0]), .y(a[1]), .z(a[2]), .ckl(1'b0), .s(s_l0), .c(c_l0));
+csa #(.W(W), .A(1)) csa_i_l1_0 (.x(s_l0), .y(c_l0), .z(a[3]), .ckl(1'b0), .s(s_l1), .c(c_l1));
 
 assign o = {c_l1, s_l1};
 

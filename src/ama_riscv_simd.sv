@@ -189,6 +189,7 @@ csa #(.W(64), .A(1)) csa_i_tree_sum_mbw (
     .x(o_tree_f[0]),
     .y(o_tree_f[1]),
     .z(corr_d),
+    .ckl(1'b0),
     .s(tree_sum_mbw[0]),
     .c(tree_sum_mbw[1])
 );
@@ -202,6 +203,7 @@ csa #(.W(64), .A(1)) csa_i_mul_hsu (
     .x(tree_sum_mbw[0]),
     .y(tree_sum_mbw[1]),
     .z({a_d, 32'h0}),
+    .ckl(1'b0),
     .s(mul_hsu_tree[0]),
     .c(mul_hsu_tree[1])
 );
@@ -269,12 +271,12 @@ assign dot_out = (dot_acc_in + c_late);
 // (w)mul16
 simd_t [1:0] wmul16_csa_0, wmul16_csa_1;
 csa #(.W(32), .A(1)) csa_i_wmul16_0 (
-    .x(mul16_taps[0].w[0]), .y(mul16_taps[1].w[0]), .z(corr_d.w[0]),
+    .x(mul16_taps[0].w[0]), .y(mul16_taps[1].w[0]), .z(corr_d.w[0]), .ckl(1'b0),
     .s(wmul16_csa_0[0]), .c(wmul16_csa_0[1])
 );
 
 csa #(.W(32), .A(1)) csa_i_wmul16_1 (
-    .x(mul16_taps[2].w[0]), .y(mul16_taps[3].w[0]), .z(corr_d.w[0]),
+    .x(mul16_taps[2].w[0]), .y(mul16_taps[3].w[0]), .z(corr_d.w[0]), .ckl(1'b0),
     .s(wmul16_csa_1[0]), .c(wmul16_csa_1[1])
 );
 
@@ -289,22 +291,22 @@ assign mul16h = {wmul16.h[3], wmul16.h[1]};
 // (w)mul8
 simd_h_t [1:0] wmul8_csa_0, wmul8_csa_1, wmul8_csa_2, wmul8_csa_3;
 csa #(.W(16), .A(1)) csa_i_wmul8_0 (
-    .x(i_tree_f[0].h[0]), .y(i_tree_f[1].h[0]), .z(corr_d.h[0]),
+    .x(i_tree_f[0].h[0]), .y(i_tree_f[1].h[0]), .z(corr_d.h[0]), .ckl(1'b0),
     .s(wmul8_csa_0[0]), .c(wmul8_csa_0[1])
 );
 
 csa #(.W(16), .A(1)) csa_i_wmul8_1 (
-    .x(i_tree_f[2].h[0]), .y(i_tree_f[3].h[0]), .z(corr_d.h[0]),
+    .x(i_tree_f[2].h[0]), .y(i_tree_f[3].h[0]), .z(corr_d.h[0]), .ckl(1'b0),
     .s(wmul8_csa_1[0]), .c(wmul8_csa_1[1])
 );
 
 csa #(.W(16), .A(1)) csa_i_wmul8_2 (
-    .x(i_tree_f[4].h[0]), .y(i_tree_f[5].h[0]), .z(corr_d.h[0]),
+    .x(i_tree_f[4].h[0]), .y(i_tree_f[5].h[0]), .z(corr_d.h[0]), .ckl(1'b0),
     .s(wmul8_csa_2[0]), .c(wmul8_csa_2[1])
 );
 
 csa #(.W(16), .A(1)) csa_i_wmul8_3 (
-    .x(i_tree_f[6].h[0]), .y(i_tree_f[7].h[0]), .z(corr_d.h[0]),
+    .x(i_tree_f[6].h[0]), .y(i_tree_f[7].h[0]), .z(corr_d.h[0]), .ckl(1'b0),
     .s(wmul8_csa_3[0]), .c(wmul8_csa_3[1])
 );
 
