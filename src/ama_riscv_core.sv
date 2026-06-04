@@ -678,12 +678,11 @@ arch_width_t rs3_mem;
 always_comb begin
     ct_gen.exe = ct.exe;
     ct_gen.exe.bad_spec |= spec.wrong; // DEC can also generate bad_spec
-    ct_gen.exe.stall_be_core = (hazard.from_mem || div_stalled);
     ct_gen.exe.stall_simd = (hazard.from_mem && simd_arith_mem);
     ct_gen.exe.stall_div = div_stalled;
-    ct_gen.exe.stall_load = (
-        (hazard.from_mem && load_inst_mem) ||
-        (hazard.from_wbk && load_inst_wbk)
+    ct_gen.exe.stall_load = ((hazard.from_mem && load_inst_mem && !dc_stalled));
+    ct_gen.exe.stall_be_core = (
+        ct_gen.exe.stall_simd || ct_gen.exe.stall_div || ct_gen.exe.stall_load
     );
 end
 
@@ -748,6 +747,7 @@ arch_width_t e_writeback_wbk, e_writeback_p_wbk, simd_out_wbk, simd_out_p_wbk;
 
 always_comb begin
     ct_gen.mem = ct.mem;
+    ct_gen.mem.stall_load &= !dc_stalled; // squash load stall if dcache stalls
 end
 
 `DFF_CI_RI_RVI(ct_gen.mem, ct.wbk)
@@ -858,6 +858,28 @@ always_comb begin
 end
 
 `DFF_CI_RI_RVI(cpe, perf_events)
+
+`ifndef SYNT
+always_comb begin
+    assert ($bits({ct.ret.stall_simd, ct.ret.stall_div, ct.ret.stall_load}))
+    else $warning(1,
+        "CORE CYCLE TAG DOUBLE COUNTED: stall_be_core - simd=%0b div=%0b load=%0b",
+        ct.ret.stall_simd, ct.ret.stall_div, ct.ret.stall_load
+    );
+
+    assert ($bits({ct.ret.stall_l1d, ct.ret.stall_be_core}))
+    else $warning(1,
+        "CORE CYCLE TAG DOUBLE COUNTED: stall_be - stall_l1d=%0b stall_be_core=%0b",
+        ct.ret.stall_l1d, ct.ret.stall_be_core
+    );
+
+    assert ($bits({ct.ret.stall_l1i, ct.ret.stall_fe_core}))
+    else $warning(1,
+        "CORE CYCLE TAG DOUBLE COUNTED: stall_fe - stall_l1i=%0b stall_fe_core=%0b",
+        ct.ret.stall_l1i, ct.ret.stall_fe_core
+    );
+end
+`endif
 
 //------------------------------------------------------------------------------
 // pipeline control
