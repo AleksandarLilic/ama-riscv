@@ -35,6 +35,9 @@ SystemVerilog implementation of RISC-V RV32IM & custom packed SIMD ISA as a 5-st
     - [Call Graph](#call-graph)
     - [Execution visualization](#execution-visualization)
     - [Hardware performance estimates correlation](#hardware-performance-estimates-correlation)
+- [Overall hardware performance estimates correlation](#overall-hardware-performance-estimates-correlation)
+  - [Benchmarks](#benchmarks)
+  - [Ustress](#ustress)
 
 # Getting the project
 Project relies on a few external libraries and tools. Clone recursively with
@@ -858,50 +861,93 @@ Performance estimate breakdown for:
     sim/examples/dhrystone_dhrystone_out/rf_trace.bin
 
 Peak Stack usage: 352 bytes
-Instructions executed: 76.2k
-    icache (32 sets, 2 ways, 4096B data): References: 76.6k, Hits: 76.2k, Misses: 368, Hit Rate: 99.52%, MPKI: 4.83
-DMEM inst: 25.0k - L/S: 13.6k/11.3k (32.74% instructions)
-    dcache (16 sets, 4 ways, 4096B data): References: 21.6k, Hits: 21.4k, Misses: 209, Writebacks: 145, Hit Rate: 99.03%, MPKI: 2.74
-Branch inst: 10239 (13.43% instructions)
-    bpred (combined): Predicted: 9.90k, Mispredicted: 341, Accuracy: 96.67%, MPKI: 4.47
-DIV/REM inst: 484 (0.64% instructions)
-    divider (16B): Cache: 108 (22.31%), Special: 328 (67.77%), Common: 48 (9.92%), 469 b, 9.77 b/d
+Instructions executed: 460.0k
+    icache (32 sets, 2 ways, 4096B data): References: 460.3k, Hits: 459.9k, Misses: 367, Hit Rate: 99.92%, MPKI: 0.80
+DMEM inst: 155.3k - L/S: 84.2k/71.1k (33.77% instructions)
+    dcache (16 sets, 4 ways, 4096B data): References: 152.0k, Hits: 151.8k, Misses: 209, Writebacks: 145, Hit Rate: 99.86%, MPKI: 0.45
+Branch inst: 50487 (10.98% instructions)
+    bpred (combined): Predicted: 50.1k, Mispredicted: 339, Accuracy: 99.33%, MPKI: 0.74
+DIV/REM inst: 1496 (0.33% instructions)
+    divider (16B): Cache: 1.10k (73.53%), Special: 344 (22.99%), Common: 52 (3.48%), 489 b, 9.4 b/d
 
 Pipeline stalls (max): 
-    Bad spec: 682
-    FE bound: 10.4k - ICache: 2.21k (AMAT: 1.03), Core: 8.19k
-    BE bound: 6.66k - DCache: 1.69k (AMAT: 1.08), Core: 4.97k (Divider 1.38k)
+    Bad spec: 678
+    FE bound: 39.8k - ICache: 2.20k (AMAT: 1.0), Core: 37.6k
+    BE bound: 10.7k - DCache: 1.69k (AMAT: 1.01), Core: 8.97k (SIMD 0, DIV 2.43k, Load 6.53k)
 
 Estimated HW performance at 100MHz:
-    Best:     87.3k cycles (873.0µs), IPC: 0.873; BW (avg MB/s) - icache: 334.5, dcache (R/W): 84.6 (44.0/40.6), mem (R/W): 50.5 (40.3/10.1)
-    Expected: 94.0k cycles (939.6µs), IPC: 0.811; BW (avg MB/s) - icache: 310.8, dcache (R/W): 78.6 (40.9/37.7), mem (R/W): 46.9 (37.5/9.4)
-    Estimated Cycles range: 6.66k cycles, midpoint: 90.6k, ratio: 7.34%
+    Best:     500.5k cycles (5.00ms), IPC: 0.919; BW (avg MB/s) - icache: 350.9, dcache (R/W): 105.7 (55.9/49.8), mem (R/W): 8.8 (7.0/1.8)
+    Expected: 511.1k cycles (5.11ms), IPC: 0.900; BW (avg MB/s) - icache: 343.5, dcache (R/W): 103.5 (54.7/48.8), mem (R/W): 8.6 (6.9/1.7)
+    Estimated Cycles range: 10.7k cycles, midpoint: 505.8k, ratio: 2.11%
 
 Correlation:
-          metric   est   rtl  diff    diff%
-          cycles 93958 94283  -325   -0.345
-           empty 17737 18067  -330   -1.827
-          stalls 17055 17039    16    0.094
-            lost   682  1028  -346  -33.658
-      lost_other     0    22   -22 -100.000
-        bad_spec   682  1006  -324  -32.207
-        stall_be  6655  6781  -126   -1.858
-       stall_l1d  1689  1835  -146   -7.956
-   stall_be_core  4966  4946    20    0.404
-        stall_fe 10400 10258   142    1.384
-       stall_l1i  2208  2063   145    7.029
-   stall_fe_core  8192  8195    -3   -0.037
-             ret 76216 76216     0    0.000
-        ret_simd     0     0     0    0.000
-         ret_int 76216 76216     0    0.000
-ret_ctrl_flow_br 10239 10239     0    0.000
-         bp_miss   341   503  -162  -32.207
-         l1i_ref 76557 77189  -632   -0.819
-        l1i_miss   368   395   -27   -6.835
-         l1d_ref 21594 21594     0    0.000
-        l1d_miss   209   209     0    0.000
+          metric    est    rtl  diff    diff%
+          cycles 511140 511491  -351   -0.069
+           empty  51159  51515  -356   -0.696
+          stalls  50481  50471    10    0.020
+            lost    678   1044  -366  -53.982
+      lost_other      0     22   -22 -100.000
+        bad_spec    678   1022  -344  -50.737
+        stall_be  10655  10781  -126   -1.183
+       stall_l1d   1689   1835  -146   -8.644
+   stall_be_core   8966   8946    20    0.223
+        stall_fe  39826  39690   136    0.341
+       stall_l1i   2202   2063   139    6.312
+   stall_fe_core  37624  37627    -3   -0.008
+             ret 459976 459976     0    0.000
+        ret_simd      0      0     0    0.000
+         ret_int 459976 459976     0    0.000
+ret_ctrl_flow_br  50487  50487     0    0.000
+         bp_miss    339    511  -172  -50.737
+         l1i_ref 460315 460963  -648   -0.141
+        l1i_miss    367    397   -30   -8.174
+         l1d_ref 151974 151974     0    0.000
+        l1d_miss    209    209     0    0.000 
 ```
 
-![](examples/dhrystone_dhrystone_out_cosim/perf_est_correlation_cycles.png)
+![](examples/dhrystone_dhrystone_out_cosim/correlation_cycles.png)
 
-![](examples/dhrystone_dhrystone_out_cosim/perf_est_correlation_all.png)
+![](examples/dhrystone_dhrystone_out_cosim/correlation_metrics.png)
+
+# Overall hardware performance estimates correlation
+
+A useful check for the confidence that can be put in the functional models. Since the estimation flow offers much faster turnaround time, it's a tempting target for rapid exploration of either workload changes, or the microarchitectural tweaks.  
+Cycle estimates were compared against RTL cycle counts using only the timed workload regions, that is, excluding benchmark harness overhead like setup, warmup, UART printing, and others.
+
+## Benchmarks
+
+| Metric | Value |
+|---|---:|
+| Mean signed error | -0.92% |
+| Std dev signed error | 1.56% |
+| Mean absolute error | 1.08% |
+| Median absolute error | 0.63% |
+| Worst absolute error | 6.76% |
+| ≤ 1% | 17/28 (61%) |
+| ≤ 3% | 26/28 (93%) |
+| ≤ 5% | 27/28 (96%) |
+| ≤ 10% | 28/28 (100%) |
+| > 10% | 0/28 (0%) |
+
+![](examples/perf_est_correlation_benchmarks_1.png)
+
+![](examples/perf_est_correlation_benchmarks_2.png)
+
+## Ustress
+
+| Metric | Value |
+|---|---:|
+| Mean signed error | -0.19% |
+| Std dev signed error | 0.36% |
+| Mean absolute error | 0.20% |
+| Median absolute error | 0.02% |
+| Worst absolute error | 1.04% |
+| ≤ 1% | 12/13 (92%) |
+| ≤ 3% | 13/13 (100%) |
+| ≤ 5% | 13/13 (100%) |
+| ≤ 10% | 13/13 (100%) |
+| > 10% | 0/13 (0%) |
+
+![](examples/perf_est_correlation_ustress_1.png)
+
+![](examples/perf_est_correlation_ustress_2.png)
