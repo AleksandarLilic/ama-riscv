@@ -70,31 +70,31 @@ benchmark:
   - ["sim/sw/baremetal/coremark", "coremark.mem"]
   - ["sim/sw/baremetal/stream_int", "stream.mem"]
 
+# shorter group, ~15 minute run with default 8 workers in parallel
 embench_p1:
   - ["sim/sw/baremetal/embench/aha-mont64/", "embench.mem"]
   - ["sim/sw/baremetal/embench/crc32/", "embench.mem"]
   - ["sim/sw/baremetal/embench/edn/", "embench.mem"]
   - ["sim/sw/baremetal/embench/matmult-int/", "embench.mem"]
-  - ["sim/sw/baremetal/embench/nsichneu/", "embench.mem"]
+  - ["sim/sw/baremetal/embench/md5sum/", "embench.mem"]
+  - ["sim/sw/baremetal/embench/minver/", "embench.mem"]
+  - ["sim/sw/baremetal/embench/nettle-aes/", "embench.mem"]
   - ["sim/sw/baremetal/embench/nettle-sha256/", "embench.mem"]
+  - ["sim/sw/baremetal/embench/nsichneu/", "embench.mem"]
   - ["sim/sw/baremetal/embench/slre/", "embench.mem"]
   - ["sim/sw/baremetal/embench/statemate/", "embench.mem"]
   - ["sim/sw/baremetal/embench/tarfind/", "embench.mem"]
   - ["sim/sw/baremetal/embench/ud/", "embench.mem"]
 
+# longer group, 1h+ dominated by nbody & cubic, others in 20-40 min range
 embench_p2:
-  - ["sim/sw/baremetal/embench/huffbench/", "embench.mem"]
-  - ["sim/sw/baremetal/embench/md5sum/", "embench.mem"]
-  - ["sim/sw/baremetal/embench/minver/", "embench.mem"]
-  - ["sim/sw/baremetal/embench/nettle-aes/", "embench.mem"]
-  - ["sim/sw/baremetal/embench/sglib-combined/", "embench.mem"]
-
-embench_p3:
   - ["sim/sw/baremetal/embench/cubic/", "embench.mem"]
+  - ["sim/sw/baremetal/embench/huffbench/", "embench.mem"]
   - ["sim/sw/baremetal/embench/nbody/", "embench.mem"]
   - ["sim/sw/baremetal/embench/picojpeg/", "embench.mem"]
   - ["sim/sw/baremetal/embench/primecount/", "embench.mem"]
   - ["sim/sw/baremetal/embench/qrduino/", "embench.mem"]
+  - ["sim/sw/baremetal/embench/sglib-combined/", "embench.mem"]
   - ["sim/sw/baremetal/embench/st/", "embench.mem"]
   - ["sim/sw/baremetal/embench/wikisort/", "embench.mem"]
 
