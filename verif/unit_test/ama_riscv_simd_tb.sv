@@ -177,6 +177,172 @@ initial begin
                  32'd9, 32'd41
         );
 
+        // add/sub (wrap)
+        run_test("add16 safe", SIMD_ARITH_OP_ADD16,
+                 {16'sd1000, 16'sd500}, {16'sd300, 16'sd200},
+                 32'd0, {16'sd1300, 16'sd700}
+        );
+        run_test("add16 wrap", SIMD_ARITH_OP_ADD16,
+                 {16'h7FFF, 16'h8000}, {16'sd1, 16'hFFFF},
+                 32'd0, {16'h8000, 16'h7FFF}
+        );
+        run_test("add8 safe", SIMD_ARITH_OP_ADD8,
+                 {8'sd20, 8'sd10, 8'sd5, 8'sd2}, {8'sd3, 8'sd7, 8'sd8, 8'sd15},
+                 32'd0, {8'sd23, 8'sd17, 8'sd13, 8'sd17}
+        );
+        run_test("add8 wrap", SIMD_ARITH_OP_ADD8,
+                 {8'h7F, 8'h80, 8'sd1, 8'sd2}, {8'sd1, 8'hFF, 8'sd3, 8'sd4},
+                 32'd0, {8'h80, 8'h7F, 8'sd4, 8'sd6}
+        );
+        run_test("sub16 safe", SIMD_ARITH_OP_SUB16,
+                 {16'sd1000, 16'sd500}, {16'sd200, 16'sd100},
+                 32'd0, {16'sd800, 16'sd400}
+        );
+        run_test("sub16 wrap", SIMD_ARITH_OP_SUB16,
+                 {16'h8000, 16'h7FFF}, {16'sd1, 16'hFFFF},
+                 32'd0, {16'h7FFF, 16'h8000}
+        );
+        run_test("sub8 safe", SIMD_ARITH_OP_SUB8,
+                 {8'sd40, 8'sd30, 8'sd20, 8'sd10}, {8'sd2, 8'sd7, 8'sd3, 8'sd5},
+                 32'd0, {8'sd38, 8'sd23, 8'sd17, 8'sd5}
+        );
+        run_test("sub8 wrap", SIMD_ARITH_OP_SUB8,
+                 {8'h80, 8'h7F, 8'sd3, 8'sd1}, {8'sd1, 8'hFF, 8'sd1, 8'sd1},
+                 32'd0, {8'h7F, 8'h80, 8'sd2, 8'sd0}
+        );
+        // qadd/qsub (signed sat)
+        run_test("qadd16 safe", SIMD_ARITH_OP_QADD16,
+                 {16'sd1000, 16'sd500}, {16'sd200, 16'sd300},
+                 32'd0, {16'sd1200, 16'sd800}
+        );
+        run_test("qadd16 sat", SIMD_ARITH_OP_QADD16,
+                 {16'sd30000, -16'sd30000}, {16'sd10000, -16'sd10000},
+                 32'd0, {16'h7FFF, 16'h8000}
+        );
+        run_test("qadd8 safe", SIMD_ARITH_OP_QADD8,
+                 {8'sd20, 8'sd10, 8'sd5, 8'sd2}, {8'sd2, 8'sd5, 8'sd10, 8'sd30},
+                 32'd0, {8'sd22, 8'sd15, 8'sd15, 8'sd32}
+        );
+        run_test("qadd8 sat", SIMD_ARITH_OP_QADD8,
+                 {8'sd100, 8'sd1, 8'sd1, 8'sd1}, {8'sd50, 8'sd1, 8'sd1, 8'sd1},
+                 32'd0, {8'sd127, 8'sd2, 8'sd2, 8'sd2}
+        );
+        run_test("qsub16 safe", SIMD_ARITH_OP_QSUB16,
+                 {16'sd1000, 16'sd500}, {16'sd200, 16'sd100},
+                 32'd0, {16'sd800, 16'sd400}
+        );
+        run_test("qsub16 sat", SIMD_ARITH_OP_QSUB16,
+                 {-16'sd30000, 16'sd30000}, {16'sd10000, -16'sd10000},
+                 32'd0, {16'h8000, 16'h7FFF}
+        );
+        run_test("qsub8 safe", SIMD_ARITH_OP_QSUB8,
+                 {8'sd40, 8'sd20, 8'sd10, 8'sd5}, {8'sd2, 8'sd5, 8'sd3, 8'sd1},
+                 32'd0, {8'sd38, 8'sd15, 8'sd7, 8'sd4}
+        );
+        run_test("qsub8 sat", SIMD_ARITH_OP_QSUB8,
+                 {-8'sd100, 8'sd1, 8'sd1, 8'sd1}, {8'sd50, 8'sd1, 8'sd1, 8'sd1},
+                 32'd0, {8'h80, 8'h00, 8'h00, 8'h00}
+        );
+        // qadd/qsub (unsigned sat)
+        run_test("qadd16u safe", SIMD_ARITH_OP_QADD16U,
+                 {16'd1000, 16'd500}, {16'd200, 16'd300},
+                 32'd0, {16'd1200, 16'd800}
+        );
+        run_test("qadd16u oflow", SIMD_ARITH_OP_QADD16U,
+                 {16'd60000, 16'd1}, {16'd10000, 16'd1},
+                 32'd0, {16'hFFFF, 16'd2}
+        );
+        run_test("qadd8u safe", SIMD_ARITH_OP_QADD8U,
+                 {8'd50, 8'd30, 8'd10, 8'd5}, {8'd5, 8'd10, 8'd20, 8'd40},
+                 32'd0, {8'd55, 8'd40, 8'd30, 8'd45}
+        );
+        run_test("qadd8u oflow", SIMD_ARITH_OP_QADD8U,
+                 {8'd200, 8'd1, 8'd1, 8'd1}, {8'd100, 8'd1, 8'd1, 8'd1},
+                 32'd0, {8'hFF, 8'd2, 8'd2, 8'd2}
+        );
+        run_test("qsub16u safe", SIMD_ARITH_OP_QSUB16U,
+                 {16'd1000, 16'd500}, {16'd200, 16'd100},
+                 32'd0, {16'd800, 16'd400}
+        );
+        run_test("qsub16u uflow", SIMD_ARITH_OP_QSUB16U,
+                 {16'd100, 16'd500}, {16'd200, 16'd100},
+                 32'd0, {16'd0, 16'd400}
+        );
+        run_test("qsub8u safe", SIMD_ARITH_OP_QSUB8U,
+                 {8'd50, 8'd30, 8'd20, 8'd10}, {8'd5, 8'd10, 8'd3, 8'd2},
+                 32'd0, {8'd45, 8'd20, 8'd17, 8'd8}
+        );
+        run_test("qsub8u uflow", SIMD_ARITH_OP_QSUB8U,
+                 {8'd5, 8'd200, 8'd10, 8'd5}, {8'd9, 8'd50, 8'd3, 8'd9},
+                 32'd0, {8'd0, 8'd150, 8'd7, 8'd0}
+        );
+        // min/max (signed)
+        run_test("min16 safe", SIMD_ARITH_OP_MIN16,
+                 {16'sd1000, 16'sd500}, {16'sd800, 16'sd600},
+                 32'd0, {16'sd800, 16'sd500}
+        );
+        run_test("min16 mixed", SIMD_ARITH_OP_MIN16,
+                 {16'sd100, -16'sd200}, {-16'sd50, 16'sd300},
+                 32'd0, {-16'sd50, -16'sd200}
+        );
+        run_test("min8 safe", SIMD_ARITH_OP_MIN8,
+                 {8'sd10, 8'sd20, 8'sd5, 8'sd15}, {8'sd8, 8'sd25, 8'sd3, 8'sd12},
+                 32'd0, {8'sd8, 8'sd20, 8'sd3, 8'sd12}
+        );
+        run_test("min8 mixed", SIMD_ARITH_OP_MIN8,
+                 {8'sd5, -8'sd1, 8'sd7, -8'sd9}, {8'sd2, 8'sd3, 8'sd7, 8'sd4},
+                 32'd0, {8'sd2, -8'sd1, 8'sd7, -8'sd9}
+        );
+        run_test("max16 safe", SIMD_ARITH_OP_MAX16,
+                 {16'sd1000, 16'sd500}, {16'sd800, 16'sd600},
+                 32'd0, {16'sd1000, 16'sd600}
+        );
+        run_test("max16 mixed", SIMD_ARITH_OP_MAX16,
+                 {16'sd100, -16'sd200}, {-16'sd50, 16'sd300},
+                 32'd0, {16'sd100, 16'sd300}
+        );
+        run_test("max8 safe", SIMD_ARITH_OP_MAX8,
+                 {8'sd10, 8'sd20, 8'sd5, 8'sd15}, {8'sd8, 8'sd25, 8'sd3, 8'sd12},
+                 32'd0, {8'sd10, 8'sd25, 8'sd5, 8'sd15}
+        );
+        run_test("max8 mixed", SIMD_ARITH_OP_MAX8,
+                 {8'sd5, -8'sd1, 8'sd7, -8'sd9}, {8'sd2, 8'sd3, 8'sd7, 8'sd4},
+                 32'd0, {8'sd5, 8'sd3, 8'sd7, 8'sd4}
+        );
+        // min/max (unsigned)
+        run_test("min16u safe", SIMD_ARITH_OP_MIN16U,
+                 {16'd1000, 16'd500}, {16'd800, 16'd600},
+                 32'd0, {16'd800, 16'd500}
+        );
+        run_test("min16u large", SIMD_ARITH_OP_MIN16U,
+                 {16'd60000, 16'd1}, {16'd100, 16'd65535},
+                 32'd0, {16'd100, 16'd1}
+        );
+        run_test("min8u safe", SIMD_ARITH_OP_MIN8U,
+                 {8'd50, 8'd30, 8'd20, 8'd10}, {8'd40, 8'd35, 8'd15, 8'd12},
+                 32'd0, {8'd40, 8'd30, 8'd15, 8'd10}
+        );
+        run_test("min8u large", SIMD_ARITH_OP_MIN8U,
+                 {8'd200, 8'd1, 8'd128, 8'd1}, {8'd10, 8'd200, 8'd127, 8'd255},
+                 32'd0, {8'd10, 8'd1, 8'd127, 8'd1}
+        );
+        run_test("max16u safe", SIMD_ARITH_OP_MAX16U,
+                 {16'd1000, 16'd500}, {16'd800, 16'd600},
+                 32'd0, {16'd1000, 16'd600}
+        );
+        run_test("max16u large", SIMD_ARITH_OP_MAX16U,
+                 {16'd60000, 16'd1}, {16'd100, 16'd65535},
+                 32'd0, {16'd60000, 16'd65535}
+        );
+        run_test("max8u safe", SIMD_ARITH_OP_MAX8U,
+                 {8'd50, 8'd30, 8'd20, 8'd10}, {8'd40, 8'd35, 8'd15, 8'd12},
+                 32'd0, {8'd50, 8'd35, 8'd20, 8'd12}
+        );
+        run_test("max8u large", SIMD_ARITH_OP_MAX8U,
+                 {8'd200, 8'd1, 8'd128, 8'd1}, {8'd10, 8'd200, 8'd127, 8'd255},
+                 32'd0, {8'd200, 8'd200, 8'd128, 8'd255}
+        );
+
         done = 1'b1;
     end
 

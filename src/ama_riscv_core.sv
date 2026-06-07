@@ -38,7 +38,7 @@ logic stall_act_flow;
 
 //------------------------------------------------------------------------------
 // FET Stage
-arch_width_t pc_fet_last, pc_inc4, pc_branch_jal, pc_new_mem;
+arch_width_t pc_fet_last, pc_inc4_in, pc_inc4, pc_branch_jal, pc_new_mem;
 fe_ctrl_t fe_ctrl;
 logic be_stalled_d;
 decoder_t decoded; // from decode
@@ -47,11 +47,17 @@ decoder_t decoded; // from decode
 arch_width_t pc_fet_cp; // checkpoint fetch PC before going to speculative
 arch_width_t pc_fet_cp_get;
 assign pc_fet_cp_get = fe_ctrl.use_cp ? pc_fet_cp : pc_fet_last;
-assign pc_inc4 = (pc_fet_cp_get + 'd4);
+assign pc_inc4_in = pc_fet_cp_get;
 branch_t bp_pred;
 `else
-assign pc_inc4 = (pc_fet_last + 'd4);
+assign pc_inc4_in = pc_fet_last;
 `endif
+
+/* verilator lint_off PINCONNECTEMPTY */
+add #(.W(ARCH_WIDTH)) pc_fet_inc4_i (
+    .a(pc_inc4_in), .b('d4), .ci(1'b0), .s(pc_inc4), .co()
+);
+/* verilator lint_on PINCONNECTEMPTY */
 
 always_comb begin
     unique case (fe_ctrl.pc_sel)
@@ -201,7 +207,12 @@ ama_riscv_imm_gen ama_riscv_imm_gen_i(
 
 arch_width_t imm_branch_jal;
 assign imm_branch_jal = decoded.itype.branch ? imm_b : imm_jal;
-assign pc_branch_jal = (pc.dec + imm_branch_jal);
+
+/* verilator lint_off PINCONNECTEMPTY */
+add #(.W(ARCH_WIDTH)) pc_branch_jal_add_i (
+    .a(pc.dec), .b(imm_branch_jal), .ci(1'b0), .s(pc_branch_jal), .co()
+);
+/* verilator lint_on PINCONNECTEMPTY */
 
 `ifdef USE_BP
 // all predictors use imm_b right away, no BTB
@@ -274,7 +285,7 @@ end // gen_bp_sttc/gen_bp_dyn
 `endif // USE_BP
 
 // instructions that can cause a hazard
-logic load_inst_mem, load_inst_wbk, simd_arith_mem;
+logic load_inst_mem, load_inst_wbk, simd_arith_exe, simd_arith_mem;
 // decoded reg src addresses
 rf_addr_t rs1_addr_exe, rs2_addr_exe, rs3_addr_exe, rs3_addr_mem;
 // forwarding sources
@@ -292,6 +303,7 @@ ama_riscv_operand_forwarding ama_riscv_operand_forwarding_i (
     .load_inst_mem (load_inst_mem),
     .load_inst_wbk (load_inst_wbk),
     .dc_stalled (dc_stalled),
+    .simd_arith_exe (simd_arith_exe),
     .simd_arith_mem (simd_arith_mem),
     .rs1_dec (rs1_addr_dec),
     .rs2_dec (rs2_addr_dec),
@@ -418,14 +430,14 @@ assign pc_nz.dec = (pc.dec != 'h0);
 `STAGE_D_E(1'b1, decoded, decoded_exe, `DECODER_INIT_VAL)
 
 // special case for two operands, to save (writeback fwd) values on stall
-arch_width_t op_a_r, op_b_r, rs3_exe; // resolved operands from exe stage (decl.)
+arch_width_t op_a_r, op_b_r, op_c_r_exe; // resolved operands from exe stage
 always_ff @(posedge clk) begin
     if (rst) begin
         {op_a_exe, op_b_exe, op_c_exe} <= {3{ARCH_WIDTH'(0)}};
     end else if (ctrl_dec_exe.flush) begin
         {op_a_exe, op_b_exe, op_c_exe} <= {3{ARCH_WIDTH'(0)}};
     end else if (ctrl_exe_mem.bubble) begin // saved operands
-        {op_a_exe, op_b_exe, op_c_exe} <= {op_a_r, op_b_r, rs3_exe};
+        {op_a_exe, op_b_exe, op_c_exe} <= {op_a_r, op_b_r, op_c_r_exe};
     end else if (ctrl_dec_exe.en) begin
         if (ctrl_dec_exe.bubble) begin
             {op_a_exe, op_b_exe, op_c_exe} <= {3{ARCH_WIDTH'(0)}};;
@@ -480,7 +492,7 @@ end
 
 assign op_a_r = a_sel_fwd_exe ? rs1_exe_be_fwd : op_a_exe;
 assign op_b_r = b_sel_fwd_exe ? rs2_exe_be_fwd : op_b_exe;
-assign rs3_exe = c_sel_fwd_exe ? rs3_exe_be_fwd : op_c_exe;
+assign op_c_r_exe = c_sel_fwd_exe ? rs3_exe_be_fwd : op_c_exe;
 
 logic div_start, div_busy, div_issued;
 assign div_start = (
@@ -515,24 +527,36 @@ ama_riscv_alu ama_riscv_alu_i (
 assign pc_new_exe = decoded_exe.itype.branch ? pc_branch_exe : alu_out_exe;
 
 simd_d_t data_fmt_out;
-ama_riscv_data_fmt ama_riscv_data_fmt_i (
-    .op_class (decoded_exe.simd_data_fmt_class),
+ama_riscv_simd_data_fmt ama_riscv_simd_data_fmt_i (
     .op (decoded_exe.simd_data_fmt_op),
     .a (op_a_r),
     .b (op_b_r),
+    .c (op_c_r_exe),
     .s (data_fmt_out)
 );
 
-simd_t data_fmt_out_exe, data_fmt_out_p_exe;
-assign data_fmt_out_exe = data_fmt_out.w[0];
-assign data_fmt_out_p_exe = data_fmt_out.w[1];
+simd_t shift_a, shift_b;
+assign shift_a = decoded_exe.simd_shift_op[3] ? data_fmt_out.w[0] : op_a_r;
+assign shift_b = data_fmt_out.w[1];
 
-logic simd_arith_exe;
+simd_d_t shift_s;
+ama_riscv_simd_shift ama_riscv_simd_shift_i (
+    .op(decoded_exe.simd_shift_op),
+    .a(shift_a),
+    .b(shift_b),
+    .shamt(op_b_r[4:0]),
+    .s(shift_s)
+);
+
+simd_t data_fmt_out_exe, data_fmt_out_p_exe;
+assign {data_fmt_out_p_exe, data_fmt_out_exe} =
+    decoded_exe.itype.simd_shift ? shift_s : data_fmt_out;
+
 assign simd_arith_exe = (
     decoded_exe.itype.mult || decoded_exe.itype.simd_arith
 );
 
-arch_width_t op_c_r;
+arch_width_t op_c_r_mem;
 simd_d_t simd_out;
 ama_riscv_simd ama_riscv_simd_i (
     .clk (clk),
@@ -542,7 +566,7 @@ ama_riscv_simd ama_riscv_simd_i (
     .op (decoded_exe.simd_arith_op),
     .a (op_a_r),
     .b (op_b_r),
-    .c_late (op_c_r),
+    .c_late (op_c_r_mem),
     .p (simd_out)
 );
 
@@ -578,13 +602,20 @@ ama_riscv_csr #(
     .out (csr_out_exe)
 );
 
+arch_width_t pc_exe_inc4;
+/* verilator lint_off PINCONNECTEMPTY */
+add #(.W(ARCH_WIDTH)) pc_exe_inc4_i (
+    .a(pc.exe), .b('d4), .ci(1'b0), .s(pc_exe_inc4), .co()
+);
+/* verilator lint_on PINCONNECTEMPTY */
+
 // execute stage instruction result mux
 arch_width_t e_writeback_exe;
 always_comb begin
     unique case (decoded_exe.ewb_sel)
         EWB_SEL_ALU: e_writeback_exe = alu_out_exe;
         EWB_SEL_IMM_U: e_writeback_exe = op_b_r;
-        EWB_SEL_PC_INC4: e_writeback_exe = (pc.exe + 'd4);
+        EWB_SEL_PC_INC4: e_writeback_exe = pc_exe_inc4;
         EWB_SEL_CSR: e_writeback_exe = csr_out_exe;
         EWB_SEL_DATA_FMT: e_writeback_exe = data_fmt_out_exe;
         EWB_SEL_DIV: e_writeback_exe = div_result;
@@ -596,7 +627,15 @@ end
 /* verilator lint_off UNUSEDSIGNAL */
 arch_width_t dmem_addr; // depending on the memory map, some top bits are unused
 /* verilator lint_on UNUSEDSIGNAL */
-assign dmem_addr = (op_a_r + {{20{dmem_offset_exe[11]}}, dmem_offset_exe});
+
+arch_width_t dmem_addr_imm;
+assign dmem_addr_imm = {{20{dmem_offset_exe[11]}}, dmem_offset_exe};
+
+/* verilator lint_off PINCONNECTEMPTY */
+add #(.W(ARCH_WIDTH)) dmem_agu_exe_i (
+    .a(op_a_r), .b(dmem_addr_imm), .ci(1'b0), .s(dmem_addr), .co()
+);
+/* verilator lint_on PINCONNECTEMPTY */
 
 // memory map
 logic map_dmem_exe, map_uart_exe;
@@ -659,7 +698,7 @@ arch_width_t rs3_mem;
 `STAGE_E_M(1'b1, rs3_addr_exe, rs3_addr_mem, RF_X0_ZERO)
 `STAGE_E_M(1'b1, rf_we.exe, rf_we.mem, 'h0)
 `STAGE_E_M(1'b1, pc_new_exe, pc_new_mem, 'h0)
-`STAGE_E_M(1'b1, rs3_exe, rs3_mem, 'h0)
+`STAGE_E_M(1'b1, op_c_r_exe, rs3_mem, 'h0)
 `STAGE_E_M(1'b1, branch_resolution_exe, branch_resolution_mem, B_NT)
 `STAGE_E_M(1'b1, decoded_exe.itype.branch, branch_inst_mem, 'h0)
 `STAGE_E_M(1'b1, decoded_exe.itype.jalr, jalr_inst_mem, 'h0)
@@ -700,7 +739,7 @@ always_comb begin
     endcase
 end
 
-assign op_c_r = c_sel_fwd_mem ? rs3_mem_be_fwd : rs3_mem;
+assign op_c_r_mem = c_sel_fwd_mem ? rs3_mem_be_fwd : rs3_mem;
 
 // DMEM
 assign dmem_req.wdata = dmem_req_mem.wdata;

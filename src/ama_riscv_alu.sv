@@ -32,20 +32,15 @@ assign is_sub = (
 logic cout, slt_res, sltu_res;
 arch_width_t adder_b, adder_out;
 assign adder_b = is_sub ? ~b : b;
-assign {cout, adder_out} = (a + adder_b + {31'b0, is_sub});
+add #(.W(ARCH_WIDTH)) add_i (
+    .a(a), .b(adder_b), .ci(is_sub), .s(adder_out), .co(cout)
+);
 
 // --- sltu logic: in (a + ~b + 1), cout=0 indicates a borrow (a < b)
 assign sltu_res = ~cout;
-
-// --- slt logic (signbit xor overflow)
-// overflow happens if
-//   1. operands have different signs (a vs b)
-//   2. result sign matches b
-// the *original* b sign is used, not the inverted adder_b
-logic v_flag, n_flag; // overflow, negative
-assign v_flag = ((a[31] != b[31]) && (adder_out[31] != a[31]));
-assign n_flag = adder_out[31];
-assign slt_res = (n_flag ^ v_flag);
+cmp_s_lt cmp_i (
+    .a_sign(a[31]), .b_sign(b[31]), .s_sign(adder_out[31]), .lt(slt_res)
+);
 
 // --- min/max selection logic
 // determine if doing signed or unsigned comparison

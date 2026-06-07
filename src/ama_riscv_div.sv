@@ -50,7 +50,7 @@ typedef struct packed {
 
 typedef struct packed {
     logic subtract;
-    logic [W:0] rem_shift, divisor_ext;
+    logic [W:0] rem_shift, divisor_ext, rem_sub_ext;
     arch_width_t rem_sub, rem_next, quot_next, dividend_next;
 } iter_t;
 
@@ -177,8 +177,13 @@ iter_t iter;
 
 assign iter.rem_shift = {ds.rem, ds.dividend[W-1]};
 assign iter.divisor_ext = {1'b0, ds.divisor};
-assign iter.subtract = (iter.rem_shift >= iter.divisor_ext);
-assign iter.rem_sub = arch_width_t'(iter.rem_shift - iter.divisor_ext);
+
+add #(.W(W+1)) rem_sub_i (
+    .a(iter.rem_shift), .b(~iter.divisor_ext), .ci(1'b1),
+    .s(iter.rem_sub_ext), .co(iter.subtract) // co = (rem_shift >= divisor_ext)
+);
+assign iter.rem_sub = iter.rem_sub_ext[W-1:0];
+
 assign iter.rem_next = iter.subtract ? iter.rem_sub : iter.rem_shift[W-1:0];
 assign iter.quot_next = {ds.quot[W-2:0], iter.subtract};
 assign iter.dividend_next = {ds.dividend[W-2:0], 1'b0};

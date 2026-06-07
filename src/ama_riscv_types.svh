@@ -89,11 +89,19 @@ typedef enum logic [6:0] {
 } opc7_t;
 
 typedef enum logic [6:0] {
+    CUSTOM_ISA_FN7_SIMD_ADDSUB = 7'h00,
+    CUSTOM_ISA_FN7_SIMD_QADDSUB = 7'h01,
     CUSTOM_ISA_FN7_SIMD_MUL = 7'h02,
     CUSTOM_ISA_FN7_SIMD_WMUL = 7'h03,
     CUSTOM_ISA_FN7_SIMD_DOT = 7'h04,
+    CUSTOM_ISA_FN7_SIMD_COMPARE = 7'h08,
+    CUSTOM_ISA_FN7_SIMD_SHIFT = 7'h09,
     CUSTOM_ISA_FN7_SIMD_WIDEN = 7'h20,
-    CUSTOM_ISA_FN7_SIMD_TXP = 7'h30
+    CUSTOM_ISA_FN7_SIMD_NARROW = 7'h22,
+    CUSTOM_ISA_FN7_SIMD_QNARROW = 7'h23,
+    CUSTOM_ISA_FN7_SIMD_TXP = 7'h30,
+    CUSTOM_ISA_FN7_SIMD_DUP_VINS = 7'h3c,
+    CUSTOM_ISA_FN7_SIMD_VEXT = 7'h3d
 } custom_isa_fn7_t;
 
 typedef enum logic [1:0] {
@@ -195,20 +203,38 @@ typedef enum logic [4:0] {
     ALU_OP_OFF =  {5{1'b1}}
 } alu_op_t;
 
-typedef enum logic [2:0] {
-    SIMD_ARITH_CLASS_RV32M = 3'h0,
-    SIMD_ARITH_CLASS_MUL = 3'h2,
-    SIMD_ARITH_CLASS_WMUL = 3'h3,
-    SIMD_ARITH_CLASS_DOT = 3'h4
+typedef enum logic [3:0] {
+    SIMD_ARITH_CLASS_RV32M = 4'hf,
+    SIMD_ARITH_CLASS_ADDSUB = CUSTOM_ISA_FN7_SIMD_ADDSUB[3:0],
+    SIMD_ARITH_CLASS_QADDSUB = CUSTOM_ISA_FN7_SIMD_QADDSUB[3:0],
+    SIMD_ARITH_CLASS_MUL = CUSTOM_ISA_FN7_SIMD_MUL[3:0],
+    SIMD_ARITH_CLASS_WMUL = CUSTOM_ISA_FN7_SIMD_WMUL[3:0],
+    SIMD_ARITH_CLASS_DOT = CUSTOM_ISA_FN7_SIMD_DOT[3:0],
+    SIMD_ARITH_CLASS_COMPARE = CUSTOM_ISA_FN7_SIMD_COMPARE[3:0],
+    SIMD_ARITH_CLASS_SHIFT = CUSTOM_ISA_FN7_SIMD_SHIFT[3:0]
 } simd_arith_class_t;
 
-typedef enum logic [5:0] {
-    //                  fn7[2:0],  fn3
+typedef enum logic [6:0] {
+    //                      fn7[3:0],               fn3
     // rv32m mul
     SIMD_ARITH_OP_MUL    = {SIMD_ARITH_CLASS_RV32M, 3'h0},
     SIMD_ARITH_OP_MULH   = {SIMD_ARITH_CLASS_RV32M, 3'h1},
     SIMD_ARITH_OP_MULHSU = {SIMD_ARITH_CLASS_RV32M, 3'h2},
     SIMD_ARITH_OP_MULHU  = {SIMD_ARITH_CLASS_RV32M, 3'h3},
+    // simd add sub
+    SIMD_ARITH_OP_ADD16 = {SIMD_ARITH_CLASS_ADDSUB, 3'h0},
+    SIMD_ARITH_OP_ADD8  = {SIMD_ARITH_CLASS_ADDSUB, 3'h2},
+    SIMD_ARITH_OP_SUB16 = {SIMD_ARITH_CLASS_ADDSUB, 3'h4},
+    SIMD_ARITH_OP_SUB8  = {SIMD_ARITH_CLASS_ADDSUB, 3'h6},
+    // simd qadd qsub
+    SIMD_ARITH_OP_QADD16  = {SIMD_ARITH_CLASS_QADDSUB, 3'h0},
+    SIMD_ARITH_OP_QADD16U = {SIMD_ARITH_CLASS_QADDSUB, 3'h1},
+    SIMD_ARITH_OP_QADD8   = {SIMD_ARITH_CLASS_QADDSUB, 3'h2},
+    SIMD_ARITH_OP_QADD8U  = {SIMD_ARITH_CLASS_QADDSUB, 3'h3},
+    SIMD_ARITH_OP_QSUB16  = {SIMD_ARITH_CLASS_QADDSUB, 3'h4},
+    SIMD_ARITH_OP_QSUB16U = {SIMD_ARITH_CLASS_QADDSUB, 3'h5},
+    SIMD_ARITH_OP_QSUB8   = {SIMD_ARITH_CLASS_QADDSUB, 3'h6},
+    SIMD_ARITH_OP_QSUB8U  = {SIMD_ARITH_CLASS_QADDSUB, 3'h7},
     // simd mul
     SIMD_ARITH_OP_MUL16   = {SIMD_ARITH_CLASS_MUL, 3'h0},
     SIMD_ARITH_OP_MUL8    = {SIMD_ARITH_CLASS_MUL, 3'h2},
@@ -229,43 +255,117 @@ typedef enum logic [5:0] {
     SIMD_ARITH_OP_DOT4   = {SIMD_ARITH_CLASS_DOT, 3'h4},
     SIMD_ARITH_OP_DOT4U  = {SIMD_ARITH_CLASS_DOT, 3'h5},
     SIMD_ARITH_OP_DOT2   = {SIMD_ARITH_CLASS_DOT, 3'h6},
-    SIMD_ARITH_OP_DOT2U  = {SIMD_ARITH_CLASS_DOT, 3'h7}
+    SIMD_ARITH_OP_DOT2U  = {SIMD_ARITH_CLASS_DOT, 3'h7},
+    // simd compare
+    SIMD_ARITH_OP_MIN16  = {SIMD_ARITH_CLASS_COMPARE, 3'h0},
+    SIMD_ARITH_OP_MIN16U = {SIMD_ARITH_CLASS_COMPARE, 3'h1},
+    SIMD_ARITH_OP_MIN8   = {SIMD_ARITH_CLASS_COMPARE, 3'h2},
+    SIMD_ARITH_OP_MIN8U  = {SIMD_ARITH_CLASS_COMPARE, 3'h3},
+    SIMD_ARITH_OP_MAX16  = {SIMD_ARITH_CLASS_COMPARE, 3'h4},
+    SIMD_ARITH_OP_MAX16U = {SIMD_ARITH_CLASS_COMPARE, 3'h5},
+    SIMD_ARITH_OP_MAX8   = {SIMD_ARITH_CLASS_COMPARE, 3'h6},
+    SIMD_ARITH_OP_MAX8U  = {SIMD_ARITH_CLASS_COMPARE, 3'h7},
+    // simd shift
+    SIMD_ARITH_OP_SLLI16   = {SIMD_ARITH_CLASS_SHIFT, 3'h0},
+    SIMD_ARITH_OP_SLLI8    = {SIMD_ARITH_CLASS_SHIFT, 3'h2},
+    SIMD_ARITH_OP_SRLI16   = {SIMD_ARITH_CLASS_SHIFT, 3'h4},
+    SIMD_ARITH_OP_SRLI8    = {SIMD_ARITH_CLASS_SHIFT, 3'h6},
+    SIMD_ARITH_OP_SRAI16   = {SIMD_ARITH_CLASS_SHIFT, 3'h5},
+    SIMD_ARITH_OP_SRAI8    = {SIMD_ARITH_CLASS_SHIFT, 3'h7}
 } simd_arith_op_t;
 
-typedef enum logic [2:0] {
-    SIMD_DATA_FMT_OP_16 = 3'h0,
-    SIMD_DATA_FMT_OP_16U = 3'h1,
-    SIMD_DATA_FMT_OP_8 = 3'h2,
-    SIMD_DATA_FMT_OP_8U = 3'h3,
-    SIMD_DATA_FMT_OP_4 = 3'h4,
-    SIMD_DATA_FMT_OP_4U = 3'h5,
-    SIMD_DATA_FMT_OP_2 = 3'h6,
-    SIMD_DATA_FMT_OP_2U = 3'h7
+typedef enum logic [4:0] {
+    SIMD_DATA_FMT_CLASS_WIDEN = CUSTOM_ISA_FN7_SIMD_WIDEN[4:0],
+    SIMD_DATA_FMT_CLASS_NARROW = CUSTOM_ISA_FN7_SIMD_NARROW[4:0],
+    SIMD_DATA_FMT_CLASS_QNARROW = CUSTOM_ISA_FN7_SIMD_QNARROW[4:0],
+    SIMD_DATA_FMT_CLASS_TXP = CUSTOM_ISA_FN7_SIMD_TXP[4:0],
+    SIMD_DATA_FMT_CLASS_DUP_VINS = CUSTOM_ISA_FN7_SIMD_DUP_VINS[4:0],
+    SIMD_DATA_FMT_CLASS_VEXT = CUSTOM_ISA_FN7_SIMD_VEXT[4:0]
+} simd_data_fmt_class_t;
+
+typedef enum logic [7:0] {
+    //                            fn7[4:0],                  fn3
+    // simd widen
+    SIMD_DATA_FMT_OP_WIDEN_16  = {SIMD_DATA_FMT_CLASS_WIDEN, 3'h6},
+    SIMD_DATA_FMT_OP_WIDEN_16U = {SIMD_DATA_FMT_CLASS_WIDEN, 3'h7},
+    SIMD_DATA_FMT_OP_WIDEN_8   = {SIMD_DATA_FMT_CLASS_WIDEN, 3'h0},
+    SIMD_DATA_FMT_OP_WIDEN_8U  = {SIMD_DATA_FMT_CLASS_WIDEN, 3'h1},
+    SIMD_DATA_FMT_OP_WIDEN_4   = {SIMD_DATA_FMT_CLASS_WIDEN, 3'h2},
+    SIMD_DATA_FMT_OP_WIDEN_4U  = {SIMD_DATA_FMT_CLASS_WIDEN, 3'h3},
+    SIMD_DATA_FMT_OP_WIDEN_2   = {SIMD_DATA_FMT_CLASS_WIDEN, 3'h4},
+    SIMD_DATA_FMT_OP_WIDEN_2U  = {SIMD_DATA_FMT_CLASS_WIDEN, 3'h5},
+    // simd txp
+    SIMD_DATA_FMT_OP_TXP_16 = {SIMD_DATA_FMT_CLASS_TXP, 3'h0},
+    SIMD_DATA_FMT_OP_TXP_8  = {SIMD_DATA_FMT_CLASS_TXP, 3'h2},
+    SIMD_DATA_FMT_OP_TXP_4  = {SIMD_DATA_FMT_CLASS_TXP, 3'h4},
+    SIMD_DATA_FMT_OP_TXP_2  = {SIMD_DATA_FMT_CLASS_TXP, 3'h6},
+    // simd narrow
+    SIMD_DATA_FMT_OP_NARROW_32 = {SIMD_DATA_FMT_CLASS_NARROW, 3'h0},
+    SIMD_DATA_FMT_OP_NARROW_16 = {SIMD_DATA_FMT_CLASS_NARROW, 3'h2},
+    SIMD_DATA_FMT_OP_NARROW_8  = {SIMD_DATA_FMT_CLASS_NARROW, 3'h4},
+    SIMD_DATA_FMT_OP_NARROW_4  = {SIMD_DATA_FMT_CLASS_NARROW, 3'h6},
+    // simd qnarrow
+    SIMD_DATA_FMT_OP_QNARROW_32  = {SIMD_DATA_FMT_CLASS_QNARROW, 3'h0},
+    SIMD_DATA_FMT_OP_QNARROW_32U = {SIMD_DATA_FMT_CLASS_QNARROW, 3'h1},
+    SIMD_DATA_FMT_OP_QNARROW_16  = {SIMD_DATA_FMT_CLASS_QNARROW, 3'h2},
+    SIMD_DATA_FMT_OP_QNARROW_16U = {SIMD_DATA_FMT_CLASS_QNARROW, 3'h3},
+    SIMD_DATA_FMT_OP_QNARROW_8   = {SIMD_DATA_FMT_CLASS_QNARROW, 3'h4},
+    SIMD_DATA_FMT_OP_QNARROW_8U  = {SIMD_DATA_FMT_CLASS_QNARROW, 3'h5},
+    SIMD_DATA_FMT_OP_QNARROW_4   = {SIMD_DATA_FMT_CLASS_QNARROW, 3'h6},
+    SIMD_DATA_FMT_OP_QNARROW_4U  = {SIMD_DATA_FMT_CLASS_QNARROW, 3'h7},
+    // simd dup
+    SIMD_DATA_FMT_OP_DUP_16 = {SIMD_DATA_FMT_CLASS_DUP_VINS, 3'h0},
+    SIMD_DATA_FMT_OP_DUP_8  = {SIMD_DATA_FMT_CLASS_DUP_VINS, 3'h2},
+    SIMD_DATA_FMT_OP_DUP_4  = {SIMD_DATA_FMT_CLASS_DUP_VINS, 3'h4},
+    SIMD_DATA_FMT_OP_DUP_2  = {SIMD_DATA_FMT_CLASS_DUP_VINS, 3'h6},
+    // simd vins
+    SIMD_DATA_FMT_OP_VINS_16 = {SIMD_DATA_FMT_CLASS_DUP_VINS, 3'h1},
+    SIMD_DATA_FMT_OP_VINS_8  = {SIMD_DATA_FMT_CLASS_DUP_VINS, 3'h3},
+    SIMD_DATA_FMT_OP_VINS_4  = {SIMD_DATA_FMT_CLASS_DUP_VINS, 3'h5},
+    SIMD_DATA_FMT_OP_VINS_2  = {SIMD_DATA_FMT_CLASS_DUP_VINS, 3'h7},
+    // simd vext
+    SIMD_DATA_FMT_OP_VEXT16  = {SIMD_DATA_FMT_CLASS_VEXT, 3'h0},
+    SIMD_DATA_FMT_OP_VEXT16U = {SIMD_DATA_FMT_CLASS_VEXT, 3'h1},
+    SIMD_DATA_FMT_OP_VEXT8   = {SIMD_DATA_FMT_CLASS_VEXT, 3'h2},
+    SIMD_DATA_FMT_OP_VEXT8U  = {SIMD_DATA_FMT_CLASS_VEXT, 3'h3},
+    SIMD_DATA_FMT_OP_VEXT4   = {SIMD_DATA_FMT_CLASS_VEXT, 3'h4},
+    SIMD_DATA_FMT_OP_VEXT4U  = {SIMD_DATA_FMT_CLASS_VEXT, 3'h5},
+    SIMD_DATA_FMT_OP_VEXT2   = {SIMD_DATA_FMT_CLASS_VEXT, 3'h6},
+    SIMD_DATA_FMT_OP_VEXT2U  = {SIMD_DATA_FMT_CLASS_VEXT, 3'h7}
 } simd_data_fmt_op_t;
 
-typedef enum logic [2:0] {
-    SIMD_WIDEN_OP_16 = 3'h0,
-    SIMD_WIDEN_OP_16U = 3'h1,
-    SIMD_WIDEN_OP_8 = 3'h2,
-    SIMD_WIDEN_OP_8U = 3'h3,
-    SIMD_WIDEN_OP_4 = 3'h4,
-    SIMD_WIDEN_OP_4U = 3'h5,
-    SIMD_WIDEN_OP_2 = 3'h6,
-    SIMD_WIDEN_OP_2U = 3'h7
-} simd_widen_op_t;
-
-typedef enum logic [2:0] {
-    SIMD_TXP_OP_16 = 3'h0,
-    SIMD_TXP_OP_8 = 3'h2,
-    SIMD_TXP_OP_4 = 3'h4,
-    SIMD_TXP_OP_2 = 3'h6
-} simd_txp_op_t;
+typedef enum logic [3:0] {
+    //                                 fn3
+    // simd shift
+    SIMD_SHIFT_OP_SLLI16    = {1'b0, 3'b000}, // 'h0
+    SIMD_SHIFT_OP_SLLI8     = {1'b0, 3'b010}, // 'h2
+    SIMD_SHIFT_OP_SRLI16    = {1'b0, 3'b100}, // 'h4
+    SIMD_SHIFT_OP_SRLI8     = {1'b0, 3'b110}, // 'h6
+    SIMD_SHIFT_OP_SRAI16    = {1'b0, 3'b101}, // 'h5
+    SIMD_SHIFT_OP_SRAI8     = {1'b0, 3'b111}, // 'h7
+    // simd widen
+    SIMD_SHIFT_OP_WIDEN_16  = {1'b1, 3'b110 }, // 'h6
+    SIMD_SHIFT_OP_WIDEN_16U = {1'b1, 3'b111 }, // 'h7
+    SIMD_SHIFT_OP_WIDEN_8   = {1'b1, 3'b000 }, // 'h0
+    SIMD_SHIFT_OP_WIDEN_8U  = {1'b1, 3'b001 }, // 'h1
+    SIMD_SHIFT_OP_WIDEN_4   = {1'b1, 3'b010 }, // 'h2
+    SIMD_SHIFT_OP_WIDEN_4U  = {1'b1, 3'b011 }, // 'h3
+    SIMD_SHIFT_OP_WIDEN_2   = {1'b1, 3'b100 }, // 'h4
+    SIMD_SHIFT_OP_WIDEN_2U  = {1'b1, 3'b101 } // 'h5
+} simd_shift_op_t;
 
 typedef enum logic [1:0] {
-    SIMD_DATA_FMT_CLASS_NONE = 2'h0,
-    SIMD_DATA_FMT_CLASS_WIDEN = 2'h1,
-    SIMD_DATA_FMT_CLASS_TXP = 2'h2
-} simd_data_fmt_class_t;
+    SIMD_SHIFT_EL_WIDTH_32 = 2'd3,
+    SIMD_SHIFT_EL_WIDTH_16 = 2'd0,
+    SIMD_SHIFT_EL_WIDTH_8 = 2'd1,
+    SIMD_SHIFT_EL_WIDTH_4 = 2'd2
+} simd_shift_el_width_t;
+
+typedef enum logic [1:0] {
+    SIMD_SHIFT_KIND_SLL = 2'd0,
+    SIMD_SHIFT_KIND_SRL = 2'd2,
+    SIMD_SHIFT_KIND_SRA = 2'd3
+} simd_shift_kind_t;
 
 typedef enum logic [1:0] {
     DIV_DIV = 2'b00,
@@ -338,6 +438,7 @@ typedef struct packed {
     logic div;
     logic simd_arith;
     logic simd_data_fmt;
+    logic simd_shift;
     logic load;
     logic store;
     logic branch;
@@ -367,8 +468,8 @@ typedef struct packed {
     csr_ctrl_t csr_ctrl;
     alu_op_t alu_op;
     simd_arith_op_t simd_arith_op;
-    simd_data_fmt_class_t simd_data_fmt_class;
-    logic [2:0] simd_data_fmt_op;
+    simd_data_fmt_op_t simd_data_fmt_op;
+    simd_shift_op_t simd_shift_op;
     div_op_t div_op;
     a_sel_t a_sel;
     b_sel_t b_sel;
@@ -846,6 +947,34 @@ endfunction
 
 function automatic logic[3:0] e_2_4(input logic sign, input logic [1:0] a);
     e_2_4 = {{2{sign}}, a};
+endfunction
+
+function automatic logic[31:0] e_8_32(input logic sign, input logic [7:0] a);
+    e_8_32 = {{24{sign}}, a};
+endfunction
+
+function automatic logic[31:0] e_4_32(input logic sign, input logic [3:0] a);
+    e_4_32 = {{28{sign}}, a};
+endfunction
+
+function automatic logic[31:0] e_2_32(input logic sign, input logic [1:0] a);
+    e_2_32 = {{30{sign}}, a};
+endfunction
+
+function automatic logic[15:0] t_32_16(input logic [31:0] a);
+    t_32_16 = a[15:0];
+endfunction
+
+function automatic logic[7:0] t_16_8(input logic [15:0] a);
+    t_16_8 = a[7:0];
+endfunction
+
+function automatic logic[3:0] t_8_4(input logic [7:0] a);
+    t_8_4 = a[3:0];
+endfunction
+
+function automatic logic[1:0] t_4_2(input logic [3:0] a);
+    t_4_2 = a[1:0];
 endfunction
 
 /* verilator lint_on UNUSEDPARAM */

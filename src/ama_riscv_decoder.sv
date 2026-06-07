@@ -39,11 +39,11 @@ logic no_inst, unsupported_inst;
 assign no_inst = (inst_dec == 'h0);
 `endif
 
-logic [2:0] fn7_simd_arith;
-assign fn7_simd_arith = fn7[2:0];
-
 simd_arith_op_t simd_arith_op_dec;
-assign simd_arith_op_dec = simd_arith_op_t'({fn7_simd_arith, fn3});
+assign simd_arith_op_dec = simd_arith_op_t'({fn7[3:0], fn3});
+
+simd_data_fmt_op_t simd_data_fmt_op_dec;
+assign simd_data_fmt_op_dec = simd_data_fmt_op_t'({fn7[4:0], fn3});
 
 // shorthands
 decoder_t d;
@@ -68,7 +68,7 @@ always_comb begin
             d.a_sel = A_SEL_RS1;
             d.b_sel = B_SEL_RS2;
             d.alu_op = alu_op_t'({fn7_b5, fn7_b2, fn3});
-            d.simd_arith_op = simd_arith_op_t'({2'h0, fn3});
+            d.simd_arith_op = simd_arith_op_t'({SIMD_ARITH_CLASS_RV32M, fn3});
             d.div_op = div_op_t'(fn3[1:0]);
             d.ewb_sel = d.itype.div ? EWB_SEL_DIV : EWB_SEL_ALU;
             d.wb_sel = d.itype.mult ? WB_SEL_SIMD : WB_SEL_EWB;
@@ -194,67 +194,112 @@ always_comb begin
         end
 
         OPC7_CUSTOM: begin
+            if (!fn7[5]) begin // simd arithmetic
+                fc.pc_we = 1'b1;
+                d.itype.simd_arith = 1'b1;
+                d.simd_arith_op = simd_arith_op_dec;
+                d.wb_sel = WB_SEL_SIMD;
+                d.rd_we = rd_nz;
+            end else begin // simd data fmt
+                fc.pc_we = 1'b1;
+                d.itype.simd_data_fmt = 1'b1;
+                d.simd_data_fmt_op = simd_data_fmt_op_dec;
+                d.ewb_sel = EWB_SEL_DATA_FMT;
+                d.rd_we = rd_nz;
+            end
+
             unique case (fn7)
+                CUSTOM_ISA_FN7_SIMD_ADDSUB: begin
+                    d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 0};
+                    `ifndef SYNT
+                    unsupported_inst = (fn3[0]);
+                    if (unsupported_inst) `INST_WARN("SIMD_ADDSUB");
+                    `endif
+                end
+                CUSTOM_ISA_FN7_SIMD_QADDSUB: begin
+                    d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 0};
+                end
                 CUSTOM_ISA_FN7_SIMD_MUL: begin
-                    fc.pc_we = 1'b1;
-                    d.itype.simd_arith = 1'b1;
-                    d.simd_arith_op = simd_arith_op_dec;
-                    d.wb_sel = WB_SEL_SIMD;
-                    d.rd_we = rd_nz;
-                    d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 1};
+                    d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 0};
                     `ifndef SYNT
                     unsupported_inst = ((fn3 == 3'h1) || (fn3 == 3'h3));
                     if (unsupported_inst) `INST_WARN("SIMD_MUL");
                     `endif
                 end
                 CUSTOM_ISA_FN7_SIMD_WMUL: begin
-                    fc.pc_we = 1'b1;
-                    d.itype.simd_arith = 1'b1;
-                    d.simd_arith_op = simd_arith_op_dec;
-                    d.wb_sel = WB_SEL_SIMD;
-                    d.rd_we = rd_nz;
-                    d.has_reg = '{rd: 1, rdp: 1, rs1: 1, rs2: 1, rs3: 1};
+                    d.has_reg = '{rd: 1, rdp: 1, rs1: 1, rs2: 1, rs3: 0};
                     `ifndef SYNT
                     unsupported_inst = (fn3[2]);
                     if (unsupported_inst) `INST_WARN("SIMD_WMUL");
                     `endif
                 end
                 CUSTOM_ISA_FN7_SIMD_DOT: begin
-                    fc.pc_we = 1'b1;
-                    d.itype.simd_arith = 1'b1;
-                    d.simd_arith_op = simd_arith_op_dec;
-                    d.wb_sel = WB_SEL_SIMD;
-                    d.rd_we = rd_nz;
                     d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 1};
                 end
+                CUSTOM_ISA_FN7_SIMD_COMPARE: begin
+                    d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 0};
+                end
+                CUSTOM_ISA_FN7_SIMD_SHIFT: begin
+                    d.itype.simd_shift = 1'b1;
+                    d.simd_shift_op = simd_shift_op_t'({1'b0, fn3});
+                    d.ig_sel = IG_I_TYPE;
+                    d.b_sel = B_SEL_IMM; // shift
+                    d.ewb_sel = EWB_SEL_DATA_FMT; // go through data fmt path
+                    d.wb_sel = WB_SEL_EWB;
+                    d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 0, rs3: 0};
+                    `ifndef SYNT
+                    unsupported_inst = ((fn3 == 3'h1) || fn3 == 3'h3);
+                    if (unsupported_inst) `INST_WARN("SIMD_SHIFT");
+                    `endif
+                end
+
+                // data format groups
                 CUSTOM_ISA_FN7_SIMD_WIDEN: begin
-                    fc.pc_we = 1'b1;
-                    d.itype.simd_data_fmt = 1'b1;
-                    d.simd_data_fmt_class = SIMD_DATA_FMT_CLASS_WIDEN;
-                    d.simd_data_fmt_op = fn3;
-                    d.ewb_sel = EWB_SEL_DATA_FMT;
-                    d.rd_we = rd_nz;
-                    d.has_reg = '{rd: 1, rdp: 1, rs1: 1, rs2: 1, rs3: 0};
+                    d.itype.simd_shift = 1'b1;
+                    d.simd_shift_op = simd_shift_op_t'({1'b1, fn3});
+                    d.ig_sel = IG_I_TYPE;
+                    d.b_sel = B_SEL_IMM; // shift
+                    d.has_reg = '{rd: 1, rdp: 1, rs1: 1, rs2: 0, rs3: 0};
+                end
+                CUSTOM_ISA_FN7_SIMD_NARROW: begin
+                    d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 0};
+                    `ifndef SYNT
+                    unsupported_inst = (fn3[0]);
+                    if (unsupported_inst) `INST_WARN("SIMD_NARROW");
+                    `endif
+                end
+                CUSTOM_ISA_FN7_SIMD_QNARROW: begin
+                    d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 0};
                 end
                 CUSTOM_ISA_FN7_SIMD_TXP: begin
-                    fc.pc_we = 1'b1;
-                    d.itype.simd_data_fmt = 1'b1;
-                    d.simd_data_fmt_class = SIMD_DATA_FMT_CLASS_TXP;
-                    d.simd_data_fmt_op = fn3;
-                    d.ewb_sel = EWB_SEL_DATA_FMT;
-                    d.rd_we = rd_nz;
                     d.has_reg = '{rd: 1, rdp: 1, rs1: 1, rs2: 1, rs3: 0};
                     `ifndef SYNT
                     unsupported_inst = (fn3[0]);
                     if (unsupported_inst) `INST_WARN("SIMD_TXP");
                     `endif
                 end
+                CUSTOM_ISA_FN7_SIMD_DUP_VINS: begin
+                    if(!fn3[0]) begin // dup
+                        d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 0, rs3: 0};
+                    end else begin // vins
+                        d.ig_sel = IG_I_TYPE;
+                        d.b_sel = B_SEL_IMM; // index
+                        d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 0, rs3: 1};
+                    end
+                end
+                CUSTOM_ISA_FN7_SIMD_VEXT: begin
+                    d.ig_sel = IG_I_TYPE;
+                    d.b_sel = B_SEL_IMM; // index
+                    d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 0, rs3: 0};
+                end
+
                 default: begin
                     `ifndef SYNT
                     unsupported_inst = !no_inst;
                     if (unsupported_inst) `INST_WARN("custom");
                     `endif
                 end
+
             endcase
         end
 

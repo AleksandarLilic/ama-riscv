@@ -44,11 +44,18 @@ always_comb begin
 end
 
 logic op_rv32_mul, op_simd, /* op_simd_mul, op_simd_wmul, */ op_simd_dot;
-assign op_rv32_mul = (op[5:3] == SIMD_ARITH_CLASS_RV32M);
-assign op_simd = (op[5:3] != SIMD_ARITH_CLASS_RV32M);
-//assign op_simd_mul = (op[5:3] == SIMD_ARITH_CLASS_MUL);
-//assign op_simd_wmul = (op[5:3] == SIMD_ARITH_CLASS_WMUL);
-assign op_simd_dot = (op[5:3] == SIMD_ARITH_CLASS_DOT);
+assign op_rv32_mul = (op[6:3] == SIMD_ARITH_CLASS_RV32M);
+assign op_simd = (op[6:3] != SIMD_ARITH_CLASS_RV32M);
+//assign op_simd_mul = (op[6:3] == SIMD_ARITH_CLASS_MUL);
+//assign op_simd_wmul = (op[6:3] == SIMD_ARITH_CLASS_WMUL);
+assign op_simd_dot = (op[6:3] == SIMD_ARITH_CLASS_DOT);
+
+logic op_lane_arith; // add/sub, qadd/qsub, min/max -> lane uses a/b operands
+assign op_lane_arith = (
+    (op[6:3] == SIMD_ARITH_CLASS_ADDSUB) ||
+    (op[6:3] == SIMD_ARITH_CLASS_QADDSUB) ||
+    (op[6:3] == SIMD_ARITH_CLASS_COMPARE)
+);
 
 logic ew_32, ew_16, ew_8, ew_4, ew_2;
 assign ew_2 = (op_simd_dot && (op[2:1] == 2'b11));
@@ -81,11 +88,11 @@ end
 simd_t [W-1:0] pp; // partial products matrix
 logic [W-1:0][W-1:0] y;
 logic [W-1:0][W-1:0] flip;
-for (genvar ai = 0; ai < W; ai++) begin : g_pp_ai
-    for (genvar bi = 0; bi < W; bi++) begin : g_pp_bi
-        assign y[ai][bi] = (a[ai] & b[bi]);
-        assign flip[ai][bi] = (sign_mask[ai] ^ sign_mask[bi]);
-        assign pp[ai][bi] = flip[ai][bi] ? ~y[ai][bi] : y[ai][bi];
+for (genvar r = 0; r < W; r++) begin : g_pp_rows
+    for (genvar c = 0; c < W; c++) begin : g_pp_columns
+        assign y[r][c] = (b[r] & a[c]);
+        assign flip[r][c] = (sign_mask[r] ^ sign_mask[c]);
+        assign pp[r][c] = flip[r][c] ? ~y[r][c] : y[r][c];
     end
 end
 
@@ -150,7 +157,7 @@ csa_tree_8 #(.W(64)) csa_tree_8_i3 (.a (ppv[31:24]), .o (o_tree_3), .taps ());
 
 //------------------------------------------------------------------------------
 // pipeline
-simd_t a_d;
+simd_t a_d, b_d;
 simd_arith_op_t op_d;
 simd_d_t corr_d;
 simd_d_t [1:0] o_tree_3_d, o_tree_2_d, o_tree_1_d, o_tree_0_d;
@@ -168,7 +175,8 @@ assign b_sign_bit = b[ARCH_WIDTH-1]; // b MSB
 `STAGE(ctrl_exe_mem, en, op, op_d, SIMD_ARITH_OP_MUL)
 `STAGE(ctrl_exe_mem, en, corr, corr_d, 'h0)
 `STAGE(ctrl_exe_mem, (en && !op_simd), b_sign_bit, b_sign_bit_d, 1'b0)
-`STAGE(ctrl_exe_mem, (en && !op_simd), a, a_d, 'h0)
+`STAGE(ctrl_exe_mem, (en && (!op_simd || op_lane_arith)), a, a_d, 'h0)
+`STAGE(ctrl_exe_mem, (en && op_lane_arith), b, b_d, 'h0)
 
 //------------------------------------------------------------------------------
 // final tree rv32m mul & simd dot
@@ -184,32 +192,40 @@ csa_tree_8 #(.W(64), .T4(1)) csa_tree_8_f_i (
 // wrap up rv32m mul
 
 // multiply signed, high signed, & simd dot signed
-simd_d_t [1:0] tree_sum_mbw;
-csa #(.W(64), .A(1)) csa_i_tree_sum_mbw (
+simd_d_t [1:0] sum_mbw;
+csa #(.W(64), .A(1)) csa_sum_mbw_i (
     .x(o_tree_f[0]),
     .y(o_tree_f[1]),
     .z(corr_d),
     .ckl(1'b0),
-    .s(tree_sum_mbw[0]),
-    .c(tree_sum_mbw[1])
+    .s(sum_mbw[0]),
+    .c(sum_mbw[1])
 );
 
 simd_d_t tree_sum;
-assign tree_sum = (tree_sum_mbw[0] + tree_sum_mbw[1]);
+/* verilator lint_off PINCONNECTEMPTY */
+add #(.W(ARCH_WIDTH_D)) add_tree_sum_i (
+    .a(sum_mbw[0]), .b(sum_mbw[1]), .ci(1'b0), .s(tree_sum), .co()
+);
+/* verilator lint_on PINCONNECTEMPTY */
 
 // multiply high signed x unsigned
-simd_d_t [1:0] mul_hsu_tree;
-csa #(.W(64), .A(1)) csa_i_mul_hsu (
-    .x(tree_sum_mbw[0]),
-    .y(tree_sum_mbw[1]),
+simd_d_t [1:0] sum_mul_hsu;
+csa #(.W(64), .A(1)) csa_mul_hsu_i (
+    .x(sum_mbw[0]),
+    .y(sum_mbw[1]),
     .z({a_d, 32'h0}),
     .ckl(1'b0),
-    .s(mul_hsu_tree[0]),
-    .c(mul_hsu_tree[1])
+    .s(sum_mul_hsu[0]),
+    .c(sum_mul_hsu[1])
 );
 
 simd_d_t mul_hsu_signed;
-assign mul_hsu_signed = (mul_hsu_tree[0] + mul_hsu_tree[1]);
+/* verilator lint_off PINCONNECTEMPTY */
+add #(.W(ARCH_WIDTH_D)) add_mul_hsu_i (
+    .a(sum_mul_hsu[0]), .b(sum_mul_hsu[1]), .ci(1'b0), .s(mul_hsu_signed), .co()
+);
+/* verilator lint_on PINCONNECTEMPTY */
 
 arch_width_t mul_hsu;
 assign mul_hsu = b_sign_bit_d ? mul_hsu_signed.w[1] : tree_sum.w[1];
@@ -217,6 +233,19 @@ assign mul_hsu = b_sign_bit_d ? mul_hsu_signed.w[1] : tree_sum.w[1];
 // multiply high unsigned
 simd_t mul_hu;
 assign mul_hu = tree_sum.w[1];
+
+arch_width_t mul_res;
+
+always_comb begin
+    mul_res = '0;
+    unique case (op_d[2:0])
+        SIMD_ARITH_OP_MUL[2:0]: mul_res = tree_sum.w[0];
+        SIMD_ARITH_OP_MULH[2:0]: mul_res = tree_sum.w[1];
+        SIMD_ARITH_OP_MULHSU[2:0]: mul_res = mul_hsu;
+        SIMD_ARITH_OP_MULHU[2:0]: mul_res = mul_hu;
+        default: mul_res = '0;
+    endcase
+end
 
 //------------------------------------------------------------------------------
 // wrap up simd dot
@@ -251,106 +280,78 @@ assign dotu_r = tree_sum.w[0];
 // accumulator common
 arch_width_t dot_acc_in, dot_out;
 always_comb begin
-    case (op_d)
-        SIMD_ARITH_OP_DOT16: dot_acc_in = dot16_r;
-        SIMD_ARITH_OP_DOT8: dot_acc_in = dot8_r;
-        SIMD_ARITH_OP_DOT4: dot_acc_in = dot4_r;
-        SIMD_ARITH_OP_DOT2: dot_acc_in = dot2_r;
-        SIMD_ARITH_OP_DOT16U,
-        SIMD_ARITH_OP_DOT8U,
-        SIMD_ARITH_OP_DOT4U,
-        SIMD_ARITH_OP_DOT2U: dot_acc_in = dotu_r;
+    case (op_d[2:0])
+        SIMD_ARITH_OP_DOT16[2:0]: dot_acc_in = dot16_r;
+        SIMD_ARITH_OP_DOT8[2:0]: dot_acc_in = dot8_r;
+        SIMD_ARITH_OP_DOT4[2:0]: dot_acc_in = dot4_r;
+        SIMD_ARITH_OP_DOT2[2:0]: dot_acc_in = dot2_r;
+        SIMD_ARITH_OP_DOT16U[2:0],
+        SIMD_ARITH_OP_DOT8U[2:0],
+        SIMD_ARITH_OP_DOT4U[2:0],
+        SIMD_ARITH_OP_DOT2U[2:0]: dot_acc_in = dotu_r;
         default: dot_acc_in = 'h0;
     endcase
 end
-assign dot_out = (dot_acc_in + c_late);
+
+/* verilator lint_off PINCONNECTEMPTY */
+add #(.W(ARCH_WIDTH)) add_dot_out_i (
+    .a(dot_acc_in), .b(c_late), .ci(1'b0), .s(dot_out), .co()
+);
+/* verilator lint_on PINCONNECTEMPTY */
 
 //------------------------------------------------------------------------------
-// wrap up simd (w)mul
+// per-lane wrap-up: (w)mul + add/sub + qadd/qsub + min/max
+// 4 byte lanes (W=8) over i_tree_f taps, 2 half lanes (W=16) over mul16_taps
+logic [3:0][15:0] lane_b_y; // byte-lane outputs (2W = 16b each)
+logic [1:0][31:0] lane_h_y; // half-lane outputs (2W = 32b each)
 
-// (w)mul16
-simd_t [1:0] wmul16_csa_0, wmul16_csa_1;
-csa #(.W(32), .A(1)) csa_i_wmul16_0 (
-    .x(mul16_taps[0].w[0]), .y(mul16_taps[1].w[0]), .z(corr_d.w[0]), .ckl(1'b0),
-    .s(wmul16_csa_0[0]), .c(wmul16_csa_0[1])
-);
+for (genvar k = 0; k < 4; k++) begin : g_lane_b
+    ama_riscv_simd_lane_wrapup #(.W(8)) lane_b_i (
+        .op_d(op_d),
+        .a_lane(a_d.b[k]), .b_lane(b_d.b[k]),
+        .t0(i_tree_f[2*k].h[0]), .t1(i_tree_f[2*k+1].h[0]),
+        .corr(corr_d.h[0]),
+        .y(lane_b_y[k])
+    );
+end
 
-csa #(.W(32), .A(1)) csa_i_wmul16_1 (
-    .x(mul16_taps[2].w[0]), .y(mul16_taps[3].w[0]), .z(corr_d.w[0]), .ckl(1'b0),
-    .s(wmul16_csa_1[0]), .c(wmul16_csa_1[1])
-);
+for (genvar k = 0; k < 2; k++) begin : g_lane_h
+    ama_riscv_simd_lane_wrapup #(.W(16)) lane_h_i (
+        .op_d(op_d),
+        .a_lane(a_d.h[k]), .b_lane(b_d.h[k]),
+        .t0(mul16_taps[2*k].w[0]), .t1(mul16_taps[2*k+1].w[0]),
+        .corr(corr_d.w[0]),
+        .y(lane_h_y[k])
+    );
+end
 
-simd_d_t wmul16;
-assign wmul16.w[0] = (wmul16_csa_0[0] + wmul16_csa_0[1]);
-assign wmul16.w[1] = (wmul16_csa_1[0] + wmul16_csa_1[1]);
+// assemble packed results (narrow ops take [W-1:0] per lane, wmul full 2W)
+arch_width_t res_narrow_b, res_narrow_h;
+assign res_narrow_b = {
+    lane_b_y[3][7:0], lane_b_y[2][7:0], lane_b_y[1][7:0], lane_b_y[0][7:0]};
+assign res_narrow_h = {lane_h_y[1][15:0], lane_h_y[0][15:0]};
 
-simd_t mul16, mul16h;
-assign mul16 = {wmul16.h[2], wmul16.h[0]};
-assign mul16h = {wmul16.h[3], wmul16.h[1]};
-
-// (w)mul8
-simd_h_t [1:0] wmul8_csa_0, wmul8_csa_1, wmul8_csa_2, wmul8_csa_3;
-csa #(.W(16), .A(1)) csa_i_wmul8_0 (
-    .x(i_tree_f[0].h[0]), .y(i_tree_f[1].h[0]), .z(corr_d.h[0]), .ckl(1'b0),
-    .s(wmul8_csa_0[0]), .c(wmul8_csa_0[1])
-);
-
-csa #(.W(16), .A(1)) csa_i_wmul8_1 (
-    .x(i_tree_f[2].h[0]), .y(i_tree_f[3].h[0]), .z(corr_d.h[0]), .ckl(1'b0),
-    .s(wmul8_csa_1[0]), .c(wmul8_csa_1[1])
-);
-
-csa #(.W(16), .A(1)) csa_i_wmul8_2 (
-    .x(i_tree_f[4].h[0]), .y(i_tree_f[5].h[0]), .z(corr_d.h[0]), .ckl(1'b0),
-    .s(wmul8_csa_2[0]), .c(wmul8_csa_2[1])
-);
-
-csa #(.W(16), .A(1)) csa_i_wmul8_3 (
-    .x(i_tree_f[6].h[0]), .y(i_tree_f[7].h[0]), .z(corr_d.h[0]), .ckl(1'b0),
-    .s(wmul8_csa_3[0]), .c(wmul8_csa_3[1])
-);
-
-simd_d_t wmul8;
-assign wmul8.h[0] = (wmul8_csa_0[0] + wmul8_csa_0[1]);
-assign wmul8.h[1] = (wmul8_csa_1[0] + wmul8_csa_1[1]);
-assign wmul8.h[2] = (wmul8_csa_2[0] + wmul8_csa_2[1]);
-assign wmul8.h[3] = (wmul8_csa_3[0] + wmul8_csa_3[1]);
-
-simd_t mul8, mul8h;
-assign mul8 = {wmul8.b[6], wmul8.b[4], wmul8.b[2], wmul8.b[0]};
-assign mul8h = {wmul8.b[7], wmul8.b[5], wmul8.b[3], wmul8.b[1]};
+simd_d_t res_wmul8, res_wmul16;
+assign res_wmul8 = {lane_b_y[3], lane_b_y[2], lane_b_y[1], lane_b_y[0]};
+assign res_wmul16 = {lane_h_y[1], lane_h_y[0]};
 
 //------------------------------------------------------------------------------
 // output assignment
+arch_width_t simd_narrow; // op[1] width: 1 -> 8b lanes, 0 -> 16b lanes
+assign simd_narrow = op_d[1] ? res_narrow_b : res_narrow_h;
+simd_d_t simd_wmul;
+assign simd_wmul = op_d[1] ? res_wmul8 : res_wmul16;
+
 always_comb begin
     p = '0;
-    unique case (op_d)
-        // rv32m mul
-        SIMD_ARITH_OP_MUL: p.w[0] = tree_sum[ARCH_WIDTH-1:0];
-        SIMD_ARITH_OP_MULH: p.w[0] = tree_sum[ARCH_WIDTH_D-1:ARCH_WIDTH];
-        SIMD_ARITH_OP_MULHSU: p.w[0] = mul_hsu;
-        SIMD_ARITH_OP_MULHU: p.w[0] = mul_hu;
-        // simd mul
-        SIMD_ARITH_OP_MUL16: p.w[0] = mul16;
-        SIMD_ARITH_OP_MUL8: p.w[0] = mul8;
-        SIMD_ARITH_OP_MULH16,
-        SIMD_ARITH_OP_MULH16U: p.w[0] = mul16h;
-        SIMD_ARITH_OP_MULH8,
-        SIMD_ARITH_OP_MULH8U: p.w[0] = mul8h;
-        // simd wmul
-        SIMD_ARITH_OP_WMUL16,
-        SIMD_ARITH_OP_WMUL16U: p = wmul16;
-        SIMD_ARITH_OP_WMUL8,
-        SIMD_ARITH_OP_WMUL8U: p = wmul8;
-        // simd dot
-        SIMD_ARITH_OP_DOT16,
-        SIMD_ARITH_OP_DOT16U,
-        SIMD_ARITH_OP_DOT8,
-        SIMD_ARITH_OP_DOT8U,
-        SIMD_ARITH_OP_DOT4,
-        SIMD_ARITH_OP_DOT4U,
-        SIMD_ARITH_OP_DOT2,
-        SIMD_ARITH_OP_DOT2U: p.w[0] = dot_out;
+    unique case (op_d[6:3])
+        SIMD_ARITH_CLASS_RV32M: p.w[0] = mul_res;
+        SIMD_ARITH_CLASS_WMUL: p = simd_wmul;
+        SIMD_ARITH_CLASS_MUL,
+        SIMD_ARITH_CLASS_ADDSUB,
+        SIMD_ARITH_CLASS_QADDSUB,
+        SIMD_ARITH_CLASS_COMPARE: p.w[0] = simd_narrow;
+        SIMD_ARITH_CLASS_DOT: p.w[0] = dot_out;
         default: p = '0;
     endcase
 end

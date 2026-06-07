@@ -5,6 +5,7 @@ module ama_riscv_operand_forwarding (
     input  logic load_inst_mem,
     input  logic load_inst_wbk,
     input  logic dc_stalled,
+    input  logic simd_arith_exe,
     input  logic simd_arith_mem,
     input  rf_addr_t rs1_dec,
     input  rf_addr_t rs2_dec,
@@ -221,8 +222,16 @@ logic hc_mem, hc_wbk; // hazard conditions
 assign hc_mem = (load_inst_mem || simd_arith_mem);
 assign hc_wbk = (load_inst_wbk && dc_stalled);
 
-assign hazard.from_mem = (hc_mem && (d_rs1_exe.in_mem || d_rs2_exe.in_mem));
-assign hazard.from_wbk = (hc_wbk && (d_rs1_exe.in_wbk || d_rs2_exe.in_wbk));
+// simd_arith uses late_c in mem, don't stall on it in exe
+logic d_rs3_exe_in_mem_s;
+assign d_rs3_exe_in_mem_s = (d_rs3_exe.in_mem && !simd_arith_exe);
+
+logic hc_op_mem, hc_op_wbk; // hazard operands conditions
+assign hc_op_mem = (d_rs1_exe.in_mem || d_rs2_exe.in_mem || d_rs3_exe_in_mem_s);
+assign hc_op_wbk = (d_rs1_exe.in_wbk || d_rs2_exe.in_wbk || d_rs3_exe.in_wbk);
+
+assign hazard.from_mem = (hc_mem && hc_op_mem);
+assign hazard.from_wbk = (hc_wbk && hc_op_wbk);
 assign hazard.to_exe = (hazard.from_mem || hazard.from_wbk);
 
 endmodule

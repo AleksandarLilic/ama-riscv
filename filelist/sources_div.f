@@ -4,3 +4,4 @@ sv unit_test \
 "$REPO_ROOT/verif/unit_test/ama_riscv_div_tb.sv" \
 "$REPO_ROOT/src/ama_riscv_div.sv" \
 "$REPO_ROOT/src/lzc.sv" \
+"$REPO_ROOT/src/add.sv" \

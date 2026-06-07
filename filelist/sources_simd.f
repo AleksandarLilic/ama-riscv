@@ -5,4 +5,9 @@ sv unit_test \
 "$REPO_ROOT/src/csa.sv" \
 "$REPO_ROOT/src/csa_tree_4.sv" \
 "$REPO_ROOT/src/csa_tree_8.sv" \
+"$REPO_ROOT/src/cmp_s_lt.sv" \
+"$REPO_ROOT/src/add.sv" \
+"$REPO_ROOT/src/sat_s_add_sub.sv" \
+"$REPO_ROOT/src/sat_u_add_sub.sv" \
+"$REPO_ROOT/src/ama_riscv_simd_lane_wrapup.sv" \
 "$REPO_ROOT/src/ama_riscv_simd.sv" \

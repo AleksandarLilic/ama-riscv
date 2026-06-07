@@ -51,6 +51,7 @@
 `define IT_P(p, limit) for (int p = 0; p < (limit); p++)
 `define IT_P_NT(p, limit) for (p = 0; p < (limit); p++)
 `define IT_P_I(p, init, limit) for (int p = (init); p < (limit); p++)
+`define GIT(limit) for (genvar i = 0; i < (limit); i++)
 
 `define STAGE_VALID(stage) \
     (stage.en && !stage.flush && !stage.bubble)
@@ -70,6 +71,7 @@
         div: 1'b0, \
         simd_arith: 1'b0, \
         simd_data_fmt: 1'b0, \
+        simd_shift: 1'b0, \
         load: 1'b0, \
         store: 1'b0, \
         branch: 1'b0, \
@@ -93,8 +95,8 @@
         csr_ctrl: '{en: 1'b0, re: 1'b0, we: 1'b0, ui: 1'b0, op: CSR_OP_NONE}, \
         alu_op: ALU_OP_OFF, \
         simd_arith_op: SIMD_ARITH_OP_MUL, \
-        simd_data_fmt_class: SIMD_DATA_FMT_CLASS_NONE, \
-        simd_data_fmt_op: 'h0, \
+        simd_data_fmt_op: SIMD_DATA_FMT_OP_WIDEN_16, \
+        simd_shift_op: SIMD_SHIFT_OP_SLLI16, \
         div_op: DIV_DIV, \
         a_sel: A_SEL_RS1, \
         b_sel: B_SEL_RS2, \
