@@ -26,9 +26,9 @@ localparam CLOCK_FREQ_ARTY_7 = 100; // MHz
 localparam real CLOCK_PERIOD_ARTY_7 = (1000.0 / CLOCK_FREQ_ARTY_7); // 10 ns
 // PLL 50MHz config
 localparam longint CLKIN1 = (CLOCK_FREQ_ARTY_7 * 1_000_000); // Hz
-localparam DIVCLK_DIVIDE = 5;
-localparam CLKFBOUT_MULT = 50;
-localparam CLKOUT0_DIVIDE = 20;
+localparam DIVCLK_DIVIDE = 1;
+localparam CLKFBOUT_MULT = 15;
+localparam CLKOUT0_DIVIDE = 30;
 localparam longint CLOCK_FREQ = (
     //CLKIN1 * (CLKFBOUT_MULT / (DIVCLK_DIVIDE * CLKOUT0_DIVIDE))
     (CLKIN1 * CLKFBOUT_MULT) / DIVCLK_DIVIDE / CLKOUT0_DIVIDE
