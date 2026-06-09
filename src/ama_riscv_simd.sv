@@ -1,14 +1,19 @@
 `include "ama_riscv_defines.svh"
 
-module ama_riscv_simd (
+module ama_riscv_simd #(
+    parameter bit RV32M_ONLY = 0
+)(
     input  logic clk,
     input  logic rst,
     input  logic en,
     input  stage_ctrl_t ctrl_exe_mem,
+    input  stage_ctrl_t ctrl_mem_wbk,
     input  simd_arith_op_t op,
     input  simd_t a,
     input  simd_t b,
-    input  arch_width_t c_late,
+    /* verilator lint_off UNUSEDSIGNAL */
+    input  arch_width_t c_late, // unused on RV32M mode
+    /* verilator lint_on UNUSEDSIGNAL */
     output simd_d_t p
 );
 
@@ -43,29 +48,35 @@ always_comb begin
     `IT_P(y, W) `IT_P(x, W) mask_2[y][x] = ((y / TILE_2) == (x / TILE_2));
 end
 
-logic op_rv32_mul, op_simd, /* op_simd_mul, op_simd_wmul, */ op_simd_dot;
+logic op_simd, op_simd_dot;
+logic op_lane_arith; // add/sub, qadd/qsub, min/max -> lane uses a/b operands
+logic ew_32, ew_16, ew_8, ew_4, ew_2;
+logic op_unsigned;
+
+if (RV32M_ONLY) begin: gen_ctrl_rv32m
+assign {op_simd, op_simd_dot, op_lane_arith} = 3'h0;
+assign ew_32 = 1'b1;
+assign {ew_16, ew_8, ew_4, ew_2} = 4'h0;
+assign op_unsigned = (op == SIMD_ARITH_OP_MULHU);
+
+end else begin: gen_ctrl_full
+logic op_rv32_mul;
 assign op_rv32_mul = (op[6:3] == SIMD_ARITH_CLASS_RV32M);
 assign op_simd = (op[6:3] != SIMD_ARITH_CLASS_RV32M);
-//assign op_simd_mul = (op[6:3] == SIMD_ARITH_CLASS_MUL);
-//assign op_simd_wmul = (op[6:3] == SIMD_ARITH_CLASS_WMUL);
 assign op_simd_dot = (op[6:3] == SIMD_ARITH_CLASS_DOT);
-
-logic op_lane_arith; // add/sub, qadd/qsub, min/max -> lane uses a/b operands
 assign op_lane_arith = (
     (op[6:3] == SIMD_ARITH_CLASS_ADDSUB) ||
     (op[6:3] == SIMD_ARITH_CLASS_QADDSUB) ||
     (op[6:3] == SIMD_ARITH_CLASS_COMPARE)
 );
-
-logic ew_32, ew_16, ew_8, ew_4, ew_2;
 assign ew_2 = (op_simd_dot && (op[2:1] == 2'b11));
 assign ew_4 = (op_simd_dot && (op[2:1] == 2'b10));
 assign ew_8 = (op_simd && (op[1] == 1'b1) && !ew_2);
 assign ew_16 = (op_simd && (op[1] == 1'b0) && !ew_4);
 assign ew_32 = op_rv32_mul;
-
-logic op_unsigned;
 assign op_unsigned = ((op == SIMD_ARITH_OP_MULHU) || (op_simd && op[0]));
+
+end
 
 //------------------------------------------------------------------------------
 // AND matrix for signed multiply using lane-aware Baugh–Wooley
@@ -88,8 +99,8 @@ end
 simd_t [W-1:0] pp; // partial products matrix
 logic [W-1:0][W-1:0] y;
 logic [W-1:0][W-1:0] flip;
-for (genvar r = 0; r < W; r++) begin : g_pp_rows
-    for (genvar c = 0; c < W; c++) begin : g_pp_columns
+for (genvar r = 0; r < W; r++) begin: gen_pp_rows
+    for (genvar c = 0; c < W; c++) begin: gen_pp_columns
         assign y[r][c] = (b[r] & a[c]);
         assign flip[r][c] = (sign_mask[r] ^ sign_mask[c]);
         assign pp[r][c] = flip[r][c] ? ~y[r][c] : y[r][c];
@@ -156,9 +167,13 @@ csa_tree_8 #(.W(64)) csa_tree_8_i3 (.a (ppv[31:24]), .o (o_tree_3), .taps ());
 /* verilator lint_on PINCONNECTEMPTY */
 
 //------------------------------------------------------------------------------
-// pipeline
-simd_t a_d, b_d;
-simd_arith_op_t op_d;
+// pipeline: EXE_MEM
+
+simd_t a_d;
+logic en_d;
+/* verilator lint_off UNUSEDSIGNAL */
+simd_arith_op_t op_d; // some bits unused on RV32M mode
+/* verilator lint_on UNUSEDSIGNAL */
 simd_d_t corr_d;
 simd_d_t [1:0] o_tree_3_d, o_tree_2_d, o_tree_1_d, o_tree_0_d;
 logic b_sign_bit, b_sign_bit_d;
@@ -168,21 +183,23 @@ assign b_sign_bit = b[ARCH_WIDTH-1]; // b MSB
 //`DFF_CI_RI_RV(SIMD_ARITH_OP_MUL, op, op_d)
 
 // but, in CPU, make sure it's aligned with stage its using
-`STAGE(ctrl_exe_mem, en, o_tree_0, o_tree_0_d, 'h0)
-`STAGE(ctrl_exe_mem, en, o_tree_1, o_tree_1_d, 'h0)
-`STAGE(ctrl_exe_mem, en, o_tree_2, o_tree_2_d, 'h0)
-`STAGE(ctrl_exe_mem, en, o_tree_3, o_tree_3_d, 'h0)
-`STAGE(ctrl_exe_mem, en, op, op_d, SIMD_ARITH_OP_MUL)
-`STAGE(ctrl_exe_mem, en, corr, corr_d, 'h0)
-`STAGE(ctrl_exe_mem, (en && !op_simd), b_sign_bit, b_sign_bit_d, 1'b0)
-`STAGE(ctrl_exe_mem, (en && (!op_simd || op_lane_arith)), a, a_d, 'h0)
-`STAGE(ctrl_exe_mem, (en && op_lane_arith), b, b_d, 'h0)
+`STAGE_E_M(1'b1, en, en_d, 'h0)
+`STAGE_E_M(en, o_tree_0, o_tree_0_d, 'h0)
+`STAGE_E_M(en, o_tree_1, o_tree_1_d, 'h0)
+`STAGE_E_M(en, o_tree_2, o_tree_2_d, 'h0)
+`STAGE_E_M(en, o_tree_3, o_tree_3_d, 'h0)
+`STAGE_E_M(en, op, op_d, SIMD_ARITH_OP_MUL)
+`STAGE_E_M(en, corr, corr_d, 'h0)
+`STAGE_E_M((en && !op_simd), b_sign_bit, b_sign_bit_d, 1'b0)
+`STAGE_E_M((en && (!op_simd || op_lane_arith)), a, a_d, 'h0)
 
 //------------------------------------------------------------------------------
 // final tree rv32m mul & simd dot
 simd_d_t [7:0] i_tree_f;
 simd_d_t [1:0] o_tree_f;
-simd_d_t [3:0] mul16_taps;
+/* verilator lint_off UNUSEDSIGNAL */
+simd_d_t [3:0] mul16_taps; // unused on RV32M mode
+/* verilator lint_on UNUSEDSIGNAL */
 assign i_tree_f = {o_tree_3_d, o_tree_2_d, o_tree_1_d, o_tree_0_d};
 csa_tree_8 #(.W(64), .T4(1)) csa_tree_8_f_i (
     .a (i_tree_f), .o(o_tree_f), .taps (mul16_taps)
@@ -235,6 +252,7 @@ simd_t mul_hu;
 assign mul_hu = tree_sum.w[1];
 
 arch_width_t mul_res;
+simd_d_t p_mem;
 
 always_comb begin
     mul_res = '0;
@@ -246,6 +264,13 @@ always_comb begin
         default: mul_res = '0;
     endcase
 end
+
+//------------------------------------------------------------------------------
+// SIMD back-end: dot + lanes + output (gated when RV32M_ONLY)
+if (!RV32M_ONLY) begin: gen_simd_be
+
+simd_t b_d;
+`STAGE(ctrl_exe_mem, (en && op_lane_arith), b, b_d, 'h0)
 
 //------------------------------------------------------------------------------
 // wrap up simd dot
@@ -305,7 +330,7 @@ add #(.W(ARCH_WIDTH)) add_dot_out_i (
 logic [3:0][15:0] lane_b_y; // byte-lane outputs (2W = 16b each)
 logic [1:0][31:0] lane_h_y; // half-lane outputs (2W = 32b each)
 
-for (genvar k = 0; k < 4; k++) begin : g_lane_b
+for (genvar k = 0; k < 4; k++) begin: gen_lane_b
     ama_riscv_simd_lane_wrapup #(.W(8)) lane_b_i (
         .op_d(op_d),
         .a_lane(a_d.b[k]), .b_lane(b_d.b[k]),
@@ -315,7 +340,7 @@ for (genvar k = 0; k < 4; k++) begin : g_lane_b
     );
 end
 
-for (genvar k = 0; k < 2; k++) begin : g_lane_h
+for (genvar k = 0; k < 2; k++) begin: gen_lane_h
     ama_riscv_simd_lane_wrapup #(.W(16)) lane_h_i (
         .op_d(op_d),
         .a_lane(a_d.h[k]), .b_lane(b_d.h[k]),
@@ -343,17 +368,31 @@ simd_d_t simd_wmul;
 assign simd_wmul = op_d[1] ? res_wmul8 : res_wmul16;
 
 always_comb begin
-    p = '0;
+    p_mem = '0;
     unique case (op_d[6:3])
-        SIMD_ARITH_CLASS_RV32M: p.w[0] = mul_res;
-        SIMD_ARITH_CLASS_WMUL: p = simd_wmul;
+        SIMD_ARITH_CLASS_RV32M: p_mem.w[0] = mul_res;
+        SIMD_ARITH_CLASS_WMUL: p_mem = simd_wmul;
         SIMD_ARITH_CLASS_MUL,
         SIMD_ARITH_CLASS_ADDSUB,
         SIMD_ARITH_CLASS_QADDSUB,
-        SIMD_ARITH_CLASS_COMPARE: p.w[0] = simd_narrow;
-        SIMD_ARITH_CLASS_DOT: p.w[0] = dot_out;
-        default: p = '0;
+        SIMD_ARITH_CLASS_COMPARE: p_mem.w[0] = simd_narrow;
+        SIMD_ARITH_CLASS_DOT: p_mem.w[0] = dot_out;
+        default: p_mem = '0;
     endcase
 end
+
+end else begin: gen_rv32m_out
+
+always_comb begin
+    p_mem = '0;
+    p_mem.w[0] = mul_res;
+end
+
+end // gen_simd_be/gen_rv32m_out
+
+//------------------------------------------------------------------------------
+// pipeline: MEM_WBK
+
+`STAGE_M_W(en_d, p_mem, p, 'h0)
 
 endmodule

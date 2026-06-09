@@ -1,7 +1,9 @@
 `include "ama_riscv_defines.svh"
 
 module ama_riscv_core #(
-    parameter unsigned CLOCK_FREQ = 100_000_000 // Hz
+    parameter unsigned CLOCK_FREQ = 100_000_000, // Hz
+    parameter bit SIMD_EN = 1,
+    parameter bit MULT_USE_BW = 1
 )(
     input  logic clk,
     input  logic rst,
@@ -111,7 +113,7 @@ end
 `endif
 
 fe_ctrl_t decoded_fe_ctrl;
-ama_riscv_decoder ama_riscv_decoder_i (
+ama_riscv_decoder #(.SIMD_EN (SIMD_EN)) ama_riscv_decoder_i (
     .inst_dec (inst.dec), .decoded (decoded), .fe_ctrl (decoded_fe_ctrl)
 );
 
@@ -173,8 +175,9 @@ assign rs3_addr_dec = get_rd(inst.dec, decoded.has_reg.rs3);
 assign rd_addr.dec = get_rd(inst.dec, decoded.has_reg.rd);
 
 ama_riscv_reg_file #(
-    .BANKED (RF_BANKED)
-) ama_riscv_reg_file_i(
+    .BANKED (RF_BANKED),
+    .SIMD_EN (SIMD_EN)
+) ama_riscv_reg_file_i (
     .clk (clk),
     // inputs
     .we (rf_we.wbk),
@@ -298,7 +301,9 @@ b_sel_t b_sel_dec_fwd;
 logic c_sel_dec_fwd;
 logic a_sel_fwd_exe, b_sel_fwd_exe, c_sel_fwd_exe, c_sel_fwd_mem;
 
-ama_riscv_operand_forwarding ama_riscv_operand_forwarding_i (
+ama_riscv_operand_forwarding #(
+    .SIMD_EN (SIMD_EN)
+) ama_riscv_operand_forwarding_i (
     // inputs
     .load_inst_mem (load_inst_mem),
     .load_inst_wbk (load_inst_wbk),
@@ -526,6 +531,9 @@ ama_riscv_alu ama_riscv_alu_i (
 );
 assign pc_new_exe = decoded_exe.itype.branch ? pc_branch_exe : alu_out_exe;
 
+simd_t data_fmt_out_exe, data_fmt_out_p_exe;
+
+if (SIMD_EN) begin: gen_data_fmt
 simd_d_t data_fmt_out;
 ama_riscv_simd_data_fmt ama_riscv_simd_data_fmt_i (
     .op (decoded_exe.simd_data_fmt_op),
@@ -548,27 +556,56 @@ ama_riscv_simd_shift ama_riscv_simd_shift_i (
     .s(shift_s)
 );
 
-simd_t data_fmt_out_exe, data_fmt_out_p_exe;
 assign {data_fmt_out_p_exe, data_fmt_out_exe} =
     decoded_exe.itype.simd_shift ? shift_s : data_fmt_out;
+
+end else begin: gen_no_data_fmt
+    assign data_fmt_out_exe = '0;
+    assign data_fmt_out_p_exe = '0;
+end
 
 assign simd_arith_exe = (
     decoded_exe.itype.mult || decoded_exe.itype.simd_arith
 );
 
-arch_width_t op_c_r_mem;
-simd_d_t simd_out;
-ama_riscv_simd ama_riscv_simd_i (
-    .clk (clk),
-    .rst (rst),
+/* verilator lint_off UNUSEDSIGNAL */
+arch_width_t op_c_r_mem; // no late_c without SIMD
+/* verilator lint_on UNUSEDSIGNAL */
+simd_d_t simd_out_wbk;
+
+if (SIMD_EN || MULT_USE_BW) begin: gen_mult_simd_bw
+ama_riscv_simd #(
+    .RV32M_ONLY(!SIMD_EN)
+) ama_riscv_simd_i (
+    .clk,
+    .rst,
     .en (simd_arith_exe),
-    .ctrl_exe_mem (ctrl_exe_mem),
+    .ctrl_exe_mem,
+    .ctrl_mem_wbk,
     .op (decoded_exe.simd_arith_op),
     .a (op_a_r),
     .b (op_b_r),
     .c_late (op_c_r_mem),
-    .p (simd_out)
+    .p (simd_out_wbk)
 );
+
+end else begin: gen_mult_plain
+arch_width_t mult_p;
+ama_riscv_mult ama_riscv_mult_i (
+    .clk,
+    .rst,
+    .en (simd_arith_exe),
+    .ctrl_exe_mem,
+    .ctrl_mem_wbk,
+    .op (decoded_exe.simd_arith_op[1:0]),
+    .a (op_a_r),
+    .b (op_b_r),
+    .p (mult_p)
+);
+assign simd_out_wbk.w[0] = mult_p;
+assign simd_out_wbk.w[1] = 'h0;
+
+end
 
 arch_width_t div_result;
 ama_riscv_div ama_riscv_div_i (
@@ -582,10 +619,6 @@ ama_riscv_div ama_riscv_div_i (
     .result (div_result),
     .busy (div_busy)
 );
-
-simd_t simd_out_mem, simd_out_p_mem;
-assign simd_out_mem = simd_out.w[0];
-assign simd_out_p_mem = simd_out.w[1];
 
 // CSR
 arch_width_t csr_out_exe;
@@ -766,15 +799,13 @@ assign ctrl_mem_wbk = '{
 };
 
 logic simd_inst_wbk, map_uart_wbk;
-arch_width_t e_writeback_wbk, e_writeback_p_wbk, simd_out_wbk, simd_out_p_wbk;
+arch_width_t e_writeback_wbk, e_writeback_p_wbk;
 
 `ifndef SYNT
 `STAGE_M_W(1'b1, pc.mem, pc.wbk, 'h0)
 `endif
 `STAGE_M_W(1'b1, inst.mem, inst.wbk, 'h0)
 `STAGE_M_W(1'b1, pc_nz.mem, pc_nz.wbk, 1'b0)
-`STAGE_M_W(simd_arith_mem, simd_out_mem, simd_out_wbk, 'h0)
-`STAGE_M_W(simd_arith_mem, simd_out_p_mem, simd_out_p_wbk, 'h0)
 `STAGE_M_W(rf_we.mem.rd, e_writeback_mem, e_writeback_wbk, 'h0)
 `STAGE_M_W(data_fmt_en_mem, e_writeback_p_mem, e_writeback_p_wbk, 'h0)
 `STAGE_M_W(rf_we.mem.rd, wb_sel.mem, wb_sel.wbk, WB_SEL_EWB)
@@ -802,13 +833,13 @@ always_comb begin
     unique case (wb_sel.wbk)
         WB_SEL_EWB: writeback = e_writeback_wbk;
         WB_SEL_DMEM: writeback = dmem_out_wbk;
-        WB_SEL_SIMD: writeback = simd_out_wbk;
+        WB_SEL_SIMD: writeback = simd_out_wbk.w[0];
         default: writeback = 'h0;
     endcase
 end
 
 always_comb begin
-    if (wb_sel.wbk == WB_SEL_SIMD) writeback_p = simd_out_p_wbk;
+    if (wb_sel.wbk == WB_SEL_SIMD) writeback_p = simd_out_wbk.w[1];
     else writeback_p = e_writeback_p_wbk;
 end
 

@@ -1,16 +1,21 @@
 `include "ama_riscv_defines.svh"
 
 module ama_riscv_reg_file #(
-    parameter unsigned BANKED = 0
+    parameter bit BANKED = 0,
+    parameter bit SIMD_EN = 1
 )(
     input  logic clk,
     input  rf_we_t we,
     input  rf_addr_t addr_a,
     input  rf_addr_t addr_b,
-    input  rf_addr_t addr_c,
+    /* verilator lint_off UNUSEDSIGNAL */
+    input  rf_addr_t addr_c, // rs3, unused when SIMD_EN=0
+    /* verilator lint_on UNUSEDSIGNAL */
     input  rf_addr_t addr_d,
     input  arch_width_t data_d,
-    input  arch_width_t data_dp,
+    /* verilator lint_off UNUSEDSIGNAL */
+    input  arch_width_t data_dp, // rdp, unused when SIMD_EN=0
+    /* verilator lint_on UNUSEDSIGNAL */
     output arch_width_t data_a,
     output arch_width_t data_b,
     output arch_width_t data_c
@@ -30,7 +35,7 @@ assign addr_dp = get_rdp(addr_d);
 
 logic rd_we, rdp_we;
 assign rd_we = (we.rd && (addr_d != RF_X0_ZERO));
-assign rdp_we = (we.rdp && (addr_dp != RF_X0_ZERO));
+assign rdp_we = (SIMD_EN && we.rdp && (addr_dp != RF_X0_ZERO));
 
 always @ (posedge clk) begin
     if (rd_we) begin
@@ -47,8 +52,9 @@ always_comb begin
     // B
     if (addr_b == RF_X0_ZERO) data_b = 'h0;
     else data_b = rf[addr_b];
-    // C
-    if (addr_c == RF_X0_ZERO) data_c = 'h0;
+    // C (rs3): only present when SIMD_EN
+    if (!SIMD_EN) data_c = 'h0;
+    else if (addr_c == RF_X0_ZERO) data_c = 'h0;
     else data_c = rf[addr_c];
 end
 
@@ -81,7 +87,7 @@ assign rd_we = (we.rd && (addr_d != RF_X0_ZERO));
 
 logic rdp_we;
 assign rdp_we = (
-    we.rdp && (addr_d != RF_X0_ZERO) && (addr_d != RF_X31_T6)
+    SIMD_EN && we.rdp && (addr_d != RF_X0_ZERO) && (addr_d != RF_X31_T6)
 );
 
 // even bank writes:
@@ -116,8 +122,9 @@ always_comb begin
     if (addr_b == RF_X0_ZERO) data_b = 'h0;
     else if (addr_b[0] == 1'b0) data_b = rf_even[addr_b[4:1]];
     else data_b = rf_odd[addr_b[4:1]];
-    // C
-    if (addr_c == RF_X0_ZERO) data_c = 'h0;
+    // C (rs3): only present when SIMD_EN
+    if (!SIMD_EN) data_c = 'h0;
+    else if (addr_c == RF_X0_ZERO) data_c = 'h0;
     else if (addr_c[0] == 1'b0) data_c = rf_even[addr_c[4:1]];
     else data_c = rf_odd[addr_c[4:1]];
 end

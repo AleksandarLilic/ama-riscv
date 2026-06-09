@@ -36,7 +36,9 @@ typedef union packed {
 } simd_h_t;
 
 parameter unsigned RF_NUM = 32;
-parameter unsigned RF_BANKED = 1;
+parameter bit RF_BANKED = 1;
+parameter bit CPU_SIMD_EN = 1;
+parameter bit CPU_MULT_USE_BW = 0; // SIMD_EN=0: 1=BW, 0=PLAIN
 
 // Memory parameters (what is being counted)
 // no suffix - number of bits, or if specified in the parameter name eg 'offset'

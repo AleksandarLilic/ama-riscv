@@ -10,7 +10,9 @@
     )
 `endif
 
-module ama_riscv_decoder (
+module ama_riscv_decoder #(
+    parameter bit SIMD_EN = 1
+)(
     input  arch_width_t inst_dec,
     output decoder_t decoded,
     output fe_ctrl_t fe_ctrl
@@ -301,6 +303,16 @@ always_comb begin
                 end
 
             endcase
+
+            // SIMD disabled: wipe the custom decode -> illegal (NOP-like)
+            if (!SIMD_EN) begin
+                d = `DECODER_INIT_VAL;
+                fc.pc_we = 1'b1;
+                `ifndef SYNT
+                unsupported_inst = !no_inst;
+                if (unsupported_inst) `INST_WARN("custom (SIMD off)");
+                `endif
+            end
         end
 
         OPC7_MISC_MEM: begin

@@ -26,7 +26,9 @@ rv_if_dc #(.AW(CORE_BYTE_ADDR_BUS), .DW(ARCH_WIDTH)) dmem_req_ch ();
 rv_if #(.DW(ARCH_WIDTH)) dmem_rsp_ch ();
 
 ama_riscv_core #(
-    .CLOCK_FREQ (CLOCK_FREQ)
+    .CLOCK_FREQ (CLOCK_FREQ),
+    .SIMD_EN (CPU_SIMD_EN),
+    .MULT_USE_BW (CPU_MULT_USE_BW)
 ) ama_riscv_core_i (
     .clk (clk),
     .rst (rst),

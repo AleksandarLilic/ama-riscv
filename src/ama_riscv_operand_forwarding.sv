@@ -1,6 +1,8 @@
 `include "ama_riscv_defines.svh"
 
-module ama_riscv_operand_forwarding (
+module ama_riscv_operand_forwarding #(
+    parameter bit SIMD_EN = 1
+)(
     // inputs
     input  logic load_inst_mem,
     input  logic load_inst_wbk,
@@ -200,12 +202,12 @@ assign fwd_src_sel_rs3_mem = fwd_be_t'({d_rs3_mem.on_rdp, 1'b1});
 // forward or not
 
 // should forward in mem?
-assign c_sel_fwd_mem = d_rs3_mem.has;
+assign c_sel_fwd_mem = (SIMD_EN && d_rs3_mem.has);
 
 // should forward in exec?
 assign a_sel_fwd_exe = d_rs1_exe.has;
 assign b_sel_fwd_exe = d_rs2_exe.has;
-assign c_sel_fwd_exe = d_rs3_exe.has;
+assign c_sel_fwd_exe = (SIMD_EN && d_rs3_exe.has);
 
 // should forward in decode?
 // for a/b. only if instruction is using rs1/rs2 and not alternatives
@@ -213,7 +215,7 @@ assign a_sel_dec_fwd = (d_rs1_dec.has && (a_sel_dec == A_SEL_RS1)) ?
     A_SEL_FWD : a_sel_dec;
 assign b_sel_dec_fwd = (d_rs2_dec.has && (b_sel_dec == B_SEL_RS2)) ?
     B_SEL_FWD : b_sel_dec;
-assign c_sel_dec_fwd = d_rs3_dec.has;
+assign c_sel_dec_fwd = (SIMD_EN && d_rs3_dec.has);
 
 //------------------------------------------------------------------------------
 // hazards on 2+ cycle execute instructions? used to stall the machine
@@ -224,7 +226,7 @@ assign hc_wbk = (load_inst_wbk && dc_stalled);
 
 // simd_arith uses late_c in mem, don't stall on it in exe
 logic d_rs3_exe_in_mem_s;
-assign d_rs3_exe_in_mem_s = (d_rs3_exe.in_mem && !simd_arith_exe);
+assign d_rs3_exe_in_mem_s = (SIMD_EN && d_rs3_exe.in_mem && !simd_arith_exe);
 
 logic hc_op_mem, hc_op_wbk; // hazard operands conditions
 assign hc_op_mem = (d_rs1_exe.in_mem || d_rs2_exe.in_mem || d_rs3_exe_in_mem_s);
