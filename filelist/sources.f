@@ -24,7 +24,7 @@ sv work \
 "$REPO_ROOT/src/csa_tree_8.sv" \
 "$REPO_ROOT/src/sat_s_add_sub.sv" \
 "$REPO_ROOT/src/sat_u_add_sub.sv" \
-"$REPO_ROOT/src/ama_riscv_sat_clamp.sv" \
+"$REPO_ROOT/src/ama_riscv_simd_sat_clamp.sv" \
 "$REPO_ROOT/src/sat_clamp.sv" \
 "$REPO_ROOT/src/ama_riscv_simd_shift.sv" \
 "$REPO_ROOT/src/barrel_shift_seg.sv" \

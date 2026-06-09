@@ -45,7 +45,9 @@ end
 
 // qnarrowing op
 simd_t qno;
-ama_riscv_sat_clamp ama_riscv_sat_clamp_i(.a(n_in), .op(op[2:0]), .q(qno));
+ama_riscv_simd_sat_clamp ama_riscv_simd_sat_clamp_i(
+    .a(n_in), .op(op[2:0]), .q(qno)
+);
 
 //------------------------------------------------------------------------------
 // txp op
