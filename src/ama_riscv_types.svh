@@ -10,7 +10,7 @@
 `endif
 
 `ifndef RF_BANKED
-`define RF_BANKED 0
+`define RF_BANKED 1
 `endif
 
 parameter bit CPU_SIMD_EN = `CPU_SIMD_EN;
