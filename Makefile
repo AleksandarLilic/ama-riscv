@@ -19,8 +19,6 @@ DESIGN_TOP := ama_riscv_top
 COMP_OPTS := -sv --incr --relax
 ELAB_DEBUG ?= typical
 ELAB_OPTS := -debug $(ELAB_DEBUG) --incr --relax --mt 8
-# work library name, should match the one in the first line of $(SOURCE_FILES)
-WORKLIB := work
 
 include Makefile.inc
 
@@ -67,17 +65,6 @@ endif
 
 TEST_PATH_ABS := $(abspath $(TEST_PATH))
 
-RTL_DEFINES ?=
-RTL_DEFINES += -d ENABLE_COSIM
-RTL_DEFINES += -d DEBUG
-RTL_DEFINES += -d ENABLE_KONATA
-#RTL_DEFINES += -d SYNT
-#RTL_DEFINES += -d FPGA
-#RTL_DEFINES += -d FPGA_HEX_PATH=$(TEST_PATH_ABS)
-
-RTL_DEFINES_CS := $(subst -d ,-D,$(RTL_DEFINES)) # C-style defines for slang & verilator
-RTL_DEFINES_LIST := $(subst -d ,,$(RTL_DEFINES)) # just a list
-
 TIMEOUT_CLOCKS ?= 500000
 LOG_LEVEL ?= WARN
 
@@ -102,9 +89,9 @@ include cosim/Makefile.cosim.inc
 # prevents large logs and long runtimes when debugging accidental comb. loops
 MAX_DELTA = -maxdeltaid 100
 
-CMD_COMP := xvlog $(COMP_OPTS) -prj $(SOURCE_FILES) $(RTL_DEFINES) $(LOG_ARG)
-CMD_ELAB := xelab $(WORKLIB).$(TOP) $(ELAB_OPTS) -sv_lib $(COSIM_TARGET) $(RTL_DEFINES) $(LOG_ARG)
-CMD_SIM := xsim $(TOP) $(TCLBATCH_SWITCH) $(WDB_SWITCH) -stats -onerror quit -testplusarg test_path=$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) -testplusarg log_level=$(LOG_LEVEL) $(COSIM_ARGS) $(MAX_DELTA) $(LOG_ARG)
+CMD_COMP := xvlog $(COMP_OPTS) -prj $(SOURCE_FILES) $(LOG_ARG)
+CMD_ELAB := xelab $(WORKLIB).$(TOP) $(ELAB_OPTS) -sv_lib $(COSIM_TARGET) $(LOG_ARG)
+CMD_SIM := xsim $(WORKLIB).$(TOP) $(TCLBATCH_SWITCH) $(WDB_SWITCH) -stats -onerror quit -testplusarg test_path=$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) -testplusarg log_level=$(LOG_LEVEL) $(COSIM_ARGS) $(MAX_DELTA) $(LOG_ARG)
 
 compile: .compile.touchfile
 .compile.touchfile: $(SRC_VERIF) $(SRC_DESIGN) $(SRC_INC)
@@ -125,7 +112,7 @@ elab: .elab.touchfile
 	@touch .elab.touchfile
 
 dpi_header_gen: .compile.touchfile
-	xelab $(WORKLIB).$(TOP) $(ELAB_OPTS) $(RTL_DEFINES) -dpiheader $(DPI_FUNCS_H) -log /dev/null 2>&1
+	xelab $(WORKLIB).$(TOP) $(ELAB_OPTS) -dpiheader $(DPI_FUNCS_H) -log /dev/null 2>&1
 
 # example usage: 'make sim -j TEST_PATH=sim/sw/baremetal/asm_rv32i/basic UNIQUE_WDB=1 TIMEOUT_CLOCKS=1000 LOG_LEVEL=$LL | tee make_run_asm_rv32i.log | tail -n 30 | tee >(rg "====")'
 sim: .elab.touchfile
@@ -168,7 +155,7 @@ lint_file:
 	@verilator --lint-only $(LINT_OPTS) $(PLUS_INCDIR) -DSYNT $(RTL_DEFINES_CS) $(FILE)
 
 print_defs:
-	@echo "$(RTL_DEFINES)"
+	@echo "$(RTL_DEFINES_LIST)"
 
 print_defs_vivado:
 	@echo "set_property verilog_define { $(RTL_DEFINES_LIST)} [current_fileset]"

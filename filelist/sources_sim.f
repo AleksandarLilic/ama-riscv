@@ -1,4 +1,9 @@
-sv work \
+sv worklib_sim \
+--define CPU_SIMD_EN=1 \
+--define CPU_MULT_USE_BW=0 \
+--define ENABLE_COSIM \
+--define DEBUG \
+--define ENABLE_KONATA \
 --include "$REPO_ROOT/src" \
 --include "$REPO_ROOT/verif/direct_tb" \
 "$REPO_ROOT/verif/direct_tb/ama_riscv_tb.sv" \

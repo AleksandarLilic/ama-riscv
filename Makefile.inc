@@ -1,38 +1,28 @@
-define get_sources_d
-$(foreach file,$(shell cat $(1) | grep -v -- '--include' | grep 'src' | grep -oP '"\K[^"]+' | sed 's/\\//g'),$(shell echo $(file)))
-endef
+PARSE_FILELIST := $(REPO_ROOT)/script/parse_filelist.py
 
-define get_sources_v
-$(foreach file,$(shell cat $(1) | grep -v -- '--include' | grep 'verif' | grep -oP '"\K[^"]+' | sed 's/\\//g'),$(shell echo $(file)))
-endef
-
-define get_include_dirs
-$(foreach file,$(shell cat $(1) | grep -- '--include' | grep -oP '"\K[^"]+' | sed 's/\\//g'),$(shell echo $(file)))
-endef
+SOURCE_FILES ?= $(REPO_ROOT)/filelist/sources_sim.f
 
 # if SIM_ONLY, ignore getting sources so it doesn't trigger rebuilds
 SIM_ONLY ?= 0
 ifeq ($(SIM_ONLY), 1)
-SOURCE_FILES :=
 SRC_VERIF :=
 SRC_DESIGN :=
 INC_DIRS :=
 SRC_INC :=
 PLUS_INCDIR :=
 else
-SOURCE_FILES ?= $(REPO_ROOT)/filelist/sources.f
-SRC_VERIF := $(call get_sources_v,$(SOURCE_FILES))
-SRC_DESIGN := $(call get_sources_d,$(SOURCE_FILES))
-INC_DIRS := $(call get_include_dirs,$(SOURCE_FILES))
-SRC_INC := $(foreach dir,$(INC_DIRS),$(shell echo $(dir))/*)
-PLUS_INCDIR := $(foreach dir,$(INC_DIRS),$(shell echo +incdir+$(dir)))
+SRC_DESIGN := $(shell $(PARSE_FILELIST) design $(SOURCE_FILES))
+SRC_VERIF := $(shell $(PARSE_FILELIST) verif $(SOURCE_FILES))
+INC_DIRS := $(shell $(PARSE_FILELIST) include-dirs $(SOURCE_FILES))
+SRC_INC := $(foreach dir,$(INC_DIRS),$(dir)/*)
+PLUS_INCDIR := $(addprefix +incdir+,$(INC_DIRS))
 endif
 
-# because ORFS hangs if functions are still defined
-# due to some expansions done in the OpenROAD-flow-scripts/flow/util/utils.mk
-get_sources_d =
-get_sources_v =
-get_include_dirs =
+RTL_DEFINES_LIST := $(shell $(PARSE_FILELIST) defines $(SOURCE_FILES))
+# -D style defines for slang & verilator
+RTL_DEFINES_CS := $(addprefix -D,$(RTL_DEFINES_LIST))
+
+WORKLIB := $(shell $(PARSE_FILELIST) worklib $(SOURCE_FILES))
 
 # color coding
 GREEN  := $(shell printf "\033[0;32m")
