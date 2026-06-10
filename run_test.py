@@ -9,8 +9,8 @@ import os
 import re
 import shlex
 import shutil
-import subprocess
 import signal
+import subprocess
 import sys
 import time
 from collections import deque
@@ -19,10 +19,9 @@ from multiprocessing import Manager, Pool
 
 from ruamel.yaml import YAML
 
-CC_RED = "91m"
-CC_YELLOW = "93m"
-CC_GREEN = "32m"
-INDENT = " " * 4
+from script.utils import (CC_GREEN, CC_RED, CC_YELLOW, INDENT,
+                          color_code_string, print_runtime)
+
 TEST_LOG = "test.log"
 REPO_ROOT = os.getenv("REPO_ROOT") \
     or sys.exit("Error: REPO_ROOT not set. Source setup.sh first.")
@@ -48,9 +47,6 @@ class make_args:
 def read_from_yaml(file_path):
     with open(file_path, 'r') as file:
         return yaml.load(file)
-
-def color_code_string(str, color_code):
-    return f"\033[{color_code}{str}\033[0m"
 
 # helper functions
 def create_run_cfg(log_wave, log_vcd):
@@ -168,23 +164,6 @@ def check_test_status(test_log_path, test_name):
     else:
         return False, f"{TEST_LOG} not found at {test_log_path}. " + \
             "Cannot determine test result."
-
-def print_runtime(start_time, process_name='', guard_char=''):
-    end_time = datetime.datetime.now()
-    elapsed_time = end_time - start_time
-    hours, remainder = divmod(elapsed_time.seconds, 3600)
-    minutes, seconds = divmod(remainder+1, 60) # rounds down, correct +1 for sec
-    print(
-        f"{guard_char}" if guard_char else "",
-        f"{process_name} runtime: " if process_name else "(",
-        f"{hours}h" if hours else "",
-        f"{minutes}m" if minutes else "",
-        f"{seconds}s",
-        "" if process_name else ")",
-        f"{guard_char}" if guard_char else "",
-        end="\n",
-        sep=''
-    )
 
 # main functions
 def build_tb(build_dir, force_rebuild):
