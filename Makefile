@@ -159,8 +159,13 @@ slang_pp:
 	@make slang --no-print-directory SLANG_EXTRA="-E --comments > $(SLANG_PP_OUT) 2>&1"
 
 # slang has poor linting capabilities, use verilator instead
+LINT_OPTS := -sv -Wno-fatal -Wall -Wpedantic
 lint:
-	@verilator --top $(DESIGN_TOP) -DSYNT $(RTL_DEFINES_CS) --lint-only $(SRC_DESIGN) $(PLUS_INCDIR) -Wall -Wpedantic > lint.log 2>&1
+	@verilator --lint-only $(LINT_OPTS) --top $(DESIGN_TOP) $(PLUS_INCDIR) -DSYNT $(RTL_DEFINES_CS) $(SRC_DESIGN) > lint.log 2>&1
+
+FILE ?=
+lint_file:
+	@verilator --lint-only $(LINT_OPTS) $(PLUS_INCDIR) -DSYNT $(RTL_DEFINES_CS) $(FILE)
 
 print_defs:
 	@echo "$(RTL_DEFINES)"
