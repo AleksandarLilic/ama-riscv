@@ -18,6 +18,7 @@ sv work \
 "$REPO_ROOT/src/add.sv" \
 "$REPO_ROOT/src/ama_riscv_mult.sv" \
 "$REPO_ROOT/src/ama_riscv_simd.sv" \
+"$REPO_ROOT/src/ama_riscv_simd_ppgen.sv" \
 "$REPO_ROOT/src/ama_riscv_simd_data_fmt.sv" \
 "$REPO_ROOT/src/csa.sv" \
 "$REPO_ROOT/src/csa_tree_4.sv" \

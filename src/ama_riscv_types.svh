@@ -1,6 +1,23 @@
 `ifndef AMA_RISCV_TYPES
 `define AMA_RISCV_TYPES
 
+`ifndef CPU_SIMD_EN
+`define CPU_SIMD_EN 1
+`endif
+
+`ifndef CPU_MULT_USE_BW
+`define CPU_MULT_USE_BW 0
+`endif
+
+`ifndef RF_BANKED
+`define RF_BANKED 0
+`endif
+
+parameter bit CPU_SIMD_EN = `CPU_SIMD_EN;
+parameter bit CPU_MULT_USE_BW = `CPU_MULT_USE_BW; // SIMD_EN=0: 1=BW, 0=PLAIN
+parameter bit RF_BANKED = `RF_BANKED;
+
+parameter unsigned RF_NUM = 32;
 parameter unsigned ARCH_WIDTH = 32;
 parameter unsigned ARCH_WIDTH_D = ARCH_WIDTH*2;
 parameter unsigned INST_WIDTH = 32;
@@ -35,10 +52,6 @@ typedef union packed {
     logic [7:0] [(ARCH_WIDTH/16)-1:0] c; // crumb
 } simd_h_t;
 
-parameter unsigned RF_NUM = 32;
-parameter bit RF_BANKED = 1;
-parameter bit CPU_SIMD_EN = 1;
-parameter bit CPU_MULT_USE_BW = 0; // SIMD_EN=0: 1=BW, 0=PLAIN
 
 // Memory parameters (what is being counted)
 // no suffix - number of bits, or if specified in the parameter name eg 'offset'
@@ -511,6 +524,14 @@ typedef struct packed {
     logic [ARCH_WIDTH-1:0] wdata;
     logic en;
 } dmem_req_side_t;
+
+typedef struct packed {
+    logic b32;
+    logic b16;
+    logic b8;
+    logic b4;
+    logic b2;
+} simd_arith_el_width_t;
 
 typedef struct packed {
     logic ret_inst;

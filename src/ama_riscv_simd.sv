@@ -20,46 +20,19 @@ module ama_riscv_simd #(
 localparam int unsigned W = 32;
 
 //------------------------------------------------------------------------------
-// set up masks
-// select which 8x8/16x16 tile (y,x) belongs to
-// set ones only on diagonal tile blocks (ty == tx)
-
-localparam int unsigned TILE_8 = 8; // 8x8 blocks
-simd_t [W-1:0] mask_8;
-always_comb begin
-    `IT_P(y, W) `IT_P(x, W) mask_8[y][x] = ((y / TILE_8) == (x / TILE_8));
-end
-
-localparam int unsigned TILE_16 = 16; // 16x16 blocks
-simd_t [W-1:0] mask_16;
-always_comb begin
-    `IT_P(y, W) `IT_P(x, W) mask_16[y][x] = ((y / TILE_16) == (x / TILE_16));
-end
-
-localparam int unsigned TILE_4 = 4; // 4x4 blocks
-simd_t [W-1:0] mask_4;
-always_comb begin
-    `IT_P(y, W) `IT_P(x, W) mask_4[y][x] = ((y / TILE_4) == (x / TILE_4));
-end
-
-localparam int unsigned TILE_2 = 2; // 2x2 blocks
-simd_t [W-1:0] mask_2;
-always_comb begin
-    `IT_P(y, W) `IT_P(x, W) mask_2[y][x] = ((y / TILE_2) == (x / TILE_2));
-end
 
 logic op_simd, op_simd_dot;
 logic op_lane_arith; // add/sub, qadd/qsub, min/max -> lane uses a/b operands
-logic ew_32, ew_16, ew_8, ew_4, ew_2;
+simd_arith_el_width_t ew;
 logic op_unsigned;
 
 if (RV32M_ONLY) begin: gen_ctrl_rv32m
 assign {op_simd, op_simd_dot, op_lane_arith} = 3'h0;
-assign ew_32 = 1'b1;
-assign {ew_16, ew_8, ew_4, ew_2} = 4'h0;
+assign ew.b32 = 1'b1;
+assign {ew.b16, ew.b8, ew.b4, ew.b2} = 4'h0;
 assign op_unsigned = (op == SIMD_ARITH_OP_MULHU);
 
-end else begin: gen_ctrl_full
+end else begin: gen_ctrl_simd
 logic op_rv32_mul;
 assign op_rv32_mul = (op[6:3] == SIMD_ARITH_CLASS_RV32M);
 assign op_simd = (op[6:3] != SIMD_ARITH_CLASS_RV32M);
@@ -69,92 +42,23 @@ assign op_lane_arith = (
     (op[6:3] == SIMD_ARITH_CLASS_QADDSUB) ||
     (op[6:3] == SIMD_ARITH_CLASS_COMPARE)
 );
-assign ew_2 = (op_simd_dot && (op[2:1] == 2'b11));
-assign ew_4 = (op_simd_dot && (op[2:1] == 2'b10));
-assign ew_8 = (op_simd && (op[1] == 1'b1) && !ew_2);
-assign ew_16 = (op_simd && (op[1] == 1'b0) && !ew_4);
-assign ew_32 = op_rv32_mul;
+assign ew.b2 = (op_simd_dot && (op[2:1] == 2'b11));
+assign ew.b4 = (op_simd_dot && (op[2:1] == 2'b10));
+assign ew.b8 = (op_simd && (op[1] == 1'b1) && !ew.b2);
+assign ew.b16 = (op_simd && (op[1] == 1'b0) && !ew.b4);
+assign ew.b32 = op_rv32_mul;
 assign op_unsigned = ((op == SIMD_ARITH_OP_MULHU) || (op_simd && op[0]));
 
 end
 
 //------------------------------------------------------------------------------
-// AND matrix for signed multiply using lane-aware Baugh–Wooley
-
-logic [W-1:0] sign_mask;
-always_comb begin
-    sign_mask = '0;
-    if (!op_unsigned) begin
-        unique case (1'b1)
-            ew_2: sign_mask = 'hAAAA_AAAA;
-            ew_4: sign_mask = 'h8888_8888;
-            ew_8: sign_mask = 'h8080_8080;
-            ew_16: sign_mask = 'h8000_8000;
-            ew_32: sign_mask = 'h8000_0000;
-            default: sign_mask = '0;
-        endcase
-    end
-end
-
-simd_t [W-1:0] pp; // partial products matrix
-logic [W-1:0][W-1:0] y;
-logic [W-1:0][W-1:0] flip;
-for (genvar r = 0; r < W; r++) begin: gen_pp_rows
-    for (genvar c = 0; c < W; c++) begin: gen_pp_columns
-        assign y[r][c] = (b[r] & a[c]);
-        assign flip[r][c] = (sign_mask[r] ^ sign_mask[c]);
-        assign pp[r][c] = flip[r][c] ? ~y[r][c] : y[r][c];
-    end
-end
+// get pp matrix and correction value
 
 simd_d_t [W-1:0] ppv; // double-wide pp view
-always_comb begin
-    `IT_P(i, W) begin
-        simd_d_t x;
-        ppv[i] = '0;
-        unique case (1'b1)
-            ew_32: begin // MULT 32x32
-                x = {32'h0, pp[i]};
-                ppv[i] = (x << i);
-            end
-            ew_16: begin
-                // every 16 rows (one lane) shifted left per the algorithm
-                // but every lane is shifted right to start at idx 0 for dotp
-                x = {32'h0, (pp[i] & mask_16[i])};
-                ppv[i] = ((x << (i % 16)) >> ((i / 16) * 16));
-            end
-            ew_8: begin
-                x = {32'h0, (pp[i] & mask_8[i])};
-                ppv[i] = ((x << (i % 8)) >> ((i / 8) * 8));
-            end
-            ew_4: begin
-                x = {32'h0, (pp[i] & mask_4[i])};
-                ppv[i] = ((x << (i % 4)) >> ((i / 4) * 4));
-            end
-            ew_2: begin
-                x = {32'h0, (pp[i] & mask_2[i])};
-                ppv[i] = ((x << (i % 2)) >> ((i / 2) * 2));
-            end
-            default: ppv[i] = '0;
-        endcase
-    end
-end
-
 simd_d_t corr; // correction for modified BW for signed operations
-always_comb begin
-    corr = '0;
-    if (!op_unsigned) begin
-        unique case (1'b1)
-            ew_32: begin corr[32] = 1'b1; corr[63] = 1'b1; end
-            (ew_16 && op_simd_dot): begin corr[17] = 1'b1; end
-            (ew_16 && !op_simd_dot): begin corr[16] = 1'b1; corr[31] = 1'b1; end
-            (ew_8 && op_simd_dot): begin corr[10] = 1'b1; end
-            (ew_8 && !op_simd_dot): begin corr[8] = 1'b1; corr[15] = 1'b1; end
-            ew_4: begin corr[7] = 1'b1; end // idx [4] set 8 times
-            ew_2: begin corr[6] = 1'b1; end // idx [2] set 16 times
-        endcase
-    end
-end
+ama_riscv_simd_ppgen #(.RV32M_ONLY(RV32M_ONLY)) ppgen_i (
+    .op_unsigned, .op_simd_dot, .ew, .a, .b, .ppv, .corr
+);
 
 //------------------------------------------------------------------------------
 // first four trees in parallel
@@ -267,7 +171,7 @@ end
 
 //------------------------------------------------------------------------------
 // SIMD back-end: dot + lanes + output (gated when RV32M_ONLY)
-if (!RV32M_ONLY) begin: gen_simd_be
+if (!RV32M_ONLY) begin: gen_backend_simd
 
 simd_t b_d;
 `STAGE(ctrl_exe_mem, (en && op_lane_arith), b, b_d, 'h0)
@@ -381,7 +285,7 @@ always_comb begin
     endcase
 end
 
-end else begin: gen_rv32m_out
+end else begin: gen_backend_rv32m
 
 always_comb begin
     p_mem = '0;

@@ -573,7 +573,7 @@ arch_width_t op_c_r_mem; // no late_c without SIMD
 /* verilator lint_on UNUSEDSIGNAL */
 simd_d_t simd_out_wbk;
 
-if (SIMD_EN || MULT_USE_BW) begin: gen_mult_simd_bw
+if (SIMD_EN || MULT_USE_BW) begin: gen_mult_simd
 ama_riscv_simd #(
     .RV32M_ONLY(!SIMD_EN)
 ) ama_riscv_simd_i (
