@@ -67,6 +67,7 @@ typedef enum logic {
 } exec_state_t;
 
 typedef struct packed {
+    logic valid;
     arch_width_t pc;
     branch_t b_tnt;
 } spec_entry_t;
@@ -429,7 +430,9 @@ assign spec.enter = (
     (!(stall_act.dcache || stall_act.hazard || stall_act.div || spec.wrong))
 );
 assign spec.resolve = (
-    (spec_entry[se_ptr_t].pc == pc_mem) && (pc_mem != 'h0)
+    spec_entry[se_ptr_t].valid &&
+    (spec_entry[se_ptr_t].pc == pc_mem) &&
+    (pc_mem != 'h0)
 );
 assign bp_hit = (
     spec.resolve && (spec_entry[se_ptr_t].b_tnt == branch_resolution)
@@ -481,25 +484,23 @@ end
 
 always_ff @(posedge clk) begin
     if (rst) begin
-        spec_entry[0] <= '{pc: 'h0, b_tnt: B_NT};
-        spec_entry[1] <= '{pc: 'h0, b_tnt: B_NT};
+        spec_entry <= {'h0, 'h0};
         se_ptr_h <= 1'b0;
         se_ptr_t <= 1'b0;
     end else if (spec.wrong) begin // missed, whantever you have is wrong
-        spec_entry[0] <= '{pc: 'h0, b_tnt: B_NT};
-        spec_entry[1] <= '{pc: 'h0, b_tnt: B_NT};
+        spec_entry <= {'h0, 'h0};
         se_ptr_h <= 1'b0;
         se_ptr_t <= 1'b0;
     end else begin
         if (save_spec_entry) begin
             se_ptr_h <= (!se_ptr_h);
-            spec_entry[se_ptr_h] <= '{pc: pc_dec, b_tnt: bp_pred};
+            spec_entry[se_ptr_h] <= '{valid: 1'b1, pc: pc_dec, b_tnt: bp_pred};
         end
         if (clear_spec_entry) begin
             se_ptr_t <= (!se_ptr_t);
             // written by new spec_entry if both ptrs match - 3rd consec. branch
             if (!((se_ptr_t == se_ptr_h) && save_spec_entry)) begin
-                spec_entry[se_ptr_t] <= '{pc: 'h0, b_tnt: B_NT};
+                spec_entry[se_ptr_t] <= 'h0;
             end
         end
     end
@@ -507,6 +508,20 @@ end
 
 assign branch_queued = (spec_entry[se_ptr_h].pc != 'h0);
 assign pc_cp = spec_entry[se_ptr_t].pc;
+
+`ifndef SYNT
+// asserts
+always_comb begin
+    `IT(2) begin
+        if (spec_entry[i].valid) begin
+            assert (spec_entry[i].pc !== 'h0)
+            else $fatal(1,
+                "FE CTRL: saved pc=0 as speculative entry idx %0d", i
+            );
+        end
+    end
+end
+`endif
 
 `endif
 
