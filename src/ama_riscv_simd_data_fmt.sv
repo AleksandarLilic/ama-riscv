@@ -7,7 +7,8 @@ module ama_riscv_simd_data_fmt (
     input  simd_t a,
     input  simd_t b,
     input  simd_t c,
-    output simd_d_t s
+    output simd_d_t s,
+    output simd_d_t s_widen
 );
 
 //------------------------------------------------------------------------------
@@ -26,6 +27,8 @@ always_comb begin
         SIMD_DATA_FMT_OP_WIDEN_2U[2:0]: `IT(16) wo.n[i] = e_2_4(1'b0, a.c[i]);
     endcase
 end
+
+assign s_widen = wo; // widen result for shifter
 
 //------------------------------------------------------------------------------
 // (q)narrowing op
@@ -150,7 +153,6 @@ end
 always_comb begin
     s = 'h0;
     unique case (op[7:3])
-        SIMD_DATA_FMT_CLASS_WIDEN: s = wo;
         SIMD_DATA_FMT_CLASS_NARROW: s.w[0] = no;
         SIMD_DATA_FMT_CLASS_QNARROW: s.w[0] = qno;
         SIMD_DATA_FMT_CLASS_TXP: s = {txp_b, txp_a}; // w1 = txp_b, w0 = txp_a

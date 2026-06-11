@@ -534,18 +534,19 @@ assign pc_new_exe = decoded_exe.itype.branch ? pc_branch_exe : alu_out_exe;
 simd_t data_fmt_out_exe, data_fmt_out_p_exe;
 
 if (SIMD_EN) begin: gen_data_fmt
-simd_d_t data_fmt_out;
+simd_d_t data_fmt_out, data_fmt_out_widen;
 ama_riscv_simd_data_fmt ama_riscv_simd_data_fmt_i (
     .op (decoded_exe.simd_data_fmt_op),
     .a (op_a_r),
     .b (op_b_r),
     .c (op_c_r_exe),
-    .s (data_fmt_out)
+    .s (data_fmt_out),
+    .s_widen (data_fmt_out_widen)
 );
 
 simd_t shift_a, shift_b;
-assign shift_a = decoded_exe.simd_shift_op[3] ? data_fmt_out.w[0] : op_a_r;
-assign shift_b = data_fmt_out.w[1];
+assign shift_a = decoded_exe.simd_shift_op[3] ? data_fmt_out_widen.w[0] :op_a_r;
+assign shift_b = data_fmt_out_widen.w[1];
 
 simd_d_t shift_s;
 ama_riscv_simd_shift ama_riscv_simd_shift_i (
