@@ -507,7 +507,7 @@ assign div_start = (
     !hazard.to_exe &&
     !(flush.dec || flush.exe)
 );
-assign div_stalled = (div_start || div_busy);
+assign div_stalled = ((div_start || div_busy) && !spec.wrong);
 
 always_ff @(posedge clk) begin
     if (rst) div_issued <= 1'b0;
