@@ -451,20 +451,23 @@ assign rsp_core.data =
     bank_data[way_idx_d][(word_in_bank_line_addr*INST_WIDTH) +: INST_WIDTH];
 
 // perf events
+perf_event_icache_t pe_c; // perf_event_collect
 logic [1:0] spec_miss_cnt;
 logic has_spec_miss, spec_miss_resolved;
 assign spec_miss_resolved = (has_spec_miss && spec.resolve);
 assign has_spec_miss = (spec_miss_cnt != 0);
 always_ff @(posedge clk) begin
     if (rst) spec_miss_cnt <= 'h0;
-    else if (pe.spec_miss) spec_miss_cnt <= (spec_miss_cnt + '1);
+    else if (pe_c.spec_miss) spec_miss_cnt <= (spec_miss_cnt + '1);
     else if (spec_miss_resolved) spec_miss_cnt <= (spec_miss_cnt - '1);
 end
 
-assign pe.hit = hit;
-assign pe.miss = miss;
-assign pe.spec_miss = (miss && spec.exec_n);
-assign pe.spec_miss_bad = (has_spec_miss && spec.wrong);
+assign pe_c.hit = hit;
+assign pe_c.miss = miss;
+assign pe_c.spec_miss = (miss && spec.exec_n);
+assign pe_c.spec_miss_bad = (has_spec_miss && spec.wrong);
+
+`DFF_CI_RI_RVI(pe_c, pe)
 
 //------------------------------------------------------------------------------
 // debug views
