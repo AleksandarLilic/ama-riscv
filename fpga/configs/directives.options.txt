@@ -1,0 +1,17 @@
+list_property_value STEPS.SYNTH_DESIGN.ARGS.DIRECTIVE [get_runs synth_1]
+RuntimeOptimized AreaOptimized_high AreaOptimized_medium AlternateRoutability AreaMapLargeShiftRegToBRAM AreaMultThresholdDSP FewerCarryChains PerformanceOptimized LogicCompaction PowerOptimized_high PowerOptimized_medium Default
+
+list_property_value STEPS.OPT_DESIGN.ARGS.DIRECTIVE [get_runs impl_1]
+Explore ExploreArea ExploreSequentialArea RuntimeOptimized ExploreWithRemap RQS Default
+
+list_property_value STEPS.PLACE_DESIGN.ARGS.DIRECTIVE [get_runs impl_1]
+Explore WLDrivenBlockPlacement ExtraNetDelay_high ExtraNetDelay_low AltSpreadLogic_low AltSpreadLogic_medium AltSpreadLogic_high ExtraPostPlacementOpt ExtraTimingOpt SSI_SpreadLogic_high SSI_SpreadLogic_low SSI_SpreadSLLs SSI_BalanceSLLs SSI_BalanceSLRs SSI_HighUtilSLRs RuntimeOptimized Quick Default EarlyBlockPlacement RQS Auto_1 Auto_2 Auto_3
+
+list_property_value STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE [get_runs impl_1]
+Explore ExploreWithHoldFix AggressiveExplore AlternateReplication AggressiveFanoutOpt AddRetime AlternateFlowWithRetiming RuntimeOptimized ExploreWithAggressiveHoldFix RQS Default
+
+list_property_value STEPS.ROUTE_DESIGN.ARGS.DIRECTIVE [get_runs impl_1]
+Explore NoTimingRelaxation MoreGlobalIterations HigherDelayCost AdvancedSkewModeling RuntimeOptimized Quick AlternateCLBRouting AggressiveExplore RQS Default
+
+list_property_value STEPS.POST_ROUTE_PHYS_OPT_DESIGN.ARGS.DIRECTIVE [get_runs impl_1]
+Explore AggressiveExplore AddRetime ExploreWithAggressiveHoldFix RQS Default

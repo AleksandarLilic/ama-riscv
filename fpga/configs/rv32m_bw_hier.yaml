@@ -1,0 +1,11 @@
+extends: _base.yaml
+
+# no SIMD, BW (rv32m-only shared mult)
+run_name: simd_off_bw_50_hier
+defines:
+  CPU_SIMD_EN: 0
+  CPU_MULT_USE_BW: 1
+  CPU_TARGET_FREQ_MHZ: 50
+
+synt:
+  flatten_hierarchy: none

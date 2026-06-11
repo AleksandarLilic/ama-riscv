@@ -1,0 +1,43 @@
+# shared baseline for FPGA synth experiments
+# experiment configs `extends: _base.yaml` and override only what differs
+
+part: xc7a100tcsg324-1 # Arty A7-100
+
+sources:
+  filelist: filelist/sources_fpga.f
+  top: ama_riscv_fpga
+  constraints:
+    - fpga/constraints/arty_a7-100_ama_riscv_fpga.xdc
+
+# program preloaded into imem; resolved to an absolute FPGA_HEX_PATH define
+hex_path: sim/sw/baremetal/uart_direct_send/hello_world.mem
+
+defines:
+  SYNT: null
+  FPGA: null
+  USE_BP: null
+  CPU_SIMD_EN: 1
+  CPU_MULT_USE_BW: 0
+  CPU_TARGET_FREQ_MHZ: 50
+
+synt:
+  flatten_hierarchy: rebuilt # full, none
+  directive: PerformanceOptimized
+  options:
+    fsm_extraction: one_hot
+    keep_equivalent_registers: true
+    resource_sharing: "off" # quote: bare 'off' parses as YAML false
+    no_lc: true
+    shreg_min_size: 5
+    #retiming: true # turn on as needed
+
+impl: # directive options per step in directives.options.txt, run in flow order
+  opt_design:                  { directive: Explore }
+  power_opt_design:            { enabled: false } # no -directive; enable-only
+  place_design:                { directive: ExtraTimingOpt }
+  post_place_power_opt_design: { enabled: false } # no -directive; enable-only
+  phys_opt_design:             [Explore] # list: 0..N passes, one per directive
+  route_design:                { directive: NoTimingRelaxation }
+  post_route_phys_opt_design:  [Explore] # list: 0..N passes, one per directive
+
+bitstream: false # or `write_bitstream -force ama_riscv_fpga.bit` from dcp later

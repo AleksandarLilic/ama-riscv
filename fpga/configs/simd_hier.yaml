@@ -1,0 +1,11 @@
+extends: _base.yaml
+
+# SIMD, shared multiplier
+run_name: simd_50_hier
+defines:
+  CPU_SIMD_EN: 1
+  CPU_MULT_USE_BW: 0
+  CPU_TARGET_FREQ_MHZ: 50
+
+synt:
+  flatten_hierarchy: none
