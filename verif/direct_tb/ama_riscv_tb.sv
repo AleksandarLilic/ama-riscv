@@ -384,6 +384,10 @@ function void get_plusargs();
             args.timeout_clocks = `DEFAULT_TIMEOUT_CLOCKS;
         end
 
+        if (!$value$plusargs("heartbeat_clocks=%d", args.heartbeat_clocks)) begin
+            args.heartbeat_clocks = `DEFAULT_HEARTBEAT_CLOCKS;
+        end
+
         if (!$value$plusargs("log_level=%s", log_str)) begin
             args.log_level = LOG_INFO;
         end else begin
@@ -689,11 +693,26 @@ task automatic single_step();
 
 endtask
 
+function automatic void heartbeat(ref int unsigned inst_ret_prev);
+    int unsigned inst_ret, diff;
+    if ((clk_cnt % args.heartbeat_clocks) != 0) return;
+
+    inst_ret = core_stats::get_inst_cnt(core_cnt_main);
+    diff = (inst_ret - inst_ret_prev);
+    inst_ret_prev = inst_ret;
+    `LOG_I($sformatf(
+        "Heartbeat - cycles: %0d, retired instructions: %0d (+%0d)",
+        clk_cnt, inst_ret, diff
+    ));
+endfunction
+
 task run_test();
     automatic int unsigned clks_to_retire_last_inst = 2;
+    automatic int unsigned inst_ret_prev = 0;
     while (tohost_source !== 1'b1) begin
         @(posedge clk); #0.1;
         single_step();
+        heartbeat(inst_ret_prev);
     end
 
     // retire csr inst writing to tohost

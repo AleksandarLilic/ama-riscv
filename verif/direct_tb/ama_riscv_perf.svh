@@ -43,6 +43,10 @@ virtual class core_stats;
         return cnt.inst;
     endfunction
 
+    static function int unsigned get_cycle_cnt(ref core_counters_t cnt);
+        return cnt.cycle;
+    endfunction
+
     static function real get_kinst(ref core_counters_t cnt);
         return (cnt.inst / 1000.0);
     endfunction

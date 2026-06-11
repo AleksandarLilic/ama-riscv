@@ -27,6 +27,7 @@ typedef struct {
     int unsigned prof_pc_stop;
     int unsigned prof_pc_single_match;
     int unsigned timeout_clocks;
+    int unsigned heartbeat_clocks;
     int unsigned log_level;
 } plusargs_t;
 

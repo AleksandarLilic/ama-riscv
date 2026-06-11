@@ -14,6 +14,7 @@ parameter unsigned CLOCK_FREQ = (1_000 / CLK_PERIOD) * 1_000_000; // Hz
 // TB
 `define TOHOST_PASS 32'd1
 `define DEFAULT_TIMEOUT_CLOCKS 5_000_000
+`define DEFAULT_HEARTBEAT_CLOCKS 100_000
 `define RST_PULSES 2
 `define CHK_ACT 1'b1
 
