@@ -24,7 +24,7 @@ divclk_divide_range = range(1, 56)
 divclk_divide_range = range(1, 2) # fixed: 1
 
 BEST = True
-RANGE = 1 # hz above/below SEARCH
+RANGE = 0 # 1_000_000 # hz above/below SEARCH
 t_mhz_list = (50, 55, 60, 65, 70, 75, 80, 90, 100)
 
 gp = lambda freq_mhz: 1_000_000_000/freq_mhz
@@ -44,8 +44,8 @@ for t_mhz in t_mhz_list:
                 str_app = ""
                 freq = clkin1 * (clkfbout_mult/(divclk_divide*clkout0_divide))
                 freq_in_range = (T_HZ-RANGE <= freq <= T_HZ+RANGE)
-                vco = int(clkin1_mhz * clkfbout_mult / divclk_divide)
-                vco_in_range = (vco in vco_range)
+                vco = clkfbout_mult * 1000 / (clkin1_period * divclk_divide)
+                vco_in_range = min(vco_range) <= vco <= max(vco_range)
                 if freq_in_range and vco_in_range:
                     if RANGE:
                         str_app = \
