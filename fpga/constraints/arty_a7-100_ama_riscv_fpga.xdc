@@ -13,9 +13,9 @@ set_property -dict { PACKAGE_PIN T10   IOSTANDARD LVCMOS33 } [get_ports { LEDS[3
 ## Buttons
 set_property -dict { PACKAGE_PIN D9    IOSTANDARD LVCMOS33 } [get_ports { RST }]; #IO_L6N_T0_VREF_16 Sch=btn[0]
 
-## Pmod Header JA
-set_property -dict { PACKAGE_PIN B18   IOSTANDARD LVCMOS33 } [get_ports { FPGA_SERIAL_TX }]; #IO_L10P_T1_AD11P_15 Sch=ja[8]
-set_property -dict { PACKAGE_PIN A18   IOSTANDARD LVCMOS33 } [get_ports { FPGA_SERIAL_RX }]; #IO_L10N_T1_AD11N_15 Sch=ja[9]
+## USB-UART Interface
+set_property -dict { PACKAGE_PIN D10   IOSTANDARD LVCMOS33 } [get_ports { FPGA_SERIAL_TX }]; #IO_L19N_T3_VREF_16 Sch=uart_rxd_out
+set_property -dict { PACKAGE_PIN A9    IOSTANDARD LVCMOS33 } [get_ports { FPGA_SERIAL_RX }]; #IO_L14N_T2_SRCC_16 Sch=uart_txd_in
 
 ## Async I/O false paths
 set_false_path -from [get_ports { RST }]
