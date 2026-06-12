@@ -58,8 +58,10 @@ xpm_memory_tdpram #(
     .douta (rsp_imem.data),
     .injectsbiterra (1'b0),
     .injectdbiterra (1'b0),
+    /* verilator lint_off PINCONNECTEMPTY */
     .sbiterra (),
     .dbiterra (),
+    /* verilator lint_on PINCONNECTEMPTY */
     // port B - dmem (read/write, mutually exclusive per assertion below)
     .clkb (clk),
     .rstb (1'b0),
@@ -71,8 +73,10 @@ xpm_memory_tdpram #(
     .doutb (rsp_dmem.data),
     .injectsbiterrb (1'b0),
     .injectdbiterrb (1'b0),
+    /* verilator lint_off PINCONNECTEMPTY */
     .sbiterrb (),
     .dbiterrb (),
+    /* verilator lint_on PINCONNECTEMPTY */
     // global
     .sleep (1'b0)
 );
