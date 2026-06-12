@@ -4,6 +4,7 @@ src/lzc.sv linguist-vendored
 # vendored constraints
 fpga/constraints/Zybo-Z7-Master.xdc linguist-vendored
 fpga/constraints/Arty-A7-100-Master.xdc linguist-vendored
+fpga/constraints/Cmod-A7-Master.xdc linguist-vendored
 
 # generated code
 cosim/dpi_functions.h linguist-generated

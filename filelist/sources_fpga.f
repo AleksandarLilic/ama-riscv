@@ -1,6 +1,7 @@
 sv worklib_fpga \
 --include "$REPO_ROOT/src" \
 "$REPO_ROOT/src/ama_riscv_types.svh" \
+"$REPO_ROOT/src/ama_riscv_fpga_defines.svh" \
 "$REPO_ROOT/src/ama_riscv_defines.svh" \
 "$REPO_ROOT/src/ama_riscv_top.sv" \
 "$REPO_ROOT/src/ama_riscv_core_top.sv" \
@@ -42,3 +43,4 @@ sv worklib_fpga \
 "$REPO_ROOT/src/uart_tx.sv" \
 "$REPO_ROOT/src/uart_rx.sv" \
 "$REPO_ROOT/src/ama_riscv_fpga.sv" \
+"$REPO_ROOT/src/ama_riscv_fpga_clk_gen.sv" \

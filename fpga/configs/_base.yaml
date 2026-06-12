@@ -2,6 +2,7 @@
 # experiment configs `extends: _base.yaml` and override only what differs
 
 part: xc7a100tcsg324-1 # Arty A7-100
+#part: xc7a35tcpg236-1 # Cmod A7-35
 
 sources:
   filelist: filelist/sources_fpga.f
@@ -13,9 +14,10 @@ sources:
 hex_path: sim/sw/baremetal/uart_direct_send/hello_world.mem
 
 defines:
-  SYNT: null
-  FPGA: null
-  USE_BP: null
+  SYNT: true
+  FPGA: true
+  BOARD_ARTY_A7: true
+  USE_BP: true
   CPU_SIMD_EN: 1
   CPU_MULT_USE_BW: 0
   CPU_TARGET_FREQ_MHZ: 50

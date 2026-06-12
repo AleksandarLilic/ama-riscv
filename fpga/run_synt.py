@@ -75,7 +75,13 @@ def parse_filelist(mode, filelist):
 def build_defines(cfg):
     defs = []
     for k, v in (cfg.get("defines") or {}).items():
-        defs.append(k if v is None else f"{k}={v}")
+        if v is False:
+            continue
+        if v is True:
+            defs.append(k)
+            continue
+        defs.append(f"{k}={v}")
+
     hex_path = cfg.get("hex_path")
     if hex_path:
         defs.append(f"FPGA_HEX_PATH={resolve_path(hex_path)}")
@@ -141,7 +147,7 @@ def emit_params_tcl(cfg, run_dir, threads):
     return params
 
 # run
-def run_one(name, cfg, run_dir, threads):
+def run_one(name, cfg, run_dir, threads, dry_run):
     start_time = datetime.datetime.now()
     os.makedirs(run_dir, exist_ok=True)
     params = emit_params_tcl(cfg, run_dir, threads)
@@ -155,6 +161,10 @@ def run_one(name, cfg, run_dir, threads):
         "-source", SYNT_TCL,
         "-tclargs", params
     ]
+
+    if dry_run:
+        print(f"\nDry run completed.")
+        return
 
     console = os.path.join(run_dir, "console.log")
     with open(console, "w") as out:
@@ -211,21 +221,24 @@ def main():
     for name, _, run_dir in jobs:
         print(f"{INDENT}{name} -> {run_dir}")
 
-    if args.dry_run:
-        print(f"\nDry run completed. Exiting.")
-        sys.exit(0)
-
     start_time = datetime.datetime.now()
     results = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as ex:
         fut = {
-            ex.submit(run_one, name, cfg, rd, args.threads): (name, rd) \
+            ex.submit(
+                run_one, name, cfg, rd, args.threads, args.dry_run): (name, rd)\
                 for name, cfg, rd in jobs
         }
         for f in concurrent.futures.as_completed(fut):
+            if args.dry_run:
+                continue
             name, rd = fut[f]
             rc = f.result()
             results[name] = (rc, rd)
+
+    if args.dry_run:
+        print(f"\nDry run completed. Exiting.")
+        sys.exit(0)
 
     print_runtime(start_time, "All runs")
     sys.exit(0 if all(rc == 0 for rc, _ in results.values()) else 1)

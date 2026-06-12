@@ -1,0 +1,11 @@
+extends: simd_hier.yaml
+
+part: xc7a35tcpg236-1 # Cmod A7-35
+
+sources:
+  constraints:
+    - fpga/constraints/cmod_a7-35_ama_riscv_fpga.xdc
+
+defines:
+  BOARD_CMOD_A7: true
+  BOARD_ARTY_A7: false
