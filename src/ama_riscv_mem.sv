@@ -100,6 +100,17 @@ end
 `endif
 
 `ifndef SYNT
+logic ic_active, dc_active, dc_r_active, dc_w_active;
+assign ic_active = req_imem.valid;
+assign dc_r_active = req_dmem_r.valid;
+assign dc_w_active = req_dmem_w.valid;
+assign dc_active = (dc_r_active || dc_w_active);
+logic ports_active_all, ports_active_any;
+assign ports_active_all = (ic_active && dc_active);
+assign ports_active_any = (ic_active || dc_active);
+`endif
+
+`ifndef SYNT
     task randomize_mem;
     for (int i = 0; i < MEM_SIZE_Q; i++) begin
         for (int j = 0; j < (MEM_DATA_BUS-1); j++) mem[i][j] = $random;

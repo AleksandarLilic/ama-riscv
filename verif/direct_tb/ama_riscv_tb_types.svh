@@ -125,6 +125,11 @@ typedef struct {
     int unsigned ret;
 } tda_counters_t;
 
+typedef struct {
+    int unsigned any;
+    int unsigned all;
+} mem_active_ports_counters_t;
+
 // views
 typedef struct packed {
     logic [6:0] fn7;

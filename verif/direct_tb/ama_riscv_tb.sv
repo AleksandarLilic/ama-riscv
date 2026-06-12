@@ -127,6 +127,7 @@ string cosim_outdir;
 hw_counters_t ic_stats, dc_stats, bp_stats;
 core_events_t core_events;
 tda_counters_t tda;
+mem_active_ports_counters_t mem_active_ports;
 
 // works without probing core internally, needed for GLS
 core_counters_t core_cnt_main;
@@ -276,6 +277,15 @@ function automatic void check_test_status(input bit completed);
         `LOGNT($sformatf("Warnings: %2d", warnings));
         `LOGNT($sformatf("Errors:   %2d\n", errors));
     end
+endfunction
+
+function automatic void print_mem_ports_stats(mem_active_ports_counters_t mem);
+    real perc;
+    perc = (real'(mem.all) / real'(mem.any));
+    $display(
+        "DEBUG: MEM ports - any: %0d, both: %0d (%0.3f%%)\n",
+        mem.any, mem.all, perc
+    );
 endfunction
 
 `ifdef ENABLE_COSIM
@@ -568,6 +578,10 @@ task automatic single_step();
     //    `CORE.imem_rsp.data,
     //    `CORE.fe_ctrl.bubble_dec ? ("(fe stalled)") : "")
     //);
+
+    // mem ports
+    mem_active_ports.any += `MEM.ports_active_any;
+    mem_active_ports.all += `MEM.ports_active_all;
 
     // icache
     // never dirty, always load, always 4 byte inst
@@ -923,6 +937,10 @@ initial begin
     `ifdef ENABLE_KONATA
     if (args.konata_en) konata_close();
     `endif
+    `endif
+
+    `ifdef DEBUG
+    print_mem_ports_stats(mem_active_ports);
     `endif
 
     $display("");
