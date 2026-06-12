@@ -45,15 +45,17 @@ endif
 #LOG_ARG :=
 #LOG_ARG := -log test.log
 #LOG_ARG := -log /dev/null > test.log 2>&1
-LOG_ARG := -log /dev/null 2>&1
+LOG_ARG := -log /dev/null
 
-LOG_NAME = $(TEST_WDB).log
+LOG_NAME ?= $(TEST_WDB).log
 TO_LOG ?= 1
 ifeq ($(strip $(TO_LOG)),1)
     ifneq ($(strip $(GENERIC_RUN)),1)
         $(shell echo "" > $(LOG_NAME)) # flush old log if it exists
     endif
-    LOG_ARG := $(LOG_ARG) >> $(LOG_NAME)
+    LOG_ARG := $(LOG_ARG) >> $(LOG_NAME) 2>&1
+else
+    LOG_ARG := $(LOG_ARG) 2>&1
 endif
 
 # silence make output if logging to file

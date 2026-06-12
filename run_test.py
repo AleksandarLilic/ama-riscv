@@ -137,7 +137,7 @@ def format_test_name(test_path):
 def get_paths_for_test(run_dir, test_name):
     p = {}
     p['test_dir'] = os.path.join(run_dir, test_name)
-    p['test_log'] = os.path.join(p['test_dir'], "test.log")
+    p['test_log'] = os.path.join(p['test_dir'], TEST_LOG)
     p['run_sh'] = os.path.join(p['test_dir'], "run.sh") # save cmd for rerun
     p['status_file'] = os.path.join(p['test_dir'], TEST_STATUS)
     return p
@@ -247,7 +247,7 @@ def run_test(
         f"TIMEOUT_CLOCKS={make_args.timeout_clocks}",
         f"LOG_LEVEL={make_args.log_level}",
         "UNIQUE_WDB=0",
-        "TO_LOG=0",
+        f"LOG_NAME={TEST_LOG}",
         "SIM_ONLY=1",
     ]
 
@@ -263,8 +263,8 @@ def run_test(
     # so killpg can reach all descendants, not just the direct make child
     proc = subprocess.Popen(
         make_cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
         cwd=p['test_dir'],
         start_new_session=True
     )
@@ -280,13 +280,9 @@ def run_test(
 
     old_handler = signal.signal(signal.SIGTERM, _sigterm_handler)
     try:
-        stdout, stderr = proc.communicate()
+        proc.wait()
     finally:
         signal.signal(signal.SIGTERM, old_handler) # restore for next iteration
-
-    with open(p['test_log'], 'w') as f:
-        f.write(stdout.decode('utf-8'))
-        f.write(stderr.decode('utf-8'))
 
     print(f"Test <{test_name}> DONE.", end=" ")
     if proc.returncode != 0:
@@ -323,7 +319,7 @@ def parse_args():
     parser.add_argument('-s', '--stop_on_fail', action='store_true', default=False, help="Stop execution after the first test failure")
     parser.add_argument('-j', '--jobs', type=int, default=MAX_WORKERS, help="Number of parallel jobs to run (default: number of CPU cores)")
     parser.add_argument('-c', '--timeout_clocks', type=int, default=2_000_000, help="Number of clocks before simulations times out")
-    parser.add_argument('-v', '--log_level', type=str, default="WARN", help="Log level during simulation")
+    parser.add_argument('-v', '--log_level', type=str, default="INFO", help="Log level during simulation")
     #parser.add_argument('--coverage', action='store_true', help="Enable coverage analysis")
     #parser.add_argument('--coverage-only', action='store_true', help="Only run coverage analysis. Relies on the existing test directories for the specified tests")
     #parser.add_argument('--seed', type=int, help="Seed value for the tests")
