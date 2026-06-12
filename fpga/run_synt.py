@@ -201,7 +201,8 @@ def main():
 
         names[name] = cpath
         run_root = os.path.abspath(cfg.get("run_root", "."))
-        run_dir = os.path.join(run_root, f"synt_{name}_{ts}_{args.tag}")
+        tag_str = f"_{args.tag}" if args.tag else ""
+        run_dir = os.path.join(run_root, f"synt_{name}_{ts}{tag_str}")
         jobs.append((name, cfg, run_dir))
 
     print(f"launching {len(jobs)} run(s), up to {args.jobs} parallel "
