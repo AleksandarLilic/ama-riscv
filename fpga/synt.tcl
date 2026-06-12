@@ -67,8 +67,16 @@ report_timing_summary -delay_type max {*}$timing_cfg \
 report_power -file $RUN_DIR/power_routed.rpt
 write_checkpoint -force $RUN_DIR/routed.dcp
 
+set DESIGN_NAME "ama_riscv_fpga"
+
+if {$BITSTREAM || $MMI} { file mkdir $RUN_DIR/bitstream }
+
 if {$BITSTREAM} {
-    write_bitstream -force $RUN_DIR/design.bit
+    write_bitstream -force $RUN_DIR/bitstream/${DESIGN_NAME}.bit
+}
+
+if {$MMI} {
+    write_mem_info -force $RUN_DIR/bitstream/${DESIGN_NAME}.mmi
 }
 
 puts "Synthesis runtime: [expr {[clock seconds] - $start}]s"

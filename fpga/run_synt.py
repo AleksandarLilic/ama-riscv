@@ -132,6 +132,7 @@ def emit_params_tcl(cfg, run_dir, threads):
         f'set IMPL_ROUTE_DIRECTIVE "{directive("route_design")}"',
         f'set IMPL_POST_ROUTE_PHYS_OPT_DIRECTIVES {directives_list("post_route_phys_opt_design")}',
         f'set BITSTREAM {1 if cfg.get("bitstream") else 0}',
+        f'set MMI {1 if cfg.get("mmi") else 0}',
         f'set MAX_THREADS {threads}',
     ]
     params = os.path.join(run_dir, "params.tcl")
@@ -178,6 +179,7 @@ def parse_args():
     parser.add_argument("--config", nargs="+", required=True, help="one or more YAML configs")
     parser.add_argument("-j", "--jobs", type=int, default=4, help="concurrent vivado processes")
     parser.add_argument("--threads", type=int, default=0, help="per-vivado max threads (general.maxThreads); 0 = vivado auto")
+    parser.add_argument("--tag", type=str, help="append tag to the end of the rundir name")
     parser.add_argument("-d", "--dry_run", action='store_true', default=False, help="Print configs that would run and exit")
     return parser.parse_args()
 
@@ -199,7 +201,7 @@ def main():
 
         names[name] = cpath
         run_root = os.path.abspath(cfg.get("run_root", "."))
-        run_dir = os.path.join(run_root, f"synt_{name}_{ts}")
+        run_dir = os.path.join(run_root, f"synt_{name}_{ts}_{args.tag}")
         jobs.append((name, cfg, run_dir))
 
     print(f"launching {len(jobs)} run(s), up to {args.jobs} parallel "

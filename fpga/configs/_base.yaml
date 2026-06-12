@@ -40,4 +40,5 @@ impl: # directive options per step in directives.options.txt, run in flow order
   route_design:                { directive: NoTimingRelaxation }
   post_route_phys_opt_design:  [Explore] # list: 0..N passes, one per directive
 
-bitstream: false # or `write_bitstream -force ama_riscv_fpga.bit` from dcp later
+bitstream: true
+mmi: true

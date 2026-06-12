@@ -1,8 +1,9 @@
 
 # NOTES
-# first `set synth_dir "<path_to_synt_dir>"` as path to the vivado synt dir
-# e.g. <project_dir>/synt_proj.runs/impl_1
-# run from vivado tcl shell: `source script/flash_bit.tcl`
+# open checkpoint `vivado routed.dcp &`
+# `set bitstream_dir ./bitstream` # dir where .bit and .mmi are
+# open hardware manager and connect target
+# `source ../../script/flash_bit.tcl`
 
 set start [expr {[clock seconds] - 1}]
 set device xc7a100t_0
@@ -57,7 +58,7 @@ lappend workloads {"ama_riscv_fpga.ustress.mul64.bit"            2}
 foreach workload $workloads {
     set bitfile  [lindex $workload 0]
     set wait_sec [lindex $workload 1]
-    set bitpath  "$synth_dir/$bitfile"
+    set bitpath  "$bitstream_dir/$bitfile"
 
     puts "Flashing $bitpath"
     set_property PROBES.FILE      {} [get_hw_devices $device]
