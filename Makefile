@@ -83,6 +83,14 @@ COSIM_ARGS += -testplusarg prof_pc_start=80000000
 #COSIM_ARGS += -testplusarg prof_pc_single_match=2
 #COSIM_ARGS += -testplusarg enable_konata
 
+USER_COSIM_ARGS ?=
+COSIM_ARGS += $(USER_COSIM_ARGS)
+
+TB_ARGS :=
+TB_ARGS += -testplusarg test_path=$(TEST_PATH)
+TB_ARGS += -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS)
+TB_ARGS += -testplusarg log_level=$(LOG_LEVEL)
+
 all: sim
 
 include cosim/Makefile.cosim.inc
@@ -93,7 +101,7 @@ MAX_DELTA = -maxdeltaid 100
 
 CMD_COMP := xvlog $(COMP_OPTS) -prj $(SOURCE_FILES) $(LOG_ARG)
 CMD_ELAB := xelab $(WORKLIB).$(TOP) $(ELAB_OPTS) -sv_lib $(COSIM_TARGET) $(LOG_ARG)
-CMD_SIM := xsim $(WORKLIB).$(TOP) $(TCLBATCH_SWITCH) $(WDB_SWITCH) -stats -onerror quit -testplusarg test_path=$(TEST_PATH) -testplusarg timeout_clocks=$(TIMEOUT_CLOCKS) -testplusarg log_level=$(LOG_LEVEL) $(COSIM_ARGS) $(MAX_DELTA) $(LOG_ARG)
+CMD_SIM := xsim $(WORKLIB).$(TOP) $(TCLBATCH_SWITCH) $(WDB_SWITCH) -stats -onerror quit $(TB_ARGS) $(COSIM_ARGS) $(MAX_DELTA) $(LOG_ARG)
 
 compile: .compile.touchfile
 .compile.touchfile: $(SRC_VERIF) $(SRC_DESIGN) $(SRC_INC)

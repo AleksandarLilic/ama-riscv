@@ -42,11 +42,17 @@ yaml.indent(mapping=2, sequence=4, offset=2)
 class make_args:
     timeout_clocks: int
     log_level: str
+    log_kanata: bool
 
 # utility functions
 def read_from_yaml(file_path):
     with open(file_path, 'r') as file:
         return yaml.load(file)
+
+def to_plusarg(arg, val):
+    if val is True:
+        return f"-testplusarg {arg}"
+    return f"-testplusarg {arg}={val}"
 
 # helper functions
 def create_run_cfg(log_wave, log_vcd):
@@ -116,7 +122,7 @@ def find_all_tests(test_list, filters=None):
         else:
             some_mismatched = True
             print(f"Warning: No files match the pattern " + \
-                  f"<{test_name_pattern}> in <{path}>.")
+                  f"'{test_name_pattern}' in '{path}'.")
 
     if some_mismatched:
         print("Some test names are invalid. Check the test name/testlist")
@@ -215,14 +221,14 @@ def run_test(
     test_path_make = os.path.splitext(test_path)[0]
 
     if stop_on_fail and mgr["stop"].is_set():
-        print(f"Skipping test <{test_name}> (stop_on_fail).")
+        print(f"Skipping test '{test_name}' (stop_on_fail).")
         return
 
     with mgr["lock"]:
         mgr["test_cnt"].value += 1
         print(
             f"Running test {mgr['test_cnt'].value}/{mgr['all_tests']}: " \
-            f"<{test_name}>"
+            f"'{test_name}'"
         )
 
     p = get_paths_for_test(run_dir, test_name)
@@ -232,7 +238,7 @@ def run_test(
                 with open(p['status_file'], 'r') as status_file:
                     status = status_file.read()
                     if "PASSED" in status:
-                        print(f"Test <{test_name}> already passed.",
+                        print(f"Test '{test_name}' already passed.",
                               color_code_string("Skipping", CC_YELLOW))
                         return
         shutil.rmtree(p['test_dir'])
@@ -249,6 +255,7 @@ def run_test(
         "UNIQUE_WDB=0",
         f"LOG_NAME={TEST_LOG}",
         "SIM_ONLY=1",
+        f"USER_COSIM_ARGS={to_plusarg('enable_kanata', make_args.log_kanata)}"
     ]
 
     with open(p['run_sh'], "w") as f:
@@ -284,11 +291,11 @@ def run_test(
     finally:
         signal.signal(signal.SIGTERM, old_handler) # restore for next iteration
 
-    print(f"Test <{test_name}> DONE.", end=" ")
+    print(f"Test '{test_name}' DONE.", end=" ")
     if proc.returncode != 0:
         print(color_code_string("FAILED", CC_RED))
         # something went wrong at the make/simulator level
-        raise ValueError(f"Error: Run test <{test_name}> failed. "
+        raise ValueError(f"Error: Run test '{test_name}' failed. "
                          f"Check test log '{p['test_log']}' for details.")
 
     s, msg = check_test_status(p['test_log'], test_name)
@@ -300,15 +307,15 @@ def run_test(
         print(msg.strip())
 
     with open(p['status_file'], 'w') as status_file: # write to test.status
-        status_file.write(f"Test <{test_name}> {status_str} {msg}\n")
+        status_file.write(f"Test '{test_name}' {status_str} {msg}\n")
 
     if not s and stop_on_fail:
         mgr["stop"].set()
-        raise ValueError(f"Test <{test_name}> failed. Stopping.")
+        raise ValueError(f"Test '{test_name}' failed. Stopping.")
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Run RTL simulation.")
-    parser.add_argument('-t', '--test', help="Specify single test to run")
+    parser.add_argument('-t', '--test', nargs='+', help="Specify one or more tests to run (space-separated)")
     parser.add_argument('--testlist', help="Path to a YAML file containing a list of tests")
     parser.add_argument('-f', '--filter', nargs='+', help="Apply regex filtering to the testlist on the group name. Pass as space-separated values. Use ~ to exclude. E.g., '-f riscv_isa ~rv32m' includes all groups matching 'riscv_isa', except those matching 'rv32m'. Quote tokens with shell-special regex chars (e.g. '[', '*'). If not specified, all tests in the testlist are run")
     parser.add_argument('-r', '--rundir', help="Optional custom run directory name")
@@ -323,15 +330,16 @@ def parse_args():
     #parser.add_argument('--coverage', action='store_true', help="Enable coverage analysis")
     #parser.add_argument('--coverage-only', action='store_true', help="Only run coverage analysis. Relies on the existing test directories for the specified tests")
     #parser.add_argument('--seed', type=int, help="Seed value for the tests")
-    parser.add_argument('-d', '--dry_run', action='store_true', default=False, help="Print tests that would run without building or simulating")
+    parser.add_argument('--dry_run', action='store_true', default=False, help="Print tests that would run without building or simulating")
     parser.add_argument('--log_wave', action='store_true', help="Collect .wdb waveform, all modules from the top down")
     parser.add_argument('--log_vcd', action='store_true', help="Collect .vcd waveform, all modules from the top down")
+    parser.add_argument('--log_kanata', action='store_true', help="Collect kanata log")
     return parser.parse_args()
 
 def main():
     start_time_suite = datetime.datetime.now()
     args = parse_args()
-    ma = make_args(args.timeout_clocks, args.log_level)
+    ma = make_args(args.timeout_clocks, args.log_level, args.log_kanata)
 
     # check arguments
     if args.test and args.testlist:
@@ -344,12 +352,16 @@ def main():
         create_run_cfg(args.log_wave, args.log_vcd)
 
     if args.test:
-        all_tests = find_all_tests(
-            { "test" :
-                [[os.path.dirname(args.test), os.path.basename(args.test)]]
-            }
-        )
-        print(f"\nRunning {all_tests[0]}")
+        test_list = {
+            f"test_{i}": [[os.path.dirname(t), os.path.basename(t)]]
+            for i, t in enumerate(args.test)
+        }
+        all_tests = find_all_tests(test_list)
+        if not all_tests:
+            raise ValueError("Error: No tests found.")
+        print(f"\nTestlist:")
+        print("   " + "\n   ".join(all_tests))
+        print(f"Running {len(all_tests)} test(s) total")
     elif args.testlist:
         filters = []
         if args.filter:
@@ -377,7 +389,7 @@ def main():
 
     build_dir = os.path.join(run_dir, "build")
     if args.keep_build and os.path.exists(f"{build_dir}/.elab.touchfile"):
-        print(f"Reusing existing build directory at <{build_dir}>")
+        print(f"Reusing existing build directory at '{build_dir}'")
     else:
         if os.path.exists(run_dir): # clean up previous run_dir if it exists
             shutil.rmtree(run_dir)
@@ -385,7 +397,7 @@ def main():
         build_tb(build_dir, args.rebuild_all)
 
     if args.build_only:
-        print(f"Building done at <{build_dir}>. Exiting")
+        print(f"Building done at '{build_dir}'. Exiting")
         sys.exit(0)
 
     # check if the specified number of jobs exceeds the number of CPU cores
@@ -462,7 +474,7 @@ def main():
                 print(color_code_string(status, cc), end='')
         else:
             cc = CC_YELLOW
-            status = f"Status for <{test_name}> not found."
+            status = f"Status for '{test_name}' not found."
             print(color_code_string(status, cc))
             all_tests_passed = False
 
