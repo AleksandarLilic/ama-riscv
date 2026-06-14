@@ -163,7 +163,7 @@ def run_one(name, cfg, run_dir, threads, dry_run):
     ]
 
     if dry_run:
-        print(f"\nDry run completed.")
+        print(f"Dry run for '{name}' completed.")
         return
 
     console = os.path.join(run_dir, "console.log")
@@ -186,11 +186,12 @@ def run_one(name, cfg, run_dir, threads, dry_run):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="FPGA synt/impl driver (YAML configs)")
-    parser.add_argument("--config", nargs="+", required=True, help="one or more YAML configs")
-    parser.add_argument("-j", "--jobs", type=int, default=4, help="concurrent vivado processes")
-    parser.add_argument("--threads", type=int, default=0, help="per-vivado max threads (general.maxThreads); 0 = vivado auto")
-    parser.add_argument("--tag", type=str, help="append tag to the end of the rundir name")
-    parser.add_argument("-d", "--dry_run", action='store_true', default=False, help="Print configs that would run and exit")
+    parser.add_argument("-c", "--config", nargs="+", required=True, help="One or more YAML configs")
+    parser.add_argument("-j", "--jobs", type=int, default=4, help="Number of oncurrent vivado processes")
+    parser.add_argument("--threads", type=int, default=0, help="Per-Vivado invokation max threads (general.maxThreads); 0 = vivado auto")
+    parser.add_argument("--date_tag", action='store_true', help="Append date tag to the end of the rundir name")
+    parser.add_argument("--tag", type=str, help="Append provided tag to the end of the rundir name. Applied after --date_tag if used")
+    parser.add_argument("--dry_run", action='store_true', default=False, help="Print configs that would run, generate 'config.resolved.yaml' and 'params.tcl', and exit")
     return parser.parse_args()
 
 def main():
@@ -211,8 +212,9 @@ def main():
 
         names[name] = cpath
         run_root = os.path.abspath(cfg.get("run_root", "."))
-        tag_str = f"_{args.tag}" if args.tag else ""
-        run_dir = os.path.join(run_root, f"synt_{name}_{ts}{tag_str}")
+        dtag_str = f"_{ts}" if args.date_tag else ""
+        utag_str = f"_{args.tag}" if args.tag else ""
+        run_dir = os.path.join(run_root, f"synt_{name}{dtag_str}{utag_str}")
         jobs.append((name, cfg, run_dir))
 
     print(f"launching {len(jobs)} run(s), up to {args.jobs} parallel "
