@@ -19,7 +19,7 @@ module ama_riscv_core #(
 );
 
 localparam unsigned PIPE_STAGES = 4;
-localparam logic [PIPE_STAGES-1:0] RST_INIT = (1 << PIPE_STAGES) - 1;
+localparam logic [PIPE_STAGES-1:0] RST_INIT = ((1 << PIPE_STAGES) - 1);
 
 pipeline_if #(.W(INST_WIDTH)) inst ();
 pipeline_if #(.W(ARCH_WIDTH)) pc ();
@@ -29,14 +29,9 @@ pipeline_if_typed #(.T(wb_sel_t)) wb_sel ();
 pipeline_if_typed #(.T(cycle_tag_t)) ct ();
 pipeline_if_typed #(.T(cycle_tag_t)) ct_gen ();
 
-// Reset sequence
-logic [PIPE_STAGES-1:0] reset_seq;
-`DFF_CI_RI_RV(RST_INIT, {reset_seq[PIPE_STAGES-2:0], 1'b0}, reset_seq)
-
+//------------------------------------------------------------------------------
 // pipe stage controls
 stage_ctrl_t ctrl_dec_exe, ctrl_exe_mem, ctrl_mem_wbk, ctrl_wbk_ret;
-perf_event_t perf_events;
-logic stall_act_flow;
 
 //------------------------------------------------------------------------------
 // FET Stage
@@ -78,6 +73,7 @@ assign imem_req.data = pc.fet[CORE_WORD_ADDR_BUS+2-1:2];
 assign pc_nz.fet = (pc.fet != 'h0);
 `endif
 
+logic stall_act_flow;
 always_comb begin
     ct_gen.fet = '0;
     ct_gen.fet.stall_fe_core = stall_act_flow;
@@ -622,6 +618,7 @@ ama_riscv_div ama_riscv_div_i (
 );
 
 // CSR
+perf_event_t perf_events;
 arch_width_t csr_out_exe;
 ama_riscv_csr #(
     .CLOCK_FREQ(CLOCK_FREQ)
@@ -953,6 +950,10 @@ end
 `endif
 
 //------------------------------------------------------------------------------
+// Reset sequence
+logic [PIPE_STAGES-1:0] reset_seq;
+`DFF_CI_RI_RV(RST_INIT, {reset_seq[PIPE_STAGES-2:0], 1'b0}, reset_seq)
+
 // pipeline control
 assign flush.fet = 1'b0;
 assign flush.dec = reset_seq[0];
