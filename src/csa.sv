@@ -2,8 +2,8 @@
 
 module csa #(
     parameter unsigned W = 8, // data witdth
-    parameter unsigned A = 0, // align output
-    parameter unsigned CKL = 0 // carry kill
+    parameter bit A = 0, // align output
+    parameter bit CKL = 0 // carry kill
 )(
     input logic [W-1:0] x,
     input logic [W-1:0] y,
@@ -14,10 +14,6 @@ module csa #(
     output logic [W-1:0] s,
     output logic [W-1:0] c
 );
-
-if (A > 1) begin: check_csa
-    $error("csa A > 1 - only 0 or 1 supported");
-end
 
 logic [W-1:0] ct;
 always_comb begin

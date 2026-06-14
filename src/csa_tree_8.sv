@@ -2,18 +2,14 @@
 
 module csa_tree_8 #(
     parameter unsigned W = 8,
-    parameter unsigned T4 = 0
+    parameter bit T4 = 0
 )(
     input simd_d_t [7:0] a,
     output simd_d_t [1:0] o,
     output simd_d_t [3:0] taps
 );
 
-if (T4 > 1) begin: check_tree_4
-    $error("csa_tree_8 T4 > 1 - only 0 or 1 supported");
-end
-
-if (T4 == 0) begin: gen_comp
+if (!T4) begin: gen_comp
     simd_d_t [1:0] s_l0, c_l0, s_l1, c_l1;
     simd_d_t s_l2, c_l2, s_l3, c_l3;
 
