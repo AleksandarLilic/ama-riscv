@@ -10,10 +10,11 @@ SystemVerilog implementation of RISC-V RV32IM & custom packed SIMD ISA as a 5-st
   - [High-level description](#high-level-description)
     - [Icache](#icache)
     - [Branch predictor](#branch-predictor)
-    - [Dcache](#dcache)
     - [Register File](#register-file)
     - [RV32 integer multiplier \& SIMD unit](#rv32-integer-multiplier--simd-unit)
+    - [SIMD data formatting unit and segmeted shifter](#simd-data-formatting-unit-and-segmeted-shifter)
     - [RV32 restoring binary divider](#rv32-restoring-binary-divider)
+    - [Dcache](#dcache)
     - [Main memory](#main-memory)
     - [Hierarchy](#hierarchy)
 - [Measured Performance - FPGA emulation](#measured-performance---fpga-emulation)
@@ -21,13 +22,14 @@ SystemVerilog implementation of RISC-V RV32IM & custom packed SIMD ISA as a 5-st
 - [Verification](#verification)
   - [Environment](#environment)
 - [FPGA emulation](#fpga-emulation)
+  - [Synthesis flow](#synthesis-flow)
 - [Analysis example use-case: Dhrystone](#analysis-example-use-case-dhrystone)
   - [Execution log](#execution-log)
   - [Callstack](#callstack)
   - [Profiled instructions](#profiled-instructions)
   - [Execution trace](#execution-trace)
   - [Hardware stats](#hardware-stats)
-  - [Kanata log](#kanata-log)
+  - [Konata](#konata)
   - [Analysis scripts](#analysis-scripts)
     - [Flat profile](#flat-profile)
     - [TDA](#tda)
@@ -149,13 +151,16 @@ Core microarchitecture follows a fairly standard 5-stage single issue RISC-style
   - Instruction retires, optionally writes to RF.
   - Performance events about this cycle are collected.
 
-Default parameters are set in `src/ama_riscv_defines.svh` and `src/ama_riscv_types.svh`  
+Default parameters are primarily set in `src/ama_riscv_defines.svh` and `src/ama_riscv_types.svh`, with a few others set in the sources.f files, or directly set from command line, like during synthesis.  
+
+SIMD ISA can be completely disabled by setting `--define CPU_SIMD_EN=0`.  
+Multiplier (RV32 M-extension) can still use the same BW tree with `--define CPU_MULT_USE_BW=1`, or plain 16x16 partial products multiplier with `--define CPU_MULT_USE_BW=0`.  
 
 ### Icache
-- 4KB, 32-set, 2-way, 64B lines, 128-bit bus, LRU replacement policy
+- 4KB, 32-set, 2-way, 64B lines, 128-bit bus, LRU replacement
 - Parametrizable for number of sets and ways, with one bank per way
 - 1 clock cycle on hit, 7 on miss
-- Speculative misses are immediately aborted on a branch miss (upon resolution)
+- Speculative misses are immediately aborted on a branch miss
 - Configuration driven by sweeps via [hw_model_sweep.py](sim/script/hw_model_sweep.py) and [cache config](sim/script/hw_model_sweep_params_caches.json); results are under [examples/hw_sweeps](examples/hw_sweeps)
 
 ### Branch predictor
@@ -166,12 +171,6 @@ Follows the combined predictor from [McFarling's "Combining Branch Predictors"](
 - Chosen through sweeps + config constraints: due to timing considerations, no PHT is bigger than 2^8 entries, i.e. no more than 8 bits are used for indexing
 - Configuration driven by sweeps via [hw_model_sweep.py](sim/script/hw_model_sweep.py) and [bp config](sim/script/hw_model_sweep_params_bp_guided_focused.json) (see [sim sweeps](sim/README.md#hardware-model-sweeps)); results are under [examples/hw_sweeps](examples/hw_sweeps)
 
-### Dcache
-- 4KB, 16-set, 4-way, 64B lines, 128-bit bus, LRU replacement policy with writeback
-- Parametrizable for number of sets and ways, with one bank per way
-- 1 clock cycle on hit, 7 on miss, 10 on miss with writeback; 1 cycle penalty on load to use
-- Configuration driven by sweeps, same flow and config as Icache (results are under [examples/hw_sweeps](examples/hw_sweeps))
-
 ### Register File
 3R2W design, banked by default
 - Address of a 2nd write port is `rd_addr + 1`
@@ -179,19 +178,30 @@ Follows the combined predictor from [McFarling's "Combining Branch Predictors"](
 - Optionally banked as odd/even such that rd and rdp paired writes always land in a different bank
 
 ### RV32 integer multiplier & SIMD unit
-2-cycle pipelined unit (EXE -> MEM), shared across rv32 `mul*` and packed SIMD arithmetic instructions
+2-cycle pipelined unit (EXE + MEM), shared across rv32 `mul*` and packed SIMD arithmetic instructions
 - Single 32x32 Baugh-Wooley partial product array reduced through a CSA tree, reused across all element widths via diagonal lane masks: the full products are computed once, and the narrower (or accumulated) results are picked at the output mux
 - First stage builds and reduces the partial products, second stage finishes reduction and does the final add and result select
 - For `dot*` instructions, `rs3` is passed or forwarded as `late_c` in SIMD unit second stage, so back-to-back `dot`s to the same accumulator don't cause stalls
 
+### SIMD data formatting unit and segmeted shifter
+Single cycle unit, mostly made up of wiring and muxes for moving vector elements around.  
+Segmented reversible shifter is primarily used for shift (`slli*`/`srli*`/`srai*`) instructions. The reversible shifter also doubles as a second stage for the `widen*` class of instructions for the first word, while a second left-only segmented shifter is used for the second word.  
+
 ### RV32 restoring binary divider
 32-bit restoring binary divider with clz-based normalization and a one-entry result cache
-- Common case: `3 + (cnt_b - cnt_a + 1)` (cnt_a=clz(|dividend|), cnt_b=clz(|divisor|)) - 1 cycle start, 1 cycle setup, 1 cycle per dividend bit offset for the number of cnt_b bits, 1 cycle fixup
-- Special case: `2` - 1 cycle start and 1 cycle setup
-- Cache hit: `1` - combinational hit + flop the output
+- Common case: 3 + (cnt_b - cnt_a + 1) (`cnt_a=clz(|dividend|)`, `cnt_b=clz(|divisor|)`) - 1 cycle start, 1 cycle setup, 1 cycle per dividend bit offset for the number of cnt_b bits, 1 cycle fixup
+- Special case: 2 - 1 cycle start and 1 cycle setup
+- Cache hit: 1 - combinational hit + flop the output
+
+### Dcache
+- 4KB, 16-set, 4-way, 64B lines, 128-bit bus, LRU replacement with writeback
+- Parametrizable for number of sets and ways, with one bank per way
+- 1 clock cycle on hit, 7 on miss, 10 on miss with writeback; 1 cycle penalty on load to use
+- Configuration driven by sweeps, same flow and config as Icache (results are under [examples/hw_sweeps](examples/hw_sweeps))
 
 ### Main memory
-- Caches are backed by a single main memory, parametrizable size, defaults to 128K
+- Caches are backed by a single main memory, with parametrizable size 
+  - default: 128KB, per the current [linker script](sim/sw/baremetal/common/link.ld)
 - True dual port, 128-bit bus, 16B words
 - `$readmemh` is used to load in the workload's `.mem` file
   - For verification, `ama_riscv_tb` writes the file
@@ -218,7 +228,7 @@ For FPGA emulation, `ama_riscv_top` is instantiated in the `ama_riscv_fpga` FPGA
 
 # Measured Performance - FPGA emulation
 
-Emulation is ran at 50MHz on Arty A7-100T board. Since the design is fully synchronous, change in clock frequency by X would yield the same change in speed by X, thus keeping the 'per MHz' result the same.
+Emulation is ran at 50MHz on Arty A7-100T board. Since design uses single clock domain, a change in clock frequency by X would yield the same change in speed by X, thus keeping the 'per MHz' result the same.
 
 - Dhrystone: 81 DMIPS, 1.63 DMIPS/MHz (IPC: 0.91)
 - Coremark: 145 Coremarks, 2.9 Coremarks/MHz (IPC: 0.89)
@@ -323,6 +333,36 @@ First three logic levels, with percentage contribution compared to part's total 
 ```
 
 Detailed utilization reports are available under [examples/perf_runs_fpga/fpga_synt_reports](examples/perf_runs_fpga/fpga_synt_reports)
+
+## Synthesis flow
+
+FPGA synthesis and implementation flow uses Vivado in batch mode, with `fpga/synt.tcl` for the underlying recipe, and `fpga/run_synt.py` as the multi-run driver. The `run_synt.py` driver is the entry point, and the only mandatory argument is the .yaml config file, e.g.
+
+```sh
+mkdir workdir_synt && cd workdir_synt # useful to work in a separate, gitignored, area
+../fpga/run_synt.py --config ../fpga/configs/simd.yaml
+```
+
+Which will kick off the run, with otherwise default settings:  
+```
+launching 1 run(s), up to 4 parallel (auto threads each):
+    simd_50_flat_rebuilt -> /home/alek/dev/ama-riscv/workdir_synt/synt_simd_50_flat_rebuilt
+```
+
+The yaml config is set up such that there's provided baseline at `fpga/configs/_base.yaml`, which each of the run configs (`simd.yaml` in the above case) first extend, and then either add new or override existing parameters. `run_synt.py` therefore first merges the two (or more, multiple `extend`s can be chained) yaml config files together, and then produces `config.resolved.yaml` under the rundir, with `params.tcl` as those same parameters prepared in tcl format for the `synt.tcl`.  After config files are ready, it kicks-off the synthesis.  
+
+Running with `--dry_run` first is useful to confirm all settings were as expected. Dry run will only print the rundir, and write `config.resolved.yaml` and `params.tcl` under the rundir (for each of the configs).  
+
+Multiple config files can be specified together, where each config would create a separate job:  
+```sh
+../fpga/run_synt.py --config ../fpga/configs/simd.yaml ../fpga/configs/simd_hier.yaml
+```
+
+When running multiple jobs in parallel, it's good to be mindful of the host resources. The synthesis phase is limited to 4 threads by Vivado (v2023) itself, while implementation can use more threads. Therefore, running multiple jobs in parallel can quickly throttle the host system. Using `-j/--jobs` will limit the number of parallel runs, e.g. running with `-j 1` will fully serialize the jobs. The default is currently set to `4` parallel jobs. It's also possible to limit the number of threads each job will use with `--threads`. This directly changes Vivado's own `general.maxThreads` parameter. The default is currently set to `0` which means it won't be set, and will instead let Vivado use its auto-detection.  
+
+Vivado [directive options file](fpga/configs/directives.options.txt) is provided as a quick reference guide for the synt/impl adjustments.  
+
+Flow will create two checkpoints along the way, as `post_synth.dcp` and `routed.dcp`, which can then be opened up for further work, either in GUI mode with `vivado routed.dcp &` or in TCL mode with `vivado -mode tcl` and then `open_checkpoint routed.dcp` in Vivado's TCL shell.  
 
 # Analysis example use-case: Dhrystone
 > [!NOTE]
@@ -528,10 +568,14 @@ This replaces HW models present in the ISA sim
 }
 ```
 
-## Kanata log
-Konata tool is used to visualize the pipeline and instruction execution. Kanata log is available as `<test_tag>.kanata.log`
+## Konata
+[Konata](https://github.com/shioyadan/Konata) is used to visualize the pipeline and instruction execution. When recorded during execution (with `-testplusarg enable_konata`), kanata log is available as `<test_tag>.kanata.log` under test's `*_out_cosim/` directory
 
-![](examples/dhrystone_dhrystone_out_cosim/konata.png)
+Bootup sequence  
+![](examples/dhrystone_dhrystone_out_cosim/konata_bootup.png)
+
+Beginning of main loop execution  
+![](examples/dhrystone_dhrystone_out_cosim/konata_loop_start.png)
 
 ## Analysis scripts
 Collection of custom and open source tools are provided for profiling, analysis, and visualization
