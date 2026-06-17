@@ -1,4 +1,4 @@
-# generic non-project FPGA synth + impl + reports flow
+# generic non-project FPGA synt + impl + reports flow
 # all run-specific settings come from a Python-emitted params.tcl, sourced below
 # usage (driven by run_synt.py):
 #   vivado -mode batch -source synt.tcl -tclargs <run_dir>/params.tcl
@@ -36,10 +36,10 @@ set synth_cmd "synth_design -top $TOP -part $PART \
 puts "INFO: $synth_cmd"
 eval $synth_cmd
 
-report_utilization -file $RUN_DIR/util_flat_synth.rpt
+report_utilization -file $RUN_DIR/util_synt.rpt
 report_utilization -hierarchical -hierarchical_percentages \
-    -file $RUN_DIR/util_hier_synth.rpt
-write_checkpoint -force $RUN_DIR/post_synth.dcp
+    -file $RUN_DIR/util_synt.hier.rpt
+write_checkpoint -force $RUN_DIR/post_synt.dcp
 
 # ------------------------------------------------------------------------------
 # implementation
