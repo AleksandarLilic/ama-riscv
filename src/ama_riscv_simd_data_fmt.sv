@@ -1,9 +1,7 @@
 `include "ama_riscv_defines.svh"
 
 module ama_riscv_simd_data_fmt (
-    /* verilator lint_off UNUSEDSIGNAL */
-    input  simd_data_fmt_op_t op, // some bits are unused
-    /* verilator lint_on UNUSEDSIGNAL */
+    input  simd_data_fmt_op_t op,
     input  simd_t a,
     input  simd_t b,
     input  simd_t c,
