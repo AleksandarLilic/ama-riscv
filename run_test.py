@@ -28,6 +28,7 @@ REPO_ROOT = os.getenv("REPO_ROOT") \
 RUN_CFG = os.path.join(REPO_ROOT, "run_cfg_suite.tcl")
 MAX_WORKERS = int(os.cpu_count())
 TEST_STATUS = "test.status"
+TOUCHFILE_COV = ".cov.touchfile"
 
 MSG_PASS = "==== PASS ===="
 MSG_FAIL = "==== FAIL ===="
@@ -172,16 +173,17 @@ def check_test_status(test_log_path, test_name):
             "Cannot determine test result."
 
 # main functions
-def build_tb(build_dir, force_rebuild):
+def set_up_links(dest_dir, source_names):
+    for s in source_names:
+        path = os.path.join(os.getcwd(), s)
+        linked_path = os.path.join(dest_dir, s)
+        if not os.path.exists(linked_path):
+            os.symlink(path, linked_path)
+
+def build_tb(build_dir, force_rebuild, coverage=False):
     if os.path.exists(build_dir):
         shutil.rmtree(build_dir)
     os.makedirs(build_dir)
-
-    def set_up_links(dest_dir, source_names):
-        for s in source_names:
-            path = os.path.join(os.getcwd(), s)
-            linked_path = os.path.join(dest_dir, s)
-            os.symlink(path, linked_path)
 
     set_up_links(build_dir, ["Makefile", "Makefile.inc", "cosim"])
     print(f"Building in {build_dir}... ", end='', flush=True)
@@ -193,6 +195,10 @@ def build_tb(build_dir, force_rebuild):
         "TO_LOG=0",
         f"-j{MAX_WORKERS}",
     ]
+    if coverage:
+        # instrument at elab; xsim.codeCov gets created here and is copied into
+        # each per-test dir, where each test populates its own DB
+        make_cmd.append("COV=1")
     if force_rebuild:
         make_cmd.append("-B")
 
@@ -208,6 +214,9 @@ def build_tb(build_dir, force_rebuild):
     if make_status.returncode != 0:
         raise ValueError(f"Error: Build failed. "
                          f"Check build log '{build_log}' for details.")
+
+    if coverage: # marker so reused builds can be checked for instrumentation
+        open(os.path.join(build_dir, TOUCHFILE_COV), 'w').close()
 
     print_runtime(start_time, "Build done,")
 
@@ -313,6 +322,95 @@ def run_test(
         mgr["stop"].set()
         raise ValueError(f"Test '{test_name}' failed. Stopping.")
 
+def run_suite(all_tests, run_dir, build_dir, ma, jobs, keep_pass, stop_on_fail):
+    if jobs < 1:
+        raise ValueError("The number of parallel jobs must be at least 1.")
+    if jobs > MAX_WORKERS:
+        print(f"Warning: The specified number of jobs ({jobs}) exceeds the " +
+              f"number of available CPU cores ({MAX_WORKERS}).")
+    w = min(jobs, MAX_WORKERS)
+    print(f"Running simulation with {w} workers\n")
+
+    #random.seed(5)
+    #sv_seed = args.seed if args.seed is not None \
+    #          else random.randint(0, 2**32 - 1)
+    # run tests in parallel
+    start_time = datetime.datetime.now()
+    try:
+        with Manager() as manager:
+            mgr = manager.dict()
+            mgr["test_cnt"] = manager.Value('i', 0)
+            mgr["lock"] = manager.Lock()
+            mgr["all_tests"] = len(all_tests)
+            mgr["stop"] = manager.Event()
+            with Pool(w) as pool:
+                partial_run_test = \
+                    functools.partial(
+                        run_test,
+                        run_dir=run_dir,
+                        build_dir=build_dir,
+                        make_args=ma,
+                        mgr=mgr,
+                        keep_pass=keep_pass,
+                        stop_on_fail=stop_on_fail
+                    )
+                # imap_unordered yields results as workers finish, so the main
+                # process can react to the first failure immediately rather than
+                # waiting for all tasks to complete (pool.map behavior)
+                try:
+                    for _ in pool.imap_unordered(partial_run_test, all_tests):
+                        pass
+                except Exception:
+                    if stop_on_fail:
+                        # terminate sends SIGTERM to workers; _sigterm_handler
+                        # in each worker kills the simulator process group
+                        pool.terminate()
+                    raise
+
+    except KeyboardInterrupt:
+        print("KeyboardInterrupt received. Terminating.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error during test execution: {e}")
+
+    print_runtime(start_time, "Simulation")
+
+def run_coverage(all_tests, run_dir):
+    print("\nMerging code coverage...")
+    # Makefile (+ its includes) must resolve from run_dir to run the targets
+    set_up_links(run_dir, ["Makefile", "Makefile.inc", "cosim"])
+    subprocess.run(["make", "cleancov"], cwd=run_dir, check=True)
+
+    # only tests that actually produced a populated DB can be merged
+    tests_with_db, missing = [], []
+    for test_path in all_tests:
+        test_name = format_test_name(test_path)
+        if os.path.isdir(os.path.join(run_dir, test_name, "xsim.codeCov")):
+            tests_with_db.append(test_name)
+        else:
+            missing.append(test_name)
+
+    if missing:
+        print(color_code_string(
+            f"Warning: {len(missing)} test(s) had no coverage DB, skipping: " +
+            ", ".join(missing), CC_YELLOW))
+    if not tests_with_db:
+        raise ValueError(
+            "No coverage DBs found. Was the run built with --coverage?")
+
+    cc_dirs = " ".join(f"-cc_dir '{name}'" for name in tests_with_db)
+    subprocess.run(
+        ["make", "coverage", f"CODE_COV_DB_ALL={cc_dirs}"],
+        cwd=run_dir, check=True
+    )
+
+    # symlink in the workdir for convenience
+    link = os.path.join(run_dir, "coverage_dashboard.html")
+    if os.path.islink(link) or os.path.exists(link):
+        os.remove(link)
+    os.symlink(os.path.join("xcrg_code_cov_report", "dashboard.html"), link)
+    print(color_code_string(f"Coverage report: {link}", CC_GREEN))
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Run RTL simulation.")
     parser.add_argument('-t', '--test', nargs='+', help="Specify one or more tests to run (space-separated)")
@@ -327,8 +425,8 @@ def parse_args():
     parser.add_argument('-j', '--jobs', type=int, default=MAX_WORKERS, help="Number of parallel jobs to run (default: number of CPU cores)")
     parser.add_argument('-c', '--timeout_clocks', type=int, default=2_000_000, help="Number of clocks before simulations times out")
     parser.add_argument('-v', '--log_level', type=str, default="INFO", help="Log level during simulation")
-    #parser.add_argument('--coverage', action='store_true', help="Enable coverage analysis")
-    #parser.add_argument('--coverage-only', action='store_true', help="Only run coverage analysis. Relies on the existing test directories for the specified tests")
+    parser.add_argument('--coverage', action='store_true', default=False, help="Build instrumented for code coverage, then merge per-test DBs and generate an HTML report after the suite")
+    parser.add_argument('--coverage_only', action='store_true', default=False, help="Only merge coverage and generate the report. Relies on existing instrumented test directories from a prior --coverage run")
     #parser.add_argument('--seed', type=int, help="Seed value for the tests")
     parser.add_argument('--dry_run', action='store_true', default=False, help="Print tests that would run without building or simulating")
     parser.add_argument('--log_wave', action='store_true', help="Collect .wdb waveform, all modules from the top down")
@@ -345,8 +443,16 @@ def main():
     if args.test and args.testlist:
         raise ValueError("Cannot use both -t|--test and --testlist. Choose one")
     if args.test and args.filter:
-        raise ValueError("Cannot use -f|--filter with -t|--test. " +
-                         "Filter can only be applied to testlist.")
+        raise ValueError(
+            "Cannot use -f|--filter with -t|--test. " +
+            "Filter can only be applied to testlist.")
+    if args.coverage and args.coverage_only:
+        raise ValueError(
+            "Cannot use both --coverage and --coverage_only. Choose one.")
+    if args.coverage_only and not args.rundir:
+        raise ValueError(
+            "--coverage_only needs -r|--rundir pointing at an " +
+            "existing instrumented run directory.")
 
     if not args.dry_run:
         create_run_cfg(args.log_wave, args.log_vcd)
@@ -388,70 +494,32 @@ def main():
         run_dir = f"testrun_{timestamp}"
 
     build_dir = os.path.join(run_dir, "build")
-    if args.keep_build and os.path.exists(f"{build_dir}/.elab.touchfile"):
+    if args.coverage_only:
+        if not os.path.isdir(run_dir):
+            raise ValueError(f"--coverage_only: run dir '{run_dir}' not found.")
+        print(f"Coverage-only: merging existing DBs in '{run_dir}'")
+
+    elif args.keep_build and os.path.exists(f"{build_dir}/.elab.touchfile"):
         print(f"Reusing existing build directory at '{build_dir}'")
+        if args.coverage and not os.path.exists(f"{build_dir}/{TOUCHFILE_COV}"):
+            print(color_code_string(
+                "Warning: reused build is not instrumented for coverage; "
+                "coverage DBs will be empty. Rebuild without -k.", CC_YELLOW))
+
     else:
         if os.path.exists(run_dir): # clean up previous run_dir if it exists
             shutil.rmtree(run_dir)
         os.makedirs(run_dir)
-        build_tb(build_dir, args.rebuild_all)
+        build_tb(build_dir, args.rebuild_all, coverage=args.coverage)
 
     if args.build_only:
         print(f"Building done at '{build_dir}'. Exiting")
         sys.exit(0)
 
-    # check if the specified number of jobs exceeds the number of CPU cores
-    if args.jobs < 1:
-        raise ValueError("The number of parallel jobs must be at least 1.")
-    if args.jobs > MAX_WORKERS:
-        print(f"Warning: The specified number of jobs ({args.jobs}) exceeds " +
-              f"the number of available CPU cores ({MAX_WORKERS}).")
-    w = min(args.jobs, MAX_WORKERS)
-    print(f"Running simulation with {w} workers\n")
+    if not args.coverage_only:
+        run_suite(all_tests, run_dir, build_dir, ma, args.jobs,
+                  args.keep_pass, args.stop_on_fail)
 
-    #random.seed(5)
-    #sv_seed = args.seed if args.seed is not None \
-    #          else random.randint(0, 2**32 - 1)
-    # run tests in parallel
-    start_time = datetime.datetime.now()
-    try:
-        with Manager() as manager:
-            mgr = manager.dict()
-            mgr["test_cnt"] = manager.Value('i', 0)
-            mgr["lock"] = manager.Lock()
-            mgr["all_tests"] = len(all_tests)
-            mgr["stop"] = manager.Event()
-            with Pool(w) as pool:
-                partial_run_test = \
-                    functools.partial(
-                        run_test,
-                        run_dir=run_dir,
-                        build_dir=build_dir,
-                        make_args=ma,
-                        mgr=mgr,
-                        keep_pass=args.keep_pass,
-                        stop_on_fail=args.stop_on_fail
-                    )
-                # imap_unordered yields results as workers finish, so the main
-                # process can react to the first failure immediately rather than
-                # waiting for all tasks to complete (pool.map behavior)
-                try:
-                    for _ in pool.imap_unordered(partial_run_test, all_tests):
-                        pass
-                except Exception:
-                    if args.stop_on_fail:
-                        # terminate sends SIGTERM to workers; _sigterm_handler
-                        # in each worker kills the simulator process group
-                        pool.terminate()
-                    raise
-
-    except KeyboardInterrupt:
-        print("KeyboardInterrupt received. Terminating.")
-        sys.exit(1)
-    except Exception as e:
-        print(f"Error during test execution: {e}")
-
-    print_runtime(start_time, "Simulation")
     # check test suite results
     all_tests_passed = True
     tests_num = len(all_tests)
@@ -486,6 +554,10 @@ def main():
         print(color_code_string("Test suite FAILED.", CC_RED))
         print("\nFailed test(s):", end='')
         print("".join(failed_tests))
+
+    # allow merge/report coverage even if some tests failed
+    if args.coverage or args.coverage_only:
+        run_coverage(all_tests, run_dir)
 
     print_runtime(start_time_suite, "Test suite", "\n")
     sys.exit(0 if all_tests_passed else 1)

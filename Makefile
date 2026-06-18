@@ -20,6 +20,16 @@ COMP_OPTS := -sv --incr --relax
 ELAB_DEBUG ?= typical
 ELAB_OPTS := -debug $(ELAB_DEBUG) --incr --relax --mt 8
 
+# code coverage: opt-in instrumentation at elab
+# once -cc_type is on, xsim auto-creates
+# and populates xsim.codeCov/$(WORKLIB).$(TOP) with no sim-side flags
+# s=statement, b=branch, c=condition, t=toggle (no fsm flag in xsim in v2023)
+COV ?= 0
+COV_TYPES ?= sbct
+ifeq ($(strip $(COV)),1)
+    ELAB_OPTS += -cc_type $(COV_TYPES)
+endif
+
 include Makefile.inc
 
 RUN_CFG ?= $(REPO_ROOT)/run_cfg.tcl
@@ -208,14 +218,31 @@ workdir:
 	ln -s $(REPO_ROOT)/cosim
 	@echo "Workdir created at: $(REPO_ROOT)/$(WORKDIR)"
 
+# code coverage report generation
+# CODE_COV_DB_ALL is overridden by run_test.py
+CODE_COV_DB_ALL := -cc_dir .
+CC_REPORT ?= xcrg_code_cov_report
+
+# merge the specified per-test code coverage DBs and emit a single HTML report
+# a single -cc_db applies across all -cc_dir entries (they share a DB name)
+# merged DB lands at xsim.codeCov/xcrg_merged, report at $(CC_REPORT)
+coverage:
+	@xcrg -merge_cc -cc_db $(WORKLIB).$(TOP) $(CODE_COV_DB_ALL) \
+		-cc_report $(CC_REPORT) -report_format html -log xcrg_cc.log \
+		> /dev/null 2>&1
+
+cleancov:
+	@rm -rf xcrg_cc.log $(CC_REPORT) xsim.codeCov/xcrg_merged \
+		coverage_dashboard.html
+
 cleanlogs:
 	rm -rf *.log *.jou *.pb vivado_pid*.str out_* *.wdb *.vcd
 
-cleanrtl: cleanlogs
-	rm -rf .compile.touchfile .elab.touchfile .sim.touchfile xsim.dir $(SLANG_PP_OUT)
+cleanrtl: cleanlogs cleancov
+	rm -rf .compile.touchfile .elab.touchfile .sim.touchfile .cov.touchfile xsim.dir xsim.codeCov $(SLANG_PP_OUT)
 
 clean: cleanrtl
 
 cleanall: cleanrtl cleancosim cleanisa
 
-.PHONY: lint slang watch_slang workdir cleanrtl cleancosim cleanisa cleanall
+.PHONY: lint slang watch_slang workdir coverage cleancov cleanrtl cleancosim cleanisa cleanall
