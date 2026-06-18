@@ -36,8 +36,8 @@ logic [PC_BITS-1:0] pc_dec_part, pc_mem_part;
 logic [GHR_BITS-1:0] ghr;
 /* verilator lint_on UNUSEDSIGNAL */
 
-assign pc_dec_part = pipe_in.pc_dec[PC_BITS-1:0];
-assign pc_mem_part = pipe_in.pc_mem[PC_BITS-1:0];
+assign pc_dec_part = pipe_in.pc_dec[PC_BITS-1+2:0+2]; // 2 LSBs not used
+assign pc_mem_part = pipe_in.pc_mem[PC_BITS-1+2:0+2]; // 2 LSBs not used
 
 always_ff @(posedge clk) begin
     if (rst) ghr <= 'h0;
