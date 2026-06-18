@@ -22,7 +22,7 @@ ELAB_OPTS := -debug $(ELAB_DEBUG) --incr --relax --mt 8
 
 # code coverage: opt-in instrumentation at elab
 # once -cc_type is on, xsim auto-creates
-# and populates xsim.codeCov/$(WORKLIB).$(TOP) with no sim-side flags
+# and populates xsim.codeCov/$(WLIB_TOP) with no sim-side flags
 # s=statement, b=branch, c=condition, t=toggle (no fsm flag in xsim in v2023)
 COV ?= 0
 COV_TYPES ?= sbct
@@ -109,9 +109,12 @@ include cosim/Makefile.cosim.inc
 # prevents large logs and long runtimes when debugging accidental comb. loops
 MAX_DELTA = -maxdeltaid 100
 
+WLIB_TOP := $(WORKLIB).$(TOP)
+
 CMD_COMP := xvlog $(COMP_OPTS) -prj $(SOURCE_FILES) $(LOG_ARG)
-CMD_ELAB := xelab $(WORKLIB).$(TOP) $(ELAB_OPTS) -sv_lib $(COSIM_TARGET) $(LOG_ARG)
-CMD_SIM := xsim $(WORKLIB).$(TOP) $(TCLBATCH_SWITCH) $(WDB_SWITCH) -stats -onerror quit $(TB_ARGS) $(COSIM_ARGS) $(MAX_DELTA) $(LOG_ARG)
+CMD_ELAB := xelab $(WLIB_TOP) $(ELAB_OPTS) -sv_lib $(COSIM_TARGET) $(LOG_ARG)
+CMD_SIM := xsim $(WLIB_TOP) $(TCLBATCH_SWITCH) $(WDB_SWITCH) -stats \
+    -onerror quit $(TB_ARGS) $(COSIM_ARGS) $(MAX_DELTA) $(LOG_ARG)
 
 compile: .compile.touchfile
 .compile.touchfile: $(SRC_VERIF) $(SRC_DESIGN) $(SRC_INC)
@@ -132,9 +135,10 @@ elab: .elab.touchfile
 	@touch .elab.touchfile
 
 dpi_header_gen: .compile.touchfile
-	xelab $(WORKLIB).$(TOP) $(ELAB_OPTS) -dpiheader $(DPI_FUNCS_H) -log /dev/null 2>&1
+	xelab $(WLIB_TOP) $(ELAB_OPTS) -dpiheader $(DPI_FUNCS_H) -log /dev/null 2>&1
 
-# example usage: 'make sim -j TEST_PATH=sim/sw/baremetal/asm_rv32i/basic UNIQUE_WDB=1 TIMEOUT_CLOCKS=1000 LOG_LEVEL=$LL | tee make_run_asm_rv32i.log | tail -n 30 | tee >(rg "====")'
+# example usage:
+# 'make sim TEST_PATH=sim/sw/baremetal/asm_rv32i/basic TIMEOUT_CLOCKS=1000'
 sim: .elab.touchfile
 	@if [ "$(TO_LOG)" -eq 1 ]; then \
 		echo $(CMD_SIM) >> $(LOG_NAME); \
@@ -146,6 +150,9 @@ sim: .elab.touchfile
 		tail -n 50 $(LOG_NAME) | grep -A40 "^Test" | tee >(grep --color=always "===="); \
 	fi
 
+#-------------------------------------------------------------------------------
+# non-simulation tools
+
 # run target in terminal once; it will watch for any file save and re-run slang
 # alternative to a setup with vscode extension(s)
 slang_watch:
@@ -154,25 +161,37 @@ slang_watch:
 		make slang SLANG_EXTRA=-q --no-print-directory; \
 	done
 
+COMMON_RTL := $(RTL_DEFINES_CS) $(PLUS_INCDIR)
+COMMON_RTL_SRC := $(COMMON_RTL) $(SRC_DESIGN)
+
 SLANG_OPTS := -Wno-unconnected-port -Wno-duplicate-definition
 SLANG_OPTS += --std 1800-2017 --strict-driver-checking
 SLANG_OPTS += --error-limit=1000
+SLANG_OPTS += $(SLANG_EXTRA)
 slang:
-	@slang -j 8 --top $(TOP) $(RTL_DEFINES_CS) $(SRC_VERIF) $(SRC_DESIGN) $(PLUS_INCDIR) $(SLANG_OPTS) $(SLANG_EXTRA)
+	@slang -j 8 --top $(TOP) $(COMMON_RTL_SRC) $(SRC_VERIF) $(SLANG_OPTS)
 
 # run preprocessor only, useful for debugging
 SLANG_PP_OUT := slang_e.sv
 slang_pp:
-	@make slang --no-print-directory SLANG_EXTRA="-E --comments > $(SLANG_PP_OUT) 2>&1"
+	@make slang --no-print-directory SLANG_EXTRA="-E --comments > \
+		$(SLANG_PP_OUT) 2>&1"
+
+HIER_TOP ?= $(DESIGN_TOP)
+HIER_ARGS ?=
+hier:
+	@slang -q --top $(HIER_TOP) -DSYNT $(COMMON_RTL_SRC) $(SLANG_OPTS) \
+		--ast-json - | $(REPO_ROOT)/script/slang_hier.py $(HIER_ARGS)
 
 # slang has poor linting capabilities, use verilator instead
 LINT_OPTS := -sv -Wno-fatal -Wall -Wpedantic
 lint:
-	@verilator --lint-only $(LINT_OPTS) --top $(DESIGN_TOP) $(PLUS_INCDIR) -DSYNT $(RTL_DEFINES_CS) $(SRC_DESIGN) > lint.log 2>&1
+	@verilator --lint-only $(LINT_OPTS) --top $(DESIGN_TOP) -DSYNT \
+		$(COMMON_RTL_SRC) > lint.log 2>&1
 
 FILE ?=
 lint_file:
-	@verilator --lint-only $(LINT_OPTS) $(PLUS_INCDIR) -DSYNT $(RTL_DEFINES_CS) $(FILE)
+	@verilator --lint-only $(LINT_OPTS) -DSYNT $(COMMON_RTL) $(FILE)
 
 print_defs:
 	@echo "$(RTL_DEFINES_LIST)"
@@ -180,6 +199,8 @@ print_defs:
 print_defs_vivado:
 	@echo "set_property verilog_define { $(RTL_DEFINES_LIST)} [current_fileset]"
 
+#-------------------------------------------------------------------------------
+# unit testing
 # run unit_test bench with provided sources and top name, oneshot
 
 # unit_test testbench sources file path
@@ -218,7 +239,9 @@ workdir:
 	ln -s $(REPO_ROOT)/cosim
 	@echo "Workdir created at: $(REPO_ROOT)/$(WORKDIR)"
 
+#-------------------------------------------------------------------------------
 # code coverage report generation
+
 # CODE_COV_DB_ALL is overridden by run_test.py
 CODE_COV_DB_ALL := -cc_dir .
 CC_REPORT ?= xcrg_code_cov_report
@@ -227,9 +250,12 @@ CC_REPORT ?= xcrg_code_cov_report
 # a single -cc_db applies across all -cc_dir entries (they share a DB name)
 # merged DB lands at xsim.codeCov/xcrg_merged, report at $(CC_REPORT)
 coverage:
-	@xcrg -merge_cc -cc_db $(WORKLIB).$(TOP) $(CODE_COV_DB_ALL) \
+	@xcrg -merge_cc -cc_db $(WLIB_TOP) $(CODE_COV_DB_ALL) \
 		-cc_report $(CC_REPORT) -report_format html -log xcrg_cc.log \
 		> /dev/null 2>&1
+
+#-------------------------------------------------------------------------------
+# cleanup
 
 cleancov:
 	@rm -rf xcrg_cc.log $(CC_REPORT) xsim.codeCov/xcrg_merged \
@@ -245,4 +271,4 @@ clean: cleanrtl
 
 cleanall: cleanrtl cleancosim cleanisa
 
-.PHONY: lint slang watch_slang workdir coverage cleancov cleanrtl cleancosim cleanisa cleanall
+.PHONY: lint slang slang_pp hier watch_slang workdir coverage cleancov cleanrtl cleancosim cleanisa cleanall
