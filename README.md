@@ -234,13 +234,13 @@ Emulation is ran at 50MHz on Arty A7-100T board. Since design uses single clock 
 - Coremark: 145 Coremarks, 2.9 Coremarks/MHz (IPC: 0.89)
 - STREAM-INT: 
   - Copy: 66 MB/s
-  - Scale: 49 MB/s
+  - Scale: 50 MB/s
   - Add: 64 MB/s
   - Triad: 57 MB/s
 - Embench_1.0 compiled for speed (with [detailed breakdown](examples/perf_runs_fpga/benchmark_results/embench_results.md)): 
-  - Size: 9.49 (4.32 - 20.85)
-  - Speed: 51.01 (33.49 - 77.69)
-  - Speed/MHz: 1.02 (0.67 - 1.55)
+  - Size: 9.47 (4.32 - 20.76)
+  - Speed: 51.55 (34.02 - 78.11)
+  - Speed/MHz: 1.03 (0.68 - 1.56)
 
 SIMD ISA improvements on MLP, measured in inferences per second
 
@@ -298,38 +298,39 @@ Utilization overview:
 +----------------------------+-------+-------+------------+-----------+-------+
 |          Site Type         |  Used | Fixed | Prohibited | Available | Util% |
 +----------------------------+-------+-------+------------+-----------+-------+
-| Slice LUTs                 | 12801 |     0 |          0 |     63400 | 20.19 |
-|   LUT as Logic             | 12669 |     0 |          0 |     63400 | 19.98 |
+| Slice LUTs                 | 12756 |     0 |          0 |     63400 | 20.12 |
+|   LUT as Logic             | 12624 |     0 |          0 |     63400 | 19.91 |
 |   LUT as Memory            |   132 |     0 |          0 |     19000 |  0.69 |
 |     LUT as Distributed RAM |   132 |     0 |            |           |       |
 |     LUT as Shift Register  |     0 |     0 |            |           |       |
-| Slice Registers            |  5006 |     0 |          0 |    126800 |  3.95 |
-|   Register as Flip Flop    |  5006 |     0 |          0 |    126800 |  3.95 |
+| Slice Registers            |  5013 |     0 |          0 |    126800 |  3.95 |
+|   Register as Flip Flop    |  5013 |     0 |          0 |    126800 |  3.95 |
 |   Register as Latch        |     0 |     0 |          0 |    126800 |  0.00 |
-| F7 Muxes                   |   416 |     0 |          0 |     31700 |  1.31 |
-| F8 Muxes                   |   152 |     0 |          0 |     15850 |  0.96 |
+| F7 Muxes                   |   399 |     0 |          0 |     31700 |  1.26 |
+| F8 Muxes                   |   150 |     0 |          0 |     15850 |  0.95 |
 +----------------------------+-------+-------+------------+-----------+-------+
 ```
 
 First three logic levels, with percentage contribution compared to part's total resource availability  
 ```
-+--------------------------+--------------------+---------------+---------------+------------+-------------+------------+----------+------------+
-|         Instance         |       Module       |   Total LUTs  |   Logic LUTs  |   LUTRAMs  |     FFs     |   RAMB36   |  RAMB18  | DSP Blocks |
-+--------------------------+--------------------+---------------+---------------+------------+-------------+------------+----------+------------+
-| ama_riscv_fpga           |              (top) | 12801(20.19%) | 12669(19.98%) | 132(0.69%) | 5006(3.95%) | 44(32.59%) | 0(0.00%) |   0(0.00%) |
-|   (ama_riscv_fpga)       |              (top) |      8(0.01%) |      8(0.01%) |   0(0.00%) |   28(0.02%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
-|   ama_riscv_top_i        |      ama_riscv_top | 12793(20.18%) | 12661(19.97%) | 132(0.69%) | 4978(3.93%) | 44(32.59%) | 0(0.00%) |   0(0.00%) |
-|     ama_riscv_core_top_i | ama_riscv_core_top | 12689(20.01%) | 12557(19.81%) | 132(0.69%) | 4884(3.85%) |  12(8.89%) | 0(0.00%) |   0(0.00%) |
-|       ama_riscv_core_i   |     ama_riscv_core | 10420(16.44%) | 10288(16.23%) | 132(0.69%) | 3555(2.80%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
-|       ama_riscv_dcache_i |   ama_riscv_dcache |   1779(2.81%) |   1779(2.81%) |   0(0.00%) |  789(0.62%) |   8(5.93%) | 0(0.00%) |   0(0.00%) |
-|       ama_riscv_icache_i |   ama_riscv_icache |    491(0.77%) |    491(0.77%) |   0(0.00%) |  540(0.43%) |   4(2.96%) | 0(0.00%) |   0(0.00%) |
-|     ama_riscv_mem_i      |      ama_riscv_mem |     31(0.05%) |     31(0.05%) |   0(0.00%) |    2(0.01%) | 32(23.70%) | 0(0.00%) |   0(0.00%) |
-|       (ama_riscv_mem_i)  |      ama_riscv_mem |      9(0.01%) |      9(0.01%) |   0(0.00%) |    2(0.01%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
-|       u_mem              |  xpm_memory_tdpram |     24(0.04%) |     24(0.04%) |   0(0.00%) |    0(0.00%) | 32(23.70%) | 0(0.00%) |   0(0.00%) |
-|     ama_riscv_uart_i     |     ama_riscv_uart |     75(0.12%) |     75(0.12%) |   0(0.00%) |   92(0.07%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
-|       (ama_riscv_uart_i) |     ama_riscv_uart |     21(0.03%) |     21(0.03%) |   0(0.00%) |   44(0.03%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
-|       uart_i             |               uart |     54(0.09%) |     54(0.09%) |   0(0.00%) |   48(0.04%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
-+--------------------------+--------------------+---------------+---------------+------------+-------------+------------+----------+------------+
++--------------------------+------------------------+---------------+---------------+------------+-------------+------------+----------+------------+
+|         Instance         |         Module         |   Total LUTs  |   Logic LUTs  |   LUTRAMs  |     FFs     |   RAMB36   |  RAMB18  | DSP Blocks |
++--------------------------+------------------------+---------------+---------------+------------+-------------+------------+----------+------------+
+| ama_riscv_fpga           |                  (top) | 12756(20.12%) | 12624(19.91%) | 132(0.69%) | 5013(3.95%) | 44(32.59%) | 0(0.00%) |   0(0.00%) |
+|   (ama_riscv_fpga)       |                  (top) |      7(0.01%) |      7(0.01%) |   0(0.00%) |   28(0.02%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
+|   ama_riscv_top_i        |          ama_riscv_top | 12748(20.11%) | 12616(19.90%) | 132(0.69%) | 4985(3.93%) | 44(32.59%) | 0(0.00%) |   0(0.00%) |
+|     ama_riscv_core_top_i |     ama_riscv_core_top | 12646(19.95%) | 12514(19.74%) | 132(0.69%) | 4891(3.86%) |  12(8.89%) | 0(0.00%) |   0(0.00%) |
+|       ama_riscv_core_i   |         ama_riscv_core | 10380(16.37%) | 10248(16.16%) | 132(0.69%) | 3558(2.81%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
+|       ama_riscv_dcache_i |       ama_riscv_dcache |   1775(2.80%) |   1775(2.80%) |   0(0.00%) |  789(0.62%) |   8(5.93%) | 0(0.00%) |   0(0.00%) |
+|       ama_riscv_icache_i |       ama_riscv_icache |    491(0.77%) |    491(0.77%) |   0(0.00%) |  544(0.43%) |   4(2.96%) | 0(0.00%) |   0(0.00%) |
+|     ama_riscv_mem_i      |          ama_riscv_mem |     31(0.05%) |     31(0.05%) |   0(0.00%) |    2(0.01%) | 32(23.70%) | 0(0.00%) |   0(0.00%) |
+|       (ama_riscv_mem_i)  |          ama_riscv_mem |      8(0.01%) |      8(0.01%) |   0(0.00%) |    2(0.01%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
+|       u_mem              |      xpm_memory_tdpram |     24(0.04%) |     24(0.04%) |   0(0.00%) |    0(0.00%) | 32(23.70%) | 0(0.00%) |   0(0.00%) |
+|     ama_riscv_uart_i     |         ama_riscv_uart |     74(0.12%) |     74(0.12%) |   0(0.00%) |   92(0.07%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
+|       (ama_riscv_uart_i) |         ama_riscv_uart |     20(0.03%) |     20(0.03%) |   0(0.00%) |   44(0.03%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
+|       uart_i             |                   uart |     54(0.09%) |     54(0.09%) |   0(0.00%) |   48(0.04%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
+|   fpga_clk_gen_i         | ama_riscv_fpga_clk_gen |      1(0.01%) |      1(0.01%) |   0(0.00%) |    0(0.00%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
++--------------------------+------------------------+---------------+---------------+------------+-------------+------------+----------+------------+
 ```
 
 Detailed utilization reports are available under [examples/perf_runs_fpga/fpga_synt_reports](examples/perf_runs_fpga/fpga_synt_reports)
@@ -926,25 +927,25 @@ Estimated HW performance at 100MHz:
 
 Correlation:
           metric    est    rtl  diff    diff%
-          cycles 511140 511491  -351   -0.069
-           empty  51159  51515  -356   -0.696
-          stalls  50481  50471    10    0.020
-            lost    678   1044  -366  -53.982
+          cycles 511140 511200   -60   -0.012
+           empty  51159  51224   -65   -0.127
+          stalls  50481  50470    11    0.022
+            lost    678    754   -76  -11.209
       lost_other      0     22   -22 -100.000
-        bad_spec    678   1022  -344  -50.737
+        bad_spec    678    732   -54   -7.965
         stall_be  10655  10781  -126   -1.183
        stall_l1d   1689   1835  -146   -8.644
    stall_be_core   8966   8946    20    0.223
-        stall_fe  39826  39690   136    0.341
-       stall_l1i   2202   2063   139    6.312
+        stall_fe  39826  39689   137    0.344
+       stall_l1i   2202   2062   140    6.358
    stall_fe_core  37624  37627    -3   -0.008
              ret 459976 459976     0    0.000
         ret_simd      0      0     0    0.000
          ret_int 459976 459976     0    0.000
 ret_ctrl_flow_br  50487  50487     0    0.000
-         bp_miss    339    511  -172  -50.737
-         l1i_ref 460315 460963  -648   -0.141
-        l1i_miss    367    397   -30   -8.174
+         bp_miss    339    366   -27   -7.965
+         l1i_ref 460315 460673  -358   -0.078
+        l1i_miss    367    402   -35   -9.537
          l1d_ref 151974 151974     0    0.000
         l1d_miss    209    209     0    0.000 
 ```
@@ -962,13 +963,13 @@ Cycle estimates were compared against RTL cycle counts using only the timed work
 
 | Metric | Value |
 |---|---:|
-| Mean signed error | -0.92% |
-| Std dev signed error | 1.56% |
-| Mean absolute error | 1.08% |
-| Median absolute error | 0.63% |
-| Worst absolute error | 6.76% |
-| ≤ 1% | 17/28 (61%) |
-| ≤ 3% | 26/28 (93%) |
+| Mean signed error | -0.33% |
+| Std dev signed error | 1.32% |
+| Mean absolute error | 0.61% |
+| Median absolute error | 0.17% |
+| Worst absolute error | 6.13% |
+| ≤ 1% | 22/28 (79%) |
+| ≤ 3% | 27/28 (96%) |
 | ≤ 5% | 27/28 (96%) |
 | ≤ 10% | 28/28 (100%) |
 | > 10% | 0/28 (0%) |
@@ -981,12 +982,12 @@ Cycle estimates were compared against RTL cycle counts using only the timed work
 
 | Metric | Value |
 |---|---:|
-| Mean signed error | -0.19% |
-| Std dev signed error | 0.36% |
-| Mean absolute error | 0.20% |
-| Median absolute error | 0.02% |
-| Worst absolute error | 1.04% |
-| ≤ 1% | 12/13 (92%) |
+| Mean signed error | -0.13% |
+| Std dev signed error | 0.28% |
+| Mean absolute error | 0.15% |
+| Median absolute error | 0.01% |
+| Worst absolute error | 0.69% |
+| ≤ 1% | 13/13 (100%) |
 | ≤ 3% | 13/13 (100%) |
 | ≤ 5% | 13/13 (100%) |
 | ≤ 10% | 13/13 (100%) |

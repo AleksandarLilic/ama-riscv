@@ -1,36 +1,36 @@
 stream_int
 IPC: 0.829
          L1        L2   cycles cycles_e
-0      lost  bad_spec      156    156.0
-1      lost     other       69     69.0
-2  frontend    icache       34     34.0
-3  frontend      core        8      8.0
-4   backend    dcache   292998   293.0k
+0      lost  bad_spec       98     98.0
+1      lost     other       78     78.0
+2  frontend    icache       33     33.0
+3  frontend      core        9      9.0
+4   backend    dcache   293000   293.0k
 5   backend      core    61451    61.5k
-6  retiring   integer  1721030     1.7M
+6  retiring   integer  1721032     1.7M
 7  retiring      simd        0      0.0
 
 Performance Counters for 'stream_int'
    class          counter   count count_e
-  cycles           cycles 2075746    2.1M
-     ret              ret 1721030    1.7M
-   stall           stalls  354491  354.5k
-    lost             lost     225   225.0
-   ret_*          ret_int 1721030    1.7M
+  cycles           cycles 2075701    2.1M
+     ret              ret 1721032    1.7M
+   stall           stalls  354493  354.5k
+    lost             lost     176   176.0
+   ret_*          ret_int 1721032    1.7M
    ret_* ret_ctrl_flow_br  245850  245.8k
    ret_*         ret_simd       0     0.0
- stall_*         stall_be  354449  354.4k
+ stall_*         stall_be  354451  354.5k
  stall_*    stall_be_core   61451   61.5k
  stall_*         stall_fe      42    42.0
- stall_*    stall_fe_core       8     8.0
- stall_*        stall_l1d  292998  293.0k
- stall_*        stall_l1i      34    34.0
-bad_spec         bad_spec     156   156.0
-   l1i_*          l1i_ref 1721210    1.7M
+ stall_*    stall_fe_core       9     9.0
+ stall_*        stall_l1d  293000  293.0k
+ stall_*        stall_l1i      33    33.0
+bad_spec         bad_spec      98    98.0
+   l1i_*          l1i_ref 1721153    1.7M
    l1i_*         l1i_miss      12    12.0
    l1d_*          l1d_ref  614522  614.5k
    l1d_*         l1d_miss   38508   38.5k
-    bp_*          bp_miss      85    85.0
+    bp_*          bp_miss      56    56.0
 
 
 core:
@@ -40,4 +40,4 @@ icache:
 dcache:
     Ref: 614.5k, H: 576.0k, M: 38.5k, HR: 93.73%, MPKI: 22.37 
 bpred:
-    P: 245.8k, M: 85.0, ACC: 99.97%, MPKI: 0.05 
+    P: 245.8k, M: 56.0, ACC: 99.98%, MPKI: 0.03 

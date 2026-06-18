@@ -26,18 +26,18 @@ Performance Counters for 'ustress_mac64'
  stall_*        stall_l1d        0     0.0
  stall_*        stall_l1i       40    40.0
 bad_spec         bad_spec        7     7.0
-   l1i_*          l1i_ref 53750075   53.8M
-   l1i_*         l1i_miss       13    13.0
+   l1i_*          l1i_ref 53750076   53.8M
+   l1i_*         l1i_miss       14    14.0
    l1d_*          l1d_ref       20    20.0
    l1d_*         l1d_miss        0     0.0
-    bp_*          bp_miss        6     6.0
+    bp_*          bp_miss        7     7.0
 
 
 core:
     Cycles: 53.8M, Retired: 53.8M, Empty: 138.0, IPC: 1.000 
 icache:
-    Ref: 53.8M, H: 53.8M, M: 13.0, HR: 100.00%, MPKI: 0.00 
+    Ref: 53.8M, H: 53.8M, M: 14.0, HR: 100.00%, MPKI: 0.00 
 dcache:
     Ref: 20.0, H: 20.0, M: 0.0, HR: 100.00%, MPKI: 0.00 
 bpred:
-    P: 1.2M, M: 6.0, ACC: 100.00%, MPKI: 0.00 
+    P: 1.2M, M: 7.0, ACC: 100.00%, MPKI: 0.00 

@@ -1,32 +1,32 @@
 {
     "core": {
-        "cycles": 25303,
-        "empty": 3035,
-        "stalls": 2841,
-        "lost": 194,
-        "lost_other": 122,
-        "bad_spec": 72,
-        "stall_be": 2672,
+        "cycles": 25296,
+        "empty": 3029,
+        "stalls": 2842,
+        "lost": 187,
+        "lost_other": 123,
+        "bad_spec": 64,
+        "stall_be": 2675,
         "stall_l1d": 1292,
-        "stall_be_core": 1380,
-        "stall_fe": 169,
-        "stall_l1i": 150,
-        "stall_fe_core": 19,
-        "ret": 22268,
+        "stall_be_core": 1383,
+        "stall_fe": 167,
+        "stall_l1i": 151,
+        "stall_fe_core": 16,
+        "ret": 22267,
         "ret_simd": 9456,
-        "ret_int": 12812,
+        "ret_int": 12811,
         "ret_ctrl_flow_br": 904,
         "bp_miss": 39,
-        "l1i_ref": 22349,
+        "l1i_ref": 22347,
         "l1i_miss": 33,
-        "l1d_ref": 8171,
+        "l1d_ref": 8172,
         "l1d_miss": 212,
         "ipc": 0.88
     },
     "icache": {
-        "references": 22349,
+        "references": 22347,
         "hits": {
-            "all": 22316
+            "all": 22314
         },
         "misses": {
             "all": 33
@@ -35,9 +35,9 @@
         "mpki": 1.48
     },
     "dcache": {
-        "references": 8171,
+        "references": 8172,
         "hits": {
-            "all": 7959
+            "all": 7960
         },
         "misses": {
             "all": 212

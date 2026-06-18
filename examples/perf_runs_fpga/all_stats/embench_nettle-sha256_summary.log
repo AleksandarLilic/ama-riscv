@@ -1,43 +1,43 @@
 embench_nettle-sha256
 IPC: 0.87
          L1        L2     cycles cycles_e
-0      lost  bad_spec     570017   570.0k
-1      lost     other         59     59.0
-2  frontend    icache   27360053    27.4M
-3  frontend      core     617525   617.5k
+0      lost  bad_spec     427517   427.5k
+1      lost     other         61     61.0
+2  frontend    icache   27502553    27.5M
+3  frontend      core     760025   760.0k
 4   backend    dcache          0      0.0
 5   backend      core     570012   570.0k
-6  retiring   integer  195510056   195.5M
+6  retiring   integer  196151306   196.2M
 7  retiring      simd          0      0.0
 
 Performance Counters for 'embench_nettle-sha256'
    class          counter     count count_e
-  cycles           cycles 224627722  224.6M
-     ret              ret 195510056  195.5M
-   stall           stalls  28547590   28.5M
-    lost             lost    570076  570.1k
-   ret_*          ret_int 195510056  195.5M
+  cycles           cycles 225411474  225.4M
+     ret              ret 196151306  196.2M
+   stall           stalls  28832590   28.8M
+    lost             lost    427578  427.6k
+   ret_*          ret_int 196151306  196.2M
    ret_* ret_ctrl_flow_br   2683754    2.7M
    ret_*         ret_simd         0     0.0
  stall_*         stall_be    570012  570.0k
  stall_*    stall_be_core    570012  570.0k
- stall_*         stall_fe  27977578   28.0M
- stall_*    stall_fe_core    617525  617.5k
+ stall_*         stall_fe  28262578   28.3M
+ stall_*    stall_fe_core    760025  760.0k
  stall_*        stall_l1d         0     0.0
- stall_*        stall_l1i  27360053   27.4M
-bad_spec         bad_spec    570017  570.0k
-   l1i_*          l1i_ref 196032592  196.0M
-   l1i_*         l1i_miss   4631267    4.6M
-   l1d_*          l1d_ref  20852522   20.9M
+ stall_*        stall_l1i  27502553   27.5M
+bad_spec         bad_spec    427517  427.5k
+   l1i_*          l1i_ref 196507592  196.5M
+   l1i_*         l1i_miss   4631268    4.6M
+   l1d_*          l1d_ref  21137522   21.1M
    l1d_*         l1d_miss         0     0.0
-    bp_*          bp_miss    285014  285.0k
+    bp_*          bp_miss    213764  213.8k
 
 
 core:
-    Cycles: 224.6M, Retired: 195.5M, Empty: 29.1M, IPC: 0.870 
+    Cycles: 225.4M, Retired: 196.2M, Empty: 29.3M, IPC: 0.870 
 icache:
-    Ref: 196.0M, H: 191.4M, M: 4.6M, HR: 97.64%, MPKI: 23.69 
+    Ref: 196.5M, H: 191.9M, M: 4.6M, HR: 97.64%, MPKI: 23.61 
 dcache:
-    Ref: 20.9M, H: 20.9M, M: 0.0, HR: 100.00%, MPKI: 0.00 
+    Ref: 21.1M, H: 21.1M, M: 0.0, HR: 100.00%, MPKI: 0.00 
 bpred:
-    P: 2.4M, M: 285.0k, ACC: 89.38%, MPKI: 1.46 
+    P: 2.5M, M: 213.8k, ACC: 92.03%, MPKI: 1.09 

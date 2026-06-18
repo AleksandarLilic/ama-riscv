@@ -1,9 +1,9 @@
 embench_nbody
-IPC: 0.786
+IPC: 0.81
          L1        L2     cycles cycles_e
-0      lost  bad_spec   13641484    13.6M
-1      lost     other         60     60.0
-2  frontend    icache   27280459    27.3M
+0      lost  bad_spec    8176046     8.2M
+1      lost     other         62     62.0
+2  frontend    icache   26021376    26.0M
 3  frontend      core    2504623     2.5M
 4   backend    dcache          0      0.0
 5   backend      core    5022062     5.0M
@@ -12,32 +12,32 @@ IPC: 0.786
 
 Performance Counters for 'embench_nbody'
    class          counter     count count_e
-  cycles           cycles 226537982  226.5M
+  cycles           cycles 219813463  219.8M
      ret              ret 178089294  178.1M
-   stall           stalls  34807144   34.8M
-    lost             lost  13641544   13.6M
+   stall           stalls  33548061   33.5M
+    lost             lost   8176108    8.2M
    ret_*          ret_int 178089294  178.1M
-   ret_* ret_ctrl_flow_br  22506615   22.5M
+   ret_* ret_ctrl_flow_br  22506616   22.5M
    ret_*         ret_simd         0     0.0
  stall_*         stall_be   5022062    5.0M
  stall_*    stall_be_core   5022062    5.0M
- stall_*         stall_fe  29785082   29.8M
+ stall_*         stall_fe  28525999   28.5M
  stall_*    stall_fe_core   2504623    2.5M
  stall_*        stall_l1d         0     0.0
- stall_*        stall_l1i  27280459   27.3M
-bad_spec         bad_spec  13641484   13.6M
-   l1i_*          l1i_ref 190640728  190.6M
-   l1i_*         l1i_miss   6030076    6.0M
+ stall_*        stall_l1i  26021376   26.0M
+bad_spec         bad_spec   8176046    8.2M
+   l1i_*          l1i_ref 185925006  185.9M
+   l1i_*         l1i_miss   4850514    4.9M
    l1d_*          l1d_ref  20963665   21.0M
    l1d_*         l1d_miss         0     0.0
-    bp_*          bp_miss   6820748    6.8M
+    bp_*          bp_miss   4088030    4.1M
 
 
 core:
-    Cycles: 226.5M, Retired: 178.1M, Empty: 48.4M, IPC: 0.786 
+    Cycles: 219.8M, Retired: 178.1M, Empty: 41.7M, IPC: 0.810 
 icache:
-    Ref: 190.6M, H: 184.6M, M: 6.0M, HR: 96.84%, MPKI: 33.86 
+    Ref: 185.9M, H: 181.1M, M: 4.9M, HR: 97.39%, MPKI: 27.24 
 dcache:
     Ref: 21.0M, H: 21.0M, M: 0.0, HR: 100.00%, MPKI: 0.00 
 bpred:
-    P: 15.7M, M: 6.8M, ACC: 69.69%, MPKI: 38.30 
+    P: 18.4M, M: 4.1M, ACC: 81.84%, MPKI: 22.95 

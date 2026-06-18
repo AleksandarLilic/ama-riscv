@@ -1,8 +1,8 @@
 embench_tarfind
 IPC: 0.83
          L1        L2    cycles cycles_e
-0      lost  bad_spec   1170834     1.2M
-1      lost     other     14149    14.1k
+0      lost  bad_spec   1138510     1.1M
+1      lost     other     14153    14.2k
 2  frontend    icache        37     37.0
 3  frontend      core   4244121     4.2M
 4   backend    dcache   4770528     4.8M
@@ -12,10 +12,10 @@ IPC: 0.83
 
 Performance Counters for 'embench_tarfind'
    class          counter    count count_e
-  cycles           cycles 72169943   72.2M
+  cycles           cycles 72137623   72.1M
      ret              ret 59867514   59.9M
    stall           stalls 11117446   11.1M
-    lost             lost  1184983    1.2M
+    lost             lost  1152663    1.2M
    ret_*          ret_int 59867514   59.9M
    ret_* ret_ctrl_flow_br  5354148    5.4M
    ret_*         ret_simd        0     0.0
@@ -25,19 +25,19 @@ Performance Counters for 'embench_tarfind'
  stall_*    stall_fe_core  4244121    4.2M
  stall_*        stall_l1d  4770528    4.8M
  stall_*        stall_l1i       37    37.0
-bad_spec         bad_spec  1170834    1.2M
-   l1i_*          l1i_ref 61038368   61.0M
+bad_spec         bad_spec  1138510    1.1M
+   l1i_*          l1i_ref 61006048   61.0M
    l1i_*         l1i_miss       12    12.0
    l1d_*          l1d_ref 12855886   12.9M
    l1d_*         l1d_miss   571053  571.1k
-    bp_*          bp_miss   585421  585.4k
+    bp_*          bp_miss   569260  569.3k
 
 
 core:
-    Cycles: 72.2M, Retired: 59.9M, Empty: 12.3M, IPC: 0.830 
+    Cycles: 72.1M, Retired: 59.9M, Empty: 12.3M, IPC: 0.830 
 icache:
     Ref: 61.0M, H: 61.0M, M: 12.0, HR: 100.00%, MPKI: 0.00 
 dcache:
     Ref: 12.9M, H: 12.3M, M: 571.1k, HR: 95.56%, MPKI: 9.54 
 bpred:
-    P: 4.8M, M: 585.4k, ACC: 89.07%, MPKI: 9.78 
+    P: 4.8M, M: 569.3k, ACC: 89.37%, MPKI: 9.51 

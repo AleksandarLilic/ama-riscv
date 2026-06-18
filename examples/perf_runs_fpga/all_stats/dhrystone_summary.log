@@ -1,8 +1,8 @@
 dhrystone
 IPC: 0.91
          L1        L2     cycles cycles_e
-0      lost  bad_spec         82     82.0
-1      lost     other         57     57.0
+0      lost  bad_spec         67     67.0
+1      lost     other         64     64.0
 2  frontend    icache        198    198.0
 3  frontend      core   28000022    28.0M
 4   backend    dcache         20     20.0
@@ -12,12 +12,12 @@ IPC: 0.91
 
 Performance Counters for 'dhrystone'
    class          counter     count count_e
-  cycles           cycles 354000572  354.0M
+  cycles           cycles 354000564  354.0M
      ret              ret 322000157  322.0M
    stall           stalls  32000276   32.0M
-    lost             lost       139   139.0
+    lost             lost       131   131.0
    ret_*          ret_int 322000157  322.0M
-   ret_* ret_ctrl_flow_br  29000017   29.0M
+   ret_* ret_ctrl_flow_br  29000016   29.0M
    ret_*         ret_simd         0     0.0
  stall_*         stall_be   4000056    4.0M
  stall_*    stall_be_core   4000036    4.0M
@@ -25,19 +25,19 @@ Performance Counters for 'dhrystone'
  stall_*    stall_fe_core  28000022   28.0M
  stall_*        stall_l1d        20    20.0
  stall_*        stall_l1i       198   198.0
-bad_spec         bad_spec        82    82.0
-   l1i_*          l1i_ref 322000245  322.0M
-   l1i_*         l1i_miss        53    53.0
+bad_spec         bad_spec        67    67.0
+   l1i_*          l1i_ref 322000228  322.0M
+   l1i_*         l1i_miss        51    51.0
    l1d_*          l1d_ref 130000017  130.0M
    l1d_*         l1d_miss         2     2.0
-    bp_*          bp_miss        45    45.0
+    bp_*          bp_miss        38    38.0
 
 
 core:
     Cycles: 354.0M, Retired: 322.0M, Empty: 32.0M, IPC: 0.910 
 icache:
-    Ref: 322.0M, H: 322.0M, M: 53.0, HR: 100.00%, MPKI: 0.00 
+    Ref: 322.0M, H: 322.0M, M: 51.0, HR: 100.00%, MPKI: 0.00 
 dcache:
     Ref: 130.0M, H: 130.0M, M: 2.0, HR: 100.00%, MPKI: 0.00 
 bpred:
-    P: 29.0M, M: 45.0, ACC: 100.00%, MPKI: 0.00 
+    P: 29.0M, M: 38.0, ACC: 100.00%, MPKI: 0.00 

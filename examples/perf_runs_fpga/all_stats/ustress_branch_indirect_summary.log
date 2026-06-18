@@ -1,7 +1,7 @@
 ustress_branch_indirect
 IPC: 0.907
          L1        L2    cycles cycles_e
-0      lost  bad_spec        19     19.0
+0      lost  bad_spec        17     17.0
 1      lost     other        59     59.0
 2  frontend    icache        33     33.0
 3  frontend      core   2476373     2.5M
@@ -12,12 +12,12 @@ IPC: 0.907
 
 Performance Counters for 'ustress_branch_indirect'
    class          counter    count count_e
-  cycles           cycles 39819324   39.8M
+  cycles           cycles 39819322   39.8M
      ret              ret 36104626   36.1M
    stall           stalls  3714620    3.7M
-    lost             lost       78    78.0
+    lost             lost       76    76.0
    ret_*          ret_int 36104626   36.1M
-   ret_* ret_ctrl_flow_br   100015  100.0k
+   ret_* ret_ctrl_flow_br   100016  100.0k
    ret_*         ret_simd        0     0.0
  stall_*         stall_be  1238214    1.2M
  stall_*    stall_be_core  1238190    1.2M
@@ -25,7 +25,7 @@ Performance Counters for 'ustress_branch_indirect'
  stall_*    stall_fe_core  2476373    2.5M
  stall_*        stall_l1d       24    24.0
  stall_*        stall_l1i       33    33.0
-bad_spec         bad_spec       19    19.0
+bad_spec         bad_spec       17    17.0
    l1i_*          l1i_ref 36104664   36.1M
    l1i_*         l1i_miss       11    11.0
    l1d_*          l1d_ref 17331853   17.3M

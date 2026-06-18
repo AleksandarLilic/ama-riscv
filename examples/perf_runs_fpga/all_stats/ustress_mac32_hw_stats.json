@@ -1,11 +1,11 @@
 {
     "core": {
-        "cycles": 52000168,
-        "empty": 12000129,
+        "cycles": 52000166,
+        "empty": 12000127,
         "stalls": 12000056,
-        "lost": 73,
+        "lost": 71,
         "lost_other": 63,
-        "bad_spec": 10,
+        "bad_spec": 8,
         "stall_be": 12000012,
         "stall_l1d": 0,
         "stall_be_core": 12000012,
@@ -15,7 +15,7 @@
         "ret": 40000039,
         "ret_simd": 0,
         "ret_int": 40000039,
-        "ret_ctrl_flow_br": 4000003,
+        "ret_ctrl_flow_br": 4000004,
         "bp_miss": 11,
         "l1i_ref": 40000070,
         "l1i_miss": 11,
@@ -46,7 +46,7 @@
         "mpki": 0
     },
     "bpred": {
-        "predicted": 3999992,
+        "predicted": 3999993,
         "mispredicted": 11,
         "accuracy": 100.0,
         "mpki": 0.0

@@ -1,43 +1,43 @@
 embench_picojpeg
-IPC: 0.942
+IPC: 0.947
          L1        L2     cycles cycles_e
-0      lost  bad_spec    3809986     3.8M
-1      lost     other         52     52.0
-2  frontend    icache    4049527     4.0M
+0      lost  bad_spec    2860826     2.9M
+1      lost     other         56     56.0
+2  frontend    icache    4045945     4.0M
 3  frontend      core    2198417     2.2M
-4   backend    dcache         32     32.0
+4   backend    dcache         42     42.0
 5   backend      core    1402512     1.4M
 6  retiring   integer  187240859   187.2M
 7  retiring      simd          0      0.0
 
 Performance Counters for 'embench_picojpeg'
    class          counter     count count_e
-  cycles           cycles 198701385  198.7M
+  cycles           cycles 197748657  197.7M
      ret              ret 187240859  187.2M
-   stall           stalls   7650488    7.7M
-    lost             lost   3810038    3.8M
+   stall           stalls   7646916    7.6M
+    lost             lost   2860882    2.9M
    ret_*          ret_int 187240859  187.2M
    ret_* ret_ctrl_flow_br  17172604   17.2M
    ret_*         ret_simd         0     0.0
- stall_*         stall_be   1402544    1.4M
+ stall_*         stall_be   1402554    1.4M
  stall_*    stall_be_core   1402512    1.4M
- stall_*         stall_fe   6247944    6.2M
+ stall_*         stall_fe   6244362    6.2M
  stall_*    stall_fe_core   2198417    2.2M
- stall_*        stall_l1d        32    32.0
- stall_*        stall_l1i   4049527    4.0M
-bad_spec         bad_spec   3809986    3.8M
-   l1i_*          l1i_ref 190953663  191.0M
-   l1i_*         l1i_miss    778226  778.2k
+ stall_*        stall_l1d        42    42.0
+ stall_*        stall_l1i   4045945    4.0M
+bad_spec         bad_spec   2860826    2.9M
+   l1i_*          l1i_ref 190067496  190.1M
+   l1i_*         l1i_miss    720938  720.9k
    l1d_*          l1d_ref  49675524   49.7M
-   l1d_*         l1d_miss         4     4.0
-    bp_*          bp_miss   1904999    1.9M
+   l1d_*         l1d_miss         5     5.0
+    bp_*          bp_miss   1430419    1.4M
 
 
 core:
-    Cycles: 198.7M, Retired: 187.2M, Empty: 11.5M, IPC: 0.942 
+    Cycles: 197.7M, Retired: 187.2M, Empty: 10.5M, IPC: 0.947 
 icache:
-    Ref: 191.0M, H: 190.2M, M: 778.2k, HR: 99.59%, MPKI: 4.16 
+    Ref: 190.1M, H: 189.3M, M: 720.9k, HR: 99.62%, MPKI: 3.85 
 dcache:
-    Ref: 49.7M, H: 49.7M, M: 4.0, HR: 100.00%, MPKI: 0.00 
+    Ref: 49.7M, H: 49.7M, M: 5.0, HR: 100.00%, MPKI: 0.00 
 bpred:
-    P: 15.3M, M: 1.9M, ACC: 88.91%, MPKI: 10.17 
+    P: 15.7M, M: 1.4M, ACC: 91.67%, MPKI: 7.64 

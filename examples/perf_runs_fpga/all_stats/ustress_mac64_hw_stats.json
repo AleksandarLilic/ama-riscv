@@ -16,20 +16,20 @@
         "ret_simd": 0,
         "ret_int": 53750047,
         "ret_ctrl_flow_br": 1250004,
-        "bp_miss": 6,
-        "l1i_ref": 53750075,
-        "l1i_miss": 13,
+        "bp_miss": 7,
+        "l1i_ref": 53750076,
+        "l1i_miss": 14,
         "l1d_ref": 20,
         "l1d_miss": 0,
         "ipc": 1.0
     },
     "icache": {
-        "references": 53750075,
+        "references": 53750076,
         "hits": {
             "all": 53750062
         },
         "misses": {
-            "all": 13
+            "all": 14
         },
         "hr": 100.0,
         "mpki": 0.0
@@ -46,8 +46,8 @@
         "mpki": 0
     },
     "bpred": {
-        "predicted": 1249998,
-        "mispredicted": 6,
+        "predicted": 1249997,
+        "mispredicted": 7,
         "accuracy": 100.0,
         "mpki": 0.0
     }

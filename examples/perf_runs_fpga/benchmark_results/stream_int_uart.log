@@ -11,8 +11,8 @@ Each kernel will be executed 10 times.
  will be used to compute the reported bandwidth.
 -------------------------------------------------------------
 Function    Best Rate MB/s  Avg time us  Min time us  Max time us
-Copy:                66          738          738          738
-Scale:               49          984          984          984
+Copy:                66          737          737          738
+Scale:               50          983          983          984
 Add:                 64         1152         1152         1153
 Triad:               57         1275         1275         1276
 -------------------------------------------------------------

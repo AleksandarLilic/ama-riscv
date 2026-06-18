@@ -1,10 +1,10 @@
 ustress_div32
 IPC: 0.07
          L1        L2    cycles cycles_e
-0      lost  bad_spec         9      9.0
+0      lost  bad_spec         7      7.0
 1      lost     other        63     63.0
-2  frontend    icache        30     30.0
-3  frontend      core        14     14.0
+2  frontend    icache        31     31.0
+3  frontend      core        13     13.0
 4   backend    dcache         0      0.0
 5   backend      core  42400012    42.4M
 6  retiring   integer   3200043     3.2M
@@ -12,20 +12,20 @@ IPC: 0.07
 
 Performance Counters for 'ustress_div32'
    class          counter    count count_e
-  cycles           cycles 45600171   45.6M
+  cycles           cycles 45600169   45.6M
      ret              ret  3200043    3.2M
    stall           stalls 42400056   42.4M
-    lost             lost       72    72.0
+    lost             lost       70    70.0
    ret_*          ret_int  3200043    3.2M
-   ret_* ret_ctrl_flow_br   400003  400.0k
+   ret_* ret_ctrl_flow_br   400004  400.0k
    ret_*         ret_simd        0     0.0
  stall_*         stall_be 42400012   42.4M
  stall_*    stall_be_core 42400012   42.4M
  stall_*         stall_fe       44    44.0
- stall_*    stall_fe_core       14    14.0
+ stall_*    stall_fe_core       13    13.0
  stall_*        stall_l1d        0     0.0
- stall_*        stall_l1i       30    30.0
-bad_spec         bad_spec        9     9.0
+ stall_*        stall_l1i       31    31.0
+bad_spec         bad_spec        7     7.0
    l1i_*          l1i_ref  3200073    3.2M
    l1i_*         l1i_miss       11    11.0
    l1d_*          l1d_ref       15    15.0

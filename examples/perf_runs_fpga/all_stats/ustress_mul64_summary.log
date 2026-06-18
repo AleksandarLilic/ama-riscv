@@ -1,8 +1,8 @@
 ustress_mul64
 IPC: 0.929
          L1        L2    cycles cycles_e
-0      lost  bad_spec         9      9.0
-1      lost     other        57     57.0
+0      lost  bad_spec         7      7.0
+1      lost     other        59     59.0
 2  frontend    icache        33     33.0
 3  frontend      core        21     21.0
 4   backend    dcache         0      0.0
@@ -25,7 +25,7 @@ Performance Counters for 'ustress_mul64'
  stall_*    stall_fe_core       21    21.0
  stall_*        stall_l1d        0     0.0
  stall_*        stall_l1i       33    33.0
-bad_spec         bad_spec        9     9.0
+bad_spec         bad_spec        7     7.0
    l1i_*          l1i_ref 52000076   52.0M
    l1i_*         l1i_miss       12    12.0
    l1d_*          l1d_ref       20    20.0

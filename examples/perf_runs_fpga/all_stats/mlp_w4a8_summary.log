@@ -1,34 +1,34 @@
 mlp_w4a8
 IPC: 0.88
          L1        L2  cycles cycles_e
-0      lost  bad_spec      72     72.0
-1      lost     other     122    122.0
-2  frontend    icache     150    150.0
-3  frontend      core      19     19.0
+0      lost  bad_spec      64     64.0
+1      lost     other     123    123.0
+2  frontend    icache     151    151.0
+3  frontend      core      16     16.0
 4   backend    dcache    1292     1.3k
-5   backend      core    1380     1.4k
-6  retiring   integer   12812    12.8k
+5   backend      core    1383     1.4k
+6  retiring   integer   12811    12.8k
 7  retiring      simd    9456     9.5k
 
 Performance Counters for 'mlp_w4a8'
    class          counter  count count_e
-  cycles           cycles  25303   25.3k
-     ret              ret  22268   22.3k
-   stall           stalls   2841    2.8k
-    lost             lost    194   194.0
-   ret_*          ret_int  12812   12.8k
+  cycles           cycles  25296   25.3k
+     ret              ret  22267   22.3k
+   stall           stalls   2842    2.8k
+    lost             lost    187   187.0
+   ret_*          ret_int  12811   12.8k
    ret_* ret_ctrl_flow_br    904   904.0
    ret_*         ret_simd   9456    9.5k
- stall_*         stall_be   2672    2.7k
- stall_*    stall_be_core   1380    1.4k
- stall_*         stall_fe    169   169.0
- stall_*    stall_fe_core     19    19.0
+ stall_*         stall_be   2675    2.7k
+ stall_*    stall_be_core   1383    1.4k
+ stall_*         stall_fe    167   167.0
+ stall_*    stall_fe_core     16    16.0
  stall_*        stall_l1d   1292    1.3k
- stall_*        stall_l1i    150   150.0
-bad_spec         bad_spec     72    72.0
-   l1i_*          l1i_ref  22349   22.3k
+ stall_*        stall_l1i    151   151.0
+bad_spec         bad_spec     64    64.0
+   l1i_*          l1i_ref  22347   22.3k
    l1i_*         l1i_miss     33    33.0
-   l1d_*          l1d_ref   8171    8.2k
+   l1d_*          l1d_ref   8172    8.2k
    l1d_*         l1d_miss    212   212.0
     bp_*          bp_miss     39    39.0
 

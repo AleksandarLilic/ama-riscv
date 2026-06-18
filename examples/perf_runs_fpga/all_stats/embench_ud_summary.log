@@ -1,9 +1,9 @@
 embench_ud
-IPC: 0.861
+IPC: 0.887
          L1        L2     cycles cycles_e
-0      lost  bad_spec   13302021    13.3M
-1      lost     other         54     54.0
-2  frontend    icache        136    136.0
+0      lost  bad_spec    7537821     7.5M
+1      lost     other         56     56.0
+2  frontend    icache        130    130.0
 3  frontend      core    3695023     3.7M
 4   backend    dcache          0      0.0
 5   backend      core   10419912    10.4M
@@ -12,32 +12,32 @@ IPC: 0.861
 
 Performance Counters for 'embench_ud'
    class          counter     count count_e
-  cycles           cycles 197239417  197.2M
+  cycles           cycles 191475213  191.5M
      ret              ret 169822271  169.8M
-   stall           stalls  14115071   14.1M
-    lost             lost  13302075   13.3M
+   stall           stalls  14115065   14.1M
+    lost             lost   7537877    7.5M
    ret_*          ret_int 169822271  169.8M
    ret_* ret_ctrl_flow_br  23574104   23.6M
    ret_*         ret_simd         0     0.0
  stall_*         stall_be  10419912   10.4M
  stall_*    stall_be_core  10419912   10.4M
- stall_*         stall_fe   3695159    3.7M
+ stall_*         stall_fe   3695153    3.7M
  stall_*    stall_fe_core   3695023    3.7M
  stall_*        stall_l1d         0     0.0
- stall_*        stall_l1i       136   136.0
-bad_spec         bad_spec  13302021   13.3M
-   l1i_*          l1i_ref 183050412  183.1M
-   l1i_*         l1i_miss     73930   73.9k
+ stall_*        stall_l1i       130   130.0
+bad_spec         bad_spec   7537821    7.5M
+   l1i_*          l1i_ref 177360114  177.4M
+   l1i_*         l1i_miss        29    29.0
    l1d_*          l1d_ref  35915437   35.9M
    l1d_*         l1d_miss         0     0.0
-    bp_*          bp_miss   6651014    6.7M
+    bp_*          bp_miss   3768914    3.8M
 
 
 core:
-    Cycles: 197.2M, Retired: 169.8M, Empty: 27.4M, IPC: 0.861 
+    Cycles: 191.5M, Retired: 169.8M, Empty: 21.7M, IPC: 0.887 
 icache:
-    Ref: 183.1M, H: 183.0M, M: 73.9k, HR: 99.96%, MPKI: 0.44 
+    Ref: 177.4M, H: 177.4M, M: 29.0, HR: 100.00%, MPKI: 0.00 
 dcache:
     Ref: 35.9M, H: 35.9M, M: 0.0, HR: 100.00%, MPKI: 0.00 
 bpred:
-    P: 16.9M, M: 6.7M, ACC: 71.79%, MPKI: 39.16 
+    P: 19.8M, M: 3.8M, ACC: 84.01%, MPKI: 22.19 

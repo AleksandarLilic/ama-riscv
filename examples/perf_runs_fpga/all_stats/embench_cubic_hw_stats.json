@@ -1,54 +1,54 @@
 {
     "core": {
-        "cycles": 524808782,
-        "empty": 120605704,
-        "stalls": 95781118,
-        "lost": 24824586,
-        "lost_other": 6556,
-        "bad_spec": 24818030,
-        "stall_be": 11505536,
-        "stall_l1d": 275024,
-        "stall_be_core": 11230512,
-        "stall_fe": 84275582,
-        "stall_l1i": 78772561,
-        "stall_fe_core": 5503021,
+        "cycles": 519114312,
+        "empty": 114911234,
+        "stalls": 95608644,
+        "lost": 19302590,
+        "lost_other": 8556,
+        "bad_spec": 19294034,
+        "stall_be": 11338556,
+        "stall_l1d": 95044,
+        "stall_be_core": 11243512,
+        "stall_fe": 84270088,
+        "stall_l1i": 78774067,
+        "stall_fe_core": 5496021,
         "ret": 404203078,
         "ret_simd": 0,
         "ret_int": 404203078,
         "ret_ctrl_flow_br": 41509004,
-        "bp_miss": 12409019,
-        "l1i_ref": 425781104,
-        "l1i_miss": 16899541,
+        "bp_miss": 9647020,
+        "l1i_ref": 421140126,
+        "l1i_miss": 15875022,
         "l1d_ref": 78112043,
-        "l1d_miss": 39003,
-        "ipc": 0.77
+        "l1d_miss": 13005,
+        "ipc": 0.779
     },
     "icache": {
-        "references": 425781104,
+        "references": 421140126,
         "hits": {
-            "all": 408881563
+            "all": 405265104
         },
         "misses": {
-            "all": 16899541
+            "all": 15875022
         },
-        "hr": 96.03,
-        "mpki": 41.81
+        "hr": 96.23,
+        "mpki": 39.27
     },
     "dcache": {
         "references": 78112043,
         "hits": {
-            "all": 78073040
+            "all": 78099038
         },
         "misses": {
-            "all": 39003
+            "all": 13005
         },
-        "hr": 99.95,
-        "mpki": 0.1
+        "hr": 99.98,
+        "mpki": 0.03
     },
     "bpred": {
-        "predicted": 29099985,
-        "mispredicted": 12409019,
-        "accuracy": 70.11,
-        "mpki": 30.7
+        "predicted": 31861984,
+        "mispredicted": 9647020,
+        "accuracy": 76.76,
+        "mpki": 23.87
     }
 }

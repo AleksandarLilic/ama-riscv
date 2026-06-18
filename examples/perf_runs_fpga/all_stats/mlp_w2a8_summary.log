@@ -1,10 +1,10 @@
 mlp_w2a8
 IPC: 0.922
          L1        L2  cycles cycles_e
-0      lost  bad_spec      74     74.0
-1      lost     other      86     86.0
-2  frontend    icache     149    149.0
-3  frontend      core      17     17.0
+0      lost  bad_spec      66     66.0
+1      lost     other      87     87.0
+2  frontend    icache     157    157.0
+3  frontend      core      13     13.0
 4   backend    dcache     682    682.0
 5   backend      core     869    869.0
 6  retiring   integer   11196    11.2k
@@ -12,25 +12,25 @@ IPC: 0.922
 
 Performance Counters for 'mlp_w2a8'
    class          counter  count count_e
-  cycles           cycles  24105   24.1k
+  cycles           cycles  24102   24.1k
      ret              ret  22228   22.2k
-   stall           stalls   1717    1.7k
-    lost             lost    160   160.0
+   stall           stalls   1721    1.7k
+    lost             lost    153   153.0
    ret_*          ret_int  11196   11.2k
    ret_* ret_ctrl_flow_br    893   893.0
    ret_*         ret_simd  11032   11.0k
  stall_*         stall_be   1551    1.6k
  stall_*    stall_be_core    869   869.0
- stall_*         stall_fe    166   166.0
- stall_*    stall_fe_core     17    17.0
+ stall_*         stall_fe    170   170.0
+ stall_*    stall_fe_core     13    13.0
  stall_*        stall_l1d    682   682.0
- stall_*        stall_l1i    149   149.0
-bad_spec         bad_spec     74    74.0
-   l1i_*          l1i_ref  22329   22.3k
+ stall_*        stall_l1i    157   157.0
+bad_spec         bad_spec     66    66.0
+   l1i_*          l1i_ref  22321   22.3k
    l1i_*         l1i_miss     33    33.0
    l1d_*          l1d_ref   6597    6.6k
-   l1d_*         l1d_miss    112   112.0
-    bp_*          bp_miss     43    43.0
+   l1d_*         l1d_miss    113   113.0
+    bp_*          bp_miss     40    40.0
 
 
 core:
@@ -38,6 +38,6 @@ core:
 icache:
     Ref: 22.3k, H: 22.3k, M: 33.0, HR: 99.85%, MPKI: 1.48 
 dcache:
-    Ref: 6.6k, H: 6.5k, M: 112.0, HR: 98.30%, MPKI: 5.04 
+    Ref: 6.6k, H: 6.5k, M: 113.0, HR: 98.29%, MPKI: 5.08 
 bpred:
-    P: 850.0, M: 43.0, ACC: 95.18%, MPKI: 1.93 
+    P: 853.0, M: 40.0, ACC: 95.52%, MPKI: 1.80 
