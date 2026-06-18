@@ -75,3 +75,4 @@ out_*/
 
 # untracked files
 local/
+*.md
