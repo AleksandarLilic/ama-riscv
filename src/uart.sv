@@ -59,13 +59,39 @@ end
 `endif
 `endif
 
+// uart_rx has no backpressure
+// buffer here instead, so the data is available for at least 1 symbol time
+rv_if #(.DW(8)) recv_rsp_raw ();
+
+logic recv_rsp_raw_valid_d;
+`DFF_CI_RI_RVI(recv_rsp_raw.valid, recv_rsp_raw_valid_d)
+
+assign recv_rsp_raw.ready = !recv_rsp.valid;
+logic take_new_data;
+assign take_new_data = (
+    // only when new data arrives and current one has been read
+    recv_rsp_raw.valid && !recv_rsp_raw_valid_d && recv_rsp_raw.ready
+);
+
+always_ff @(posedge clk) begin
+    if (rst) begin
+        recv_rsp.data <= 8'h0;
+        recv_rsp.valid <= 1'b0;
+    end else if (take_new_data) begin
+        recv_rsp.data <= recv_rsp_raw.data;
+        recv_rsp.valid <= 1'b1;
+    end else if (recv_rsp.ready) begin
+        recv_rsp.valid <= 1'b0;
+    end
+end
+
 uart_rx #(
     .CLOCK_FREQ (CLOCK_FREQ),
     .BAUD_RATE (BAUD_RATE)
 ) uart_rx_i (
     .clk (clk),
     .rst (rst),
-    .recv_rsp (recv_rsp),
+    .recv_rsp (recv_rsp_raw.TX),
     .serial_in (serial_in_d)
 );
 
