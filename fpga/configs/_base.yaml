@@ -5,7 +5,7 @@ part: xc7a100tcsg324-1 # Arty A7-100
 #part: xc7a35tcpg236-1 # Cmod A7-35
 
 sources:
-  filelist: filelist/sources_fpga.f
+  filelist: filelist/sources_fpga_synt.f
   top: ama_riscv_fpga
   constraints:
     - fpga/constraints/arty_a7-100_ama_riscv_fpga.xdc

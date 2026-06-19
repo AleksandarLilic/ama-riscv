@@ -84,7 +84,10 @@ def build_defines(cfg):
 
     hex_path = cfg.get("hex_path")
     if hex_path:
-        defs.append(f"FPGA_HEX_PATH={resolve_path(hex_path)}")
+        rhp = resolve_path(hex_path)
+        if not os.path.isfile(rhp):
+            sys.exit(f"error: hex file does not exist: {rhp}")
+        defs.append(f"FPGA_HEX_PATH={rhp}")
     return defs
 
 def synt_options(synt):
