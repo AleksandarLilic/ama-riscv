@@ -12,6 +12,7 @@ sv worklib_sim \
 "$REPO_ROOT/src/ama_riscv_core_top.sv" \
 "$REPO_ROOT/src/ama_riscv_core.sv" \
 "$REPO_ROOT/src/ama_riscv_fe_ctrl.sv" \
+"$REPO_ROOT/src/ama_riscv_trap_ctrl.sv" \
 "$REPO_ROOT/src/ama_riscv_decoder.sv" \
 "$REPO_ROOT/src/ama_riscv_imm_gen.sv" \
 "$REPO_ROOT/src/ama_riscv_bp.sv" \

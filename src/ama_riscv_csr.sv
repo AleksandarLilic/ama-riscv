@@ -10,7 +10,15 @@ module ama_riscv_csr #(
     input  logic [4:0] imm5,
     input  csr_addr_t addr,
     input  perf_event_t perf_events,
-    output arch_width_t out
+    output arch_width_t out,
+    // trap controller interface
+    input  csr_trap_wr_t trap_wr,
+    output csr_trap_status_t trap_status,
+    output arch_width_t mtvec, // trap target PC
+    output arch_width_t mepc, // mret target PC
+    // mip sources
+    input  logic mtip,
+    input  logic meip
 );
 
 //------------------------------------------------------------------------------
@@ -79,6 +87,20 @@ logic [MHPM_MASK_BITS-1:0] mhpm_addr_e;
 assign mhpm_addr_e = (addr_en[MHPM_MASK_BITS-1:0]);
 
 //------------------------------------------------------------------------------
+// trap CSRs: source-driven mip (software-RO) + exports to trap_ctrl / fe_ctrl
+arch_width_t csr_mip;
+assign csr_mip = (
+    (arch_width_t'(meip) << MIP_MEIP_BIT) |
+    (arch_width_t'(mtip) << MIP_MTIP_BIT)
+);
+
+assign trap_status.mstatus_mie = csr.mstatus[MSTATUS_MIE_BIT];
+assign trap_status.mie = csr.mie;
+assign trap_status.mip = csr_mip;
+assign mtvec = csr.mtvec;
+assign mepc = csr.mepc;
+
+//------------------------------------------------------------------------------
 // csr read
 always_comb begin
     out = 'h0;
@@ -118,6 +140,22 @@ always_comb begin
             CSR_MHPMEVENT8:
                 //out = {MHPMEVENT_PAD, csr.mhpmevent[mhpm_addr_e]};
                 out = csr.mhpmevent[mhpm_addr_e];
+            // trap CSRs
+            CSR_MSTATUS: out = csr.mstatus;
+            CSR_MIE: out = csr.mie;
+            CSR_MIP: out = csr_mip;
+            CSR_MTVEC: out = csr.mtvec;
+            CSR_MEPC: out = csr.mepc;
+            CSR_MCAUSE: out = csr.mcause;
+            CSR_MTVAL: out = csr.mtval;
+            // read-only ID CSRs
+            CSR_MISA: out = MISA_VAL;
+            // unimplemented machine info CSRs, reads zero by default
+            //CSR_MVENDORID: out = MVENDORID_VAL;
+            //CSR_MARCHID: out = MARCHID_VAL;
+            //CSR_MIMPID: out = MIMPID_VAL;
+            //CSR_MHARTID: out = MHARTID_VAL;
+            //CSR_MCONFIGPTR: out = MCONFIGPTR_VAL;
             default: ;
         endcase
     end
@@ -158,6 +196,59 @@ always_ff @(posedge clk) begin
             default: ;
         endcase
     end
+end
+
+//------------------------------------------------------------------------------
+// trap CSRs (per-CSR write, trap entry/ret has priority over a csr* write)
+// at the entry/ret cycle the trapping inst is a bubble at WBK with everything
+// older drained, so there is no concurrent csr* write to arbitrate
+
+// mstatus: WARL (MIE/MPIE writable, MPP hardwired M); stack on entry/ret
+always_ff @(posedge clk) begin
+    if (rst) begin
+        csr.mstatus <= MSTATUS_MPP_FIXED;
+    end else if (trap_wr.entry) begin
+        csr.mstatus[MSTATUS_MPIE_BIT] <= csr.mstatus[MSTATUS_MIE_BIT];
+        csr.mstatus[MSTATUS_MIE_BIT] <= 1'b0;
+    end else if (trap_wr.ret) begin
+        csr.mstatus[MSTATUS_MPIE_BIT] <= 1'b1;
+        csr.mstatus[MSTATUS_MIE_BIT] <= csr.mstatus[MSTATUS_MPIE_BIT];
+    end else if (ctrl.we && (addr_en == CSR_MSTATUS)) begin
+        csr.mstatus <= ((wr_data & MSTATUS_WMASK) | MSTATUS_MPP_FIXED);
+    end
+end
+
+// mepc: trap entry writes pc_dec (word-aligned), else WARL csr* write
+always_ff @(posedge clk) begin
+    if (rst) csr.mepc <= 'h0;
+    else if (trap_wr.entry) csr.mepc <= (trap_wr.trap_info.mepc & PC_ALIGN_MASK);
+    else if (ctrl.we && (addr_en == CSR_MEPC)) csr.mepc <= (wr_data & PC_ALIGN_MASK);
+end
+
+// mcause: trap entry writes cause, else csr* write
+always_ff @(posedge clk) begin
+    if (rst) csr.mcause <= 'h0;
+    else if (trap_wr.entry) csr.mcause <= trap_wr.trap_info.mcause;
+    else if (ctrl.we && (addr_en == CSR_MCAUSE)) csr.mcause <= wr_data;
+end
+
+// mtval: trap entry writes tval, else csr* write
+always_ff @(posedge clk) begin
+    if (rst) csr.mtval <= 'h0;
+    else if (trap_wr.entry) csr.mtval <= trap_wr.trap_info.mtval;
+    else if (ctrl.we && (addr_en == CSR_MTVAL)) csr.mtval <= wr_data;
+end
+
+// mtvec: csr* write only, WARL (direct mode => low 2 bits 0)
+always_ff @(posedge clk) begin
+    if (rst) csr.mtvec <= 'h0;
+    else if (ctrl.we && (addr_en == CSR_MTVEC)) csr.mtvec <= (wr_data & PC_ALIGN_MASK);
+end
+
+// mie: csr* write only, WARL (MTIE/MEIE writable)
+always_ff @(posedge clk) begin
+    if (rst) csr.mie <= 'h0;
+    else if (ctrl.we && (addr_en == CSR_MIE)) csr.mie <= (wr_data & MIE_WMASK);
 end
 
 //------------------------------------------------------------------------------

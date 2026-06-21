@@ -22,6 +22,10 @@ module ama_riscv_fe_ctrl (
     input  hazard_t hazard,
     /* verilator lint_on UNUSEDSIGNAL */
     input  fe_ctrl_t decoded_fe_ctrl,
+    // trap controller
+    input  logic trap_bubble,
+    input  logic trap_redirect,
+    input  logic mret_redirect,
     `ifdef USE_BP
     output arch_width_t pc_cp,
     `endif
@@ -413,6 +417,19 @@ always_comb begin
         default: ;
 
     endcase
+
+    // trap controller: chase younger with bubbles
+    if (trap_bubble) fe_ctrl.bubble_dec = 1'b1;
+
+    // trap entry / mret redirect - top priority, flush DEC only
+    // the core PC front mux feeds mtvec/mepc into PC_SEL_PC
+    if (trap_redirect || mret_redirect) begin
+        fe_ctrl.pc_sel = PC_SEL_PC;
+        fe_ctrl.pc_we = 1'b1;
+        fe_ctrl.bubble_dec = 1'b1;
+        imem_req.valid = 1'b1;
+        imem_rsp.ready = 1'b1;
+    end
 end
 
 `DFF_CI_RI_RV(`FE_CTRL_INIT_VAL, decoded_fe_ctrl, decoded_fe_ctrl_d)

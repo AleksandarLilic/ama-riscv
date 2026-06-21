@@ -25,6 +25,7 @@ pipeline_if #(.W(INST_WIDTH)) inst ();
 pipeline_if #(.W(ARCH_WIDTH)) pc ();
 pipeline_if_s flush ();
 pipeline_if_s pc_nz ();
+pipeline_if_typed #(.T(trap_tag_t)) trap_tag ();
 pipeline_if_typed #(.T(wb_sel_t)) wb_sel ();
 pipeline_if_typed #(.T(cycle_tag_t)) ct ();
 pipeline_if_typed #(.T(cycle_tag_t)) ct_gen ();
@@ -56,13 +57,20 @@ add #(.W(ARCH_WIDTH)) pc_fet_inc4_i (
 );
 /* verilator lint_on PINCONNECTEMPTY */
 
+// PC_SEL_PC front mux
+logic trap_redirect, mret_redirect;
+arch_width_t pc_sel_pc_src, mtvec_exe, mepc_exe;
+assign pc_sel_pc_src =
+    trap_redirect ? mtvec_exe :
+    mret_redirect ? mepc_exe : pc_fet_last;
+
 always_comb begin
+    pc.fet = pc_sel_pc_src;
     unique case (fe_ctrl.pc_sel)
-        PC_SEL_PC: pc.fet = pc_fet_last;
+        PC_SEL_PC: pc.fet = pc_sel_pc_src;
         PC_SEL_INC4: pc.fet = pc_inc4;
         PC_SEL_ALU: pc.fet = pc_new_mem;
         PC_SEL_JAL_BP: pc.fet = pc_branch_jal;
-        default: pc.fet = pc_fet_last;
     endcase
 end
 assign imem_req.data = pc.fet[CORE_WORD_ADDR_BUS+2-1:2];
@@ -113,6 +121,30 @@ ama_riscv_decoder #(.SIMD_EN (SIMD_EN)) ama_riscv_decoder_i (
     .inst_dec (inst.dec), .decoded (decoded), .fe_ctrl (decoded_fe_ctrl)
 );
 
+logic trap_bubble;
+csr_trap_status_t csr_status;
+csr_trap_wr_t csr_trap_wr;
+ama_riscv_trap_ctrl ama_riscv_trap_ctrl_i (
+    .clk,
+    .rst,
+    // inputs
+    .xcpt (decoded.xcpt),
+    .mret_dec (decoded.mret),
+    .dec_valid ((inst.dec != 'h0)),
+    .dec_en (ctrl_dec_exe.en), // TODO: && !bubble ?
+    .pc_dec (pc.dec),
+    .inst_dec (inst.dec),
+    .spec (spec),
+    .trap_tag_wbk (trap_tag.wbk),
+    .csr_status (csr_status),
+    // outputs
+    .trap_tag_dec (trap_tag.dec),
+    .bubble_dec (trap_bubble),
+    .csr_trap_wr (csr_trap_wr),
+    .trap_redirect (trap_redirect),
+    .mret_redirect (mret_redirect)
+);
+
 /* verilator lint_off UNUSEDSIGNAL */
 decoder_t decoded_exe; // some bits are not always used
 /* verilator lint_on UNUSEDSIGNAL */
@@ -144,6 +176,9 @@ ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     `endif
     .branch_resolution (branch_resolution_mem),
     .decoded_fe_ctrl (decoded_fe_ctrl),
+    .trap_bubble (trap_bubble),
+    .trap_redirect (trap_redirect),
+    .mret_redirect (mret_redirect),
     .hazard (hazard),
     .dc_stalled (dc_stalled),
     .div_stalled (div_stalled),
@@ -418,6 +453,7 @@ assign pc_nz.dec = (pc.dec != 'h0);
 `endif
 `STAGE_D_E(1'b1, inst.dec, inst.exe, 'h0)
 `STAGE_D_E(1'b1, pc.dec, pc.exe, 'h0)
+`STAGE_D_E(1'b1, trap_tag.dec, trap_tag.exe, 'h0)
 `STAGE_D_E(1'b1, rd_addr.dec, rd_addr.exe, RF_X0_ZERO)
 `STAGE_D_E(1'b1, rs1_addr_dec, rs1_addr_exe, RF_X0_ZERO)
 `STAGE_D_E(1'b1, rs2_addr_dec, rs2_addr_exe, RF_X0_ZERO)
@@ -630,7 +666,15 @@ ama_riscv_csr #(
     .imm5 (csr_imm5_exe),
     .addr (csr_addr_exe),
     .perf_events,
-    .out (csr_out_exe)
+    .out (csr_out_exe),
+    // trap interface
+    .trap_wr (csr_trap_wr),
+    .trap_status (csr_status),
+    .mtvec (mtvec_exe),
+    .mepc (mepc_exe),
+    // TODO: no interrupt sources atm
+    .mtip (1'b0),
+    .meip (1'b0)
 );
 
 arch_width_t pc_exe_inc4;
@@ -721,6 +765,7 @@ arch_width_t rs3_mem;
 `STAGE_E_M(1'b1, inst.exe, inst.mem, 'h0)
 `STAGE_E_M(1'b1, pc.exe, pc.mem, 'h0)
 `STAGE_E_M(1'b1, pc_nz.exe, pc_nz.mem, 'h0)
+`STAGE_E_M(1'b1, trap_tag.exe, trap_tag.mem, 'h0)
 `STAGE_E_M(rf_we.exe.rd, e_writeback_exe, e_writeback_mem, 'h0)
 `STAGE_E_M(data_fmt_en_exe, data_fmt_out_p_exe, e_writeback_p_mem, 'h0)
 `STAGE_E_M(data_fmt_en_exe, data_fmt_en_exe, data_fmt_en_mem, 'h0)
@@ -804,6 +849,7 @@ arch_width_t e_writeback_wbk, e_writeback_p_wbk;
 `endif
 `STAGE_M_W(1'b1, inst.mem, inst.wbk, 'h0)
 `STAGE_M_W(1'b1, pc_nz.mem, pc_nz.wbk, 1'b0)
+`STAGE_M_W(1'b1, trap_tag.mem, trap_tag.wbk, 'h0)
 `STAGE_M_W(rf_we.mem.rd, e_writeback_mem, e_writeback_wbk, 'h0)
 `STAGE_M_W(data_fmt_en_mem, e_writeback_p_mem, e_writeback_p_wbk, 'h0)
 `STAGE_M_W(rf_we.mem.rd, wb_sel.mem, wb_sel.wbk, WB_SEL_EWB)
@@ -847,11 +893,13 @@ assign ctrl_wbk_ret = '{flush: flush.wbk, en: 1'b1, bubble: (!ctrl_mem_wbk.en)};
 
 logic inst_retired_simd;
 
+// a trapped inst is not retired: kill pc/inst/pc_nz into RET on trapped.wbk
 `ifndef SYNT
-`STAGE_W_R(1'b1, pc.wbk, pc.ret, 'h0)
+`STAGE_W_R(1'b1, (pc.wbk & {ARCH_WIDTH{!trap_tag.wbk.trapped}}), pc.ret, 'h0)
+`STAGE_W_R(1'b1, trap_tag.wbk, trap_tag.ret, 'h0)
 `endif
-`STAGE_W_R(1'b1, inst.wbk, inst.ret, 'h0)
-`STAGE_W_R(1'b1, pc_nz.wbk, pc_nz.ret, 1'b0)
+`STAGE_W_R(1'b1, (inst.wbk & {INST_WIDTH{!trap_tag.wbk.trapped}}), inst.ret, 'h0)
+`STAGE_W_R(1'b1, (pc_nz.wbk && !trap_tag.wbk.trapped), pc_nz.ret, 1'b0)
 `STAGE_W_R(1'b1, simd_inst_wbk, inst_retired_simd, 'h0)
 
 always_comb begin

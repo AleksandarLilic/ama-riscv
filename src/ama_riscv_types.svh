@@ -103,6 +103,18 @@ typedef enum logic [6:0] {
     OPC7_SYSTEM = 7'b111_0011
 } opc7_t;
 
+parameter logic [2:0] FN3_PRIV = 3'h0;
+parameter logic [2:0] FN3_PRIVM = 3'h4; // hypervisor insts
+// the other six are six different CSR* insts from zicsr, wired directly
+
+typedef enum logic [11:0] {
+    SYSTEM_FN12_ECALL = 12'h0,
+    SYSTEM_FN12_EBREAK = 12'h1,
+    //SYSTEM_FN12_SRET = 12'h102,
+    SYSTEM_FN12_MRET = 12'h302,
+    SYSTEM_FN12_WFI = 12'h105
+} system_fn12_t;
+
 typedef enum logic [6:0] {
     CUSTOM_ISA_FN7_SIMD_ADDSUB = 7'h00,
     CUSTOM_ISA_FN7_SIMD_QADDSUB = 7'h01,
@@ -477,6 +489,12 @@ typedef struct packed {
     logic use_cp;
 } fe_ctrl_t;
 
+typedef arch_width_t mcause_t;
+typedef struct packed {
+    logic pend;
+    mcause_t cause;
+} exception_t;
+
 typedef struct packed {
     inst_type_t itype;
     has_reg_t has_reg;
@@ -494,6 +512,8 @@ typedef struct packed {
     ewb_sel_t ewb_sel;
     wb_sel_t wb_sel;
     logic rd_we;
+    exception_t xcpt;
+    logic mret;
 } decoder_t;
 
 typedef struct packed {
@@ -685,7 +705,22 @@ typedef enum logic [11:0] {
     CSR_INSTRET = 12'hC02, // URO
     CSR_CYCLEH = 12'hC80, // URO
     CSR_TIMEH = 12'hC81, // URO
-    CSR_INSTRETH = 12'hC82 // URO
+    CSR_INSTRETH = 12'hC82, // URO
+    // trap setup / handling
+    CSR_MSTATUS = 12'h300,
+    CSR_MISA = 12'h301,
+    CSR_MIE = 12'h304,
+    CSR_MTVEC = 12'h305,
+    CSR_MEPC = 12'h341,
+    CSR_MCAUSE = 12'h342,
+    CSR_MTVAL = 12'h343,
+    CSR_MIP = 12'h344
+    // machine information (read-only)
+    //CSR_MVENDORID = 12'hF11,
+    //CSR_MARCHID = 12'hF12,
+    //CSR_MIMPID = 12'hF13,
+    //CSR_MHARTID = 12'hF14,
+    //CSR_MCONFIGPTR = 12'hF15
 } csr_addr_t;
 
 typedef enum logic {
@@ -763,7 +798,78 @@ typedef struct {
     csr_dw_t mtime;
     mhpmevent_t mhpmevent[`MHPM_RANGE];
     csr_mhpm_t mhpmcounter[`MHPM_RANGE];
+    // trap CSRs (full-width regs, WARL-masked on write; mip is source-driven)
+    arch_width_t mstatus;
+    arch_width_t mie;
+    arch_width_t mtvec;
+    arch_width_t mepc;
+    arch_width_t mcause;
+    arch_width_t mtval;
 } csr_t;
+
+//------------------------------------------------------------------------------
+// traps
+// mcause_t / exception_t are declared earlier (before decoder_t)
+
+// mcause codes (match ISS sim/src/defines.h for cosim)
+localparam mcause_t MCAUSE_ILLEGAL_INST = 'd2;
+localparam mcause_t MCAUSE_BREAKPOINT = 'd3;
+localparam mcause_t MCAUSE_MACHINE_ECALL = 'd11;
+localparam mcause_t MCAUSE_MACHINE_TIMER_INT = {1'b1, 31'd7};
+localparam mcause_t MCAUSE_MACHINE_EXT_INT = {1'b1, 31'd11};
+
+// mip/mie bit indices (timer, external)
+localparam int unsigned MIP_MTIP_BIT = 7;
+localparam int unsigned MIP_MEIP_BIT = 11;
+
+// mstatus bit indices
+localparam int unsigned MSTATUS_MIE_BIT = 3;
+localparam int unsigned MSTATUS_MPIE_BIT = 7;
+
+// WARL write masks / fixed fields (match ISS sim/src/core.h)
+// mstatus: only MIE/MPIE writable; MPP hardwired to M (0b11 at [12:11]), rest RAZ/WI
+localparam arch_width_t MSTATUS_WMASK = (1 << MSTATUS_MIE_BIT) | (1 << MSTATUS_MPIE_BIT);
+localparam arch_width_t MSTATUS_MPP_FIXED = 32'h0000_1800; // MPP = 2'b11
+// mie: only MTIE/MEIE writable
+localparam arch_width_t MIE_WMASK = ((1 << MIP_MTIP_BIT) | (1 << MIP_MEIP_BIT));
+// mepc / mtvec: word-aligned (mtvec direct mode => low 2 bits 0)
+localparam arch_width_t PC_ALIGN_MASK = ~(32'h3);
+
+// read-only ID CSR values (RV32IM + custom X)
+localparam arch_width_t MISA_VAL = (
+    (1 << 30) | // MXL = 1 (RV32)
+    (1 << 8)  | // I
+    (1 << 12) | // M
+    (1 << 23)   // X (non-standard extensions present)
+);
+//localparam arch_width_t MHARTID_VAL = 32'h0;
+//localparam arch_width_t MVENDORID_VAL = 32'h0;
+//localparam arch_width_t MARCHID_VAL = 32'h0;
+//localparam arch_width_t MIMPID_VAL = 32'h0;
+//localparam arch_width_t MCONFIGPTR_VAL = 32'h0;
+
+typedef struct packed {
+    mcause_t mcause;
+    arch_width_t mtval;
+    arch_width_t mepc;
+} trap_info_t;
+
+typedef struct packed {
+    logic entry;
+    logic ret;
+    trap_info_t trap_info;
+} csr_trap_wr_t;
+
+typedef struct packed {
+    logic mstatus_mie; // global interrupt enable
+    arch_width_t mie; // interrupt-enable bits
+    arch_width_t mip; // interrupt-pending bits (source-driven: CLINT/UART)
+} csr_trap_status_t;
+
+typedef struct packed {
+    logic trapped;
+    logic mret;
+} trap_tag_t;
 
 // peripherals
 typedef struct packed {
@@ -918,6 +1024,10 @@ endfunction
 
 function automatic branch_sel_t get_branch_sel(input inst_width_t inst);
     get_branch_sel = branch_sel_t'({inst[14], inst[12]});
+endfunction
+
+function automatic logic [11:0] get_fn12(input inst_width_t inst);
+    get_fn12 = inst[31:20];
 endfunction
 
 function automatic logic [6:0] get_fn7(input inst_width_t inst);

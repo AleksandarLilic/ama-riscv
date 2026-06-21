@@ -109,9 +109,11 @@ logic tohost_source;
 bit chk_pass_tohost = 1'b1;
 bit chk_pass_cosim = 1'b1;
 bit completed = 1'b0;
+bit core_trapped = 1'b0;
 int log_level;
 
 string core_ret;
+string core_ret_tag;
 string isa_ret;
 
 longint unsigned clk_cnt = 0;
@@ -659,7 +661,7 @@ task automatic single_step();
     `endif // ENABLE_COSIM
 
     // cosim advances only if rtl retires an instruction
-    if (!inst_retired) begin
+    if (!inst_retired && !`CORE.trap_tag.ret.trapped) begin
         `LOG_V($sformatf(
             "Core empty cycle (%0s)", classify_empty_cycle()));
         return;
@@ -670,17 +672,27 @@ task automatic single_step();
     `else
     core_ret = $sformatf("Core [R] %8h", `CORE.inst.ret);
     `endif
+
+    core_trapped = `CORE.trap_tag.ret.trapped;
+    if (core_trapped) core_ret = "Core trapped";
+
     `LOG_V(core_ret);
 
     `ifdef ENABLE_COSIM
-    cosim_exec(clk_cnt_d[2], cosim.pc, cosim.inst, cosim.tohost,
-                cosim_str.inst_asm, cosim_str.stack_top, cosim.rf);
+    cosim_exec(
+        clk_cnt_d[2], cosim.pc, cosim.inst, cosim.tohost,
+        cosim_str.inst_asm, cosim_str.stack_top, cosim.rf
+    );
+
     isa_ret = $sformatf(
         "COSIM    %5h: %8h %0s", cosim.pc, cosim.inst, cosim_str.inst_asm);
     `LOG_V(isa_ret);
 
     cosim.stack_top_str_wave = pack_string(cosim_str.stack_top);
     cosim.inst_asm_str_wave = pack_string(trim_ws(cosim_str.inst_asm));
+
+    // trap handled differently, match on the next retired inst
+    if (core_trapped) return;
 
     if (args.cosim_chk_en) new_errors = cosim_run_checkers(rf_chk_act);
     if (new_errors) begin

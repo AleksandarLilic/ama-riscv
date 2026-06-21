@@ -220,3 +220,8 @@ riscv_isa_rv32m:
   - ["sim/sw/riscv-isa-tests", "divu.mem"]
   - ["sim/sw/riscv-isa-tests", "rem.mem"]
   - ["sim/sw/riscv-isa-tests", "remu.mem"]
+
+traps:
+  - ["sim/sw/baremetal/asm_rv32i_exceptions", "trap_ebreak.mem"]
+  - ["sim/sw/baremetal/asm_rv32i_exceptions", "trap_ecall.mem"]
+  - ["sim/sw/baremetal/asm_rv32i_exceptions", "trap_unsupported.mem"]
