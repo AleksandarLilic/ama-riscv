@@ -184,14 +184,14 @@ hier:
 		--ast-json - | $(REPO_ROOT)/script/slang_hier.py $(HIER_ARGS)
 
 # slang has poor linting capabilities, use verilator instead
-LINT_OPTS := -sv -Wno-fatal -Wall -Wpedantic
+LINT_OPTS := -sv -Wall -Wpedantic
 lint:
 	@verilator --lint-only $(LINT_OPTS) --top $(DESIGN_TOP) -DSYNT \
 		$(COMMON_RTL_SRC) > lint.log 2>&1
 
 FILE ?=
 lint_file:
-	@verilator --lint-only $(LINT_OPTS) -DSYNT $(COMMON_RTL) $(FILE)
+	@verilator --lint-only $(LINT_OPTS) -Wno-fatal -DSYNT $(COMMON_RTL) $(FILE)
 
 print_defs:
 	@echo "$(RTL_DEFINES_LIST)"
