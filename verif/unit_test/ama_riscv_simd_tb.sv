@@ -22,7 +22,7 @@ logic rst;
 logic en;
 logic done = 1'b0;
 
-stage_ctrl_t ctrl_exe_mem;
+stage_ctrl_t ctrl_exe_mem, ctrl_mem_wbk;
 simd_arith_op_t op;
 simd_t a, b, p;
 arch_width_t c_late;
@@ -34,16 +34,10 @@ longint unsigned clk_cnt = 0;
 string msg_pass = "==== PASS ====";
 string msg_fail = "==== FAIL ====";
 
-ama_riscv_simd DUT (
-    .clk (clk),
-    .rst (rst),
-    .en (en),
-    .ctrl_exe_mem (ctrl_exe_mem),
-    .op (op),
-    .a (a),
-    .b (b),
-    .c_late (c_late),
-    .p (p)
+ama_riscv_simd #(
+    .RV32M_ONLY(1'b0)
+) DUT (
+    .clk, .rst, .en, .ctrl_exe_mem, .ctrl_mem_wbk, .op, .a, .b, .c_late, .p
 );
 
 always #(`CLK_HALF_PERIOD) clk = ~clk;
@@ -51,9 +45,8 @@ always #(`CLK_HALF_PERIOD) clk = ~clk;
 always @(posedge clk) clk_cnt <= (clk_cnt + 1);
 
 always_comb begin
-    ctrl_exe_mem.flush = 1'b0;
-    ctrl_exe_mem.en = 1'b1;
-    ctrl_exe_mem.bubble = 1'b0;
+    ctrl_exe_mem = '{flush: 1'b0, en: 1'b1, bubble: 1'b0};
+    ctrl_mem_wbk = '{flush: 1'b0, en: 1'b1, bubble: 1'b0};
 end
 
 task automatic run_test(
@@ -72,13 +65,13 @@ task automatic run_test(
     b = simd_t'(test_b);
     c_late = '0;
 
-    @(posedge clk);
+    @(posedge clk); // exe_mem
     #1;
 
     en = 1'b0;
     c_late = test_c_late;
 
-    @(posedge clk);
+    @(posedge clk); // mem_wbk
     #1;
 
     $display(
