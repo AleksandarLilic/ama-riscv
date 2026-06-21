@@ -37,7 +37,7 @@ sv worklib_sim \
 "$REPO_ROOT/src/bit_reverse.sv" \
 "$REPO_ROOT/src/ama_riscv_simd_lane_wrapup.sv" \
 "$REPO_ROOT/src/ama_riscv_div.sv" \
-"$REPO_ROOT/src/lzc.sv" \
+"$REPO_ROOT/src/clz.sv" \
 "$REPO_ROOT/src/ama_riscv_icache.sv" \
 "$REPO_ROOT/src/ama_riscv_dcache.sv" \
 "$REPO_ROOT/src/ama_riscv_mem.sv" \

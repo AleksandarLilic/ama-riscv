@@ -89,14 +89,14 @@ data_in_t setup; // a_neg & b_neg not used atm
 setup_clz_t setup_clz;
 
 // count leading zeros
-lzc #(.WIDTH (W), .MODE (1'b1))
-lzc_dividend_i (
-    .in_i (setup.abs_a), .cnt_o (setup_clz.cnt_a), .empty_o (setup_clz.empty_a)
+clz #(.WIDTH (W), .MODE (1'b1))
+clz_dividend_i (
+    .in (setup.abs_a), .cnt (setup_clz.cnt_a), .empty (setup_clz.empty_a)
 );
 
-lzc #(.WIDTH (W), .MODE (1'b1))
-lzc_divisor_i (
-    .in_i (setup.abs_b), .cnt_o (setup_clz.cnt_b), .empty_o (setup_clz.empty_b)
+clz #(.WIDTH (W), .MODE (1'b1))
+clz_divisor_i (
+    .in (setup.abs_b), .cnt (setup_clz.cnt_b), .empty (setup_clz.empty_b)
 );
 
 // NOTE: this is likely to become a critical path in the future
