@@ -1,6 +1,10 @@
 `include "ama_riscv_defines.svh"
 
-module ama_riscv_mult_fpga (
+// module that simply allows FPGA synthesis tools to infer DSP blocks
+// but doesn't enforce it
+// inputs are flopped so A/B regs on DSPs can be inferred
+
+module ama_riscv_mult_dsp (
     input  logic clk,
     input  logic rst,
     input  logic en,

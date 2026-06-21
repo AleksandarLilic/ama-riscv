@@ -3,6 +3,6 @@ sv unit_test \
 --include "$REPO_ROOT/verif/direct_tb" \
 "$REPO_ROOT/verif/unit_test/ama_riscv_div_tb.sv" \
 "$REPO_ROOT/src/ama_riscv_div.sv" \
-"$REPO_ROOT/src/bit_reverse.sv" \
-"$REPO_ROOT/src/clz.sv" \
-"$REPO_ROOT/src/add.sv" \
+"$REPO_ROOT/src/common/bit_reverse.sv" \
+"$REPO_ROOT/src/common/clz.sv" \
+"$REPO_ROOT/src/common/add.sv" \
