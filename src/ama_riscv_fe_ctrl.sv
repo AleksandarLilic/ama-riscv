@@ -34,6 +34,7 @@ module ama_riscv_fe_ctrl (
     output fe_ctrl_t fe_ctrl
 );
 
+//------------------------------------------------------------------------------
 // types
 typedef enum logic [2:0] {
     RST,
@@ -76,6 +77,7 @@ typedef struct packed {
     branch_t b_tnt;
 } spec_entry_t;
 
+//------------------------------------------------------------------------------
 // STALL control
 logic flow_update;
 logic branch_taken;
@@ -175,7 +177,6 @@ always_comb begin
                 end
             end
             `ifdef USE_BP
-            // whatever you are doing, drop it, it's wrong
             if (spec.wrong) nx_state = STEADY;
             `endif
         end
@@ -193,7 +194,6 @@ always_comb begin
                 end
             end
             `ifdef USE_BP
-            // whatever you are doing, drop it, it's wrong
             if (spec.wrong) nx_state = STEADY;
             `endif
         end
@@ -208,6 +208,17 @@ always_ff @(posedge clk) begin
     else if (save_stall_entry) stalled_pc <= pc_dec;
     else if (clear_stall_entry) stalled_pc <= 'h0;
 end
+
+function automatic void abort_on_wrong_spec();
+    // whatever you are doing, drop it, it's wrong
+    fe_ctrl.pc_sel = branch_taken ? PC_SEL_ALU : PC_SEL_INC4;
+    fe_ctrl.pc_we = 1'b1;
+    fe_ctrl.bubble_dec = 1'b1;
+    fe_ctrl.bubble_exe = 1'b1;
+    fe_ctrl.use_cp = 1'b1;
+    imem_req.valid = 1'b1;
+    imem_rsp.ready = 1'b1;
+endfunction
 
 // outputs
 /* verilator lint_off UNUSEDSIGNAL */
@@ -270,15 +281,7 @@ always_comb begin
             end
 
             `ifdef USE_BP
-            if (spec.wrong) begin
-                fe_ctrl.pc_sel = branch_taken ? PC_SEL_ALU : PC_SEL_INC4;
-                fe_ctrl.pc_we = 1'b1;
-                fe_ctrl.bubble_dec = 1'b1;
-                fe_ctrl.bubble_exe = 1'b1;
-                fe_ctrl.use_cp = 1'b1;
-                imem_req.valid = 1'b1;
-                imem_rsp.ready = 1'b1;
-            end
+            if (spec.wrong) abort_on_wrong_spec();
             `endif
         end
 
@@ -287,13 +290,7 @@ always_comb begin
             fe_ctrl.pc_we = 1'b0;
             `ifdef USE_BP
             if (spec.wrong) begin
-                fe_ctrl.pc_sel = branch_taken ? PC_SEL_ALU : PC_SEL_INC4;
-                fe_ctrl.pc_we = 1'b1;
-                fe_ctrl.bubble_dec = 1'b1;
-                fe_ctrl.bubble_exe = 1'b1;
-                fe_ctrl.use_cp = 1'b1;
-                imem_req.valid = 1'b1;
-                imem_rsp.ready = 1'b1;
+                abort_on_wrong_spec();
             end else
             `endif
             if (stall_res.flow) begin
@@ -304,7 +301,6 @@ always_comb begin
                 //imem_req.valid = !stall_src_dmem;
                 imem_rsp.ready = 1'b1;
             end
-
         end
 
         STALL_FE_IC: begin
@@ -348,16 +344,7 @@ always_comb begin
             end
 
             `ifdef USE_BP
-            // whatever you are doing, drop it, it's wrong
-            if (spec.wrong) begin
-                fe_ctrl.pc_sel = branch_taken ? PC_SEL_ALU : PC_SEL_INC4;
-                fe_ctrl.pc_we = 1'b1;
-                fe_ctrl.bubble_dec = 1'b1;
-                fe_ctrl.bubble_exe = 1'b1;
-                fe_ctrl.use_cp = 1'b1;
-                imem_req.valid = 1'b1;
-                imem_rsp.ready = 1'b1;
-            end
+            if (spec.wrong) abort_on_wrong_spec();
             `endif
         end
 
@@ -400,16 +387,7 @@ always_comb begin
                 end
 
                 `ifdef USE_BP
-                // whatever you are doing, drop it, it's wrong
-                if (spec.wrong) begin
-                    fe_ctrl.pc_sel = branch_taken ? PC_SEL_ALU : PC_SEL_INC4;
-                    fe_ctrl.pc_we = 1'b1;
-                    fe_ctrl.bubble_dec = 1'b1;
-                    fe_ctrl.bubble_exe = 1'b1;
-                    fe_ctrl.use_cp = 1'b1;
-                    imem_req.valid = 1'b1;
-                    imem_rsp.ready = 1'b1;
-                end
+                if (spec.wrong) abort_on_wrong_spec();
                 `endif
             end
         end
@@ -435,6 +413,7 @@ end
 `DFF_CI_RI_RV(`FE_CTRL_INIT_VAL, decoded_fe_ctrl, decoded_fe_ctrl_d)
 
 `ifdef USE_BP
+//------------------------------------------------------------------------------
 // SPECULATIVE EXEC control
 spec_entry_t spec_entry[2];
 logic se_ptr_h, se_ptr_t; // head and tail pointers for speculative entry
@@ -459,6 +438,7 @@ assign spec.wrong = bp_miss;
 assign spec.exec_n = (nx_state_e == SPEC_E);
 assign spec.active = (state_e == SPEC_E);
 
+//------------------------------------------------------------------------------
 // state transition
 `DFF_CI_RI_RV(NS_E, nx_state_e, state_e)
 
@@ -499,6 +479,7 @@ always_comb begin
     endcase
 end
 
+// speculative entries fifo
 always_ff @(posedge clk) begin
     if (rst) begin
         spec_entry <= {'h0, 'h0};
