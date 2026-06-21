@@ -104,7 +104,7 @@ def synt_options(synt):
 def tcl_list(items):
     return "{" + " ".join(items) + "}"
 
-def emit_params_tcl(cfg, run_dir, threads):
+def emit_params_tcl(cfg, run_dir, threads, elab_only=False):
     filelist = resolve_path(cfg["sources"]["filelist"])
     design = [resolve_path(p) for p in parse_filelist("design", filelist)]
     headers = [p for p in design if p.endswith(".svh")]
@@ -143,6 +143,7 @@ def emit_params_tcl(cfg, run_dir, threads):
         f'set BITSTREAM {1 if cfg.get("bitstream") else 0}',
         f'set MMI {1 if cfg.get("mmi") else 0}',
         f'set MAX_THREADS {threads}',
+        f'set ELAB_ONLY {1 if elab_only else 0}',
     ]
     params = os.path.join(run_dir, "params.tcl")
     with open(params, "w") as f:
@@ -150,10 +151,10 @@ def emit_params_tcl(cfg, run_dir, threads):
     return params
 
 # run
-def run_one(name, cfg, run_dir, threads, dry_run):
+def run_one(name, cfg, run_dir, threads, dry_run, elab_only=False):
     start_time = datetime.datetime.now()
     os.makedirs(run_dir, exist_ok=True)
-    params = emit_params_tcl(cfg, run_dir, threads)
+    params = emit_params_tcl(cfg, run_dir, threads, elab_only)
     with open(os.path.join(run_dir, "config.resolved.yaml"), "w") as f:
         yaml.safe_dump(cfg, f, sort_keys=False)
     cmd = [
@@ -185,6 +186,10 @@ def run_one(name, cfg, run_dir, threads, dry_run):
         for line in tail:
             print(f"  | {line.rstrip()}")
 
+    if elab_only and rc == 0:
+        xpr = os.path.join(run_dir, "elab", "elab.xpr")
+        print(f"{INDENT}open: vivado {xpr} -> Open Elaborated Design")
+
     return rc
 
 def parse_args():
@@ -195,6 +200,7 @@ def parse_args():
     parser.add_argument("--date_tag", action='store_true', help="Append date tag to the end of the rundir name")
     parser.add_argument("--tag", type=str, help="Append provided tag to the end of the rundir name. Applied after --date_tag if used")
     parser.add_argument("--dry_run", action='store_true', default=False, help="Print configs that would run, generate 'config.resolved.yaml' and 'params.tcl', and exit")
+    parser.add_argument("--elab_only", action='store_true', default=False, help="Write a reusable RTL-elaboration Vivado project per config")
     return parser.parse_args()
 
 def main():
@@ -231,7 +237,8 @@ def main():
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as ex:
         fut = {
             ex.submit(
-                run_one, name, cfg, rd, args.threads, args.dry_run): (name, rd)\
+                run_one, name, cfg, rd, args.threads, args.dry_run,
+                args.elab_only): (name, rd)\
                 for name, cfg, rd in jobs
         }
         for f in concurrent.futures.as_completed(fut):

@@ -10,21 +10,44 @@ source [lindex $argv 0]
 # per-invocation thread cap (0 = let vivado auto-detect); balance against --jobs
 if {$MAX_THREADS > 0} { set_param general.maxThreads $MAX_THREADS }
 
-# ------------------------------------------------------------------------------
-# in-memory project + sources
-create_project -in_memory -part $PART
-set_property target_language Verilog [current_project]
-set_property verilog_define $DEFINES [current_fileset]
-if {[llength $INCLUDE_DIRS] > 0} {
-    set_property include_dirs $INCLUDE_DIRS [current_fileset]
+# common fileset config, shared by 'in-memory' and 'project' flows
+proc set_fileset_cfg {defines incdirs} {
+    set_property target_language Verilog [current_project]
+    set_property verilog_define $defines [current_fileset]
+    if {[llength $incdirs] > 0} {
+        set_property include_dirs $incdirs [current_fileset]
+    }
 }
 
-if {[llength $HEADERS] > 0} {
-    read_verilog $HEADERS
-    foreach h $HEADERS {
+# load headers with the given loader
+# ('read_verilog' in-memory, 'add_files' for a project)
+# and tag them so they are not compiled as standalone sources
+proc load_headers {headers loader} {
+    if {[llength $headers] == 0} { return }
+    $loader $headers
+    foreach h $headers {
         set_property file_type "Verilog Header" [get_files $h]
     }
 }
+
+# ------------------------------------------------------------------------------
+# RTL-elaboration project: create project and write to disk
+if {$ELAB_ONLY} {
+    create_project -force elab $RUN_DIR/elab -part $PART
+    set_fileset_cfg $DEFINES $INCLUDE_DIRS
+    load_headers $HEADERS add_files
+    add_files $SOURCES
+    set_property top $TOP [current_fileset]
+    update_compile_order -fileset sources_1
+    puts "INFO: elaboration project: $RUN_DIR/elab/elab.xpr"
+    return
+}
+
+# ------------------------------------------------------------------------------
+# in-memory project + sources
+create_project -in_memory -part $PART
+set_fileset_cfg $DEFINES $INCLUDE_DIRS
+load_headers $HEADERS read_verilog
 read_verilog -library xil_defaultlib -sv $SOURCES
 foreach xdc $XDCS { read_xdc $xdc }
 
