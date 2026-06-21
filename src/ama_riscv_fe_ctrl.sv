@@ -209,6 +209,15 @@ always_ff @(posedge clk) begin
     else if (clear_stall_entry) stalled_pc <= 'h0;
 end
 
+function automatic void spec_fetch_wrong_spec();
+    // current inst inst is branch, fingers crossed
+    fe_ctrl.pc_sel = bp_taken ? PC_SEL_JAL_BP : PC_SEL_INC4;
+    fe_ctrl.pc_we = 1'b1;
+    fe_ctrl.bubble_dec = 1'b0;
+    imem_req.valid = 1'b1;
+    imem_rsp.ready = 1'b1;
+endfunction
+
 function automatic void abort_on_wrong_spec();
     // whatever you are doing, drop it, it's wrong
     fe_ctrl.pc_sel = branch_taken ? PC_SEL_ALU : PC_SEL_INC4;
@@ -270,12 +279,7 @@ always_comb begin
 
             `ifdef USE_BP
             end else if (spec.enter) begin
-                // enter speculative only if not blocked by others
-                fe_ctrl.pc_sel = bp_taken ? PC_SEL_JAL_BP : PC_SEL_INC4;
-                fe_ctrl.pc_we = 1'b1;
-                fe_ctrl.bubble_dec = 1'b0;
-                imem_req.valid = 1'b1;
-                imem_rsp.ready = 1'b1;
+                spec_fetch_wrong_spec();
             `endif
 
             end
@@ -325,12 +329,7 @@ always_comb begin
 
                 `ifdef USE_BP
                 end else if (spec.enter) begin
-                    // current inst inst is branch, fingers crossed
-                    fe_ctrl.pc_sel = bp_taken ? PC_SEL_JAL_BP : PC_SEL_INC4;
-                    fe_ctrl.pc_we = 1'b1;
-                    fe_ctrl.bubble_dec = 1'b0;
-                    imem_req.valid = 1'b1;
-                    imem_rsp.ready = 1'b1;
+                    spec_fetch_wrong_spec();
                 `endif
 
                 end else begin
@@ -372,12 +371,7 @@ always_comb begin
 
                 `ifdef USE_BP
                 end else if (spec.enter) begin
-                    // current inst inst is branch, fingers crossed
-                    fe_ctrl.pc_sel = bp_taken ? PC_SEL_JAL_BP : PC_SEL_INC4;
-                    fe_ctrl.pc_we = 1'b1;
-                    fe_ctrl.bubble_dec = 1'b0;
-                    imem_req.valid = 1'b1;
-                    imem_rsp.ready = 1'b1;
+                    spec_fetch_wrong_spec();
                 `endif
 
                 end else begin
