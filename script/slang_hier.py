@@ -162,6 +162,45 @@ def render(top_body, instances=False, keep=None, params=False, tree=False):
     walk(label_of(top_body.get("name"), top_body), top_body, "", True, top=True)
     return out, total[0]
 
+def render_dot(top_body, keep=None):
+    """Graphviz module-dependency graph: one node per module, an edge per
+    'parent instantiates child' (labelled xN when instantiated more than once).
+    Containment/block view, not net-level connectivity."""
+    nodes = [] # unique module names, first-seen order
+    edges = {} # (parent, child) -> instance count
+    seen = set() # modules already expanded (DAG: expand each once)
+
+    def visit(mname, body):
+        if mname not in seen:
+            seen.add(mname)
+            nodes.append(mname)
+        kids = child_instances(body)
+        if keep is not None:
+            kids = [(i, m, b) for (i, m, b) in kids if m in keep]
+
+        order, bodies, cnt = [], {}, {}
+        for _, cmn, cb in kids:
+            if cmn not in cnt:
+                order.append(cmn)
+                bodies[cmn] = cb
+                cnt[cmn] = 0
+            cnt[cmn] += 1
+
+        for cmn in order:
+            # record the edge before recursing so multi-parent edges all land
+            edges[(mname, cmn)] = edges.get((mname, cmn), 0) + cnt[cmn]
+            if cmn not in seen:
+                visit(cmn, bodies[cmn])
+
+    visit(top_body.get("name"), top_body)
+    out = ["digraph hier {", "  rankdir=LR;", "  node [shape=box];"]
+    out += [f'  "{n}";' for n in nodes]
+    for (p, c), n in edges.items():
+        lbl = f' [label="x{n}"]' if n > 1 else ""
+        out.append(f'  "{p}" -> "{c}"{lbl};')
+    out.append("}")
+    return out
+
 def parse_args():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -177,6 +216,7 @@ def parse_args():
     parser.add_argument("--params", action="store_true", help="annotate modules with parameter values (differing-param instances stay separate when collapsed)")
     parser.add_argument("--interfaces", action="store_true", help="include SV interface instances (default: modules only)")
     parser.add_argument("--tree", action="store_true", help="box-drawing connectors instead of the default plain indentation")
+    parser.add_argument("--dot", action="store_true", help="emit a Graphviz module-dependency graph instead of a text tree")
     args = parser.parse_args()
 
     # no file and stdin is a terminal -> json.load would block forever; bail
@@ -198,6 +238,9 @@ def main():
         keep = mods or None # bare Root has no defs -> can't filter, show all
 
     _, body = find_root(design, args.root)
+    if args.dot:
+        print("\n".join(render_dot(body, keep=keep)))
+        return
     lines, total = render(
         body, instances=args.instances, keep=keep, params=args.params,
         tree=args.tree
