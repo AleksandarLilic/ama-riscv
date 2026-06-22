@@ -30,7 +30,6 @@ module ama_riscv_fe_ctrl (
     output arch_width_t pc_cp,
     `endif
     output logic stall_act_flow,
-    output logic sink_stale_ic_miss,
     output spec_exec_t spec,
     output fe_ctrl_t fe_ctrl
 );
@@ -236,7 +235,6 @@ always_comb begin
     fe_ctrl.use_cp = 1'b0;
     imem_req.valid = 1'b0;
     imem_rsp.ready = 1'b0;
-    sink_stale_ic_miss = 1'b0;
     nx_stale_ic_miss = stale_ic_miss;
 
     unique case (state)
@@ -386,14 +384,17 @@ always_comb begin
     // (branch wrong-path flush, or trap/mret entry/return)
     // the icache respects every request once issued, so a redirect that lands
     // while a fetch miss is in flight cannot fetch now and the in-flight
-    // response is stale: capture the target into pc_fet_last, defer, sink the
-    // doomed response when it arrives, then issue the target
+    // response is stale:
+    // capture the target into pc_fet_last, defer, sink the doomed response when
+    // it arrives, then issue the target
+    // the doomed (in-flight) response is discarded by bubble_dec when it lands
     if (stale_ic_miss) begin
         // deferred redirect: target already latched in pc_fet_last
         fe_ctrl.pc_sel = PC_SEL_PC; // pc_sel_pc_src == pc_fet_last (target)
         fe_ctrl.bubble_dec = 1'b1;
-        if (imem_rsp.valid) begin
-            sink_stale_ic_miss = 1'b1;
+        if (!stall_act.icache) begin
+            // icache ready again (doomed miss completed): issue the target
+            // its response is bubbled this cycle and the target is fetched next
             fe_ctrl.pc_we = 1'b1;
             imem_req.valid = 1'b1;
             imem_rsp.ready = 1'b1;
@@ -421,18 +422,14 @@ always_comb begin
             fe_ctrl.pc_sel = PC_SEL_PC;
         end
 
-        if (imem_rsp.valid) begin
-            // a doomed response is arriving this very cycle: sink + issue
-            sink_stale_ic_miss = 1'b1;
-            imem_req.valid = 1'b1;
-            imem_rsp.ready = 1'b1;
-        end else if (stall_act.icache) begin
-            // miss in flight, response not here yet: defer, capture target only
+        if (stall_act.icache) begin
+            // miss in flight: defer, capture target only
+            // the doomed response is discarded later via the stale_ic_miss path
             imem_req.valid = 1'b0;
             imem_rsp.ready = 1'b0;
             nx_stale_ic_miss = 1'b1;
         end else begin
-            // icache idle: issue the target immediately
+            // icache idle (or responding with stale): issue the target now
             imem_req.valid = 1'b1;
             imem_rsp.ready = 1'b1;
         end
