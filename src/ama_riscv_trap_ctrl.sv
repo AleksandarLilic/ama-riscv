@@ -14,10 +14,10 @@ module ama_riscv_trap_ctrl (
     input  spec_exec_t spec,
     /* verilator lint_on UNUSEDSIGNAL */
     input  trap_tag_t trap_tag_wbk, // tagged inst reaching WBK
-    input  csr_trap_status_t csr_status, // CSR status export
+    input  csr_trap_status_t csr_status,
     // outputs
     output trap_tag_t trap_tag_dec,
-    output logic bubble_dec,
+    output logic pending,
     output csr_trap_wr_t csr_trap_wr,
     // fe/pc redirection
     output logic trap_redirect,
@@ -124,7 +124,7 @@ assign trap_tag_dec.trapped = catch.active;
 assign trap_tag_dec.mret = mret_catch;
 // chase younger with bubbles (request to fe_ctrl)
 // the carrier itself is NOT bubbled
-assign bubble_dec = ((state == TRAP_PENDING) || (state == RESTORE_PENDING));
+assign pending = ((state == TRAP_PENDING) || (state == RESTORE_PENDING));
 assign trap_redirect = (state == TRAP_WRITE);
 assign mret_redirect = (state == RESTORE_WRITE);
 

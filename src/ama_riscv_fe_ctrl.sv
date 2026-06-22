@@ -23,7 +23,7 @@ module ama_riscv_fe_ctrl (
     /* verilator lint_on UNUSEDSIGNAL */
     input  fe_ctrl_t decoded_fe_ctrl,
     // trap controller
-    input  logic trap_bubble,
+    input  logic trap_tr_pending,
     input  logic trap_redirect,
     input  logic mret_redirect,
     `ifdef USE_BP
@@ -277,20 +277,12 @@ always_comb begin
                 spec_fetch_wrong_spec();
             `endif
 
-            end else if (trap_bubble) begin
-                // flush the pipe, don't make any more requests
-                fe_ctrl.pc_we = 1'b0;
-                imem_req.valid = 1'b0;
-                imem_rsp.ready = 1'b0;
-                fe_ctrl.bubble_dec = 1'b1;
             end
-            // spec.wrong handled by the redirect/stale-miss overlay below
         end
 
         STALL_FLOW: begin
             fe_ctrl.bubble_dec = 1'b1; // bubble as long as in stall
             fe_ctrl.pc_we = 1'b0;
-            // spec.wrong handled by the redirect/stale-miss overlay below
             if (stall_res.flow) begin
                 // flow change resolved
                 fe_ctrl.pc_sel = flow_update ? PC_SEL_ALU : PC_SEL_INC4;
@@ -335,7 +327,6 @@ always_comb begin
                     imem_rsp.ready = 1'b1;
                 end
             end
-            // spec.wrong handled by the redirect/stale-miss overlay below
         end
 
         STALL_BE: begin
@@ -370,7 +361,6 @@ always_comb begin
                     imem_req.valid = 1'b1;
                     imem_rsp.ready = 1'b1;
                 end
-                // spec.wrong handled by the redirect/stale-miss overlay below
             end
         end
 
@@ -433,6 +423,15 @@ always_comb begin
             imem_req.valid = 1'b1;
             imem_rsp.ready = 1'b1;
         end
+    end else if (trap_tr_pending) begin
+        // chase (TRAP_PENDING/RESTORE_PENDING):
+        // stall the front-end for the whole chase window so younger (doomed)
+        // insts behind the carrier are bubbled
+        // and no new fetch is issued until the redirect
+        fe_ctrl.pc_we = 1'b0;
+        fe_ctrl.bubble_dec = 1'b1;
+        imem_req.valid = 1'b0;
+        imem_rsp.ready = 1'b0;
     end
 end
 

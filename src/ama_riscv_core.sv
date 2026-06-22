@@ -121,7 +121,7 @@ ama_riscv_decoder #(.SIMD_EN (SIMD_EN)) ama_riscv_decoder_i (
     .inst_dec (inst.dec), .decoded (decoded), .fe_ctrl (decoded_fe_ctrl)
 );
 
-logic trap_bubble;
+logic trap_tr_pending; // trap or restore pending
 csr_trap_status_t csr_status;
 csr_trap_wr_t csr_trap_wr;
 ama_riscv_trap_ctrl ama_riscv_trap_ctrl_i (
@@ -139,7 +139,7 @@ ama_riscv_trap_ctrl ama_riscv_trap_ctrl_i (
     .csr_status (csr_status),
     // outputs
     .trap_tag_dec (trap_tag.dec),
-    .bubble_dec (trap_bubble),
+    .pending (trap_tr_pending),
     .csr_trap_wr (csr_trap_wr),
     .trap_redirect (trap_redirect),
     .mret_redirect (mret_redirect)
@@ -176,7 +176,7 @@ ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     `endif
     .branch_resolution (branch_resolution_mem),
     .decoded_fe_ctrl (decoded_fe_ctrl),
-    .trap_bubble (trap_bubble),
+    .trap_tr_pending (trap_tr_pending),
     .trap_redirect (trap_redirect),
     .mret_redirect (mret_redirect),
     .hazard (hazard),
