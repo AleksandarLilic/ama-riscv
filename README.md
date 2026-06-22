@@ -160,7 +160,6 @@ Multiplier (RV32 M-extension) can still use the same BW tree with `--define CPU_
 - 4KB, 32-set, 2-way, 64B lines, 128-bit bus, LRU replacement
 - Parametrizable for number of sets and ways, with one bank per way
 - 1 clock cycle on hit, 7 on miss
-- Speculative misses are immediately aborted on a branch miss
 - Configuration driven by sweeps via [hw_model_sweep.py](sim/script/hw_model_sweep.py) and [cache config](sim/script/hw_model_sweep_params_caches.json); results are under [examples/hw_sweeps](examples/hw_sweeps)
 
 ### Branch predictor

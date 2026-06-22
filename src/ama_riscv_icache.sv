@@ -250,7 +250,11 @@ end // gen_dmap/assoc
 //------------------------------------------------------------------------------
 // handling requests
 
-assign new_core_req = (req_core.valid && (req_core.ready || spec.wrong));
+// icache respects every request once issued
+// new requests accepted only when idle (no mid-flight cancellation)
+// a flushed wrong-path/doomed miss completes
+// and is handled/sunk by the front-end stale-miss handling
+assign new_core_req = (req_core.valid && req_core.ready);
 `DFF_CI_RI_RVI(new_core_req, new_core_req_d)
 `DFF_CI_RI_RVI_EN(new_core_req, cr.addr, cr_d_addr)
 `DFF_CI_RI_RVI_EN(new_core_req, hit, hit_d)
@@ -279,8 +283,7 @@ always_ff @(posedge clk) begin
 end
 
 mem_miss_cnt_t mem_miss_cnt, mem_miss_cnt_d;
-`DFF_CI_RI_RVI_CLR_CLRVI_EN(
-    spec.wrong, req_mem.valid, (mem_miss_cnt + 'h1), mem_miss_cnt)
+`DFF_CI_RI_RVI_EN(req_mem.valid, (mem_miss_cnt + 'h1), mem_miss_cnt)
 
 logic [MEM_ADDR_BUS-1:0] mem_miss_cnt_pad;
 assign mem_miss_cnt_pad =
@@ -303,7 +306,7 @@ logic [TAG_W-1:0] tag_pend;
 assign tag_pend = cr_pend.mem_start_addr[MEM_ADDR_BUS-1 -: TAG_W];
 
 logic mem_to_cache_wr;
-assign mem_to_cache_wr = (rsp_mem.valid && (state == IC_MISS) && !spec.wrong);
+assign mem_to_cache_wr = (rsp_mem.valid && (state == IC_MISS));
 always_comb begin
     `IT_P(w, WAYS) begin
         bank_we[w] = (
@@ -373,11 +376,11 @@ always_comb begin
         end
 
         IC_READY: begin
-            if (miss_d && (!spec.wrong)) nx_state = IC_MISS;
+            if (miss_d) nx_state = IC_MISS;
         end
 
         IC_MISS: begin
-            if (mem_transfer_done_d || spec.wrong) nx_state = IC_READY;
+            if (mem_transfer_done_d) nx_state = IC_READY;
         end
 
         default: ;
@@ -415,7 +418,7 @@ always_comb begin
             end else if (new_core_req_d) begin
                 if (hit_d) begin
                     rsp_core.valid = 1'b1;
-                end else if (!spec.wrong) begin
+                end else begin
                     // TODO: move all miss handling to MISS state (for timing)?
                     // handle miss, initiate memory read
                     // NOTE: doesn't check for main mem ready
@@ -437,9 +440,6 @@ always_comb begin
                 //req_mem.data = (cr_pend.mem_start_addr + mem_miss_cnt);
                 req_mem.data = (cr_pend.mem_start_addr + mem_miss_cnt_pad);
             end
-            // if at any point during a speculative miss this turns out to be
-            // wrong path, clear wrong pending request and go to ready
-            clear_pending = spec.wrong;
         end
 
         default: ;

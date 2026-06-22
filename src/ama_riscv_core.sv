@@ -93,16 +93,18 @@ end
 // DEC Stage
 inst_width_t inst_dec_d;
 arch_width_t pc_dec_d;
+logic imem_rsp_take, sink_stale_ic_miss;
+assign imem_rsp_take = (imem_rsp.valid && !sink_stale_ic_miss);
 always_comb begin
-    if (be_stalled_d && !imem_rsp.valid) begin
+    if (be_stalled_d && !imem_rsp_take) begin
         // keep current inst, new requests are not issued to the same addr
         inst.dec = inst_dec_d;
         pc.dec = pc_dec_d;
     end else begin
         // even if be in stall, take inst if imem_rsp.valid
         // happens when i$ missed before be stalled
-        pc.dec = imem_rsp.valid ? pc_fet_last : 'h0;
-        inst.dec = imem_rsp.valid ? imem_rsp.data : 'h0;
+        pc.dec = imem_rsp_take ? pc_fet_last : 'h0;
+        inst.dec = imem_rsp_take ? imem_rsp.data : 'h0;
     end
 end
 
@@ -187,6 +189,7 @@ ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     .pc_cp (pc_fet_cp),
     `endif
     .stall_act_flow (stall_act_flow),
+    .sink_stale_ic_miss (sink_stale_ic_miss),
     .spec (spec), // tied to 0 when BP is not used
     .fe_ctrl (fe_ctrl)
 );
