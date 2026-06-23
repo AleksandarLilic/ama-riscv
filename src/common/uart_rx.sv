@@ -11,13 +11,7 @@ module  uart_rx #(
     input  logic serial_in
 );
 
-// about FPGA_OFFSET
-// Onboard 125MHz oscillator from the Ethernet does not have the best stability
-// Adding -5 offset seems to perfectly align the edges with observed no drift
-// at >200 UART back-to-back characters, measured with logic analyzer @ 20MS/s
-
-localparam unsigned FPGA_OFFSET = 5; // 0
-localparam unsigned SYMBOL_EDGE_TIME = (CLOCK_FREQ / BAUD_RATE) - FPGA_OFFSET;
+localparam unsigned SYMBOL_EDGE_TIME = (CLOCK_FREQ / BAUD_RATE);
 //localparam unsigned SAMPLE_TIME = SYMBOL_EDGE_TIME / 2;
 localparam unsigned CLOCK_COUNTER_WIDTH = $clog2(SYMBOL_EDGE_TIME);
 
