@@ -1,18 +1,6 @@
 `ifndef AMA_RISCV_DEFINES
 `define AMA_RISCV_DEFINES
 
-// Memory map
-`define RESET_VECTOR 32'h8000_0000
-`define DMEM_RANGE 15'h4000
-`define UART_RANGE 20'h10013
-`define CLINT_RANGE 20'h02000 // base 0x0200_0000
-
-`define UART_SIZE 12 // 3 32-bit registers per UART {ctrl, rx_data, tx_data}
-
-// NOP inst
-`define INST_NOP 32'h13 // addi x0 x0 0
-`define INST_FENCE_I 32'h0000100f
-
 `define TO_STRING(x) `"x`"
 
 `ifdef FPGA_SYNT
@@ -30,10 +18,10 @@
 `include "ama_riscv_types.svh"
 
 // DMEM Offset
-`define DMEM_BYTE_OFF_0 2'd0
-`define DMEM_BYTE_OFF_1 2'd1
-`define DMEM_BYTE_OFF_2 2'd2
-`define DMEM_BYTE_OFF_3 2'd3
+//`define DMEM_BYTE_OFF_0 2'd0
+//`define DMEM_BYTE_OFF_1 2'd1
+//`define DMEM_BYTE_OFF_2 2'd2
+//`define DMEM_BYTE_OFF_3 2'd3
 
 // `ifdef IMEM_DELAY
 // `define IMEM_DELAY_CLK 3

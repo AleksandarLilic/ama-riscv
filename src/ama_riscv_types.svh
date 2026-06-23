@@ -52,6 +52,11 @@ typedef union packed {
     logic [7:0] [(ARCH_WIDTH/16)-1:0] c; // crumb
 } simd_h_t;
 
+// Memory map
+parameter arch_width_t RESET_VECTOR = 32'h8000_0000;
+parameter logic [14:0] MM_DMEM_RANGE = 15'h4000; // addr[31:17]
+parameter logic [19:0] MM_UART_RANGE = 20'h10013; // addr[31:12]
+parameter logic [19:0] MM_CLINT_RANGE = 20'h02000; // addr[31:12]
 
 // Memory parameters (what is being counted)
 // no suffix - number of bits, or if specified in the parameter name eg 'offset'

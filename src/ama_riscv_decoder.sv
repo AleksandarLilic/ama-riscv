@@ -24,6 +24,8 @@ module ama_riscv_decoder #(
     output fe_ctrl_t fe_ctrl
 );
 
+localparam arch_width_t INST_FENCE_I = 32'h0000100f;
+
 rf_addr_t rs1_addr, rd_addr;
 assign rs1_addr = get_rs1(inst_dec, 1'b1);
 assign rd_addr = get_rd(inst_dec, 1'b1);
@@ -295,7 +297,7 @@ always_comb begin
             fc.pc_we = 1'b1;
             illegal_inst = !(
                 (fn3 == 3'h0) || //fence: fm/pred/succ fields are ordering hints
-                (inst_dec == `INST_FENCE_I)
+                (inst_dec == INST_FENCE_I)
             );
             `INST_WARN_ON_ILLEGAL_INST("SYSTEM");
         end

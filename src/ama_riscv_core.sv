@@ -77,7 +77,7 @@ always_comb begin
 end
 assign imem_req.data = pc.fet[CORE_WORD_ADDR_BUS+2-1:2];
 
-`DFF_CI_RI_RV_EN(`RESET_VECTOR, fe_ctrl.pc_we, pc.fet, pc_fet_last)
+`DFF_CI_RI_RV_EN(RESET_VECTOR, fe_ctrl.pc_we, pc.fet, pc_fet_last)
 
 `ifndef SYNT
 assign pc_nz.fet = (pc.fet != 'h0);
@@ -724,9 +724,9 @@ add #(.W(ARCH_WIDTH)) dmem_agu_exe_i (
 
 // memory map
 logic map_dmem_exe, map_uart_exe, map_clint_exe;
-assign map_dmem_exe = (dmem_addr[31:17] == `DMEM_RANGE);
-assign map_uart_exe = (dmem_addr[31:12] == `UART_RANGE);
-assign map_clint_exe = (dmem_addr[31:12] == `CLINT_RANGE);
+assign map_dmem_exe = (dmem_addr[31:17] == MM_DMEM_RANGE);
+assign map_uart_exe = (dmem_addr[31:12] == MM_UART_RANGE);
+assign map_clint_exe = (dmem_addr[31:12] == MM_CLINT_RANGE);
 
 // DMEM
 dmem_req_side_t dmem_req_exe;

@@ -34,6 +34,7 @@ typedef struct {
 
 // cosim
 localparam int SLEN = 32; // number of characters in the string
+localparam arch_width_t INST_NOP = 32'h13;
 
 typedef struct {
     int unsigned pc;
