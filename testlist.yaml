@@ -133,6 +133,7 @@ ustress:
 
 aapg_short:
   - ["sim/sw/baremetal/aapg/aapg_rv32_generic", "test_s47.mem"]
+  - ["sim/sw/baremetal/aapg/aapg_rv32_generic_csr", "test_s47.mem"]
   - ["sim/sw/baremetal/aapg/aapg_rv32_all", "test_s47.mem"]
   - ["sim/sw/baremetal/aapg/aapg_rv32_branches", "test_s47.mem"]
   - ["sim/sw/baremetal/aapg/aapg_rv32_mem", "test_s47.mem"]
