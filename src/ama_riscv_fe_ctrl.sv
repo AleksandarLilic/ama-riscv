@@ -22,6 +22,10 @@ module ama_riscv_fe_ctrl (
     input  hazard_t hazard,
     /* verilator lint_on UNUSEDSIGNAL */
     input  fe_ctrl_t decoded_fe_ctrl,
+    // trap controller
+    input  logic trap_tr_pending,
+    input  logic trap_redirect,
+    input  logic mret_redirect,
     `ifdef USE_BP
     output arch_width_t pc_cp,
     `endif
@@ -30,6 +34,7 @@ module ama_riscv_fe_ctrl (
     output fe_ctrl_t fe_ctrl
 );
 
+//------------------------------------------------------------------------------
 // types
 typedef enum logic [2:0] {
     RST,
@@ -72,12 +77,17 @@ typedef struct packed {
     branch_t b_tnt;
 } spec_entry_t;
 
+//------------------------------------------------------------------------------
 // STALL control
 logic flow_update;
 logic branch_taken;
 logic save_stall_entry, clear_stall_entry;
 arch_width_t stalled_pc;
 stall_sources_t stall_act, stall_res;
+
+// redirect / stale-miss overlay (spec.wrong = 0 without 'USE_BP')
+logic redirect_req;
+assign redirect_req = (spec.wrong || trap_redirect || mret_redirect);
 
 assign branch_taken = (branch_in_mem && (branch_resolution == B_T));
 `ifdef USE_BP
@@ -171,7 +181,6 @@ always_comb begin
                 end
             end
             `ifdef USE_BP
-            // whatever you are doing, drop it, it's wrong
             if (spec.wrong) nx_state = STEADY;
             `endif
         end
@@ -189,7 +198,6 @@ always_comb begin
                 end
             end
             `ifdef USE_BP
-            // whatever you are doing, drop it, it's wrong
             if (spec.wrong) nx_state = STEADY;
             `endif
         end
@@ -205,6 +213,16 @@ always_ff @(posedge clk) begin
     else if (clear_stall_entry) stalled_pc <= 'h0;
 end
 
+function automatic void spec_fetch_wrong_spec();
+    // current inst inst is branch, fingers crossed
+    fe_ctrl.pc_sel = bp_taken ? PC_SEL_JAL_BP : PC_SEL_INC4;
+    fe_ctrl.pc_we = 1'b1;
+    fe_ctrl.bubble_dec = 1'b0;
+    imem_req.valid = 1'b1;
+    imem_rsp.ready = 1'b1;
+endfunction
+
+logic stale_ic_miss, nx_stale_ic_miss;
 // outputs
 /* verilator lint_off UNUSEDSIGNAL */
 fe_ctrl_t decoded_fe_ctrl_d; // bubble_dec, use_cp unused
@@ -217,6 +235,7 @@ always_comb begin
     fe_ctrl.use_cp = 1'b0;
     imem_req.valid = 1'b0;
     imem_rsp.ready = 1'b0;
+    nx_stale_ic_miss = stale_ic_miss;
 
     unique case (state)
         RST: begin
@@ -255,43 +274,15 @@ always_comb begin
 
             `ifdef USE_BP
             end else if (spec.enter) begin
-                // enter speculative only if not blocked by others
-                fe_ctrl.pc_sel = bp_taken ? PC_SEL_JAL_BP : PC_SEL_INC4;
-                fe_ctrl.pc_we = 1'b1;
-                fe_ctrl.bubble_dec = 1'b0;
-                imem_req.valid = 1'b1;
-                imem_rsp.ready = 1'b1;
+                spec_fetch_wrong_spec();
             `endif
 
             end
-
-            `ifdef USE_BP
-            if (spec.wrong) begin
-                fe_ctrl.pc_sel = branch_taken ? PC_SEL_ALU : PC_SEL_INC4;
-                fe_ctrl.pc_we = 1'b1;
-                fe_ctrl.bubble_dec = 1'b1;
-                fe_ctrl.bubble_exe = 1'b1;
-                fe_ctrl.use_cp = 1'b1;
-                imem_req.valid = 1'b1;
-                imem_rsp.ready = 1'b1;
-            end
-            `endif
         end
 
         STALL_FLOW: begin
             fe_ctrl.bubble_dec = 1'b1; // bubble as long as in stall
             fe_ctrl.pc_we = 1'b0;
-            `ifdef USE_BP
-            if (spec.wrong) begin
-                fe_ctrl.pc_sel = branch_taken ? PC_SEL_ALU : PC_SEL_INC4;
-                fe_ctrl.pc_we = 1'b1;
-                fe_ctrl.bubble_dec = 1'b1;
-                fe_ctrl.bubble_exe = 1'b1;
-                fe_ctrl.use_cp = 1'b1;
-                imem_req.valid = 1'b1;
-                imem_rsp.ready = 1'b1;
-            end else
-            `endif
             if (stall_res.flow) begin
                 // flow change resolved
                 fe_ctrl.pc_sel = flow_update ? PC_SEL_ALU : PC_SEL_INC4;
@@ -300,7 +291,6 @@ always_comb begin
                 //imem_req.valid = !stall_src_dmem;
                 imem_rsp.ready = 1'b1;
             end
-
         end
 
         STALL_FE_IC: begin
@@ -325,12 +315,7 @@ always_comb begin
 
                 `ifdef USE_BP
                 end else if (spec.enter) begin
-                    // current inst inst is branch, fingers crossed
-                    fe_ctrl.pc_sel = bp_taken ? PC_SEL_JAL_BP : PC_SEL_INC4;
-                    fe_ctrl.pc_we = 1'b1;
-                    fe_ctrl.bubble_dec = 1'b0;
-                    imem_req.valid = 1'b1;
-                    imem_rsp.ready = 1'b1;
+                    spec_fetch_wrong_spec();
                 `endif
 
                 end else begin
@@ -342,19 +327,6 @@ always_comb begin
                     imem_rsp.ready = 1'b1;
                 end
             end
-
-            `ifdef USE_BP
-            // whatever you are doing, drop it, it's wrong
-            if (spec.wrong) begin
-                fe_ctrl.pc_sel = branch_taken ? PC_SEL_ALU : PC_SEL_INC4;
-                fe_ctrl.pc_we = 1'b1;
-                fe_ctrl.bubble_dec = 1'b1;
-                fe_ctrl.bubble_exe = 1'b1;
-                fe_ctrl.use_cp = 1'b1;
-                imem_req.valid = 1'b1;
-                imem_rsp.ready = 1'b1;
-            end
-            `endif
         end
 
         STALL_BE: begin
@@ -381,12 +353,7 @@ always_comb begin
 
                 `ifdef USE_BP
                 end else if (spec.enter) begin
-                    // current inst inst is branch, fingers crossed
-                    fe_ctrl.pc_sel = bp_taken ? PC_SEL_JAL_BP : PC_SEL_INC4;
-                    fe_ctrl.pc_we = 1'b1;
-                    fe_ctrl.bubble_dec = 1'b0;
-                    imem_req.valid = 1'b1;
-                    imem_rsp.ready = 1'b1;
+                    spec_fetch_wrong_spec();
                 `endif
 
                 end else begin
@@ -394,30 +361,86 @@ always_comb begin
                     imem_req.valid = 1'b1;
                     imem_rsp.ready = 1'b1;
                 end
-
-                `ifdef USE_BP
-                // whatever you are doing, drop it, it's wrong
-                if (spec.wrong) begin
-                    fe_ctrl.pc_sel = branch_taken ? PC_SEL_ALU : PC_SEL_INC4;
-                    fe_ctrl.pc_we = 1'b1;
-                    fe_ctrl.bubble_dec = 1'b1;
-                    fe_ctrl.bubble_exe = 1'b1;
-                    fe_ctrl.use_cp = 1'b1;
-                    imem_req.valid = 1'b1;
-                    imem_rsp.ready = 1'b1;
-                end
-                `endif
             end
         end
 
         default: ;
 
     endcase
+
+    //--------------------------------------------------------------------------
+    // redirect/stale-miss overlay - top priority
+    // steers the front-end on a control-flow change
+    // (branch wrong-path flush, or trap/mret entry/return)
+    // the icache respects every request once issued, so a redirect that lands
+    // while a fetch miss is in flight cannot fetch now and the in-flight
+    // response is stale:
+    // capture the target into pc_fet_last, defer, sink the doomed response when
+    // it arrives, then issue the target
+    // the doomed (in-flight) response is discarded by bubble_dec when it lands
+    if (stale_ic_miss) begin
+        // deferred redirect: target already latched in pc_fet_last
+        fe_ctrl.pc_sel = PC_SEL_PC; // pc_sel_pc_src == pc_fet_last (target)
+        fe_ctrl.bubble_dec = 1'b1;
+        if (!stall_act.icache) begin
+            // icache ready again (doomed miss completed): issue the target
+            // its response is bubbled this cycle and the target is fetched next
+            fe_ctrl.pc_we = 1'b1;
+            imem_req.valid = 1'b1;
+            imem_rsp.ready = 1'b1;
+            nx_stale_ic_miss = 1'b0;
+        end else begin
+            // still waiting for the doomed miss to complete
+            fe_ctrl.pc_we = 1'b0;
+            imem_req.valid = 1'b0;
+            imem_rsp.ready = 1'b0;
+        end
+    end else if (redirect_req) begin
+        // capture the redirect target + flush
+        fe_ctrl.pc_we = 1'b1; // flop target into pc_fet_last
+        fe_ctrl.bubble_dec = 1'b1;
+        `ifdef USE_BP
+        if (spec.wrong) begin
+            // wrong-path flush: also drop EXE and restore the checkpoint PC
+            fe_ctrl.pc_sel = branch_taken ? PC_SEL_ALU : PC_SEL_INC4;
+            fe_ctrl.bubble_exe = 1'b1;
+            fe_ctrl.use_cp = 1'b1;
+        end else
+        `endif
+        begin
+            // trap/mret: mtvec/mepc via the core PC front mux on PC_SEL_PC
+            fe_ctrl.pc_sel = PC_SEL_PC;
+        end
+
+        if (stall_act.icache) begin
+            // miss in flight: defer, capture target only
+            // the doomed response is discarded later via the stale_ic_miss path
+            imem_req.valid = 1'b0;
+            imem_rsp.ready = 1'b0;
+            nx_stale_ic_miss = 1'b1;
+        end else begin
+            // icache idle (or responding with stale): issue the target now
+            imem_req.valid = 1'b1;
+            imem_rsp.ready = 1'b1;
+        end
+    end else if (trap_tr_pending) begin
+        // chase (TRAP_PENDING/RESTORE_PENDING):
+        // stall the front-end for the whole chase window so younger (doomed)
+        // insts behind the carrier are bubbled
+        // and no new fetch is issued until the redirect
+        fe_ctrl.pc_we = 1'b0;
+        fe_ctrl.bubble_dec = 1'b1;
+        imem_req.valid = 1'b0;
+        imem_rsp.ready = 1'b0;
+    end
 end
+
+`DFF_CI_RI_RVI(nx_stale_ic_miss, stale_ic_miss)
 
 `DFF_CI_RI_RV(`FE_CTRL_INIT_VAL, decoded_fe_ctrl, decoded_fe_ctrl_d)
 
 `ifdef USE_BP
+//------------------------------------------------------------------------------
 // SPECULATIVE EXEC control
 spec_entry_t spec_entry[2];
 logic se_ptr_h, se_ptr_t; // head and tail pointers for speculative entry
@@ -442,6 +465,7 @@ assign spec.wrong = bp_miss;
 assign spec.exec_n = (nx_state_e == SPEC_E);
 assign spec.active = (state_e == SPEC_E);
 
+//------------------------------------------------------------------------------
 // state transition
 `DFF_CI_RI_RV(NS_E, nx_state_e, state_e)
 
@@ -482,6 +506,7 @@ always_comb begin
     endcase
 end
 
+// speculative entries fifo
 always_ff @(posedge clk) begin
     if (rst) begin
         spec_entry <= {'h0, 'h0};

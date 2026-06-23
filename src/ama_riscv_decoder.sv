@@ -3,12 +3,18 @@
 `ifndef SYNT
 `include "ama_riscv_tb_defines.svh"
 
-`define INST_WARN(x) \
-    `LOG($sformatf( \
-        "WARNING: decoder received unsupported %0s instruction: %8h at %8h", \
-        x, inst_dec, `CORE.pc.dec) \
-    )
+`define INST_WARN_ON_ILLEGAL_INST(x) \
+    if (illegal_inst) \
+        `LOG($sformatf( \
+            "WARNING: decoder received illegal %0s instruction: %8h at %8h", \
+            x, inst_dec, `CORE.pc.dec) \
+        )
+`else
+`define INST_WARN_ON_ILLEGAL_INST(x)
 `endif
+
+`define D_EXC_ILLEGAL_INST \
+    d.xcpt = '{pend: 1'b1, cause: MCAUSE_ILLEGAL_INST};
 
 module ama_riscv_decoder #(
     parameter bit SIMD_EN = 1
@@ -28,18 +34,18 @@ assign rd_nz = (rd_addr != RF_X0_ZERO);
 opc7_t opc7;
 logic [2:0] fn3;
 logic [6:0] fn7;
+logic [11:0] fn12;
 logic fn7_b5, fn7_b2, fn7_b0;
 assign opc7 = get_opc7(inst_dec);
 assign fn3 = get_fn3(inst_dec);
 assign fn7 = get_fn7(inst_dec);
+assign fn12 = get_fn12(inst_dec);
 assign fn7_b0 = get_fn7_b0(inst_dec);
 assign fn7_b2 = get_fn7_b2(inst_dec);
 assign fn7_b5 = get_fn7_b5(inst_dec);
 
-`ifndef SYNT
-logic no_inst, unsupported_inst;
+logic no_inst, illegal_inst;
 assign no_inst = (inst_dec == 'h0);
-`endif
 
 simd_arith_op_t simd_arith_op_dec;
 assign simd_arith_op_dec = simd_arith_op_t'({fn7[3:0], fn3});
@@ -56,9 +62,7 @@ assign fe_ctrl = fc;
 always_comb begin
     d = `DECODER_INIT_VAL;
     fc = `FE_CTRL_INIT_VAL;
-    `ifndef SYNT
-    unsupported_inst = 'b0;
-    `endif
+    illegal_inst = 'b0;
 
     // decoder assumes frontend can always progress (pc_sel/pc_we)
     // fe_ctrl module overwrites if/when it can't
@@ -76,15 +80,13 @@ always_comb begin
             d.wb_sel = d.itype.mult ? WB_SEL_SIMD : WB_SEL_EWB;
             d.rd_we = rd_nz;
             d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 0};
-            `ifndef SYNT
-            unsupported_inst = !(
+            illegal_inst = !(
                 (fn7 == 7'h0) || // rv32i
                 ((fn7 == 7'h20) && ((fn3 == 3'h0) || (fn3 == 3'h5))) || // rv32i
                 (fn7 == 7'h1) || // rv32m
                 ((fn7 == 7'h5) && fn3[2]) // rv32 zbb partial
             );
-            if (unsupported_inst) `INST_WARN("R_TYPE");
-            `endif
+            `INST_WARN_ON_ILLEGAL_INST("R_TYPE");
         end
 
         OPC7_I_TYPE: begin
@@ -96,14 +98,12 @@ always_comb begin
             d.ig_sel = IG_I_TYPE;
             d.rd_we = rd_nz;
             d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 0, rs3: 0};
-            `ifndef SYNT
             // shifts have fn7 constraints
             // all other fn3 values use full imm[11:0]
-            unsupported_inst =
+            illegal_inst =
                 ((fn3 == 3'h1) && (fn7 != 7'h00)) || // slli: fn7 must be 0x00
                 ((fn3 == 3'h5) && (fn7 != 7'h00) && (fn7 != 7'h20)); //srli/srai
-            if (unsupported_inst) `INST_WARN("I_TYPE");
-            `endif
+            `INST_WARN_ON_ILLEGAL_INST("I_TYPE");
         end
 
         OPC7_LOAD: begin
@@ -115,12 +115,10 @@ always_comb begin
             d.wb_sel = WB_SEL_DMEM;
             d.rd_we = rd_nz;
             d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 0, rs3: 0};
-            `ifndef SYNT
-            unsupported_inst = (
+            illegal_inst = (
                 (fn3 == 3'h3) || (fn3 == 3'h6) || (fn3 == 3'h7)
             );
-            if (unsupported_inst) `INST_WARN("LOAD");
-            `endif
+            `INST_WARN_ON_ILLEGAL_INST("LOAD");
         end
 
         OPC7_STORE: begin
@@ -130,10 +128,8 @@ always_comb begin
             d.ig_sel = IG_S_TYPE;
             d.dmem_en = 1'b1;
             d.has_reg = '{rd: 0, rdp: 0, rs1: 1, rs2: 1, rs3: 0};
-            `ifndef SYNT
-            unsupported_inst = ((fn3 == 3'h3) || fn3[2]);
-            if (unsupported_inst) `INST_WARN("STORE");
-            `endif
+            illegal_inst = ((fn3 == 3'h3) || fn3[2]);
+            `INST_WARN_ON_ILLEGAL_INST("STORE");
         end
 
         OPC7_BRANCH: begin
@@ -145,10 +141,8 @@ always_comb begin
             d.ig_sel = IG_B_TYPE;
             d.branch_u = fn3[1];
             d.has_reg = '{rd: 0, rdp: 0, rs1: 1, rs2: 1, rs3: 0};
-            `ifndef SYNT
-            unsupported_inst = ((fn3 == 3'h2) || (fn3 == 3'h3));
-            if (unsupported_inst) `INST_WARN("BRANCH");
-            `endif
+            illegal_inst = ((fn3 == 3'h2) || (fn3 == 3'h3));
+            `INST_WARN_ON_ILLEGAL_INST("BRANCH");
         end
 
         OPC7_JAL: begin
@@ -170,10 +164,8 @@ always_comb begin
             d.ewb_sel = EWB_SEL_PC_INC4;
             d.rd_we = rd_nz;
             d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 0, rs3: 0};
-            `ifndef SYNT
-            unsupported_inst = !(fn3 == 3'h0);
-            if (unsupported_inst) `INST_WARN("JALR");
-            `endif
+            illegal_inst = !(fn3 == 3'h0);
+            `INST_WARN_ON_ILLEGAL_INST("JALR");
         end
 
         OPC7_LUI: begin
@@ -213,27 +205,21 @@ always_comb begin
             unique case (fn7)
                 CUSTOM_ISA_FN7_SIMD_ADDSUB: begin
                     d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 0};
-                    `ifndef SYNT
-                    unsupported_inst = (fn3[0]);
-                    if (unsupported_inst) `INST_WARN("SIMD_ADDSUB");
-                    `endif
+                    illegal_inst = (fn3[0]);
+                    `INST_WARN_ON_ILLEGAL_INST("SIMD_ADDSUB");
                 end
                 CUSTOM_ISA_FN7_SIMD_QADDSUB: begin
                     d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 0};
                 end
                 CUSTOM_ISA_FN7_SIMD_MUL: begin
                     d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 0};
-                    `ifndef SYNT
-                    unsupported_inst = ((fn3 == 3'h1) || (fn3 == 3'h3));
-                    if (unsupported_inst) `INST_WARN("SIMD_MUL");
-                    `endif
+                    illegal_inst = ((fn3 == 3'h1) || (fn3 == 3'h3));
+                    `INST_WARN_ON_ILLEGAL_INST("SIMD_MUL");
                 end
                 CUSTOM_ISA_FN7_SIMD_WMUL: begin
                     d.has_reg = '{rd: 1, rdp: 1, rs1: 1, rs2: 1, rs3: 0};
-                    `ifndef SYNT
-                    unsupported_inst = (fn3[2]);
-                    if (unsupported_inst) `INST_WARN("SIMD_WMUL");
-                    `endif
+                    illegal_inst = (fn3[2]);
+                    `INST_WARN_ON_ILLEGAL_INST("SIMD_WMUL");
                 end
                 CUSTOM_ISA_FN7_SIMD_DOT: begin
                     d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 1};
@@ -249,10 +235,8 @@ always_comb begin
                     d.ewb_sel = EWB_SEL_DATA_FMT; // go through data fmt path
                     d.wb_sel = WB_SEL_EWB;
                     d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 0, rs3: 0};
-                    `ifndef SYNT
-                    unsupported_inst = ((fn3 == 3'h1) || fn3 == 3'h3);
-                    if (unsupported_inst) `INST_WARN("SIMD_SHIFT");
-                    `endif
+                    illegal_inst = ((fn3 == 3'h1) || fn3 == 3'h3);
+                    `INST_WARN_ON_ILLEGAL_INST("SIMD_SHIFT");
                 end
 
                 // data format groups
@@ -265,20 +249,16 @@ always_comb begin
                 end
                 CUSTOM_ISA_FN7_SIMD_NARROW: begin
                     d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 0};
-                    `ifndef SYNT
-                    unsupported_inst = (fn3[0]);
-                    if (unsupported_inst) `INST_WARN("SIMD_NARROW");
-                    `endif
+                    illegal_inst = (fn3[0]);
+                    `INST_WARN_ON_ILLEGAL_INST("SIMD_NARROW");
                 end
                 CUSTOM_ISA_FN7_SIMD_QNARROW: begin
                     d.has_reg = '{rd: 1, rdp: 0, rs1: 1, rs2: 1, rs3: 0};
                 end
                 CUSTOM_ISA_FN7_SIMD_TXP: begin
                     d.has_reg = '{rd: 1, rdp: 1, rs1: 1, rs2: 1, rs3: 0};
-                    `ifndef SYNT
-                    unsupported_inst = (fn3[0]);
-                    if (unsupported_inst) `INST_WARN("SIMD_TXP");
-                    `endif
+                    illegal_inst = (fn3[0]);
+                    `INST_WARN_ON_ILLEGAL_INST("SIMD_TXP");
                 end
                 CUSTOM_ISA_FN7_SIMD_DUP_VINS: begin
                     if(!fn3[0]) begin // dup
@@ -296,10 +276,8 @@ always_comb begin
                 end
 
                 default: begin
-                    `ifndef SYNT
-                    unsupported_inst = !no_inst;
-                    if (unsupported_inst) `INST_WARN("custom");
-                    `endif
+                    illegal_inst = !no_inst;
+                    `INST_WARN_ON_ILLEGAL_INST("custom");
                 end
 
             endcase
@@ -308,56 +286,71 @@ always_comb begin
             if (!SIMD_EN) begin
                 d = `DECODER_INIT_VAL;
                 fc.pc_we = 1'b1;
-                `ifndef SYNT
-                unsupported_inst = !no_inst;
-                if (unsupported_inst) `INST_WARN("custom (SIMD off)");
-                `endif
+                illegal_inst = !no_inst;
+                `INST_WARN_ON_ILLEGAL_INST("custom (SIMD off)");
             end
         end
 
         OPC7_MISC_MEM: begin
             fc.pc_we = 1'b1;
-            `ifndef SYNT
-            unsupported_inst = !(
+            illegal_inst = !(
                 (fn3 == 3'h0) || //fence: fm/pred/succ fields are ordering hints
                 (inst_dec == `INST_FENCE_I)
             );
-            if (unsupported_inst) `INST_WARN("MISC_MEM");
-            `endif
+            `INST_WARN_ON_ILLEGAL_INST("SYSTEM");
         end
 
         OPC7_SYSTEM: begin
             fc.pc_we = 1'b1;
-            d.csr_ctrl.en = 1'b1;
-            d.csr_ctrl.re = !((fn3[1:0] == CSR_OP_RW) && !rd_nz);
-            d.csr_ctrl.we = (rs1_nz || (fn3[1:0] == CSR_OP_RW));
-            d.csr_ctrl.ui = fn3[2];
-            d.csr_ctrl.op = csr_op_t'(fn3[1:0]);
-            d.ewb_sel = EWB_SEL_CSR;
-            d.rd_we = rd_nz;
-            d.has_reg = '{rd: 1, rdp: 0 , rs1: !fn3[2], rs2: 0, rs3: 0};
-            `ifndef SYNT
-            unsupported_inst = ((fn3 == 3'h0) || (fn3 == 3'h4));
-            if (unsupported_inst) `INST_WARN("SYSTEM");
-            `endif
+            if (fn3 == FN3_PRIV) begin
+                // privileged: ecall/ebreak/mret/wfi
+                case (fn12)
+                    SYSTEM_FN12_ECALL: d.xcpt = '{pend: 1'b1, cause: MCAUSE_MACHINE_ECALL};
+                    SYSTEM_FN12_EBREAK: d.xcpt = '{pend: 1'b1, cause: MCAUSE_BREAKPOINT};
+                    SYSTEM_FN12_MRET: d.mret = 1'b1;
+                    // SYSTEM_FN12_WFI: // TODO
+                    default: begin
+                        illegal_inst = 1'b1;
+                        `INST_WARN_ON_ILLEGAL_INST("SYSTEM");
+                    end
+                endcase
+            end else if (fn3 == FN3_PRIVM) begin
+                illegal_inst = 1'b1;
+                `INST_WARN_ON_ILLEGAL_INST("SYSTEM");
+            end else begin // zicsr
+                d.csr_ctrl.en = 1'b1;
+                d.csr_ctrl.re = !((fn3[1:0] == CSR_OP_RW) && !rd_nz);
+                d.csr_ctrl.we = (rs1_nz || (fn3[1:0] == CSR_OP_RW));
+                d.csr_ctrl.ui = fn3[2];
+                d.csr_ctrl.op = csr_op_t'(fn3[1:0]);
+                d.ewb_sel = EWB_SEL_CSR;
+                d.rd_we = rd_nz;
+                d.has_reg = '{rd: 1, rdp: 0 , rs1: !fn3[2], rs2: 0, rs3: 0};
+            end
         end
 
         default: begin
-            `ifndef SYNT
-            unsupported_inst = !no_inst;
-            if (unsupported_inst) `INST_WARN("UNKNOWN");
-            `endif
+            illegal_inst = !no_inst;
+            `INST_WARN_ON_ILLEGAL_INST("SYSTEM");
         end
 
     endcase
+
+    if (illegal_inst) begin
+        // reset to idle state and trap
+        d = `DECODER_INIT_VAL;
+        fc = `FE_CTRL_INIT_VAL;
+        if (!d.xcpt.pend) `D_EXC_ILLEGAL_INST; // if not already raised
+    end
+
 end
 
 `ifndef SYNT
 logic non_spec_unsupported;
-assign non_spec_unsupported = (unsupported_inst && !`CORE.spec.active);
+assign non_spec_unsupported = (illegal_inst && !`CORE.spec.active);
 always_ff @(posedge `TB.clk) begin
     assert (!non_spec_unsupported || `CORE.flush.dec || `CORE.rst)
-    else $fatal(1, "DECODER ERROR - unsupported instruction");
+    else $warning("DECODER - unsupported instruction");
 end
 `endif
 
