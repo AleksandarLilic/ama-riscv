@@ -1,8 +1,6 @@
 `include "ama_riscv_defines.svh"
 
-module ama_riscv_csr #(
-    parameter unsigned CLOCK_FREQ = 100_000_000 // Hz
-)(
+module ama_riscv_csr (
     input  logic clk,
     input  logic rst,
     input  csr_ctrl_t ctrl,
@@ -10,6 +8,7 @@ module ama_riscv_csr #(
     input  logic [4:0] imm5,
     input  csr_addr_t addr,
     input  perf_event_t perf_events,
+    input  csr_dw_t mtime,
     output arch_width_t out,
     // trap controller interface
     input  csr_trap_wr_t trap_wr,
@@ -22,9 +21,6 @@ module ama_riscv_csr #(
 );
 
 //------------------------------------------------------------------------------
-// local params, helpers
-localparam unsigned CLOCKS_PER_US = (CLOCK_FREQ / 1_000_000);
-localparam unsigned CNT_WIDTH = $clog2(CLOCKS_PER_US);
 
 //localparam unsigned MHPMEVENT_PAD_WIDTH =
 //    ((ARCH_WIDTH - MHPMEVENTS) != 0) ? (ARCH_WIDTH - MHPMEVENTS) : ARCH_WIDTH;
@@ -116,8 +112,8 @@ always_comb begin
             CSR_INSTRETH,
             CSR_MINSTRETH: out = csr.minstret.r[CSR_HIGH];
             CSR_MSCRATCH: out = csr.mscratch;
-            CSR_TIME: out = csr.mtime.r[CSR_LOW];
-            CSR_TIMEH: out = csr.mtime.r[CSR_HIGH];
+            CSR_TIME: out = mtime.r[CSR_LOW];
+            CSR_TIMEH: out = mtime.r[CSR_HIGH];
             CSR_MHPMCOUNTER3,
             CSR_MHPMCOUNTER4,
             CSR_MHPMCOUNTER5,
@@ -281,13 +277,6 @@ always_ff @(posedge clk) begin
         csr.minstret <= (csr.minstret + 64'h1);
     end
 end
-
-// mtime
-logic tick_us;
-logic [CNT_WIDTH-1:0] cnt_us; // 1 microsecond cnt
-assign tick_us = (cnt_us == CNT_WIDTH'(CLOCKS_PER_US - 1));
-`DFF_CI_RI_RVI_CLR_CLRVI(tick_us, (cnt_us + 'h1), cnt_us)
-`DFF_CI_RI_RVI_EN(tick_us, (csr.mtime + 64'h1), csr.mtime)
 
 //------------------------------------------------------------------------------
 // hardware performance monitors

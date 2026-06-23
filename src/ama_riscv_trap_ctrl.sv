@@ -52,8 +52,8 @@ state_t state, nx_state;
 //------------------------------------------------------------------------------
 // interrupt recognition, priority MEI > MTI, blocked during speculation
 irq_t irq;
-assign irq.meip = csr_status.mie[MIP_MEIP_BIT] & csr_status.mip[MIP_MEIP_BIT];
-assign irq.mtip = csr_status.mie[MIP_MTIP_BIT] & csr_status.mip[MIP_MTIP_BIT];
+assign irq.meip = (csr_status.mie[MIP_MEIP_BIT] & csr_status.mip[MIP_MEIP_BIT]);
+assign irq.mtip = (csr_status.mie[MIP_MTIP_BIT] & csr_status.mip[MIP_MTIP_BIT]);
 assign irq.cause = irq.meip ? MCAUSE_MACHINE_EXT_INT : MCAUSE_MACHINE_TIMER_INT;
 assign irq.pend = (
     csr_status.mstatus_mie & (irq.meip | irq.mtip) & (!spec.active)

@@ -17,6 +17,8 @@ ISA_SIM_DIR := $(REPO_ROOT)/sim/src
 ISA_SIM_BDIR ?= build_obj
 $(shell mkdir -p $(ISA_SIM_DIR)/$(ISA_SIM_BDIR))
 
+ISA_SIM_DEFINES := -DDPI -DCACHE_MODE=CACHE_MODE_FUNC -DUART_INPUT_EN
+
 ISA_SIM_SRCS := $(wildcard $(ISA_SIM_DIR)/*.cpp)
 ISA_SIM_SRCS += $(wildcard $(ISA_SIM_DIR)/devices/*.cpp)
 ISA_SIM_SRCS += $(wildcard $(ISA_SIM_DIR)/profilers/*.cpp)
@@ -30,7 +32,10 @@ ISA_SIM_H += $(wildcard $(ISA_SIM_DIR)/profilers/*.h)
 ISA_SIM_H += $(wildcard $(ISA_SIM_DIR)/hw_models/*.h)
 
 # ISA sim header files needed for cosim build
-ISA_SIM_INC := -I$(ISA_SIM_DIR) -I$(ISA_SIM_DIR)/devices -I$(ISA_SIM_DIR)/profilers -I$(ISA_SIM_DIR)/hw_models
+ISA_SIM_INC := -I$(ISA_SIM_DIR)
+ISA_SIM_INC += -I$(ISA_SIM_DIR)/devices
+ISA_SIM_INC += -I$(ISA_SIM_DIR)/profilers
+ISA_SIM_INC += -I$(ISA_SIM_DIR)/hw_models
 ISA_SIM_INC += -isystem $(ISA_SIM_DIR)/external/ELFIO
 
 # COSIM
@@ -44,8 +49,8 @@ COSIM_SO := ama-riscv-cosim.so
 COSIM_TARGET := $(COSIM_BDIR_FULL)/$(COSIM_SO)
 
 COSIM_SRCS := $(wildcard $(COSIM_ROOT)/*.cpp)
-COSIM_OBJS := $(patsubst $(COSIM_ROOT)/%.cpp,$(COSIM_ROOT)/$(COSIM_BDIR)/%.o,$(COSIM_SRCS))
-COSIM_DEPS := $(patsubst $(COSIM_ROOT)/%.cpp,$(COSIM_ROOT)/$(COSIM_BDIR)/%.d,$(COSIM_SRCS))
+COSIM_OBJS := $(patsubst $(COSIM_ROOT)/%.cpp, $(COSIM_ROOT)/$(COSIM_BDIR)/%.o, $(COSIM_SRCS))
+COSIM_DEPS := $(patsubst $(COSIM_ROOT)/%.cpp, $(COSIM_ROOT)/$(COSIM_BDIR)/%.d, $(COSIM_SRCS))
 
 COSIM_INC := -I$(VIVADO_ROOT)/data/xsim/include
 COSIM_INC += -I$(COSIM_ROOT)
@@ -68,7 +73,8 @@ cosim_obj: $(COSIM_OBJS)
 
 $(COSIM_TARGET): .isa_sim_obj.touchfile $(COSIM_OBJS)
 	@echo "Building COSIM SO" $(COSIM_LOG_ARG)
-	@$(CXX) $(CXXFLAGS) -o $(COSIM_TARGET) $(COSIM_OBJS) $(ISA_SIM_OBJS) $(DPI_LINK_LIB) $(COSIM_LOG_ARG)
+	@$(CXX) $(CXXFLAGS) -o $(COSIM_TARGET) $(COSIM_OBJS) $(ISA_SIM_OBJS) \
+		$(DPI_LINK_LIB) $(COSIM_LOG_ARG)
 	@echo "Building COSIM SO done" $(COSIM_LOG_ARG)
 
 # recipe calls isa sim's make which builds all isa sim objects
@@ -76,14 +82,17 @@ $(COSIM_TARGET): .isa_sim_obj.touchfile $(COSIM_OBJS)
 isa_sim_obj: .isa_sim_obj.touchfile
 .isa_sim_obj.touchfile: $(ISA_SIM_SRCS) $(ISA_SIM_H) $(COSIM_H)
 	@echo "Building ISA SIM" $(COSIM_LOG_ARG)
-	@$(MAKE) -C $(ISA_SIM_DIR) obj_for_cosim INC_EXT="$(ISA_SIM_EXT)" BDIR=$(ISA_SIM_BDIR) DEFINES="-DDPI -DCACHE_MODE=CACHE_MODE_FUNC" CXX=$(CXX) $(COSIM_LOG_ARG)
+	@$(MAKE) -C $(ISA_SIM_DIR) obj_for_cosim INC_EXT="$(ISA_SIM_EXT)" \
+		BDIR=$(ISA_SIM_BDIR) DEFINES="$(ISA_SIM_DEFINES)" CXX=$(CXX) \
+		$(COSIM_LOG_ARG)
 	@touch .isa_sim_obj.touchfile
 	@echo "Building ISA SIM done" $(COSIM_LOG_ARG)
 
 $(COSIM_ROOT)/$(COSIM_BDIR)/%.o: $(COSIM_ROOT)/%.cpp $(COSIM_H) $(ISA_SIM_H)
 	@echo "Building COSIM OBJ $@" $(COSIM_LOG_ARG)
 	@mkdir -p $(dir $@)
-	@$(CXX) $(CXXFLAGS) -MMD -c $< -o $@ $(COSIM_INC) $(ISA_SIM_INC) -DDPI $(COSIM_LOG_ARG)
+	@$(CXX) $(CXXFLAGS) -MMD -c $< -o $@ $(COSIM_INC) $(ISA_SIM_INC) -DDPI \
+		$(COSIM_LOG_ARG)
 	@echo "Building COSIM OBJ $@ done" $(COSIM_LOG_ARG)
 
 -include $(DEPS)

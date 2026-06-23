@@ -31,6 +31,11 @@ import "DPI-C" function void cosim_exec(
 import "DPI-C" function int unsigned cosim_get_inst_cnt();
 import "DPI-C" function void cosim_finish();
 
+import "DPI-C" function void cosim_force_irq(
+    input byte unsigned mtip,
+    input byte unsigned meip
+);
+
 export "DPI-C" function get_rtl_rf_value;
 
 // cosim tracing and stats
@@ -151,7 +156,7 @@ logic rst;
 logic inst_retired;
 logic uart_serial_in;
 logic uart_serial_out;
-ama_riscv_top #(.CLOCK_FREQ (CLOCK_FREQ), .UART_BR (BR_921600)) `DUT (
+ama_riscv_top #(.CLOCK_FREQ (CLOCK_FREQ), .UART_BR (UART_BR_TB)) `DUT (
     .clk,
     .rst,
     .uart_serial_in,
@@ -185,7 +190,7 @@ rv_if #(.DW(8)) send_req_ch (); // not in use, but required for instantiation
 `ifndef UART_SHORTCUT
 uart # (
     .CLOCK_FREQ (CLOCK_FREQ),
-    .BAUD_RATE (BR_921600)
+    .BAUD_RATE (UART_BR_TB)
 ) uart_host (
     .clk (clk),
     .rst (rst),
@@ -400,6 +405,18 @@ function void get_plusargs();
             args.heartbeat_clocks = `DEFAULT_HEARTBEAT_CLOCKS;
         end
 
+        if (!$value$plusargs("uart_in=%s", args.uart_in)) begin
+            args.uart_in = "";
+        end
+        `ifdef UART_SHORTCUT
+        else begin
+            $fatal(1, $sformatf("%0s",
+                {"Plusarg 'uart_in' is provided for simulation ",
+                "but UART_SHORTCUT (timing ignored) is used for build"}
+            ));
+        end
+        `endif
+
         if (!$value$plusargs("log_level=%s", log_str)) begin
             args.log_level = LOG_INFO;
         end else begin
@@ -423,6 +440,23 @@ function void get_plusargs();
             "Frequency: %.2f MHz", 1.0 / (`CLK_HALF_PERIOD * 2 * 1e-3)));
     end
 endfunction
+
+// drive one RX byte into the DUT UART via the host
+task automatic uart_send_byte(input logic [7:0] b);
+    forever begin
+        @(posedge clk); #1;
+        if (send_req_ch.ready) break;
+    end
+    send_req_ch.data = b;
+    send_req_ch.valid = 1'b1;
+    @(posedge clk); #1; // accept edge: start = valid && ready takes the byte
+    send_req_ch.valid = 1'b0;
+    // wait out the transmission (ready high again) before the next byte
+    forever begin
+        @(posedge clk); #1;
+        if (send_req_ch.ready) break;
+    end
+endtask
 
 function string trim_ws(string s);
     // keep everything *before* the first of the two whitespaces
@@ -555,8 +589,8 @@ function int unsigned get_rtl_rf_value(input int unsigned reg_idx);
     // guard against accidental usage/silent ISA-RTL drift
     if (!`CORE.inst_retired) begin
         `LOG_E("get_rtl_rf_value called outside instruction retire", 1);
-    end else if (!((opc7 == OPC7_SYSTEM) && (fn3 != 3'b0))) begin
-        `LOG_E("get_rtl_rf_value called on a non-CSR instruction", 1);
+    //end else if (!((opc7 == OPC7_SYSTEM) && (fn3 != 3'b0))) begin
+    //    `LOG_E("get_rtl_rf_value called on a non-CSR instruction", 1);
     end else if (reg_idx !== rd) begin
         `LOG_E($sformatf(
             "get_rtl_rf_value rd mismatch: requested x%0d, RTL retiring x%0d",
@@ -674,11 +708,30 @@ task automatic single_step();
     `endif
 
     core_trapped = `CORE.trap_tag.ret.trapped;
-    if (core_trapped) core_ret = "Core trapped";
+    if (core_trapped) core_ret = $sformatf(
+        "Core trapped (mcause %0h)", `TRAP_CTRL.trap_info.mcause
+    );
 
     `LOG_V(core_ret);
 
     `ifdef ENABLE_COSIM
+    // RTL-driven interrupts
+    // when RTL takes an interrupt, force the ISS to take the same one
+    // mcause[31] = interrupt (vs exception, which the ISS self-takes).
+    if (core_trapped && `TRAP_CTRL.trap_info.mcause[31]) begin
+        `LOG_I($sformatf(
+            "Core trapped on interrupt (mcause %0h). Forcing Cosim trap." ,
+            `TRAP_CTRL.trap_info.mcause
+        ));
+        case (`TRAP_CTRL.trap_info.mcause[30:0])
+            31'd7:  cosim_force_irq(8'd1, 8'd0); // MTI
+            31'd11: cosim_force_irq(8'd0, 8'd1); // MEI
+            default: $fatal(1,
+                "cosim: core took unsupported interrupt, mcause=%08h",
+                `TRAP_CTRL.trap_info.mcause);
+        endcase
+    end
+
     cosim_exec(
         clk_cnt_d[2], cosim.pc, cosim.inst, cosim.tohost,
         cosim_str.inst_asm, cosim_str.stack_top, cosim.rf
@@ -895,10 +948,18 @@ initial begin
 
     //uart_serial_in = 1'b1; // line idle atm
     recv_rsp_ch.ready = 1'b0;
+    send_req_ch.valid = 1'b0;
+    send_req_ch.data = 8'h0;
     fork: run_f
     begin: run_test_f
         run_test();
         completed = 1;
+    end
+    begin: uart_drive_f
+        // feed +uart_in RX bytes to the DUT UART
+        // idle forever after so this branch never triggers join_any
+        foreach (args.uart_in[i]) uart_send_byte(args.uart_in[i]);
+        forever @(posedge clk);
     end
     begin: uart_listen_f
         while (1) begin

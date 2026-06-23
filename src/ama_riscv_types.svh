@@ -795,7 +795,6 @@ typedef struct {
     arch_width_t mscratch;
     csr_dw_t mcycle;
     csr_dw_t minstret;
-    csr_dw_t mtime;
     mhpmevent_t mhpmevent[`MHPM_RANGE];
     csr_mhpm_t mhpmcounter[`MHPM_RANGE];
     // trap CSRs (full-width regs, WARL-masked on write; mip is source-driven)
@@ -896,6 +895,17 @@ typedef struct packed {
     logic [7:0] send;
 } uart_ch_side_t;
 
+typedef struct packed {
+    logic en;
+    logic we;
+    logic [2:0] addr; // word index = dmem_addr[4:2]
+} clint_ctrl_t;
+
+typedef struct packed {
+    clint_ctrl_t ctrl;
+    arch_width_t wdata;
+} clint_ch_side_t;
+
 typedef enum int unsigned {
     BR_9600 = 9600,
     BR_19200 = 19200,
@@ -977,6 +987,15 @@ interface uart_if ();
     logic [31:0] recv;
     modport TX (output ctrl, output send, input recv); // core
     modport RX (input ctrl, input send, output recv); // uart
+endinterface
+
+interface clint_if ();
+    clint_ctrl_t ctrl;
+    arch_width_t wdata;
+    arch_width_t rdata;
+    csr_dw_t mtime;
+    modport TX (output ctrl, output wdata, input rdata, input mtime); // core
+    modport RX (input ctrl, input wdata, output rdata, output mtime); // clint
 endinterface
 
 // not all stages will be used by every instatiation

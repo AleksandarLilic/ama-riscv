@@ -92,12 +92,16 @@ assign redirect_req = (spec.wrong || trap_redirect || mret_redirect);
 assign branch_taken = (branch_in_mem && (branch_resolution == B_T));
 `ifdef USE_BP
 assign flow_update = jalr_in_mem;
-assign stall_act.flow = (jalr_in_dec || jalr_in_exe);
+assign stall_act.flow = ((
+    (jalr_in_dec && !trap_tr_pending) || jalr_in_exe)
+);
 logic bp_hit, bp_miss, bp_taken;
 assign bp_taken = (bp_pred == B_T);
 `else
 assign flow_update = (branch_taken || jalr_in_mem);
-assign stall_act.flow = (branch_in_dec || jalr_in_dec || jalr_in_exe);
+assign stall_act.flow = (
+    (((branch_in_dec || jalr_in_dec) && !trap_tr_pending) || jalr_in_exe)
+);
 assign spec = '{1'b0, 1'b0, 1'b0};
 `endif
 
@@ -449,8 +453,7 @@ exec_state_t state_e, nx_state_e;
 
 logic save_spec_entry, clear_spec_entry;
 assign spec.enter = (
-    branch_in_dec &&
-    (!(stall_act.dcache || stall_act.hazard || stall_act.div || spec.wrong))
+    branch_in_dec && (!(stall_act.be || spec.wrong || trap_tr_pending))
 );
 assign spec.resolve = (
     spec_entry[se_ptr_t].valid &&

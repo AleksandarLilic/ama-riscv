@@ -69,6 +69,11 @@ void cosim_exec(
 }
 
 DPI_LINKER_DECL DPI_DLLESPEC
+void cosim_force_irq(char mtip, char meip) {
+    rv32->force_irq(mtip != 0, meip != 0);
+}
+
+DPI_LINKER_DECL DPI_DLLESPEC
 uint32_t cosim_get_inst_cnt() {
     return rv32->get_inst_cnt();
 }

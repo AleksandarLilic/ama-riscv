@@ -11,6 +11,7 @@ module ama_riscv_core_top #(
     rv_if_da.TX  req_dmem_w,
     rv_if.RX     rsp_dmem,
     uart_if.TX   uart_ch,
+    input  logic meip,
     output logic inst_retired
 );
 
@@ -19,28 +20,35 @@ rv_if #(.DW(CORE_WORD_ADDR_BUS)) imem_req_ch ();
 rv_if #(.DW(INST_WIDTH)) imem_rsp_ch ();
 spec_exec_t spec;
 perf_event_icache_t pe_ic;
-perf_event_dcache_t pe_dc;
 
 // core <-> dcache
 rv_if_dc #(.AW(CORE_BYTE_ADDR_BUS), .DW(ARCH_WIDTH)) dmem_req_ch ();
 rv_if #(.DW(ARCH_WIDTH)) dmem_rsp_ch ();
+perf_event_dcache_t pe_dc;
 
+// core <-> clint
+clint_if clint_ch ();
+logic mtip;
+
+//------------------------------------------------------------------------------
 ama_riscv_core #(
-    .CLOCK_FREQ (CLOCK_FREQ),
     .SIMD_EN (CPU_SIMD_EN),
     .MULT_USE_BW (CPU_MULT_USE_BW)
 ) ama_riscv_core_i (
-    .clk (clk),
-    .rst (rst),
-    .pe_ic (pe_ic),
-    .pe_dc (pe_dc),
-    .imem_req (imem_req_ch.TX),
-    .imem_rsp (imem_rsp_ch.RX),
+    .clk,
+    .rst,
+    .pe_ic,
+    .pe_dc,
+    .imem_req (imem_req_ch),
+    .imem_rsp (imem_rsp_ch),
     .dmem_req (dmem_req_ch),
     .dmem_rsp (dmem_rsp_ch),
-    .uart_ch (uart_ch),
-    .spec (spec),
-    .inst_retired (inst_retired)
+    .uart_ch,
+    .clint_ch,
+    .mtip,
+    .meip,
+    .spec,
+    .inst_retired
 );
 
 ama_riscv_icache #(
@@ -69,6 +77,15 @@ ama_riscv_dcache #(
     .req_mem_r (req_dmem_r),
     .req_mem_w (req_dmem_w),
     .rsp_mem (rsp_dmem)
+);
+
+ama_riscv_clint #(
+    .CLOCK_FREQ(CLOCK_FREQ)
+) clint_i (
+    .clk,
+    .rst,
+    .mmio (clint_ch),
+    .mtip
 );
 
 endmodule

@@ -41,6 +41,7 @@ sv worklib_fpga \
 "$REPO_ROOT/src/ama_riscv_mem.sv" \
 "$REPO_ROOT/src/common/mem.sv" \
 "$REPO_ROOT/src/ama_riscv_csr.sv" \
+"$REPO_ROOT/src/ama_riscv_clint.sv" \
 "$REPO_ROOT/src/ama_riscv_uart.sv" \
 "$REPO_ROOT/src/common/uart.sv" \
 "$REPO_ROOT/src/common/uart_tx.sv" \

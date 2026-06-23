@@ -21,6 +21,7 @@ rv_if #(.DW(MEM_DATA_BUS)) mem_r_rsp_ch_dmem ();
 
 // core <-> uart
 uart_if uart_ch ();
+logic meip;
 
 ama_riscv_core_top #(
     .CLOCK_FREQ (CLOCK_FREQ)
@@ -33,6 +34,7 @@ ama_riscv_core_top #(
     .req_dmem_w (mem_w_req_ch_dmem.TX),
     .rsp_dmem (mem_r_rsp_ch_dmem.RX),
     .uart_ch (uart_ch.TX),
+    .meip (meip),
     .inst_retired (inst_retired)
 );
 
@@ -53,6 +55,7 @@ ama_riscv_uart # (
     .clk (clk),
     .rst (rst),
     .uart_ch (uart_ch.RX),
+    .meip (meip),
     .serial_in (uart_serial_in),
     .serial_out (uart_serial_out)
 );

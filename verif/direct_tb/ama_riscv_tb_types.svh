@@ -29,6 +29,7 @@ typedef struct {
     int unsigned timeout_clocks;
     int unsigned heartbeat_clocks;
     int unsigned log_level;
+    string uart_in;
 } plusargs_t;
 
 // cosim

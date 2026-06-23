@@ -7,12 +7,16 @@ module ama_riscv_uart #(
     input  logic clk,
     input  logic rst,
     uart_if.RX   uart_ch,
+    output logic meip, // external interrupt: a received byte is pending
     input  logic serial_in,
     output logic serial_out
 );
 
 rv_if #(.DW(8)) send_req_ch ();
 rv_if #(.DW(8)) recv_rsp_ch ();
+
+// RX-valid level: high while a byte is pending, drops when the core reads UART_RX
+assign meip = recv_rsp_ch.valid;
 
 // uart sync write
 always_ff @(posedge clk) begin

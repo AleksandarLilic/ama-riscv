@@ -61,6 +61,13 @@ DPI_LINKER_DECL DPI_DLLESPEC
 );
 
 
+/* Imported (by SV) function */
+DPI_LINKER_DECL DPI_DLLESPEC 
+ void cosim_force_irq(
+	char mtip ,
+	char meip);
+
+
 /* Exported (from SV) function */
 DPI_LINKER_DECL 
  unsigned int get_rtl_rf_value(

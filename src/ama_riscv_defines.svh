@@ -5,6 +5,7 @@
 `define RESET_VECTOR 32'h8000_0000
 `define DMEM_RANGE 15'h4000
 `define UART_RANGE 20'h10013
+`define CLINT_RANGE 20'h02000 // base 0x0200_0000
 
 `define UART_SIZE 12 // 3 32-bit registers per UART {ctrl, rx_data, tx_data}
 
@@ -127,6 +128,10 @@
 `define STAGE_D_E(_en, _d, _q, _rstv) \
     `DFF_CI_RI_RV_CLR_CLRVI_EN_CLR2_CLR2VI( \
         _rstv, ctrl_dec_exe.flush, (ctrl_dec_exe.en && _en), ctrl_dec_exe.bubble, _d, _q)
+
+`define STAGE_D_E_CLR(_en, _clr, _d, _q, _rstv) \
+    `DFF_CI_RI_RV_CLR_CLRVI_EN_CLR2_CLR2VI( \
+        _rstv, ctrl_dec_exe.flush, (ctrl_dec_exe.en && _en), (ctrl_dec_exe.bubble || _clr), _d, _q)
 
 `define STAGE_E_M(_en, _d, _q, _rstv) \
     `DFF_CI_RI_RV_CLR_CLRVI_EN_CLR2_CLR2VI( \

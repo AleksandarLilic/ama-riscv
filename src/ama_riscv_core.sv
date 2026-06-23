@@ -1,7 +1,6 @@
 `include "ama_riscv_defines.svh"
 
 module ama_riscv_core #(
-    parameter unsigned CLOCK_FREQ = 100_000_000, // Hz
     parameter bit SIMD_EN = 1,
     parameter bit MULT_USE_BW = 1
 )(
@@ -14,6 +13,9 @@ module ama_riscv_core #(
     rv_if_dc.TX  dmem_req,
     rv_if.RX     dmem_rsp,
     uart_if.TX   uart_ch,
+    clint_if.TX  clint_ch,
+    input  logic mtip,
+    input  logic meip,
     output spec_exec_t spec,
     output logic inst_retired
 );
@@ -124,7 +126,7 @@ ama_riscv_decoder #(.SIMD_EN (SIMD_EN)) ama_riscv_decoder_i (
 logic trap_tr_pending; // trap or restore pending
 csr_trap_status_t csr_status;
 csr_trap_wr_t csr_trap_wr;
-ama_riscv_trap_ctrl ama_riscv_trap_ctrl_i (
+ama_riscv_trap_ctrl trap_ctrl_i (
     .clk,
     .rst,
     // inputs
@@ -464,7 +466,7 @@ assign pc_nz.dec = (pc.dec != 'h0);
 `STAGE_D_E(decoded_itype_dmem, dmem_dtype_dec, dmem_dtype_exe, DMEM_DTYPE_BYTE)
 `STAGE_D_E(decoded.csr_ctrl.en, csr_imm5_dec, csr_imm5_exe, 'h0)
 `STAGE_D_E(decoded.csr_ctrl.en, csr_addr_dec, csr_addr_exe, csr_addr_t'('h0))
-`STAGE_D_E(1'b1, decoded, decoded_exe, `DECODER_INIT_VAL)
+`STAGE_D_E_CLR(1'b1, trap_tag.dec.trapped, decoded, decoded_exe, `DECODER_INIT_VAL)
 
 // special case for two operands, to save (writeback fwd) values on stall
 arch_width_t op_a_r, op_b_r, op_c_r_exe; // resolved operands from exe stage
@@ -654,27 +656,35 @@ ama_riscv_div ama_riscv_div_i (
 );
 
 // CSR
+csr_ctrl_t csr_ctrl_exe;
+always_comb begin
+    csr_ctrl_exe = decoded_exe.csr_ctrl;
+    csr_ctrl_exe.en = (
+        decoded_exe.csr_ctrl.en &&
+        !spec.wrong &&
+        (ctrl_exe_mem.en && !ctrl_exe_mem.bubble)
+    );
+end
+
 perf_event_t perf_events;
 arch_width_t csr_out_exe;
-ama_riscv_csr #(
-    .CLOCK_FREQ(CLOCK_FREQ)
-) ama_riscv_csr_i (
+ama_riscv_csr ama_riscv_csr_i (
     .clk,
     .rst,
-    .ctrl (decoded_exe.csr_ctrl),
+    .ctrl (csr_ctrl_exe),
     .in (op_a_r),
     .imm5 (csr_imm5_exe),
     .addr (csr_addr_exe),
     .perf_events,
+    .mtime (clint_ch.mtime),
     .out (csr_out_exe),
     // trap interface
     .trap_wr (csr_trap_wr),
     .trap_status (csr_status),
     .mtvec (mtvec_exe),
     .mepc (mepc_exe),
-    // TODO: no interrupt sources atm
-    .mtip (1'b0),
-    .meip (1'b0)
+    .mtip (mtip),
+    .meip (meip)
 );
 
 arch_width_t pc_exe_inc4;
@@ -713,9 +723,10 @@ add #(.W(ARCH_WIDTH)) dmem_agu_exe_i (
 /* verilator lint_on PINCONNECTEMPTY */
 
 // memory map
-logic map_dmem_exe, map_uart_exe;
+logic map_dmem_exe, map_uart_exe, map_clint_exe;
 assign map_dmem_exe = (dmem_addr[31:17] == `DMEM_RANGE);
 assign map_uart_exe = (dmem_addr[31:12] == `UART_RANGE);
+assign map_clint_exe = (dmem_addr[31:12] == `CLINT_RANGE);
 
 // DMEM
 dmem_req_side_t dmem_req_exe;
@@ -734,6 +745,14 @@ assign uart_ch_exe.ctrl.we = (uart_ch_exe.ctrl.en && decoded_exe.itype.store);
 assign uart_ch_exe.ctrl.addr = uart_addr_t'(dmem_addr[4:2]);
 assign uart_ch_exe.ctrl.load_signed = (dmem_dtype_exe == DMEM_DTYPE_BYTE);
 assign uart_ch_exe.send = op_b_r[7:0]; // uart is 1 byte wide
+
+// CLINT
+clint_ch_side_t clint_ch_exe;
+assign clint_ch_exe.ctrl.en =
+    (map_clint_exe && decoded_exe.dmem_en && (!hazard.to_exe));
+assign clint_ch_exe.ctrl.we = (clint_ch_exe.ctrl.en && decoded_exe.itype.store);
+assign clint_ch_exe.ctrl.addr = dmem_addr[4:2];
+assign clint_ch_exe.wdata = op_b_r;
 
 //------------------------------------------------------------------------------
 // Pipeline FF EXE/MEM
@@ -757,9 +776,10 @@ assign ctrl_exe_mem = '{
     )
 };
 
-logic map_uart_mem;
+logic map_uart_mem, map_clint_mem;
 dmem_req_side_t dmem_req_mem;
 uart_ch_side_t uart_ch_mem;
+clint_ch_side_t clint_ch_mem;
 arch_width_t rs3_mem;
 
 `STAGE_E_M(1'b1, inst.exe, inst.mem, 'h0)
@@ -784,6 +804,8 @@ arch_width_t rs3_mem;
 `STAGE_E_M(1'b1, dmem_req_exe, dmem_req_mem, 'h0)
 `STAGE_E_M(1'b1, uart_ch_exe, uart_ch_mem, 'h0)
 `STAGE_E_M(1'b1, map_uart_exe, map_uart_mem, 'h0)
+`STAGE_E_M(1'b1, clint_ch_exe, clint_ch_mem, 'h0)
+`STAGE_E_M(1'b1, map_clint_exe, map_clint_mem, 'h0)
 
 `DFF_CI_RI_RVI(
     (dc_stalled /*|| hazard.to_dec*/ || hazard.to_exe || div_stalled),
@@ -833,6 +855,13 @@ assign uart_ch.ctrl.load_signed = uart_ch_mem.ctrl.load_signed;
 assign uart_ch.send = uart_ch_mem.send;
 // uart_ch.recv arrives in the next cycle
 
+// CLINT
+assign clint_ch.ctrl.en = clint_ch_mem.ctrl.en;
+assign clint_ch.ctrl.we = clint_ch_mem.ctrl.we;
+assign clint_ch.ctrl.addr = clint_ch_mem.ctrl.addr;
+assign clint_ch.wdata = clint_ch_mem.wdata;
+// clint_ch.rdata arrives in the next cycle
+
 //------------------------------------------------------------------------------
 // Pipeline FF MEM/WBK
 assign ctrl_mem_wbk = '{
@@ -841,7 +870,7 @@ assign ctrl_mem_wbk = '{
     bubble: (!pc_nz.mem)
 };
 
-logic simd_inst_wbk, map_uart_wbk;
+logic simd_inst_wbk, map_uart_wbk, map_clint_wbk;
 arch_width_t e_writeback_wbk, e_writeback_p_wbk;
 
 `ifndef SYNT
@@ -858,6 +887,7 @@ arch_width_t e_writeback_wbk, e_writeback_p_wbk;
 `STAGE_M_W(1'b1, load_inst_mem, load_inst_wbk, 'h0)
 `STAGE_M_W(1'b1, simd_inst_mem, simd_inst_wbk, 'h0)
 `STAGE_M_W(1'b1, map_uart_mem, map_uart_wbk, 'h0)
+`STAGE_M_W(1'b1, map_clint_mem, map_clint_wbk, 'h0)
 
 always_comb begin
     ct_gen.mem = ct.mem;
@@ -871,7 +901,13 @@ end
 
 arch_width_t dmem_rsp_data_v, dmem_out_wbk;
 assign dmem_rsp_data_v = (load_inst_wbk && dmem_rsp.valid) ? dmem_rsp.data :'h0;
-assign dmem_out_wbk = map_uart_wbk ? uart_ch.recv : dmem_rsp_data_v;
+always_comb begin
+    unique case (1'b1)
+        map_uart_wbk: dmem_out_wbk = uart_ch.recv;
+        map_clint_wbk: dmem_out_wbk = clint_ch.rdata;
+        default: dmem_out_wbk = dmem_rsp_data_v;
+    endcase
+end
 
 always_comb begin
     unique case (wb_sel.wbk)
@@ -900,7 +936,7 @@ logic inst_retired_simd;
 `endif
 `STAGE_W_R(1'b1, (inst.wbk & {INST_WIDTH{!trap_tag.wbk.trapped}}), inst.ret, 'h0)
 `STAGE_W_R(1'b1, (pc_nz.wbk && !trap_tag.wbk.trapped), pc_nz.ret, 1'b0)
-`STAGE_W_R(1'b1, simd_inst_wbk, inst_retired_simd, 'h0)
+`STAGE_W_R(1'b1, (simd_inst_wbk && !trap_tag.wbk.trapped), inst_retired_simd, 'h0)
 
 always_comb begin
     ct_gen.wbk = ct.wbk;

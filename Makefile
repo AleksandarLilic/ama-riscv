@@ -92,6 +92,7 @@ COSIM_ARGS += -testplusarg prof_pc_start=80000000
 #COSIM_ARGS += -testplusarg prof_pc_stop=80001300
 #COSIM_ARGS += -testplusarg prof_pc_single_match=2
 #COSIM_ARGS += -testplusarg enable_konata
+#COSIM_ARGS += -testplusarg uart_in=A # FIXME: drop UART_SHORTCUT define first
 
 USER_COSIM_ARGS ?=
 COSIM_ARGS += $(USER_COSIM_ARGS)

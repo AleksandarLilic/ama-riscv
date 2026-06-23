@@ -10,6 +10,7 @@
 `define CLK_HALF_PERIOD 5 // ns
 parameter unsigned CLK_PERIOD = (`CLK_HALF_PERIOD * 2);
 parameter unsigned CLOCK_FREQ = (1_000 / CLK_PERIOD) * 1_000_000; // Hz
+parameter unsigned UART_BR_TB = BR_921600;
 
 // TB
 `define TOHOST_PASS 32'd1
@@ -32,6 +33,7 @@ parameter unsigned CLOCK_FREQ = (1_000 / CLK_PERIOD) * 1_000_000; // Hz
 `define RF `CORE.ama_riscv_reg_file_i
 `define ALU `CORE.ama_riscv_alu_i
 `define CSR `CORE.ama_riscv_csr_i
+`define TRAP_CTRL `CORE.trap_ctrl_i
 
 `define ICACHE `CORE_TOP.ama_riscv_icache_i
 `define DCACHE `CORE_TOP.ama_riscv_dcache_i
