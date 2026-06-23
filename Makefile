@@ -104,7 +104,10 @@ TB_ARGS += -testplusarg log_level=$(LOG_LEVEL)
 
 all: sim
 
+# if SIM_ONLY, ignore getting sources so it doesn't trigger rebuilds
+ifeq ($(SIM_ONLY), 0)
 include cosim/Makefile.cosim.inc
+endif
 
 # used to limit the number of delta cycles during simulation, default is 10000
 # prevents large logs and long runtimes when debugging accidental comb. loops
