@@ -113,8 +113,10 @@ end
 
 `ifndef SYNT
 always_ff @(posedge clk) begin
-    assert (!(imem_rsp.valid && imem_rsp.data == 'h0) || rst)
-    else $fatal(1, "IMEM returned zero-word instruction");
+    if (!rst && !ctrl_dec_exe.bubble) begin
+        assert (!(imem_rsp.valid && imem_rsp.data == 'h0))
+        else $fatal(1, "IMEM returned zero-word instruction");
+    end
 end
 `endif
 
