@@ -519,6 +519,7 @@ typedef struct packed {
     logic rd_we;
     exception_t xcpt;
     logic mret;
+    logic wfi;
 } decoder_t;
 
 typedef struct packed {
@@ -874,6 +875,14 @@ typedef struct packed {
     logic trapped;
     logic mret;
 } trap_tag_t;
+
+typedef struct packed {
+    logic pending; // trap or restore pending
+    logic wfi_launch; // 1-cycle bubble override for the wfi wake tag
+    logic wfi_resume; // 1-cycle refetch on wfi wake without trap
+    logic trap_redirect;
+    logic mret_redirect;
+} trap_ctrl_t;
 
 // peripherals
 typedef struct packed {

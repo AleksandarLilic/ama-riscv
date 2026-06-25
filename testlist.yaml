@@ -78,6 +78,11 @@ uart:
   - ["sim/sw/baremetal/uart_direct_send", "hello_world.mem"]
   - ["sim/sw/baremetal/uart_printf_nano", "hello_world.mem"]
 
+timer:
+  - ["sim/sw/baremetal/timer_interrupt", "test_idling.mem"]
+  - ["sim/sw/baremetal/timer_interrupt", "test_wfi.mem"]
+  - ["sim/sw/baremetal/timer_interrupt", "test_wfi_no_global.mem"]
+
 mlp:
   - ["sim/sw/baremetal/mlp", "w8a8.mem"]
   - ["sim/sw/baremetal/mlp", "w4a8.mem"]

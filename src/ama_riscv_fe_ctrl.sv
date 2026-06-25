@@ -23,9 +23,7 @@ module ama_riscv_fe_ctrl (
     /* verilator lint_on UNUSEDSIGNAL */
     input  fe_ctrl_t decoded_fe_ctrl,
     // trap controller
-    input  logic trap_tr_pending,
-    input  logic trap_redirect,
-    input  logic mret_redirect,
+    input  trap_ctrl_t trap_ctrl,
     `ifdef USE_BP
     output arch_width_t pc_cp,
     `endif
@@ -87,20 +85,25 @@ stall_sources_t stall_act, stall_res;
 
 // redirect / stale-miss overlay (spec.wrong = 0 without 'USE_BP')
 logic redirect_req;
-assign redirect_req = (spec.wrong || trap_redirect || mret_redirect);
+// trap_ctrl.wfi_resume refetches pc_fet_last (== pc_wfi+4)
+// via the PC_SEL_PC redirect path
+assign redirect_req = (
+    spec.wrong ||
+    trap_ctrl.trap_redirect || trap_ctrl.mret_redirect || trap_ctrl.wfi_resume
+);
 
 assign branch_taken = (branch_in_mem && (branch_resolution == B_T));
 `ifdef USE_BP
 assign flow_update = jalr_in_mem;
 assign stall_act.flow = ((
-    (jalr_in_dec && !trap_tr_pending) || jalr_in_exe)
+    (jalr_in_dec && !trap_ctrl.pending) || jalr_in_exe)
 );
 logic bp_hit, bp_miss, bp_taken;
 assign bp_taken = (bp_pred == B_T);
 `else
 assign flow_update = (branch_taken || jalr_in_mem);
 assign stall_act.flow = (
-    (((branch_in_dec || jalr_in_dec) && !trap_tr_pending) || jalr_in_exe)
+    (((branch_in_dec || jalr_in_dec) && !trap_ctrl.pending) || jalr_in_exe)
 );
 assign spec = '{1'b0, 1'b0, 1'b0};
 `endif
@@ -427,13 +430,15 @@ always_comb begin
             imem_req.valid = 1'b1;
             imem_rsp.ready = 1'b1;
         end
-    end else if (trap_tr_pending) begin
-        // chase (TRAP_PENDING/RESTORE_PENDING):
-        // stall the front-end for the whole chase window so younger (doomed)
-        // insts behind the carrier are bubbled
-        // and no new fetch is issued until the redirect
+    end else if (trap_ctrl.pending) begin
+        // chase (TRAP_PENDING/RESTORE_PENDING) or wfi park (WFI):
+        // stall the front-end for the whole window so younger (doomed) insts
+        // behind the carrier are bubbled, and no new fetch is issued
+        // exception: on the wfi wake (trap_ctrl.wfi_launch)
+        // drop the bubble for one cycle
+        // so the injected trap tag rides DEC->EXE (it would die on a bubble)
         fe_ctrl.pc_we = 1'b0;
-        fe_ctrl.bubble_dec = 1'b1;
+        fe_ctrl.bubble_dec = !trap_ctrl.wfi_launch;
         imem_req.valid = 1'b0;
         imem_rsp.ready = 1'b0;
     end
@@ -453,7 +458,7 @@ exec_state_t state_e, nx_state_e;
 
 logic save_spec_entry, clear_spec_entry;
 assign spec.enter = (
-    branch_in_dec && (!(stall_act.be || spec.wrong || trap_tr_pending))
+    branch_in_dec && (!(stall_act.be || spec.wrong || trap_ctrl.pending))
 );
 assign spec.resolve = (
     spec_entry[se_ptr_t].valid &&

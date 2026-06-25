@@ -310,7 +310,7 @@ always_comb begin
                     SYSTEM_FN12_ECALL: d.xcpt = '{pend: 1'b1, cause: MCAUSE_MACHINE_ECALL};
                     SYSTEM_FN12_EBREAK: d.xcpt = '{pend: 1'b1, cause: MCAUSE_BREAKPOINT};
                     SYSTEM_FN12_MRET: d.mret = 1'b1;
-                    // SYSTEM_FN12_WFI: // TODO
+                    SYSTEM_FN12_WFI: d.wfi = 1'b1; // as nop + wfi flag
                     default: begin
                         illegal_inst = 1'b1;
                         `INST_WARN_ON_ILLEGAL_INST("SYSTEM");

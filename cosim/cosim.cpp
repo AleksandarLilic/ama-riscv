@@ -33,7 +33,6 @@ void cosim_setup(
     cfg.prof_trace = (prof_trace == 1);
     cfg.log = (log_isa_sim == 1);
     cfg.log_always = (log_isa_sim == 1);
-    cfg.sink_uart = true;
 
     std::string l_test_elf(test_elf);
     out_dir = gen_out_dir(l_test_elf, "cosim");
@@ -62,7 +61,7 @@ void cosim_exec(
     *pc = rv32->get_pc();
     rv32->single_step();
     *inst = rv32->get_inst();
-    *tohost = rv32->get_csr(CSR_TOHOST);
+    *tohost = rv32->get_csr(csrm::addr::tohost);
     for (int i = 0; i < 32; i++) rf[i] = rv32->get_reg(i);
     inst_asm = rv32->get_inst_asm().c_str();
     *inst_asm_str = inst_asm.c_str();

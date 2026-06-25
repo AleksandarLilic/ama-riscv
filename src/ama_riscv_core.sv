@@ -60,11 +60,11 @@ add #(.W(ARCH_WIDTH)) pc_fet_inc4_i (
 /* verilator lint_on PINCONNECTEMPTY */
 
 // PC_SEL_PC front mux
-logic trap_redirect, mret_redirect;
+trap_ctrl_t trap_ctrl;
 arch_width_t pc_sel_pc_src, mtvec_exe, mepc_exe;
 assign pc_sel_pc_src =
-    trap_redirect ? mtvec_exe :
-    mret_redirect ? mepc_exe : pc_fet_last;
+    trap_ctrl.trap_redirect ? mtvec_exe :
+    trap_ctrl.mret_redirect ? mepc_exe : pc_fet_last;
 
 always_comb begin
     pc.fet = pc_sel_pc_src;
@@ -125,7 +125,6 @@ ama_riscv_decoder #(.SIMD_EN (SIMD_EN)) ama_riscv_decoder_i (
     .inst_dec (inst.dec), .decoded (decoded), .fe_ctrl (decoded_fe_ctrl)
 );
 
-logic trap_tr_pending; // trap or restore pending
 csr_trap_status_t csr_status;
 csr_trap_wr_t csr_trap_wr;
 ama_riscv_trap_ctrl trap_ctrl_i (
@@ -134,19 +133,19 @@ ama_riscv_trap_ctrl trap_ctrl_i (
     // inputs
     .xcpt (decoded.xcpt),
     .mret_dec (decoded.mret),
+    .wfi_dec (decoded.wfi),
     .dec_valid ((inst.dec != 'h0)),
     .dec_en (ctrl_dec_exe.en && !ctrl_dec_exe.bubble),
     .pc_dec (pc.dec),
+    .pc_inc4,
     .inst_dec (inst.dec),
-    .spec (spec),
+    .spec,
     .trap_tag_wbk (trap_tag.wbk),
-    .csr_status (csr_status),
+    .csr_status,
     // outputs
+    .csr_trap_wr,
     .trap_tag_dec (trap_tag.dec),
-    .pending (trap_tr_pending),
-    .csr_trap_wr (csr_trap_wr),
-    .trap_redirect (trap_redirect),
-    .mret_redirect (mret_redirect)
+    .ctrl (trap_ctrl)
 );
 
 /* verilator lint_off UNUSEDSIGNAL */
@@ -163,8 +162,8 @@ assign imem_req.valid = imem_req_rv.valid;
 assign imem_rsp.ready = imem_rsp_rv.ready;
 assign imem_rsp_rv.valid = imem_rsp.valid;
 ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
-    .clk (clk),
-    .rst (rst),
+    .clk,
+    .rst,
     .imem_req (imem_req_rv),
     .imem_rsp (imem_rsp_rv),
     // inputs
@@ -176,23 +175,21 @@ ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     .jalr_in_exe (decoded_exe.itype.jalr),
     .jalr_in_mem (jalr_inst_mem),
     `ifdef USE_BP
-    .bp_pred (bp_pred),
+    .bp_pred,
     `endif
     .branch_resolution (branch_resolution_mem),
-    .decoded_fe_ctrl (decoded_fe_ctrl),
-    .trap_tr_pending (trap_tr_pending),
-    .trap_redirect (trap_redirect),
-    .mret_redirect (mret_redirect),
-    .hazard (hazard),
-    .dc_stalled (dc_stalled),
-    .div_stalled (div_stalled),
+    .decoded_fe_ctrl,
+    .trap_ctrl,
+    .hazard,
+    .dc_stalled,
+    .div_stalled,
     // outputs
     `ifdef USE_BP
     .pc_cp (pc_fet_cp),
     `endif
-    .stall_act_flow (stall_act_flow),
-    .spec (spec), // tied to 0 when BP is not used
-    .fe_ctrl (fe_ctrl)
+    .stall_act_flow,
+    .spec, // tied to 0 when BP is not used
+    .fe_ctrl
 );
 
 arch_width_t e_writeback_mem, e_writeback_p_mem; // from MEM stage
@@ -445,12 +442,6 @@ logic [4:0] csr_imm5_dec, csr_imm5_exe;
 assign csr_imm5_dec = inst.dec[19:15];
 csr_addr_t csr_addr_dec, csr_addr_exe;
 assign csr_addr_dec = csr_addr_t'(inst.dec[31:20]);
-
-assign ctrl_dec_exe = '{
-    flush: (flush.dec || fe_ctrl.bubble_exe),
-    en: ((!dc_stalled) && (!hazard.to_exe) && (!div_stalled)),
-    bubble: (fe_ctrl.bubble_dec /*|| hazard.to_dec*/)
-};
 
 `ifndef SYNT
 assign pc_nz.dec = (pc.dec != 'h0);
@@ -770,14 +761,6 @@ assign rf_we.exe = '{
     rdp: (decoded_exe.rd_we && decoded_exe.has_reg.rdp)
 };
 
-assign ctrl_exe_mem = '{
-    flush: flush.exe,
-    en: (!dc_stalled),
-    bubble: (
-        !ctrl_dec_exe.en || hazard.to_exe || fe_ctrl.bubble_exe || div_stalled
-    )
-};
-
 logic map_uart_mem, map_clint_mem;
 dmem_req_side_t dmem_req_mem;
 uart_ch_side_t uart_ch_mem;
@@ -866,11 +849,6 @@ assign clint_ch.wdata = clint_ch_mem.wdata;
 
 //------------------------------------------------------------------------------
 // Pipeline FF MEM/WBK
-assign ctrl_mem_wbk = '{
-    flush: flush.exe,
-    en: (!dc_stalled),
-    bubble: (!pc_nz.mem)
-};
 
 logic simd_inst_wbk, map_uart_wbk, map_clint_wbk;
 arch_width_t e_writeback_wbk, e_writeback_p_wbk;
@@ -927,7 +905,6 @@ end
 
 //------------------------------------------------------------------------------
 // retire
-assign ctrl_wbk_ret = '{flush: flush.wbk, en: 1'b1, bubble: (!ctrl_mem_wbk.en)};
 
 logic inst_retired_simd;
 
@@ -1040,11 +1017,42 @@ end
 logic [PIPE_STAGES-1:0] reset_seq;
 `DFF_CI_RI_RV(RST_INIT, {reset_seq[PIPE_STAGES-2:0], 1'b0}, reset_seq)
 
+//------------------------------------------------------------------------------
 // pipeline control
+
 assign flush.fet = 1'b0;
 assign flush.dec = reset_seq[0];
 assign flush.exe = reset_seq[1];
 assign flush.mem = reset_seq[2];
 assign flush.wbk = reset_seq[3];
+
+assign ctrl_dec_exe = '{
+    flush: (flush.dec || fe_ctrl.bubble_exe),
+    en: ((!dc_stalled) && (!hazard.to_exe) && (!div_stalled)),
+    bubble: (fe_ctrl.bubble_dec /*|| hazard.to_dec*/)
+};
+
+assign ctrl_exe_mem = '{
+    flush: flush.exe,
+    en: (!dc_stalled),
+    bubble: (
+        !ctrl_dec_exe.en || hazard.to_exe || fe_ctrl.bubble_exe || div_stalled
+    )
+};
+
+assign ctrl_mem_wbk = '{
+    flush: flush.exe,
+    en: (!dc_stalled),
+    bubble: (
+        !pc_nz.mem &&
+        !(!pc_nz.mem && trap_tag.mem.trapped) // tag passes on pc=0
+    )
+};
+
+assign ctrl_wbk_ret = '{
+    flush: flush.wbk,
+    en: 1'b1,
+    bubble: (!ctrl_mem_wbk.en)
+};
 
 endmodule

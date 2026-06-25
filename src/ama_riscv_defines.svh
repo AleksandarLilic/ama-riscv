@@ -96,7 +96,8 @@
         wb_sel: WB_SEL_EWB, \
         rd_we: 1'b0, \
         xcpt: '{pend: 1'b0, cause: '0}, \
-        mret: 1'b0 \
+        mret: 1'b0, \
+        wfi: 1'b0 \
     }
 
 `define DFF_CI_RI_RV_CLR_CLRVI_EN_CLR2_CLR2VI(_rstv, _clr, _en, _clr2, _d, _q) \

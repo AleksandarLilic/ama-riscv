@@ -694,6 +694,17 @@ task automatic single_step();
     `endif // ENABLE_KONATA
     `endif // ENABLE_COSIM
 
+    `ifdef ENABLE_COSIM
+    // wfi wake without trap: nothing retires or traps this cycle
+    // force the isa sim wakeup here as well
+    // isa sim's own mstatus state is used to decide wake-vs-trap
+    // tb only delivers the raw bit
+    if (`TRAP_CTRL.ctrl.wfi_resume) begin
+        `LOG_I("Core wfi wakeup (no trap). Forcing Cosim wakeup.");
+        cosim_force_irq(8'(`TRAP_CTRL.irq.mtip), 8'(`TRAP_CTRL.irq.meip));
+    end
+    `endif
+
     // cosim advances only if rtl retires an instruction
     if (!inst_retired && !`CORE.trap_tag.ret.trapped) begin
         `LOG_V($sformatf(
