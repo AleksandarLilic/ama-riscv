@@ -182,8 +182,11 @@ assign k_valid_id.mem = (k_valid.mem || (spec_wrong_d[1] && !dc_stalled));
 assign k_valid_id.wbk = (k_valid.wbk || (spec_wrong_d[2] && !dc_stalled));
 assign k_valid_id.ret = (k_valid.ret || (|spec_wrong_d[3:2]));
 
+// emit the "E" start once per inst:
+// from k_move_exe for normal (single-cycle in exe) insts
+// or from the hold-entry term for a div
 assign k_valid_s_exe = (
-    k_move_exe ||
+    (k_move_exe && !decoded_exe.itype.div) ||
     (k_hold_exe_div && (!k_valid_exe_d || (k_id_exe_d != k_id.exe)))
 );
 

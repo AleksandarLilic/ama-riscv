@@ -130,11 +130,17 @@ cosim_t cosim;
 cosim_str_t cosim_str;
 string cosim_outdir;
 
+// konata: dec-id mark + set of fetch-only ids already flushed by spec.wrong
+// so the redirect-phantom gap-flush doesn't re-flush them
+longint unsigned k_dec_last = 0; // highest konata id that has entered DEC
+bit k_done [longint unsigned]; // assoc. array to track IDs that are odne
+
 // perf
 hw_counters_t ic_stats, dc_stats, bp_stats;
 core_events_t core_events;
 tda_counters_t tda;
 mem_active_ports_counters_t mem_active_ports;
+hw_events_t e_ic, e_dc, e_bp; // so they are available for wave
 
 // works without probing core internally, needed for GLS
 core_counters_t core_cnt_main;
@@ -600,20 +606,92 @@ function int unsigned get_rtl_rf_value(input int unsigned reg_idx);
 
     return `RF.rf_v[reg_idx];
 endfunction
+
+`ifdef ENABLE_KONATA
+function automatic void konata_log_events();
+    if (!args.konata_en) return;
+
+    // advance cycle - sets the time for all events this cycle
+    konata_cycle(clk_cnt - `RST_PULSES);
+    if (`CORE_VIEW.k_valid.fet) begin
+        konata_inst(`CORE_VIEW.k_id.fet);
+        konata_start_stage(`CORE_VIEW.k_id.fet, "F");
+    end
+
+    if (`CORE_VIEW.k_valid.dec) konata_start_stage(`CORE_VIEW.k_id.dec,"D");
+    if (`CORE_VIEW.k_valid_s_exe) begin
+        konata_start_stage(`CORE_VIEW.k_id.exe, "E");
+    end
+    if (`CORE_VIEW.k_valid.mem) konata_start_stage(`CORE_VIEW.k_id.mem,"M");
+    if (`CORE_VIEW.k_valid.wbk) konata_start_stage(`CORE_VIEW.k_id.wbk,"W");
+
+    // speculative exec gone wrong
+    // dec wrong-path entry: doomed in-flight fetch (ic miss) vs already
+    // fetched - different label source, but flushed either way
+    // k_id.dec here can be a fetch-only wrong-path id (no S D)
+    // record so the redirect gap-flush below treats it as already handled
+    if (`CORE_VIEW.spec_wrong_on_ic_miss) begin
+        konata_retire(`CORE_VIEW.k_id.dec, 0, 1);
+        konata_label(`CORE_VIEW.k_id.dec, `CORE.pc_fet_last, 'h0, "");
+        k_done[`CORE_VIEW.k_id.dec] = 1'b1;
+    end else if (`CORE_VIEW.spec.wrong &&
+        (!`CORE_VIEW.spec_wrong_on_jump_exe)
+    ) begin
+        // if it stalls on jump, nothing to flush
+        konata_retire(`CORE_VIEW.k_id.dec, 0, 1);
+        konata_label(
+            `CORE_VIEW.k_id.dec, `CORE.pc.dec, `CORE.inst.dec, "");
+        k_done[`CORE_VIEW.k_id.dec] = 1'b1;
+    end
+
+    // exe wrong-path entry: flush only if it holds a real inst (pc.exe!=0)
+    // a mispredict over an ic miss can leave exe an empty bubble with
+    // k_id.exe still == k_id.dec - flushing then double-retires the dec
+    // entry with a pc=0 label
+    if (`CORE_VIEW.spec.wrong && (`CORE.pc.exe != 'h0)) begin
+        konata_retire(`CORE_VIEW.k_id.exe, 0, 1);
+        konata_label(
+            `CORE_VIEW.k_id.exe, `CORE.pc.exe, `CORE.inst.exe, "");
+    end
+
+    // a trap/mret/wfi redirect can fetch (S F) an id that is then squashed
+    // before decode, advancing k_id.dec non-contiguously;
+    // flush such skipped ids or they orphan as never-ending F;
+    // spec.wrong skips are already flushed above (k_done)
+    // before the gap shows up here,
+    // so only redirect phantoms reach the flush;
+    // delete-on-pass keeps k_done small
+    if (`CORE_VIEW.k_valid.dec) begin
+        while ((k_dec_last + 1) < `CORE_VIEW.k_id.dec) begin
+            k_dec_last = k_dec_last + 1;
+            if (!k_done.exists(k_dec_last)) begin
+                konata_retire(k_dec_last, 0, 1);
+                konata_label(k_dec_last, `CORE.pc_fet_last, 'h0, "");
+            end
+            k_done.delete(k_dec_last);
+        end
+        k_dec_last = `CORE_VIEW.k_id.dec;
+    end
+endfunction
+
+function automatic void konata_log_events_retired();
+    if (!args.konata_en) return;
+
+    if (`CORE_VIEW.k_valid.ret) begin
+        konata_retire(`CORE_VIEW.k_id.ret, 0, 0);
+        konata_label(
+            `CORE_VIEW.k_id.ret, cosim.pc, cosim.inst, cosim_str.inst_asm);
+        konata_label_str(`CORE_VIEW.k_id.ret, 1, cosim_str.stack_top);
+    end
+endfunction
 `endif
 
-hw_events_t e_ic, e_dc, e_bp; // so they are available for wave
-task automatic single_step();
-    bit new_errors;
+`endif
+
+function automatic void get_perf_events();
     byte dc_bytes;
 
     core_stats::update(core_cnt_main, inst_retired);
-    //`LOG_V($sformatf(
-    //    "Core [F] %5h: %8h %0s",
-    //    `CORE.pc.dec,
-    //    `CORE.imem_rsp.data,
-    //    `CORE.fe_ctrl.bubble_dec ? ("(fe stalled)") : "")
-    //);
 
     // mem ports
     mem_active_ports.any += `MEM.ports_active_any;
@@ -651,48 +729,21 @@ task automatic single_step();
     add_up_events(ic_stats, e_ic);
     add_up_events(dc_stats, e_dc);
     add_up_events(bp_stats, e_bp);
+endfunction
+
+task automatic single_step();
+    bit new_errors;
+    get_perf_events();
 
     `ifdef ENABLE_COSIM
     add_trace_entry((clk_cnt - `RST_PULSES), e_ic.hm, e_dc.hm, e_bp.hm);
     cosim_log_stats(core_events, e_ic, e_dc, e_bp);
 
     `ifdef ENABLE_KONATA
-    if (args.konata_en) begin
-        // advance cycle - sets the time for all events this cycle
-        konata_cycle(clk_cnt - `RST_PULSES);
-        if (`CORE_VIEW.k_valid.fet) begin
-            konata_inst(`CORE_VIEW.k_id.fet);
-            konata_start_stage(`CORE_VIEW.k_id.fet, "F");
-        end
+    konata_log_events();
+    `endif
 
-        if (`CORE_VIEW.k_valid.dec) konata_start_stage(`CORE_VIEW.k_id.dec,"D");
-        if (`CORE_VIEW.k_valid_s_exe) konata_start_stage(`CORE_VIEW.k_id.exe,"E");
-        if (`CORE_VIEW.k_valid.mem) konata_start_stage(`CORE_VIEW.k_id.mem,"M");
-        if (`CORE_VIEW.k_valid.wbk) konata_start_stage(`CORE_VIEW.k_id.wbk,"W");
-
-        // speculative exec gone wrong
-        if (`CORE_VIEW.spec_wrong_on_ic_miss) begin
-            konata_retire(`CORE_VIEW.k_id.dec, 0, 1);
-            konata_label(`CORE_VIEW.k_id.dec, `CORE.pc_fet_last, 'h0, "");
-        end else begin
-            if (`CORE_VIEW.spec.wrong &&
-                (!`CORE_VIEW.spec_wrong_on_jump_exe)
-            ) begin
-                // if it stalls on jump, nothing to flush
-                konata_retire(`CORE_VIEW.k_id.dec, 0, 1);
-                konata_label(
-                    `CORE_VIEW.k_id.dec, `CORE.pc.dec, `CORE.inst.dec, "");
-            end
-            if (`CORE_VIEW.spec.wrong) begin
-                konata_retire(`CORE_VIEW.k_id.exe, 0, 1);
-                konata_label(
-                    `CORE_VIEW.k_id.exe, `CORE.pc.exe, `CORE.inst.exe, "");
-            end
-        end
-    end
-
-    `endif // ENABLE_KONATA
-    `endif // ENABLE_COSIM
+    `endif
 
     `ifdef ENABLE_COSIM
     // wfi wake without trap: nothing retires or traps this cycle
@@ -739,7 +790,8 @@ task automatic single_step();
             31'd11: cosim_force_irq(8'd0, 8'd1); // MEI
             default: $fatal(1,
                 "cosim: core took unsupported interrupt, mcause=%08h",
-                `TRAP_CTRL.trap_info.mcause);
+                `TRAP_CTRL.trap_info.mcause
+            );
         endcase
     end
 
@@ -770,15 +822,9 @@ task automatic single_step();
     end
 
     `ifdef ENABLE_KONATA
-    if (args.konata_en) begin
-        if (`CORE_VIEW.k_valid.ret) begin
-            konata_retire(`CORE_VIEW.k_id.ret, 0, 0);
-            konata_label(
-                `CORE_VIEW.k_id.ret, cosim.pc, cosim.inst, cosim_str.inst_asm);
-            konata_label_str(`CORE_VIEW.k_id.ret, 1, cosim_str.stack_top);
-        end
-    end
+    konata_log_events_retired();
     `endif
+
     `endif // ENABLE_COSIM
 
 endtask
