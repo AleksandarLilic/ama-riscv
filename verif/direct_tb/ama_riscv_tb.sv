@@ -226,6 +226,39 @@ function automatic int open_file(string name, string op);
     return fd;
 endfunction
 
+function automatic void write_test_status(
+    input bit passed,
+    input bit completed,
+    input string reason
+);
+    int fd;
+    fd = $fopen("test.status", "w");
+    if (fd == 0) begin
+        `LOG_E("Could not open test.status", 1);
+        return;
+    end
+
+    if (passed) $fwrite(fd, "status=PASSED\n");
+    else $fwrite(fd, "status=FAILED\n");
+
+    $fwrite(fd, "completed=%0d\n", completed);
+    $fwrite(fd, "tohost=0x%08h\n", `CSR.csr.tohost);
+    $fwrite(fd, "tohost_checker=%0d\n", args.tohost_chk_en);
+    $fwrite(fd, "tohost_pass=%0d\n", chk_pass_tohost);
+    `ifdef ENABLE_COSIM
+    $fwrite(fd, "cosim_checker=%0d\n", args.cosim_chk_en);
+    $fwrite(fd, "cosim_pass=%0d\n", chk_pass_cosim);
+    `else
+    $fwrite(fd, "cosim_checker=0\n");
+    $fwrite(fd, "cosim_pass=1\n");
+    `endif
+    $fwrite(fd, "warnings=%0d\n", warnings);
+    $fwrite(fd, "errors=%0d\n", errors);
+    $fwrite(fd, "reason=%0s\n", reason);
+
+    $fclose(fd);
+endfunction
+
 function automatic void load_memories;
     input string test_hex_path;
     int fd;
@@ -244,8 +277,16 @@ endfunction
 
 function automatic void check_test_status(input bit completed);
     string msg;
+    string reason;
+    bit checked;
+    bit passed;
 
     begin
+        checked = args.tohost_chk_en;
+        `ifdef ENABLE_COSIM
+        checked |= args.cosim_chk_en;
+        `endif
+
         if (completed) `LOGNT("\nTest ran to completion");
         else `LOGNT("\nTest failed to complete");
 
@@ -278,14 +319,39 @@ function automatic void check_test_status(input bit completed);
         `LOGNT(msg);
         `endif
 
+        passed = (completed && checked && chk_pass_cosim && chk_pass_tohost);
+        reason = "none";
+        if (!completed) begin
+            reason = "test did not complete";
+        end else if (!checked) begin
+            reason = "no checkers enabled";
+        end else if (args.tohost_chk_en && !chk_pass_tohost) begin
+            `ifdef ENABLE_COSIM
+            if (args.cosim_chk_en && !chk_pass_cosim) begin
+                reason = "tohost and cosim failed";
+            end else begin
+                reason = "tohost failed";
+            end
+            `else
+            reason = "tohost failed";
+            `endif
+        end
+        `ifdef ENABLE_COSIM
+        else if (args.cosim_chk_en && !chk_pass_cosim) begin
+            reason = "cosim failed";
+        end
+        `endif
+
         if (!completed) begin
             `LOGNT(msg_fail);
-        end else if (args.tohost_chk_en || args.cosim_chk_en) begin
-            if (chk_pass_cosim && chk_pass_tohost) `LOGNT(msg_pass);
+        end else if (checked) begin
+            if (passed) `LOGNT(msg_pass);
             else `LOGNT(msg_fail);
         end else begin
             `LOGNT_W("Neither 'tohost' nor 'cosim' checker is enabled", 1);
         end
+
+        write_test_status(passed, completed, reason);
 
         `LOGNT($sformatf("Warnings: %2d", warnings));
         `LOGNT($sformatf("Errors:   %2d\n", errors));

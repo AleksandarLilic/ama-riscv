@@ -13,7 +13,6 @@ import signal
 import subprocess
 import sys
 import time
-from collections import deque
 from dataclasses import dataclass
 from multiprocessing import Manager, Pool
 
@@ -29,11 +28,6 @@ RUN_CFG = os.path.join(REPO_ROOT, "run_cfg_suite.tcl")
 MAX_WORKERS = int(os.cpu_count())
 TEST_STATUS = "test.status"
 TOUCHFILE_COV = ".cov.touchfile"
-
-MSG_PASS = "==== PASS ===="
-MSG_FAIL = "==== FAIL ===="
-MSG_SIM_FATAL = "Fatal"
-MSG_SIM_ERROR = "Error"
 
 yaml = YAML()
 yaml.preserve_quotes = True
@@ -149,28 +143,40 @@ def get_paths_for_test(run_dir, test_name):
     p['status_file'] = os.path.join(p['test_dir'], TEST_STATUS)
     return p
 
-def check_test_status(test_log_path, test_name):
-    if os.path.exists(test_log_path):
-        errors = []
-        with open(test_log_path, 'r') as f:
-            last_lines = deque(f, maxlen=100)
-        for line in last_lines:
-            if "ERROR" in line or "'tohost' failed #" in line:
-                errors.append(f"\n{INDENT}{line.strip()}")
-            if MSG_PASS in line:
-                return True, ""
-            elif MSG_FAIL in line:
-                return False, "".join(errors)
-            elif MSG_SIM_FATAL in line:
-                return False, line.strip()
-            elif MSG_SIM_ERROR in line:
-                return False, line.strip()
-            elif "cosim_exec()" in line:
-                return False, "Cosim stopped. Check the log for details."
-        return False, f"Inconclusive. Check {test_log_path} for details."
-    else:
-        return False, f"{TEST_LOG} not found at {test_log_path}. " + \
-            "Cannot determine test result."
+def check_test_status(status_file, test_log_path):
+    if not os.path.exists(status_file):
+        return False, f"{TEST_STATUS} not found. Check {test_log_path} " + \
+            "for simulator/tool failure details."
+
+    def read_status_file(status_file):
+        # convert testbench written status to dict
+        status = {}
+        with open(status_file, 'r') as f:
+            for line in f:
+                key, sep, val = line.strip().partition("=")
+                if sep:
+                    status[key] = val
+        return status
+
+    def format_status_msg(status):
+        # parse dict for relevant fields and check values
+        msg = status.get("reason", "")
+        if status.get("tohost_checker") == "1" and \
+        status.get("tohost_pass") != "1":
+            msg = f"{msg}; tohost={status.get('tohost', 'unknown')}" \
+                if msg else f"tohost={status.get('tohost', 'unknown')}"
+        if status.get("errors") not in (None, "0"):
+            msg = f"{msg}; errors={status['errors']}" \
+                if msg else f"errors={status['errors']}"
+        return "" if msg == "none" else msg
+
+    status = read_status_file(status_file)
+    if status.get("status") == "PASSED":
+        return True, ""
+    if status.get("status") == "FAILED":
+        return False, format_status_msg(status)
+    return False, f"Invalid status in {status_file}: " + \
+        f"{status.get('status', '<missing>')}"
 
 # main functions
 def set_up_links(dest_dir, source_names):
@@ -301,24 +307,18 @@ def run_test(
         signal.signal(signal.SIGTERM, old_handler) # restore for next iteration
 
     print(f"Test '{test_name}' DONE.", end=" ")
-    if proc.returncode != 0:
-        print(color_code_string("FAILED", CC_RED))
-        # something went wrong at the make/simulator level
-        raise ValueError(f"Error: Run test '{test_name}' failed. "
-                         f"Check test log '{p['test_log']}' for details.")
+    passed, msg = check_test_status(p['status_file'], p['test_log'])
+    if proc.returncode != 0 and passed:
+        passed = False
+        msg = f"make/simulator failed with exit code {proc.returncode}."
 
-    s, msg = check_test_status(p['test_log'], test_name)
-
-    status_str, cc = ("PASSED", CC_GREEN) if s else ("FAILED", CC_RED)
+    status_str, cc = ("PASSED", CC_GREEN) if passed else ("FAILED", CC_RED)
     print(color_code_string(status_str, cc), end=' ')
     print_runtime(start_time)
     if msg:
         print(msg.strip())
 
-    with open(p['status_file'], 'w') as status_file: # write to test.status
-        status_file.write(f"Test '{test_name}' {status_str} {msg}\n")
-
-    if not s and stop_on_fail:
+    if not passed and stop_on_fail:
         mgr["stop"].set()
         raise ValueError(f"Test '{test_name}' failed. Stopping.")
 
@@ -529,22 +529,20 @@ def main():
     for test_path in all_tests:
         test_name = format_test_name(test_path)
         p = get_paths_for_test(run_dir, test_name)
-        if os.path.exists(p['status_file']):
-            with open(p['status_file'], 'r') as status_file:
-                status = status_file.read()
-                if "PASSED" not in status:
-                    all_tests_passed = False
-                    cc = CC_RED
-                    failed_tests.append(f"\n{INDENT}{test_name}")
-                else:
-                    tests_passed += 1
-                    cc = CC_GREEN
-                print(color_code_string(status, cc), end='')
+        t_passed, t_msg = check_test_status(p['status_file'], p['test_log'])
+        if t_passed:
+            tests_passed += 1
+            cc = CC_GREEN
         else:
-            cc = CC_YELLOW
-            status = f"Status for '{test_name}' not found."
-            print(color_code_string(status, cc))
             all_tests_passed = False
+            cc = CC_RED if os.path.exists(p['status_file']) else CC_YELLOW
+            failed_tests.append(f"\n{INDENT}{test_name}")
+
+        status_str = "PASSED" if t_passed else "FAILED"
+        status = f"Test '{test_name}' {status_str}"
+        if t_msg:
+            status += f" {t_msg}"
+        print(color_code_string(status, cc))
 
     print(f"\nTest suite DONE. Pass rate: {tests_passed}/{tests_num} passed;",
           end=" ")

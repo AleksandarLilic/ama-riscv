@@ -144,15 +144,31 @@ dpi_header_gen: .compile.touchfile
 # example usage:
 # 'make sim TEST_PATH=sim/sw/baremetal/asm_rv32i/basic TIMEOUT_CLOCKS=1000'
 sim: .elab.touchfile
+	@rm -f test.status
 	@if [ "$(TO_LOG)" -eq 1 ]; then \
 		echo $(CMD_SIM) >> $(LOG_NAME); \
 	fi
 	$(Q)$(CMD_SIM)
+	@if [ ! -f test.status ]; then \
+		echo "Error: test.status not found"; \
+		exit 3; \
+	fi
+	@status=$$(sed -n 's/^status=//p' test.status | tail -n 1); \
+	case "$$status" in \
+		PASSED) echo "Test PASSED";; \
+		FAILED) echo "Error: RTL test failed. See test.status"; exit 2 ;; \
+		*) echo "Error: Invalid RTL test status '$$status'"; exit 3 ;; \
+	esac
 	@rm xsim.jou
 	@touch .sim.touchfile
 	@if [ "$(TO_LOG)" -eq 1 ]; then \
-		tail -n 50 $(LOG_NAME) | grep -A40 "^Test" | tee >(grep --color=always "===="); \
+		tail -n 50 $(LOG_NAME) | grep "^Simulation cycles:" | tee >(grep --color=always "===="); \
+		tail -n 5 $(LOG_NAME) | grep "^Simulation runtime:" | tee >(grep --color=always "===="); \
+		echo "Log available under '$(LOG_NAME)'"; \
 	fi
+#	@if [ "$(TO_LOG)" -eq 1 ]; then \
+#		tail -n 50 $(LOG_NAME) | grep -A40 "^Test" | tee >(grep --color=always "===="); \
+#	fi
 
 #-------------------------------------------------------------------------------
 # non-simulation tools
