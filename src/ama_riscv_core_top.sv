@@ -34,7 +34,7 @@ logic mtip;
 ama_riscv_core #(
     .SIMD_EN (CPU_SIMD_EN),
     .MULT_USE_BW (CPU_MULT_USE_BW)
-) ama_riscv_core_i (
+) core_i (
     .clk,
     .rst,
     .pe_ic,
@@ -54,7 +54,7 @@ ama_riscv_core #(
 ama_riscv_icache #(
     .SETS (ICACHE_SETS),
     .WAYS (ICACHE_WAYS)
-) ama_riscv_icache_i (
+) icache_i (
     .clk (clk),
     .rst (rst),
     .spec (spec),
@@ -68,7 +68,7 @@ ama_riscv_icache #(
 ama_riscv_dcache #(
     .SETS (DCACHE_SETS),
     .WAYS (DCACHE_WAYS)
-) ama_riscv_dcache_i (
+) dcache_i (
     .clk (clk),
     .rst (rst),
     .pe (pe_dc),

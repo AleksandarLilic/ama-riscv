@@ -88,7 +88,7 @@ ama_riscv_pht #(
     .IDX_BITS (IDX_BITS),
     .CNT_BITS (CNT_BITS),
     .CNT_THR (CNT_THR)
-) ama_riscv_pht_i(
+) pht_i(
     .clk (clk),
     .rst (rst),
     // inputs

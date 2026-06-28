@@ -22,22 +22,22 @@ parameter unsigned UART_BR_TB = BR_921600;
 // path defines
 `define TB ama_riscv_tb
 
-`define DUT DUT_ama_riscv_top_i
+`define DUT DUT_top_i
 `define TOP `DUT
 
-`define CORE_TOP `TOP.ama_riscv_core_top_i
-`define CORE `CORE_TOP.ama_riscv_core_i
-`define CORE_VIEW `CORE.ama_riscv_core_view_i
-`define DEC `CORE.ama_riscv_decoder_i
-`define FE_CTRL `CORE.ama_riscv_fe_ctrl_i
-`define RF `CORE.ama_riscv_reg_file_i
-`define ALU `CORE.ama_riscv_alu_i
-`define CSR `CORE.ama_riscv_csr_i
+`define CORE_TOP `TOP.core_top_i
+`define CORE `CORE_TOP.core_i
+`define CORE_VIEW `CORE.core_view_i
+`define DEC `CORE.decoder_i
+`define FE_CTRL `CORE.fe_ctrl_i
+`define RF `CORE.reg_file_i
+`define ALU `CORE.alu_i
+`define CSR `CORE.csr_i
 `define TRAP_CTRL `CORE.trap_ctrl_i
 
-`define ICACHE `CORE_TOP.ama_riscv_icache_i
-`define DCACHE `CORE_TOP.ama_riscv_dcache_i
-`define MEM `TOP.ama_riscv_mem_i
+`define ICACHE `CORE_TOP.icache_i
+`define DCACHE `CORE_TOP.dcache_i
+`define MEM `TOP.mem_i
 `define MEM_ARRAY `MEM.mem
 
 //`define LOG_V(x) $fwrite(log_fd, "%0t: %0s\n", $time, x)

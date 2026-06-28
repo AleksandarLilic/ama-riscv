@@ -25,7 +25,7 @@ logic meip;
 
 ama_riscv_core_top #(
     .CLOCK_FREQ (CLOCK_FREQ)
-) ama_riscv_core_top_i(
+) core_top_i(
     .clk (clk),
     .rst (rst),
     .req_imem (mem_r_req_ch_imem.TX),
@@ -38,7 +38,7 @@ ama_riscv_core_top #(
     .inst_retired (inst_retired)
 );
 
-ama_riscv_mem ama_riscv_mem_i (
+ama_riscv_mem mem_i (
     .clk (clk),
     .rst (rst),
     .req_imem (mem_r_req_ch_imem.RX),
@@ -51,7 +51,7 @@ ama_riscv_mem ama_riscv_mem_i (
 ama_riscv_uart # (
     .CLOCK_FREQ (CLOCK_FREQ),
     .BAUD_RATE (UART_BR)
-) ama_riscv_uart_i (
+) uart_i (
     .clk (clk),
     .rst (rst),
     .uart_ch (uart_ch.RX),

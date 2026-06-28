@@ -31,7 +31,7 @@ logic inst_retired;
 ama_riscv_top # (
     .CLOCK_FREQ (CLOCK_FREQ),
     .UART_BR (UART_BR)
-) ama_riscv_top_i (
+) top_i (
     .clk,
     .rst,
     .uart_serial_in (FPGA_SERIAL_RX),

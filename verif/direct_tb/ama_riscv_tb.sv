@@ -171,7 +171,7 @@ ama_riscv_top #(.CLOCK_FREQ (CLOCK_FREQ), .UART_BR (UART_BR_TB)) `DUT (
 );
 
 // bind to a specific instance
-bind `CORE ama_riscv_core_view ama_riscv_core_view_i (
+bind `CORE ama_riscv_core_view core_view_i (
     .clk,
     .rst,
     .imem_req,

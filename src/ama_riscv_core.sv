@@ -122,7 +122,7 @@ end
 `endif
 
 fe_ctrl_t decoded_fe_ctrl;
-ama_riscv_decoder #(.SIMD_EN (SIMD_EN)) ama_riscv_decoder_i (
+ama_riscv_decoder #(.SIMD_EN (SIMD_EN)) decoder_i (
     .inst_dec (inst.dec), .decoded (decoded), .fe_ctrl (decoded_fe_ctrl)
 );
 
@@ -164,7 +164,7 @@ assign imem_req.valid = imem_req_rv.valid;
 assign imem_rsp.ready = imem_rsp_rv.ready;
 assign imem_rsp_rv.valid = imem_rsp.valid;
 
-ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
+ama_riscv_fe_ctrl fe_ctrl_i (
     .clk,
     .rst,
     .imem_req (imem_req_rv),
@@ -212,7 +212,7 @@ assign rd_addr.dec = get_rd(inst.dec, decoded.has_reg.rd);
 ama_riscv_reg_file #(
     .BANKED (RF_BANKED),
     .SIMD_EN (SIMD_EN)
-) ama_riscv_reg_file_i (
+) reg_file_i (
     .clk (clk),
     // inputs
     .we (rf_we.wbk),
@@ -233,7 +233,7 @@ arch_width_t imm_gen_out_dec, imm_jal;
 `ifdef USE_BP
 arch_width_t imm_b;
 `endif
-ama_riscv_imm_gen ama_riscv_imm_gen_i(
+ama_riscv_imm_gen imm_gen_i(
     .sel (decoded.ig_sel),
     .in (inst.dec[31:7]),
     `ifdef USE_BP
@@ -279,7 +279,7 @@ ama_riscv_bp #(
     .PC_BITS (BP_1_PC_BITS),
     .CNT_BITS (BP_1_CNT_BITS),
     .BP_TYPE_SEL (BP_1_TYPE)
-) ama_riscv_bp_c1_i (
+) bp_c1_i (
     .clk (clk),
     .rst (rst),
     .pipe_in (pipe_to_bp),
@@ -297,7 +297,7 @@ ama_riscv_bp #(
     .GHR_BITS (BP_2_GHR_BITS),
     .CNT_BITS (BP_2_CNT_BITS),
     .BP_TYPE_SEL (BP_2_TYPE)
-) ama_riscv_bp_c2_i (
+) bp_c2_i (
     .clk (clk),
     .rst (rst),
     .pipe_in (pipe_to_bp),
@@ -309,7 +309,7 @@ ama_riscv_bp #(
     .PC_BITS (BP_C_PC_BITS),
     .CNT_BITS (BP_C_CNT_BITS),
     .BP_TYPE_SEL (BP_COMBINED)
-) ama_riscv_bp_i (
+) bp_i (
     .clk (clk),
     .rst (rst),
     .pipe_in (pipe_to_bp),
@@ -338,7 +338,7 @@ logic a_sel_fwd_exe, b_sel_fwd_exe, c_sel_fwd_exe, c_sel_fwd_mem;
 
 ama_riscv_operand_forwarding #(
     .SIMD_EN (SIMD_EN)
-) ama_riscv_operand_forwarding_i (
+) operand_forwarding_i (
     // inputs
     .load_inst_mem (load_inst_mem),
     .load_inst_wbk (load_inst_wbk),
@@ -549,7 +549,7 @@ end
 // ALU
 arch_width_t alu_out_exe, pc_new_exe;
 branch_t branch_resolution_exe;
-ama_riscv_alu ama_riscv_alu_i (
+ama_riscv_alu alu_i (
     .op (decoded_exe.alu_op),
     .a (op_a_r),
     .b (op_b_r),
@@ -565,7 +565,7 @@ simd_t data_fmt_out_exe, data_fmt_out_p_exe;
 
 if (SIMD_EN) begin: gen_data_fmt
 simd_d_t data_fmt_out, data_fmt_out_widen;
-ama_riscv_simd_data_fmt ama_riscv_simd_data_fmt_i (
+ama_riscv_simd_data_fmt simd_data_fmt_i (
     .op (decoded_exe.simd_data_fmt_op),
     .a (op_a_r),
     .b (op_b_r),
@@ -579,7 +579,7 @@ assign shift_a = decoded_exe.simd_shift_op[3] ? data_fmt_out_widen.w[0] :op_a_r;
 assign shift_b = data_fmt_out_widen.w[1];
 
 simd_d_t shift_s;
-ama_riscv_simd_shift ama_riscv_simd_shift_i (
+ama_riscv_simd_shift simd_shift_i (
     .op(decoded_exe.simd_shift_op),
     .a(shift_a),
     .b(shift_b),
@@ -607,7 +607,7 @@ simd_d_t simd_out_wbk;
 if (SIMD_EN || MULT_USE_BW) begin: gen_mult_simd
 ama_riscv_simd #(
     .RV32M_ONLY(!SIMD_EN)
-) ama_riscv_simd_i (
+) simd_i (
     .clk,
     .rst,
     .en (simd_arith_exe),
@@ -622,7 +622,7 @@ ama_riscv_simd #(
 
 end else begin: gen_mult_plain
 arch_width_t mult_p;
-ama_riscv_mult ama_riscv_mult_i (
+ama_riscv_mult mult_i (
     .clk,
     .rst,
     .en (simd_arith_exe),
@@ -639,7 +639,7 @@ assign simd_out_wbk.w[1] = 'h0;
 end
 
 arch_width_t div_result;
-ama_riscv_div ama_riscv_div_i (
+ama_riscv_div div_i (
     .clk (clk),
     .rst (rst),
     .start (div_start),
@@ -664,7 +664,7 @@ end
 
 perf_event_t perf_events;
 arch_width_t csr_out_exe;
-ama_riscv_csr ama_riscv_csr_i (
+ama_riscv_csr csr_i (
     .clk,
     .rst,
     .ctrl (csr_ctrl_exe),
