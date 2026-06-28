@@ -458,7 +458,9 @@ exec_state_t state_e, nx_state_e;
 
 logic save_spec_entry, clear_spec_entry;
 assign spec.enter = (
-    branch_in_dec && (!(stall_act.be || spec.wrong || trap_ctrl.pending))
+    branch_in_dec &&
+    !(stall_act.be || stall_act.icache || stall_act.flow || spec.wrong ||
+      trap_ctrl.pending || redirect_req || stale_ic_miss)
 );
 assign spec.resolve = (
     spec_entry[se_ptr_t].valid &&

@@ -172,9 +172,9 @@ ama_riscv_fe_ctrl ama_riscv_fe_ctrl_i (
     // inputs
     .pc_dec (pc.dec),
     .pc_mem (pc.mem),
-    .branch_in_dec (decoded.itype.branch && !ctrl_dec_exe.bubble),
+    .branch_in_dec (decoded.itype.branch),
     .branch_in_mem (branch_inst_mem),
-    .jalr_in_dec (decoded.itype.jalr && !ctrl_dec_exe.bubble),
+    .jalr_in_dec (decoded.itype.jalr),
     .jalr_in_exe (decoded_exe.itype.jalr),
     .jalr_in_mem (jalr_inst_mem),
     `ifdef USE_BP
