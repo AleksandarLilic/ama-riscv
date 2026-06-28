@@ -29,6 +29,7 @@ pipeline_if_s flush ();
 pipeline_if_s pc_nz ();
 pipeline_if_typed #(.T(trap_tag_t)) trap_tag ();
 pipeline_if_typed #(.T(wb_sel_t)) wb_sel ();
+pipeline_if_typed #(.T(mem_region_t)) mem_region ();
 pipeline_if_typed #(.T(cycle_tag_t)) ct ();
 pipeline_if_typed #(.T(cycle_tag_t)) ct_gen ();
 
@@ -704,49 +705,46 @@ always_comb begin
 end
 
 // AGU
-/* verilator lint_off UNUSEDSIGNAL */
-arch_width_t dmem_addr; // depending on the memory map, some top bits are unused
-/* verilator lint_on UNUSEDSIGNAL */
-
-arch_width_t dmem_addr_imm;
-assign dmem_addr_imm = {{20{dmem_offset_exe[11]}}, dmem_offset_exe};
-
+arch_width_t mem_addr;
+arch_width_t mem_addr_imm;
+assign mem_addr_imm = {{20{dmem_offset_exe[11]}}, dmem_offset_exe};
 /* verilator lint_off PINCONNECTEMPTY */
 add #(.W(ARCH_WIDTH)) dmem_agu_exe_i (
-    .a(op_a_r), .b(dmem_addr_imm), .ci(1'b0), .s(dmem_addr), .co()
+    .a(op_a_r), .b(mem_addr_imm), .ci(1'b0), .s(mem_addr), .co()
 );
 /* verilator lint_on PINCONNECTEMPTY */
 
 // memory map
-logic map_dmem_exe, map_uart_exe, map_clint_exe;
-assign map_dmem_exe = (dmem_addr[31:17] == MM_DMEM_RANGE);
-assign map_uart_exe = (dmem_addr[31:12] == MM_UART_RANGE);
-assign map_clint_exe = (dmem_addr[31:12] == MM_CLINT_RANGE);
+assign mem_region.exe = '{
+    dmem: (mem_addr[ARCH_WIDTH-1-:DMEM_RANGE_MATCH] == MM_DMEM_RANGE),
+    uart: (mem_addr[ARCH_WIDTH-1:12] == MM_UART_RANGE),
+    clint: (mem_addr[ARCH_WIDTH-1:12] == MM_CLINT_RANGE)
+};
 
 // DMEM
 dmem_req_side_t dmem_req_exe;
 assign dmem_req_exe.wdata = op_b_r;
-assign dmem_req_exe.addr = dmem_addr[CORE_BYTE_ADDR_BUS-1:0];
+assign dmem_req_exe.addr = mem_addr[CORE_BYTE_ADDR_BUS-1:0];
 assign dmem_req_exe.dtype = dmem_dtype_exe;
 assign dmem_req_exe.rtype = decoded_exe.itype.store ? DMEM_WRITE : DMEM_READ;
 assign dmem_req_exe.en =
-    (map_dmem_exe && decoded_exe.dmem_en && (!hazard.to_exe));
+    (mem_region.exe.dmem && decoded_exe.dmem_en && (!hazard.to_exe));
 
 // UART
 uart_ch_side_t uart_ch_exe;
 assign uart_ch_exe.ctrl.en =
-    (map_uart_exe && decoded_exe.dmem_en && (!hazard.to_exe));
+    (mem_region.exe.uart && decoded_exe.dmem_en && (!hazard.to_exe));
 assign uart_ch_exe.ctrl.we = (uart_ch_exe.ctrl.en && decoded_exe.itype.store);
-assign uart_ch_exe.ctrl.addr = uart_addr_t'(dmem_addr[4:2]);
+assign uart_ch_exe.ctrl.addr = uart_addr_t'(mem_addr[4:2]);
 assign uart_ch_exe.ctrl.load_signed = (dmem_dtype_exe == DMEM_DTYPE_BYTE);
 assign uart_ch_exe.send = op_b_r[7:0]; // uart is 1 byte wide
 
 // CLINT
 clint_ch_side_t clint_ch_exe;
 assign clint_ch_exe.ctrl.en =
-    (map_clint_exe && decoded_exe.dmem_en && (!hazard.to_exe));
+    (mem_region.exe.clint && decoded_exe.dmem_en && (!hazard.to_exe));
 assign clint_ch_exe.ctrl.we = (clint_ch_exe.ctrl.en && decoded_exe.itype.store);
-assign clint_ch_exe.ctrl.addr = dmem_addr[4:2];
+assign clint_ch_exe.ctrl.addr = mem_addr[4:2];
 assign clint_ch_exe.wdata = op_b_r;
 
 //------------------------------------------------------------------------------
@@ -763,7 +761,6 @@ assign rf_we.exe = '{
     rdp: (decoded_exe.rd_we && decoded_exe.has_reg.rdp)
 };
 
-logic map_uart_mem, map_clint_mem;
 dmem_req_side_t dmem_req_mem;
 uart_ch_side_t uart_ch_mem;
 clint_ch_side_t clint_ch_mem;
@@ -790,9 +787,8 @@ arch_width_t rs3_mem;
 `STAGE_E_M(1'b1, simd_inst_exe, simd_inst_mem, 'b0)
 `STAGE_E_M(1'b1, dmem_req_exe, dmem_req_mem, 'h0)
 `STAGE_E_M(1'b1, uart_ch_exe, uart_ch_mem, 'h0)
-`STAGE_E_M(1'b1, map_uart_exe, map_uart_mem, 'h0)
+`STAGE_E_M(1'b1, mem_region.exe, mem_region.mem, 'h0)
 `STAGE_E_M(1'b1, clint_ch_exe, clint_ch_mem, 'h0)
-`STAGE_E_M(1'b1, map_clint_exe, map_clint_mem, 'h0)
 
 `DFF_CI_RI_RVI(
     (dc_stalled /*|| hazard.to_dec*/ || hazard.to_exe || div_stalled),
@@ -852,7 +848,7 @@ assign clint_ch.wdata = clint_ch_mem.wdata;
 //------------------------------------------------------------------------------
 // Pipeline FF MEM/WBK
 
-logic simd_inst_wbk, map_uart_wbk, map_clint_wbk;
+logic simd_inst_wbk;
 arch_width_t e_writeback_wbk, e_writeback_p_wbk;
 
 `ifndef SYNT
@@ -868,8 +864,7 @@ arch_width_t e_writeback_wbk, e_writeback_p_wbk;
 `STAGE_M_W(1'b1, rf_we.mem, rf_we.wbk, 'h0)
 `STAGE_M_W(1'b1, load_inst_mem, load_inst_wbk, 'h0)
 `STAGE_M_W(1'b1, simd_inst_mem, simd_inst_wbk, 'h0)
-`STAGE_M_W(1'b1, map_uart_mem, map_uart_wbk, 'h0)
-`STAGE_M_W(1'b1, map_clint_mem, map_clint_wbk, 'h0)
+`STAGE_M_W(1'b1, mem_region.mem, mem_region.wbk, 'h0)
 
 always_comb begin
     ct_gen.mem = ct.mem;
@@ -885,9 +880,10 @@ arch_width_t dmem_rsp_data_v, dmem_out_wbk;
 assign dmem_rsp_data_v = (load_inst_wbk && dmem_rsp.valid) ? dmem_rsp.data :'h0;
 always_comb begin
     unique case (1'b1)
-        map_uart_wbk: dmem_out_wbk = uart_ch.recv;
-        map_clint_wbk: dmem_out_wbk = clint_ch.rdata;
-        default: dmem_out_wbk = dmem_rsp_data_v;
+        mem_region.wbk.dmem: dmem_out_wbk = dmem_rsp_data_v;
+        mem_region.wbk.uart: dmem_out_wbk = uart_ch.recv;
+        mem_region.wbk.clint: dmem_out_wbk = clint_ch.rdata;
+        default: dmem_out_wbk = 'h0;
     endcase
 end
 
@@ -992,28 +988,6 @@ end
 
 `DFF_CI_RI_RVI(cpe, perf_events)
 
-`ifndef SYNT
-always_comb begin
-    assert ($bits({ct.ret.stall_simd, ct.ret.stall_div, ct.ret.stall_load}))
-    else $warning(1,
-        "CORE CYCLE TAG DOUBLE COUNTED: stall_be_core - simd=%0b div=%0b load=%0b",
-        ct.ret.stall_simd, ct.ret.stall_div, ct.ret.stall_load
-    );
-
-    assert ($bits({ct.ret.stall_l1d, ct.ret.stall_be_core}))
-    else $warning(1,
-        "CORE CYCLE TAG DOUBLE COUNTED: stall_be - stall_l1d=%0b stall_be_core=%0b",
-        ct.ret.stall_l1d, ct.ret.stall_be_core
-    );
-
-    assert ($bits({ct.ret.stall_l1i, ct.ret.stall_fe_core}))
-    else $warning(1,
-        "CORE CYCLE TAG DOUBLE COUNTED: stall_fe - stall_l1i=%0b stall_fe_core=%0b",
-        ct.ret.stall_l1i, ct.ret.stall_fe_core
-    );
-end
-`endif
-
 //------------------------------------------------------------------------------
 // Reset sequence
 logic [PIPE_STAGES-1:0] reset_seq;
@@ -1056,5 +1030,70 @@ assign ctrl_wbk_ret = '{
     en: 1'b1,
     bubble: (!ctrl_mem_wbk.en)
 };
+
+//------------------------------------------------------------------------------
+// asserts
+
+`ifndef SYNT
+logic valid_dmem_access_exe;
+assign valid_dmem_access_exe = (
+    (decoded_exe.itype.load || decoded_exe.itype.store) &&
+    decoded_exe.dmem_en &&
+    !hazard.to_exe
+);
+always @(posedge clk) begin
+    if (valid_dmem_access_exe) begin
+        assert($countones(mem_region.exe) == 1)
+        else $warning( // may be speculative, so just warn
+            "DMEM INST REGION FAULT EXE - dmem=%0b uart=%0b clint=%0b",
+            mem_region.exe.dmem, mem_region.exe.uart, mem_region.exe.clint
+        );
+    end
+end
+
+logic valid_dmem_access_mem;
+`STAGE_E_M(1'b1, valid_dmem_access_exe, valid_dmem_access_mem, 'h0)
+always @(posedge clk) if (valid_dmem_access_mem) begin
+    assert($countones(mem_region.mem) == 1)
+    else $fatal(1, // spec can't reach this far, so error out
+        "DMEM INST REGION FAULT MEM - dmem=%0b uart=%0b clint=%0b",
+        mem_region.exe.dmem, mem_region.exe.uart, mem_region.exe.clint
+    );
+end
+
+// perf checks
+int ct_be_core, ct_be, ct_fe_core;
+assign ct_be_core = $countones(
+    {ct.ret.stall_simd, ct.ret.stall_div, ct.ret.stall_load}
+);
+assign ct_be = $countones({ct.ret.stall_l1d, ct.ret.stall_be_core});
+assign ct_fe_core = $countones({ct.ret.stall_l1i, ct.ret.stall_fe_core});
+
+always @(posedge clk) begin
+    if (ct_be_core) begin
+        assert(ct_be_core == 1)
+        else $warning(
+            "CORE CYCLE TAG DOUBLE COUNTED: stall_be_core - simd=%0b div=%0b load=%0b",
+            ct.ret.stall_simd, ct.ret.stall_div, ct.ret.stall_load
+        );
+    end
+
+    if (ct_be) begin
+        assert(ct_be == 1)
+        else $warning(
+            "CORE CYCLE TAG DOUBLE COUNTED: stall_be - stall_l1d=%0b stall_be_core=%0b",
+            ct.ret.stall_l1d, ct.ret.stall_be_core
+        );
+    end
+
+    if (ct_fe_core) begin
+        assert(ct_fe_core == 1)
+        else $warning(
+            "CORE CYCLE TAG DOUBLE COUNTED: stall_fe - stall_l1i=%0b stall_fe_core=%0b",
+            ct.ret.stall_l1i, ct.ret.stall_fe_core
+        );
+    end
+end
+`endif
 
 endmodule

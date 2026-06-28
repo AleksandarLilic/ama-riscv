@@ -52,12 +52,6 @@ typedef union packed {
     logic [7:0] [(ARCH_WIDTH/16)-1:0] c; // crumb
 } simd_h_t;
 
-// Memory map
-parameter arch_width_t RESET_VECTOR = 32'h8000_0000;
-parameter logic [14:0] MM_DMEM_RANGE = 15'h4000; // addr[31:17]
-parameter logic [19:0] MM_UART_RANGE = 20'h10013; // addr[31:12]
-parameter logic [19:0] MM_CLINT_RANGE = 20'h02000; // addr[31:12]
-
 // Memory parameters (what is being counted)
 // no suffix - number of bits, or if specified in the parameter name eg 'offset'
 // *_B - byte,       8-bit
@@ -67,16 +61,26 @@ parameter logic [19:0] MM_CLINT_RANGE = 20'h02000; // addr[31:12]
 // *_Q - quadword,   128-bit
 // *_L - line (module-specific)
 
-/* verilator lint_off UNUSEDPARAM */
 parameter unsigned MEM_SIZE_B = (1 << 17); // 131,072 B
 parameter unsigned MEM_SIZE_W = (MEM_SIZE_B >> 2);
 parameter unsigned MEM_SIZE_Q = (MEM_SIZE_W >> 2);
+parameter unsigned CORE_BYTE_ADDR_BUS = $clog2(MEM_SIZE_B); // 17
 parameter unsigned CORE_WORD_ADDR_BUS = $clog2(MEM_SIZE_W); // 15
-parameter unsigned CORE_BYTE_ADDR_BUS = (CORE_WORD_ADDR_BUS + 2); // 17
+parameter unsigned DMEM_RANGE_MATCH = (ARCH_WIDTH - CORE_BYTE_ADDR_BUS);
+typedef logic [DMEM_RANGE_MATCH-1:0] dmem_range_match_t;
 
+// memory map
+parameter arch_width_t RESET_VECTOR = ARCH_WIDTH'('h8000_0000);
+parameter dmem_range_match_t MM_DMEM_RANGE = (1 << (DMEM_RANGE_MATCH-1));
+parameter logic [19:0] MM_UART_RANGE = 20'h10013; // addr[31:12]
+parameter logic [19:0] MM_CLINT_RANGE = 20'h02000; // addr[31:12]
+
+// caches
 parameter unsigned MEM_DATA_BUS = 128;
 parameter unsigned MEM_DATA_BUS_B = (MEM_DATA_BUS >> 3); // 16
+/* verilator lint_off UNUSEDPARAM */
 parameter unsigned CORE_DATA_BUS_B = 4;
+/* verilator lint_on UNUSEDPARAM */
 parameter unsigned CACHE_LINE_SIZE_B = 64;
 parameter unsigned CACHE_LINE_B_MASK = (CACHE_LINE_SIZE_B - 1); // 63 aka 0x3F
 parameter unsigned CACHE_LINE_SIZE = (CACHE_LINE_SIZE_B << 3); // 512
@@ -85,7 +89,6 @@ parameter unsigned MEM_TRANSFERS_PER_CL = (CACHE_LINE_SIZE / MEM_DATA_BUS); // 4
 parameter unsigned CACHE_LINE_BYTE_ADDR = $clog2(CACHE_LINE_SIZE_B); // 6
 parameter unsigned CACHE_TO_MEM_OFFSET = $clog2(MEM_DATA_BUS_B); // 4 bits less -> 128 (mem) vs 32 bits ($)
 parameter unsigned MEM_ADDR_BUS = (CORE_BYTE_ADDR_BUS - CACHE_TO_MEM_OFFSET); // 16 - 4 = 12
-/* verilator lint_on UNUSEDPARAM */
 
 parameter unsigned ICACHE_SETS = 32;
 parameter unsigned ICACHE_WAYS = 2;
@@ -455,6 +458,12 @@ typedef struct packed {
     logic rd;
     logic rdp;
 } rf_we_t;
+
+typedef struct packed {
+    logic dmem;
+    logic uart;
+    logic clint;
+} mem_region_t;
 
 // Core signal bundles
 typedef struct packed {
