@@ -61,7 +61,7 @@ void cosim_exec(
     *pc = rv32->get_pc();
     rv32->single_step();
     *inst = rv32->get_inst();
-    *tohost = rv32->get_csr(csrm::addr::tohost);
+    *tohost = rv32->get_csr(csr_map::addr::tohost);
     for (int i = 0; i < 32; i++) rf[i] = rv32->get_reg(i);
     inst_asm = rv32->get_inst_asm().c_str();
     *inst_asm_str = inst_asm.c_str();
