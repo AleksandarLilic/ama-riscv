@@ -114,6 +114,12 @@ always_comb begin
             CSR_MSCRATCH: out = csr.mscratch;
             CSR_TIME: out = mtime.r[CSR_LOW];
             CSR_TIMEH: out = mtime.r[CSR_HIGH];
+            CSR_HPMCOUNTER3,
+            CSR_HPMCOUNTER4,
+            CSR_HPMCOUNTER5,
+            CSR_HPMCOUNTER6,
+            CSR_HPMCOUNTER7,
+            CSR_HPMCOUNTER8,
             CSR_MHPMCOUNTER3,
             CSR_MHPMCOUNTER4,
             CSR_MHPMCOUNTER5,
@@ -121,6 +127,12 @@ always_comb begin
             CSR_MHPMCOUNTER7,
             CSR_MHPMCOUNTER8:
                 out = csr.mhpmcounter[mhpm_addr_c].f.lo;
+            CSR_HPMCOUNTER3H,
+            CSR_HPMCOUNTER4H,
+            CSR_HPMCOUNTER5H,
+            CSR_HPMCOUNTER6H,
+            CSR_HPMCOUNTER7H,
+            CSR_HPMCOUNTER8H,
             CSR_MHPMCOUNTER3H,
             CSR_MHPMCOUNTER4H,
             CSR_MHPMCOUNTER5H,
