@@ -67,14 +67,16 @@ assign pc_sel_pc_src =
     trap_ctrl.trap_redirect ? mtvec_exe :
     trap_ctrl.mret_redirect ? mepc_exe : pc_fet_last;
 
+arch_width_t pc_fet_raw;
 always_comb begin
-    pc.fet = pc_sel_pc_src;
+    pc_fet_raw = pc_sel_pc_src;
     unique case (fe_ctrl.pc_sel)
-        PC_SEL_PC: pc.fet = pc_sel_pc_src;
-        PC_SEL_INC4: pc.fet = pc_inc4;
-        PC_SEL_ALU: pc.fet = pc_new_mem;
-        PC_SEL_JAL_BP: pc.fet = pc_branch_jal;
+        PC_SEL_PC: pc_fet_raw = pc_sel_pc_src;
+        PC_SEL_INC4: pc_fet_raw = pc_inc4;
+        PC_SEL_ALU: pc_fet_raw = pc_new_mem;
+        PC_SEL_JAL_BP: pc_fet_raw = pc_branch_jal;
     endcase
+    pc.fet = pc_align(pc_fet_raw);
 end
 assign imem_req.data = pc.fet[CORE_WORD_ADDR_BUS+2-1:2];
 

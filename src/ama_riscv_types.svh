@@ -1068,6 +1068,10 @@ endfunction
 `define MAX(a,b) (a > b) ? a : b
 
 // helpers synthesizable
+function automatic arch_width_t pc_align(input arch_width_t pc);
+    pc_align = {pc[ARCH_WIDTH-1:2], 2'b00};
+endfunction
+
 function automatic opc7_t get_opc7(input inst_width_t inst);
     get_opc7 = opc7_t'(inst[6:0]);
 endfunction
