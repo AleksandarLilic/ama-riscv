@@ -155,6 +155,7 @@ ama_riscv_trap_ctrl trap_ctrl_i (
 decoder_t decoded_exe; // some bits are not always used
 /* verilator lint_on UNUSEDSIGNAL */
 logic dc_stalled, div_stalled;
+logic csr_inst_exe, csr_drain_done, csr_stalled;
 logic branch_inst_mem, jalr_inst_mem;
 branch_t branch_resolution_mem;
 hazard_t hazard;
@@ -188,6 +189,7 @@ ama_riscv_fe_ctrl fe_ctrl_i (
     .hazard,
     .dc_stalled,
     .div_stalled,
+    .csr_stalled,
     // outputs
     `ifdef USE_BP
     .pc_cp (pc_fet_cp),
@@ -685,6 +687,13 @@ ama_riscv_csr csr_i (
     .meip (meip)
 );
 
+// CSR access serialization
+assign csr_inst_exe = (decoded_exe.csr_ctrl.en && !spec.wrong);
+assign csr_drain_done = (
+    !pc_nz.mem && !pc_nz.wbk && !pc_nz.ret && !perf_events.ret_inst
+);
+assign csr_stalled = (csr_inst_exe && !csr_drain_done);
+
 arch_width_t pc_exe_inc4;
 /* verilator lint_off PINCONNECTEMPTY */
 add #(.W(ARCH_WIDTH)) pc_exe_inc4_i (
@@ -793,7 +802,7 @@ arch_width_t rs3_mem;
 `STAGE_E_M(1'b1, clint_ch_exe, clint_ch_mem, 'h0)
 
 `DFF_CI_RI_RVI(
-    (dc_stalled /*|| hazard.to_dec*/ || hazard.to_exe || div_stalled),
+    (dc_stalled || hazard.to_exe || div_stalled || csr_stalled),
     be_stalled_d
 )
 
@@ -1006,7 +1015,7 @@ assign flush.wbk = reset_seq[3];
 
 assign ctrl_dec_exe = '{
     flush: (flush.dec || fe_ctrl.bubble_exe),
-    en: ((!dc_stalled) && (!hazard.to_exe) && (!div_stalled)),
+    en: ((!dc_stalled) && (!hazard.to_exe) && (!div_stalled) && (!csr_stalled)),
     bubble: (fe_ctrl.bubble_dec /*|| hazard.to_dec*/)
 };
 
@@ -1014,7 +1023,8 @@ assign ctrl_exe_mem = '{
     flush: flush.exe,
     en: (!dc_stalled),
     bubble: (
-        !ctrl_dec_exe.en || hazard.to_exe || fe_ctrl.bubble_exe || div_stalled
+        !ctrl_dec_exe.en || hazard.to_exe || fe_ctrl.bubble_exe ||
+        div_stalled || csr_stalled
     )
 };
 
@@ -1061,6 +1071,18 @@ always @(posedge clk) if (valid_dmem_access_mem) begin
         "DMEM INST REGION FAULT MEM - dmem=%0b uart=%0b clint=%0b",
         mem_region.exe.dmem, mem_region.exe.uart, mem_region.exe.clint
     );
+end
+
+// committed Zicsr read must see a fully drained backend (counters settled)
+// so minstret/instret reads are precise
+always @(posedge clk) begin
+    if (csr_ctrl_exe.en && csr_ctrl_exe.re) begin
+        assert(csr_drain_done)
+        else $error(
+            "CSR READ COMMIT WITHOUT DRAIN: mem=%0b wbk=%0b ret=%0b perf_ret=%0b",
+            pc_nz.mem, pc_nz.wbk, pc_nz.ret, perf_events.ret_inst
+        );
+    end
 end
 
 // perf checks

@@ -18,6 +18,7 @@ module ama_riscv_fe_ctrl (
     input  branch_t branch_resolution,
     input  logic dc_stalled,
     input  logic div_stalled,
+    input  logic csr_stalled,
     /* verilator lint_off UNUSEDSIGNAL */
     input  hazard_t hazard,
     /* verilator lint_on UNUSEDSIGNAL */
@@ -61,6 +62,7 @@ typedef struct packed {
     logic be;
     logic dcache;
     logic div;
+    logic csr;
     logic hazard;
 } stall_sources_t;
 
@@ -114,14 +116,20 @@ assign stall_act.icache = !imem_req.ready;
 assign stall_act.dcache = dc_stalled;
 assign stall_act.hazard = (/* hazard.to_dec || */hazard.to_exe);
 assign stall_act.div = div_stalled;
-assign stall_act.be = (stall_act.dcache || stall_act.hazard || stall_act.div);
+assign stall_act.csr = csr_stalled;
+assign stall_act.be = (
+    stall_act.dcache || stall_act.hazard || stall_act.div || stall_act.csr
+);
 
 assign stall_res.flow = ((stalled_pc == pc_mem) && (pc_mem != 'h0));
 assign stall_res.icache = imem_req.ready;
 assign stall_res.dcache = !dc_stalled;
 assign stall_res.hazard = !(/* hazard.to_dec || */ hazard.to_exe);
 assign stall_res.div = !div_stalled;
-assign stall_res.be = (stall_res.dcache && stall_res.hazard && stall_res.div);
+assign stall_res.csr = !csr_stalled;
+assign stall_res.be = (
+    stall_res.dcache && stall_res.hazard && stall_res.div && stall_res.csr
+);
 
 logic stall_res_flow_d;
 `DFF_CI_RI_RVI(stall_res.flow, stall_res_flow_d)
