@@ -255,6 +255,8 @@ function automatic void write_test_status(
     $fwrite(fd, "warnings=%0d\n", warnings);
     $fwrite(fd, "errors=%0d\n", errors);
     $fwrite(fd, "reason=%0s\n", reason);
+    $fwrite(fd, "cycles=%0d\n", core_stats::get_cycle_cnt(core_cnt_main));
+    $fwrite(fd, "instructions=%0d\n", core_stats::get_inst_cnt(core_cnt_main));
 
     $fclose(fd);
 endfunction
