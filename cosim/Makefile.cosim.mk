@@ -14,29 +14,20 @@ CXXFLAGS += -Wno-unused-parameter
 #CXXFLAGS += -pg
 
 ISA_SIM_DIR := $(REPO_ROOT)/sim/src
-ISA_SIM_BDIR ?= build_obj
+ISA_SIM_BDIR ?= build_obj_for_cosim
 $(shell mkdir -p $(ISA_SIM_DIR)/$(ISA_SIM_BDIR))
 
-ISA_SIM_DEFINES := -DDPI -DCACHE_MODE=CACHE_MODE_FUNC -DUART_INPUT_EN
+SIMD ?= 1 # RTL's equivalent is '--define CPU_SIMD_EN=1' in filelist
+RV32C ?= 0 # unsupported by RTL
 
-ISA_SIM_SRCS := $(wildcard $(ISA_SIM_DIR)/*.cpp)
-ISA_SIM_SRCS += $(wildcard $(ISA_SIM_DIR)/devices/*.cpp)
-ISA_SIM_SRCS += $(wildcard $(ISA_SIM_DIR)/profilers/*.cpp)
-ISA_SIM_SRCS := $(filter-out %main.cpp, $(ISA_SIM_SRCS))
+ISA_SIM_SRC_ROOT := $(ISA_SIM_DIR)
+ISA_SIM_OBJ_ROOT := $(ISA_SIM_DIR)/$(ISA_SIM_BDIR)
+ISA_SIM_SRC_MK := $(ISA_SIM_DIR)/Makefile.isa_sim_sources.mk
+include $(ISA_SIM_SRC_MK)
 
-ISA_SIM_OBJS := $(patsubst $(ISA_SIM_DIR)/%, $(ISA_SIM_DIR)/$(ISA_SIM_BDIR)/%, $(ISA_SIM_SRCS:.cpp=.o))
-
-ISA_SIM_H := $(wildcard $(ISA_SIM_DIR)/*.h)
-ISA_SIM_H += $(wildcard $(ISA_SIM_DIR)/devices/*.h)
-ISA_SIM_H += $(wildcard $(ISA_SIM_DIR)/profilers/*.h)
-ISA_SIM_H += $(wildcard $(ISA_SIM_DIR)/hw_models/*.h)
-
-# ISA sim header files needed for cosim build
-ISA_SIM_INC := -I$(ISA_SIM_DIR)
-ISA_SIM_INC += -I$(ISA_SIM_DIR)/devices
-ISA_SIM_INC += -I$(ISA_SIM_DIR)/profilers
-ISA_SIM_INC += -I$(ISA_SIM_DIR)/hw_models
-ISA_SIM_INC += -isystem $(ISA_SIM_DIR)/external/ELFIO
+ISA_SIM_COSIM_MAKE_ARGS := BDIR=$(ISA_SIM_BDIR)
+ISA_SIM_COSIM_MAKE_ARGS += DPI=1 UART_IN=1 SIMD=$(SIMD) RV32C=$(RV32C)
+ISA_SIM_COSIM_MAKE_ARGS += PROFILERS=0 HW_MODELS=0 DASM=0
 
 # COSIM
 COSIM_ROOT := cosim
@@ -56,8 +47,8 @@ COSIM_INC := -I$(VIVADO_ROOT)/data/xsim/include
 COSIM_INC += -I$(COSIM_ROOT)
 DPI_LINK_LIB := -L$(VIVADO_ROOT)/tps/lnx64/gcc-9.3.0/lib64/
 
-ISA_SIM_EXT := -I$(COSIM_ROOT_ABS)
-ISA_SIM_EXT += -I$(VIVADO_ROOT)/data/xsim/include
+ISA_SIM_INC_EXTRA := -I$(COSIM_ROOT_ABS)
+ISA_SIM_INC_EXTRA += -I$(VIVADO_ROOT)/data/xsim/include
 
 # log stdout
 COSIM_LOG_ARG :=
@@ -73,18 +64,18 @@ cosim_obj: $(COSIM_OBJS)
 
 $(COSIM_TARGET): .isa_sim_obj.touchfile $(COSIM_OBJS)
 	@echo "Building COSIM SO" $(COSIM_LOG_ARG)
-	@$(CXX) $(CXXFLAGS) -o $(COSIM_TARGET) $(COSIM_OBJS) $(ISA_SIM_OBJS) \
+	@$(CXX) $(CXXFLAGS) -o $(COSIM_TARGET) $(COSIM_OBJS) $(ISA_SIM_COSIM_OBJS) \
 		$(DPI_LINK_LIB) $(COSIM_LOG_ARG)
 	@echo "Building COSIM SO done" $(COSIM_LOG_ARG)
 
 # recipe calls isa sim's make which builds all isa sim objects
 # even though not all objects may be strictly required for cosim
 isa_sim_obj: .isa_sim_obj.touchfile
-.isa_sim_obj.touchfile: $(ISA_SIM_SRCS) $(ISA_SIM_H) $(COSIM_H)
+.isa_sim_obj.touchfile: $(ISA_SIM_COSIM_SRCS) $(ISA_SIM_H) $(COSIM_H) \
+		$(ISA_SIM_DIR)/Makefile $(ISA_SIM_SRC_MK)
 	@echo "Building ISA SIM" $(COSIM_LOG_ARG)
-	@$(MAKE) -C $(ISA_SIM_DIR) obj_for_cosim INC_EXT="$(ISA_SIM_EXT)" \
-		BDIR=$(ISA_SIM_BDIR) DEFINES="$(ISA_SIM_DEFINES)" CXX=$(CXX) \
-		$(COSIM_LOG_ARG)
+	@$(MAKE) -C $(ISA_SIM_DIR) obj_for_cosim $(ISA_SIM_COSIM_MAKE_ARGS) \
+		INC_EXTRA="$(ISA_SIM_INC_EXTRA)" CXX="$(CXX)" $(COSIM_LOG_ARG)
 	@touch .isa_sim_obj.touchfile
 	@echo "Building ISA SIM done" $(COSIM_LOG_ARG)
 

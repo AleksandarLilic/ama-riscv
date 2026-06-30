@@ -30,7 +30,7 @@ ifeq ($(strip $(COV)),1)
     ELAB_OPTS += -cc_type $(COV_TYPES)
 endif
 
-include Makefile.inc
+include Makefile.sources.mk
 
 RUN_CFG ?= $(REPO_ROOT)/run_cfg.tcl
 TCLBATCH_SWITCH := -tclbatch $(RUN_CFG)
@@ -106,7 +106,7 @@ all: sim
 
 # if SIM_ONLY, ignore getting sources so it doesn't trigger rebuilds
 ifeq ($(SIM_ONLY), 0)
-include cosim/Makefile.cosim.inc
+include cosim/Makefile.cosim.mk
 endif
 
 # used to limit the number of delta cycles during simulation, default is 10000
@@ -255,7 +255,7 @@ workdir:
 	@mkdir $(REPO_ROOT)/$(WORKDIR)
 	@cd $(REPO_ROOT)/$(WORKDIR) && \
 	ln -s $(REPO_ROOT)/Makefile && \
-	ln -s $(REPO_ROOT)/Makefile.inc && \
+	ln -s $(REPO_ROOT)/Makefile.sources.mk && \
 	ln -s $(REPO_ROOT)/cosim
 	@echo "Workdir created at: $(REPO_ROOT)/$(WORKDIR)"
 

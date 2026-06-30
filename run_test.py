@@ -28,6 +28,7 @@ RUN_CFG = os.path.join(REPO_ROOT, "run_cfg_suite.tcl")
 MAX_WORKERS = int(os.cpu_count())
 TEST_STATUS = "test.status"
 TOUCHFILE_COV = ".cov.touchfile"
+BUILD_LINKS = ["Makefile", "Makefile.sources.mk", "cosim"]
 
 yaml = YAML()
 yaml.preserve_quotes = True
@@ -191,12 +192,12 @@ def build_tb(build_dir, force_rebuild, coverage=False):
         shutil.rmtree(build_dir)
     os.makedirs(build_dir)
 
-    set_up_links(build_dir, ["Makefile", "Makefile.inc", "cosim"])
+    set_up_links(build_dir, BUILD_LINKS)
     print(f"Building in {build_dir}... ", end='', flush=True)
     start_time = datetime.datetime.now()
     make_cmd = [
         "make", "elab",
-        "ISA_SIM_BDIR=build_obj_runtest",
+        "ISA_SIM_BDIR=build_obj_for_cosim_runtest",
         "COSIM_BDIR=build_runtest",
         "TO_LOG=0",
         f"-j{MAX_WORKERS}",
@@ -378,7 +379,7 @@ def run_suite(all_tests, run_dir, build_dir, ma, jobs, keep_pass, stop_on_fail):
 def run_coverage(all_tests, run_dir):
     print("\nMerging code coverage...")
     # Makefile (+ its includes) must resolve from run_dir to run the targets
-    set_up_links(run_dir, ["Makefile", "Makefile.inc", "cosim"])
+    set_up_links(run_dir, BUILD_LINKS)
     subprocess.run(["make", "cleancov"], cwd=run_dir, check=True)
 
     # only tests that actually produced a populated DB can be merged
