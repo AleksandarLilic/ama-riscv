@@ -34,6 +34,8 @@ yaml = YAML()
 yaml.preserve_quotes = True
 yaml.indent(mapping=2, sequence=4, offset=2)
 
+BUNDLES_KEY = "_bundles"
+
 @dataclass
 class make_args:
     timeout_clocks: int
@@ -76,6 +78,18 @@ def find_all_tests(test_list, filters=None):
 
     if filters is None:
         filters = []
+
+    bundles = test_list.get(BUNDLES_KEY, {}) or {}
+    test_list = {
+        key: val for key, val in test_list.items()
+        if not str(key).startswith('_')
+    }
+    filters = [
+        bundled_filter
+        for f in filters
+        for bundled_filter in bundles.get(f, [f])
+    ]
+
     tl_flat = [item for sublist in test_list.values() for item in sublist]
     tl_filt = tl_flat
     if filters:
@@ -416,7 +430,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Run RTL simulation.")
     parser.add_argument('-t', '--test', nargs='+', help="Specify one or more tests to run (space-separated)")
     parser.add_argument('--testlist', help="Path to a YAML file containing a list of tests")
-    parser.add_argument('-f', '--filter', nargs='+', help="Apply regex filtering to the testlist on the group name. Pass as space-separated values. Use ~ to exclude. E.g., '-f riscv_isa ~rv32m' includes all groups matching 'riscv_isa', except those matching 'rv32m'. Quote tokens with shell-special regex chars (e.g. '[', '*'). If not specified, all tests in the testlist are run")
+    parser.add_argument('-f', '--filter', nargs='+', help="Apply filtering to the testlist. Tokens regex-match group names and exact-match bundle aliases from _bundles. Pass as space-separated values. Use ~ to exclude. E.g., '-f riscv_isa ~rv32m' includes all groups matching 'riscv_isa', except those matching 'rv32m'. Quote tokens with shell-special regex chars (e.g. '[', '*'). If not specified, all tests in the testlist are run")
     parser.add_argument('-r', '--rundir', help="Optional custom run directory name")
     parser.add_argument('-o', '--build_only', action='store_true', help="Only build the testbench")
     parser.add_argument('-k', '--keep_build', action='store_true', default=False, help="Reuse existing build if available")

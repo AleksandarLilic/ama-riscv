@@ -1,3 +1,29 @@
+_bundles:
+  smoke:
+    - simple
+    - simd_isa
+    - csr
+  gate:
+    - simple
+    - simd_isa
+    - csr
+    - perf_cnts
+    - timer
+    - uart
+    - mlp
+    - aapg_short
+    - riscv_isa_rv32i
+    - riscv_isa_rv32i_zicsr
+    - riscv_isa_rv32m
+    - ustress
+  full:
+    - ".*"
+    - ~embench
+    - ~trap
+    - ~act
+    - ~vector
+    - ~matmul
+
 simple:
   - ["sim/sw/baremetal/asm_rv32i", "test.mem"]
   - ["sim/sw/baremetal/asm_rv32i_branches", "test.mem"]
@@ -227,7 +253,7 @@ riscv_isa_rv32m:
   - ["sim/sw/riscv-isa-tests", "rem.mem"]
   - ["sim/sw/riscv-isa-tests", "remu.mem"]
 
-act:
+act: # needs 256KB RAM
   - ["sim/sw/arch-tests/riscv-arch-test/work/ama-riscv-rv32im/elfs/rv32i/I", "I-add-00.mem"]
   - ["sim/sw/arch-tests/riscv-arch-test/work/ama-riscv-rv32im/elfs/rv32i/I", "I-addi-00.mem"]
   - ["sim/sw/arch-tests/riscv-arch-test/work/ama-riscv-rv32im/elfs/rv32i/I", "I-and-00.mem"]
