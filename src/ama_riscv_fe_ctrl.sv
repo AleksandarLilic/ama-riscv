@@ -80,10 +80,12 @@ typedef struct packed {
 //------------------------------------------------------------------------------
 // STALL control
 logic flow_update;
+logic ignore_dec_flow_stall;
 logic branch_taken;
 logic save_stall_entry, clear_stall_entry;
 arch_width_t stalled_pc;
 stall_sources_t stall_act, stall_res;
+logic stale_ic_miss, nx_stale_ic_miss;
 
 // redirect / stale-miss overlay (spec.wrong = 0 without 'USE_BP')
 logic redirect_req;
@@ -94,18 +96,19 @@ assign redirect_req = (
     trap_ctrl.trap_redirect || trap_ctrl.mret_redirect || trap_ctrl.wfi_resume
 );
 
+assign ignore_dec_flow_stall = (trap_ctrl.pending || stale_ic_miss);
 assign branch_taken = (branch_in_mem && (branch_resolution == B_T));
 `ifdef USE_BP
 assign flow_update = jalr_in_mem;
-assign stall_act.flow = ((
-    (jalr_in_dec && !trap_ctrl.pending) || jalr_in_exe)
+assign stall_act.flow = (
+    (jalr_in_dec && !ignore_dec_flow_stall) || jalr_in_exe
 );
 logic bp_hit, bp_miss, bp_taken;
 assign bp_taken = (bp_pred == B_T);
 `else
 assign flow_update = (branch_taken || jalr_in_mem);
 assign stall_act.flow = (
-    (((branch_in_dec || jalr_in_dec) && !trap_ctrl.pending) || jalr_in_exe)
+    ((branch_in_dec || jalr_in_dec) && !ignore_dec_flow_stall) || jalr_in_exe
 );
 assign spec = '{1'b0, 1'b0, 1'b0};
 `endif
@@ -237,7 +240,6 @@ function automatic void spec_fetch_wrong_spec();
     imem_rsp.ready = 1'b1;
 endfunction
 
-logic stale_ic_miss, nx_stale_ic_miss;
 // outputs
 /* verilator lint_off UNUSEDSIGNAL */
 fe_ctrl_t decoded_fe_ctrl_d; // bubble_dec, use_cp unused
