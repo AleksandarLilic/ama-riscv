@@ -85,7 +85,7 @@ asm_rv32i_test_out_cosim  build.log  cosim  Makefile  Makefile.inc  make_run_def
 Cosim outputs:
 ```sh
 ls testrun_<run_date>/asm_rv32i_test/asm_rv32i_test_out_cosim/
-asm_rv32i_test.kanata.log  callstack_folded_clk_cycle.txt  hw_stats.json  inst_profile_clk.json  trace_clk.bin  uart.log
+asm_rv32i_test.kanata.log  callstack_folded_cycle_cosim.txt callstack_folded_inst_cosim.txt hw_stats.json  inst_profile_clk.json  trace_clk.bin  uart.log
 ```
 
 Second option is to use testlist instead of manually specifying each test. Optionally, testlist can be filtered e.g. using "simple" group filter, adding rundir, and timeout in number of clock cycles
@@ -456,16 +456,19 @@ Running with `-v VERBOSE` adds per cycle logs
 ```
 
 ## Callstack
-Folded callstack is saved as `callstack_folded_clk_cycle.txt`, counting the number of cycles spent in each stack  
-Example snippet from the folded callstack
+Folded callstacks are saved as `callstack_folded_cycle_cosim.txt` and `callstack_folded_inst_cosim.txt`, counting the number of cycles and instruction in each stack  
+Example snippet from the 'cycle' folded callstack
 ```
 ...
-call_main;main;Func_1; 10002
-call_main;main;Proc_1;Proc_6;Func_3; 3000
+call_main;main;Proc_2; 9006
+call_main;main;Proc_1;Proc_6;Func_3; 3006
 call_main;main;Proc_1;Proc_7; 4000
-call_main;main;Proc_8; 25010
-call_main;main;Func_2;strcmp; 65018
-call_main;main;Func_2;Func_1; 5006
+call_main;main;Proc_1; 59035
+call_main;main;Proc_8; 25022
+call_main;main;Func_2;strcmp; 57048
+call_main;main;Func_2; 32014
+call_main;main;Proc_4; 9006
+call_main;main;Proc_5; 4006
 ...
 ```
 
@@ -581,82 +584,80 @@ Beginning of main loop execution
 Collection of custom and open source tools are provided for profiling, analysis, and visualization
 
 ### Flat profile
-Similar to the GNU Profiler `gprof`, flat profile script provides samples/time spent in all executed functions, and prints it to the `stdout`
+Flat profile script provides samples/time spent in all executed functions, and prints it to the `stdout`
 
 ```sh
-./sim/script/prof_stats.py -t examples/dhrystone_dhrystone_out_cosim/callstack_folded_clk_cycle.txt -e cycle --plot
+./sim/script/prof_stats.py -t examples/dhrystone_dhrystone_out_cosim/callstack_folded_cycle_cosim.txt -e cycle --plot
 ```
 
 ```
 Profile - Cycle
-  %[c]   cumulative[c]    self[c]   total[c]   self[us]  total[us]   symbol
- 14.15           14.15      86232      86232      862.3      862.3   strcpy
- 14.04           28.19      85608     597440      856.1     5974.4   main
- 11.65           39.84      71038     113048      710.4     1130.5   Proc_1
- 10.67           50.51      65018      65018      650.2      650.2   strcmp
-  5.69           56.20      34708      46440      347.1      464.4   _write
-  5.58           61.78      34020     104044      340.2     1040.4   Func_2
-  4.94           66.72      30096      30096      301.0      301.0   __udivsi3
-  4.29           71.00      26128      72568      261.3      725.7   __puts_uart
-  4.23           75.23      25764     107038      257.6     1070.4   mini_vpprintf
-  4.10           79.33      25010      25010      250.1      250.1   Proc_8
-  3.61           82.94      22012      25012      220.1      250.1   Proc_6
-  2.95           85.90      18006      18006      180.1      180.1   Proc_7
-  2.46           88.36      15008      15008      150.1      150.1   Func_1
-  2.13           90.49      12998      12998      130.0      130.0   Proc_3
-  1.97           92.47      12033      12033      120.3      120.3   clear_bss_w_loop
-  1.92           94.39      11732      11732      117.3      117.3   send_byte_uart0
-  1.48           95.87       9006       9006       90.1       90.1   Proc_2
-  1.48           97.34       9000       9000       90.0       90.0   Proc_4
-total_samples : 609603
+  %[c]  %cumulative[c]    self[c]   total[c]   self[us]  total[us]   symbol
+ 16.89           16.89      86236      86236      862.4      862.4   strcpy
+ 16.00           32.90      81690     498303      816.9     4983.0   main
+ 11.57           44.46      59035      99065      590.4      990.6   Proc_1
+ 11.18           55.64      57048      57048      570.5      570.5   strcmp
+  6.27           61.91      32014      94068      320.1      940.7   Func_2
+  5.28           67.19      26953      70003      269.5      700.0   npf_vpprintf
+  4.90           72.09      25022      25022      250.2      250.2   Proc_8
+  4.31           76.41      22016      25022      220.2      250.2   Proc_6
+  2.94           79.34      15006      15006      150.1      150.1   Func_1
+  2.36           81.70      12037      12037      120.4      120.4   clear_bss_w_loop
+  2.35           84.05      12006      12006      120.1      120.1   Proc_7
+  2.31           86.37      11794      11794      117.9      117.9   npf_putc_cnt
+  2.31           88.68      11794      11794      117.9      117.9   send_byte_uart0
+  2.16           90.83      11008      11008      110.1      110.1   Proc_3
+  1.76           92.60       9006       9006       90.1       90.1   Proc_2
+  1.76           94.36       9006       9006       90.1       90.1   Proc_4
+  1.33           95.69       6790       6790       67.9       67.9   npf_putc_uart
+total_samples : 510456
 clk_mhz : 100.0
-total_time : 6096.03
+total_time : 5104.56
 time_unit : us
 
-(Showing top 18 of 40 entries after filtering - Threshold: 1%)
+(Showing top 17 of 36 entries after filtering - Threshold: 1%)
 ```
 
-![](examples/dhrystone_dhrystone_out_cosim/prof_stats_plot.png)
+![](examples/dhrystone_dhrystone_out_cosim/callstack_folded_cycle_cosim.png)
 
-It's also possible to combine RTL and ISA sim callstacks to get more detailed breakdown (care should be taken that callstacks are produced with the same binary and in the same profiling region)
+It's also possible to combine RTL and ISA sim callstacks to get IPC breakdown
 
 ```sh
-./sim/script/prof_stats.py -t sim/examples/dhrystone_dhrystone_out/callstack_folded_inst.txt -s examples/dhrystone_dhrystone_out_cosim/callstack_folded_clk_cycle.txt --plot --ipc
+./sim/script/prof_stats.py -t examples/dhrystone_dhrystone_out_cosim/callstack_folded_inst_cosim.txt -s examples/dhrystone_dhrystone_out_cosim/callstack_folded_cycle_cosim.txt --plot
 ```
 
 ```
 Profile - Inst/Cycles combined 
-  %[i]   cumulative[i]    self[i]   total[i]     %[c]   cumulative[c]    self[c]   total[c]   self[us]  total[us]     ipc     cpi   symbol
- 16.54           16.54      86172      86172    14.15           14.15      86232      86232      862.3      862.3   0.999   1.001   strcpy
- 12.15           28.68      63291     510433    14.04           28.19      85608     597440      856.1     5974.4   0.854   1.170   main
- 10.36           49.98      54000      90000    11.65           39.84      71038     113048      710.4     1130.5   0.796   1.256   Proc_1
- 10.94           39.62      57000      57000    10.67           50.51      65018      65018      650.2      650.2   0.877   1.141   strcmp
-  6.00           55.98      31272      41316     5.69           56.20      34708      46440      347.1      464.4   0.890   1.124   _write
-  5.37           61.36      28000      90000     5.58           61.78      34020     104044      340.2     1040.4   0.865   1.156   Func_2
-  4.88           66.24      25428      25428     4.94           66.72      30096      30096      301.0      301.0   0.845   1.184   __udivsi3
-  3.83           82.82      19968      61284     4.29           71.00      26128      72568      261.3      725.7   0.845   1.184   __puts_uart
-  4.12           75.15      21475      90087     4.23           75.23      25764     107038      257.6     1070.4   0.842   1.188   mini_vpprintf
-  4.80           71.03      25000      25000     4.10           79.33      25010      25010      250.1      250.1   1.000   1.000   Proc_8
-  3.84           78.99      20000      23000     3.61           82.94      22012      25012      220.1      250.1   0.920   1.087   Proc_6
-  2.30           88.00      12000      12000     2.95           85.90      18006      18006      180.1      180.1   0.666   1.500   Proc_7
-  2.88           85.70      15000      15000     2.46           88.36      15008      15008      150.1      150.1   0.999   1.001   Func_1
-  1.73           95.42       9000       9000     2.13           90.49      12998      12998      130.0      130.0   0.692   1.444   Proc_3
-  2.04           90.04      10616      10616     1.97           92.47      12033      12033      120.3      120.3   0.882   1.133   clear_bss_w_loop
-  1.93           91.97      10044      10044     1.92           94.39      11732      11732      117.3      117.3   0.856   1.168   send_byte_uart0
-  1.73           93.70       9000       9000     1.48           95.87       9006       9006       90.1       90.1   0.999   1.001   Proc_2
-  1.73           97.15       9000       9000     1.48           97.34       9000       9000       90.0       90.0   1.000   1.000   Proc_4
-total instructions : 521118
-total cycles : 609603
-total time : 6096.03
+  %[i]  %cumulative[i]    self[i]   total[i]     %[c]  %cumulative[c]    self[c]   total[c]   self[us]  total[us]     ipc     cpi   symbol
+ 18.73           18.73      86172      86172    16.89           16.89      86236      86236      862.4      862.4   0.999   1.001   strcpy
+ 13.11           31.84      60291     449319    16.00           32.90      81690     498303      816.9     4983.0   0.902   1.109   main
+ 11.74           55.97      54000      90000    11.57           44.46      59035      99065      590.4      990.6   0.908   1.101   Proc_1
+ 12.39           44.23      57000      57000    11.18           55.64      57048      57048      570.5      570.5   0.999   1.001   strcmp
+  6.09           62.06      28000      90000     6.27           61.91      32014      94068      320.1      940.7   0.957   1.045   Func_2
+  4.48           71.97      20588      56186     5.28           67.19      26953      70003      269.5      700.0   0.803   1.246   npf_vpprintf
+  5.43           67.49      25000      25000     4.90           72.09      25022      25022      250.2      250.2   0.999   1.001   Proc_8
+  4.35           76.32      20000      23000     4.31           76.41      22016      25022      220.2      250.2   0.919   1.088   Proc_6
+  3.26           79.58      15000      15000     2.94           79.34      15006      15006      150.1      150.1   1.000   1.000   Func_1
+  2.31           87.06      10616      10616     2.36           81.70      12037      12037      120.4      120.4   0.882   1.134   clear_bss_w_loop
+  2.61           82.19      12000      12000     2.35           84.05      12006      12006      120.1      120.1   1.000   1.000   Proc_7
+  2.56           84.75      11788      11788     2.31           86.37      11794      11794      117.9      117.9   0.999   1.001   npf_putc_cnt
+  2.20           89.25      10104      10104     2.31           88.68      11794      11794      117.9      117.9   0.857   1.167   send_byte_uart0
+  1.96           93.17       9000       9000     2.16           90.83      11008      11008      110.1      110.1   0.818   1.223   Proc_3
+  1.96           91.21       9000       9000     1.76           92.60       9006       9006       90.1       90.1   0.999   1.001   Proc_2
+  1.96           95.12       9000       9000     1.76           94.36       9006       9006       90.1       90.1   0.999   1.001   Proc_4
+  0.73           96.72       3368       3368     1.33           95.69       6790       6790       67.9       67.9   0.496   2.016   npf_putc_uart
+total instructions : 459998
+total cycles : 510456
+total time : 5104.56
 clk MHz : 100.0
 time unit : us
-CPI : 1.17
-IPC : 0.855
+CPI : 1.11
+IPC : 0.901
 
-(Showing top 18 of 40 entries after filtering - Threshold: 1%)
+(Showing top 17 of 36 entries after filtering - Threshold: 1%)
 ```
 
-![](examples/dhrystone_dhrystone_out_cosim/prof_stats_ipc_plot.png)
+![](examples/dhrystone_dhrystone_out_cosim/callstack_folded_cosim_combined.png)
 
 ### TDA
 Top-down analysis can be run based on the collected performance counters  
@@ -726,7 +727,7 @@ l1i_spec_miss_good   1027    l1i_*  1.03k
 
 ### FlameGraph
 ``` sh
-./sim/script/get_flamegraph.py examples/dhrystone_dhrystone_out_cosim/callstack_folded_clk_cycle.txt
+./sim/script/get_flamegraph.py examples/dhrystone_dhrystone_out_cosim/callstack_folded_cycle_cosim.txt
 ```
 Open the generated interactive `flamegraph_clk_cycle.svg` in the web browser
 
@@ -735,7 +736,7 @@ Open the generated interactive `flamegraph_clk_cycle.svg` in the web browser
 ### Call Graph  
 
 ``` sh
-./sim/script/get_call_graph.py examples/dhrystone_dhrystone_out_cosim/callstack_folded_clk_cycle.txt
+./sim/script/get_call_graph.py examples/dhrystone_dhrystone_out_cosim/callstack_folded_cycle_cosim.txt
 ```
 
 ![](examples/dhrystone_dhrystone_out_cosim/call_graph_clk_cycle.svg)

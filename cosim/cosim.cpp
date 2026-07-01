@@ -26,7 +26,7 @@ void cosim_setup(
     char log_isa_sim,
     const char** cosim_out_dir
 ) {
-    cfg.perf_event = perf_event_t::cycle; // TODO: plusarg
+    cfg.perf_events = {perf_event_t::inst, perf_event_t::cycle};
     cfg.prof_pc.start = prof_pc_start;
     cfg.prof_pc.stop = prof_pc_stop;
     cfg.prof_pc.single_match_num = prof_pc_single_match;
