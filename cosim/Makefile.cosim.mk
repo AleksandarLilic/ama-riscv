@@ -17,17 +17,36 @@ ISA_SIM_DIR := $(REPO_ROOT)/sim/src
 ISA_SIM_BDIR ?= build_obj_for_cosim
 $(shell mkdir -p $(ISA_SIM_DIR)/$(ISA_SIM_BDIR))
 
-SIMD ?= 1 # RTL's equivalent is '--define CPU_SIMD_EN=1' in filelist
-RV32C ?= 0 # unsupported by RTL
-
 ISA_SIM_SRC_ROOT := $(ISA_SIM_DIR)
 ISA_SIM_OBJ_ROOT := $(ISA_SIM_DIR)/$(ISA_SIM_BDIR)
 ISA_SIM_SRC_MK := $(ISA_SIM_DIR)/Makefile.isa_sim_sources.mk
-include $(ISA_SIM_SRC_MK)
 
-ISA_SIM_COSIM_MAKE_ARGS := BDIR=$(ISA_SIM_BDIR)
-ISA_SIM_COSIM_MAKE_ARGS += DPI=1 UART_IN=1 SIMD=$(SIMD) RV32C=$(RV32C)
-ISA_SIM_COSIM_MAKE_ARGS += PROFILERS=0 HW_MODELS=0 DASM=0
+# RTL's equivalent is '--define CPU_SIMD_EN=1' in filelist
+SIMD ?= 1
+# unsupported by RTL
+RV32C ?= 0
+
+# env features
+DPI := 1
+PROFILERS := 1
+DASM := 1
+UART := 1
+UART_IN := 0
+HW_MODELS := 0
+
+ISA_SIM_FLAGS := BDIR=$(ISA_SIM_BDIR) SIMD=$(SIMD) RV32C=$(RV32C) \
+    DPI=$(DPI) PROFILERS=$(PROFILERS) DASM=$(DASM) \
+    UART=$(UART) UART_IN=$(UART_IN) HW_MODELS=$(HW_MODELS)
+
+DEFINES := -DDPI -DPROFILERS_EN -DDASM_EN -DUART_EN
+ifeq ($(strip $(SIMD)), 1)
+DEFINES += -DSIMD_EN
+endif
+ifeq ($(strip $(RV32C)), 1)
+DEFINES += -DRV32C_EN
+endif
+
+include $(ISA_SIM_SRC_MK)
 
 # COSIM
 COSIM_ROOT := cosim
@@ -65,7 +84,7 @@ cosim_obj: $(COSIM_OBJS)
 $(COSIM_TARGET): .isa_sim_obj.touchfile $(COSIM_OBJS)
 	@echo "Building COSIM SO" $(COSIM_LOG_ARG)
 	@$(CXX) $(CXXFLAGS) -o $(COSIM_TARGET) $(COSIM_OBJS) $(ISA_SIM_COSIM_OBJS) \
-		$(DPI_LINK_LIB) $(COSIM_LOG_ARG)
+		$(DPI_LINK_LIB) $(DEFINES) $(COSIM_LOG_ARG)
 	@echo "Building COSIM SO done" $(COSIM_LOG_ARG)
 
 # recipe calls isa sim's make which builds all isa sim objects
@@ -74,7 +93,7 @@ isa_sim_obj: .isa_sim_obj.touchfile
 .isa_sim_obj.touchfile: $(ISA_SIM_COSIM_SRCS) $(ISA_SIM_H) $(COSIM_H) \
 		$(ISA_SIM_DIR)/Makefile $(ISA_SIM_SRC_MK)
 	@echo "Building ISA SIM" $(COSIM_LOG_ARG)
-	@$(MAKE) -C $(ISA_SIM_DIR) obj_for_cosim $(ISA_SIM_COSIM_MAKE_ARGS) \
+	@$(MAKE) -C $(ISA_SIM_DIR) obj_for_cosim $(ISA_SIM_FLAGS) \
 		INC_EXTRA="$(ISA_SIM_INC_EXTRA)" CXX="$(CXX)" $(COSIM_LOG_ARG)
 	@touch .isa_sim_obj.touchfile
 	@echo "Building ISA SIM done" $(COSIM_LOG_ARG)
@@ -82,7 +101,7 @@ isa_sim_obj: .isa_sim_obj.touchfile
 $(COSIM_ROOT)/$(COSIM_BDIR)/%.o: $(COSIM_ROOT)/%.cpp $(COSIM_H) $(ISA_SIM_H)
 	@echo "Building COSIM OBJ $@" $(COSIM_LOG_ARG)
 	@mkdir -p $(dir $@)
-	@$(CXX) $(CXXFLAGS) -MMD -c $< -o $@ $(COSIM_INC) $(ISA_SIM_INC) -DDPI \
+	@$(CXX) $(CXXFLAGS) -MMD -c $< -o $@ $(COSIM_INC) $(ISA_SIM_INC) $(DEFINES) \
 		$(COSIM_LOG_ARG)
 	@echo "Building COSIM OBJ $@ done" $(COSIM_LOG_ARG)
 

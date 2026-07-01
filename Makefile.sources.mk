@@ -4,7 +4,7 @@ SOURCE_FILES ?= $(REPO_ROOT)/filelist/sources_sim.f
 
 # if SIM_ONLY, ignore getting sources so it doesn't trigger rebuilds
 SIM_ONLY ?= 0
-ifeq ($(SIM_ONLY), 1)
+ifeq ($(strip $(SIM_ONLY)), 1)
 SRC_VERIF :=
 SRC_DESIGN :=
 INC_DIRS :=

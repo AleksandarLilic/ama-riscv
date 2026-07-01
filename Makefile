@@ -69,7 +69,7 @@ else
 endif
 
 # silence make output if logging to file
-ifeq ($(TO_LOG), 1)
+ifeq ($(strip $(TO_LOG)), 1)
 Q = @
 else
 Q =
@@ -105,7 +105,7 @@ TB_ARGS += -testplusarg log_level=$(LOG_LEVEL)
 all: sim
 
 # if SIM_ONLY, ignore getting sources so it doesn't trigger rebuilds
-ifeq ($(SIM_ONLY), 0)
+ifeq ($(strip $(SIM_ONLY)), 0)
 include cosim/Makefile.cosim.mk
 endif
 
