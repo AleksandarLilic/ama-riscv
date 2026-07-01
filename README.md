@@ -618,7 +618,7 @@ time_unit : us
 (Showing top 17 of 36 entries after filtering - Threshold: 1%)
 ```
 
-![](examples/dhrystone_dhrystone_out_cosim/callstack_folded_cycle_cosim.png)
+<img src="examples/dhrystone_dhrystone_out_cosim/callstack_folded_cycle_cosim.png" width=50% height=50%>
 
 It's also possible to combine RTL and ISA sim callstacks to get IPC breakdown
 
@@ -790,7 +790,7 @@ Optionally, save symbols found in `dasm` with `--save_symbols`
 
 ***Execution breakdown***
 
-![](examples/dhrystone_dhrystone_out_cosim/inst_profile_clk.png)
+<img src="examples/dhrystone_dhrystone_out_cosim/inst_profile_clk.png" width=70% height=70%>
 
 ***Execution histograms***
 
