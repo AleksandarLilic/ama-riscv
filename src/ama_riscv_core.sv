@@ -32,6 +32,7 @@ pipeline_if_typed #(.T(wb_sel_t)) wb_sel ();
 pipeline_if_typed #(.T(mem_region_t)) mem_region ();
 pipeline_if_typed #(.T(cycle_tag_t)) ct ();
 pipeline_if_typed #(.T(cycle_tag_t)) ct_gen ();
+pipeline_if_s csr_minstret_wr ();
 
 //------------------------------------------------------------------------------
 // pipe stage controls
@@ -668,6 +669,7 @@ end
 
 perf_event_t perf_events;
 arch_width_t csr_out_exe;
+logic csr_minstret_wr_skip;
 ama_riscv_csr csr_i (
     .clk,
     .rst,
@@ -676,6 +678,7 @@ ama_riscv_csr csr_i (
     .imm5 (csr_imm5_exe),
     .addr (csr_addr_exe),
     .perf_events,
+    .minstret_wr_skip (csr_minstret_wr_skip),
     .mtime (clint_ch.mtime),
     .out (csr_out_exe),
     // trap interface
@@ -693,6 +696,12 @@ assign csr_drain_done = (
     !pc_nz.mem && !pc_nz.wbk && !pc_nz.ret && !perf_events.ret_inst
 );
 assign csr_stalled = (csr_inst_exe && !csr_drain_done);
+
+// minstret increment skip on write to minstret csr
+assign csr_minstret_wr.exe = (
+    csr_ctrl_exe.en && csr_ctrl_exe.we &&
+    ((csr_addr_exe == CSR_MINSTRET) || (csr_addr_exe == CSR_MINSTRETH))
+);
 
 arch_width_t pc_exe_inc4;
 /* verilator lint_off PINCONNECTEMPTY */
@@ -800,6 +809,7 @@ arch_width_t rs3_mem;
 `STAGE_E_M(1'b1, uart_ch_exe, uart_ch_mem, 'h0)
 `STAGE_E_M(1'b1, mem_region.exe, mem_region.mem, 'h0)
 `STAGE_E_M(1'b1, clint_ch_exe, clint_ch_mem, 'h0)
+`STAGE_E_M(1'b1, csr_minstret_wr.exe, csr_minstret_wr.mem, 1'b0)
 
 `DFF_CI_RI_RVI(
     (dc_stalled || hazard.to_exe || div_stalled || csr_stalled),
@@ -876,6 +886,7 @@ arch_width_t e_writeback_wbk, e_writeback_p_wbk;
 `STAGE_M_W(1'b1, load_inst_mem, load_inst_wbk, 'h0)
 `STAGE_M_W(1'b1, simd_inst_mem, simd_inst_wbk, 'h0)
 `STAGE_M_W(1'b1, mem_region.mem, mem_region.wbk, 'h0)
+`STAGE_M_W(1'b1, csr_minstret_wr.mem, csr_minstret_wr.wbk, 1'b0)
 
 always_comb begin
     ct_gen.mem = ct.mem;
@@ -925,6 +936,7 @@ logic inst_retired_simd;
 `STAGE_W_R(1'b1, (inst.wbk & {INST_WIDTH{!trap_tag.wbk.trapped}}), inst.ret, 'h0)
 `STAGE_W_R(1'b1, (pc_nz.wbk && !trap_tag.wbk.trapped), pc_nz.ret, 1'b0)
 `STAGE_W_R(1'b1, (simd_inst_wbk && !trap_tag.wbk.trapped), inst_retired_simd, 'h0)
+`STAGE_W_R(1'b1, (csr_minstret_wr.wbk && !trap_tag.wbk.trapped), csr_minstret_wr.ret, 1'b0)
 
 always_comb begin
     ct_gen.wbk = ct.wbk;
@@ -998,6 +1010,7 @@ always_comb begin
 end
 
 `DFF_CI_RI_RVI(cpe, perf_events)
+`DFF_CI_RI_RVI(csr_minstret_wr.ret, csr_minstret_wr_skip) //align w/ perf_events
 
 //------------------------------------------------------------------------------
 // Reset sequence
