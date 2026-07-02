@@ -452,14 +452,12 @@ assign rsp_core.data =
 
 // perf events
 perf_event_icache_t pe_c; // perf_event_collect
-logic [1:0] spec_miss_cnt;
 logic has_spec_miss, spec_miss_resolved;
 assign spec_miss_resolved = (has_spec_miss && spec.resolve);
-assign has_spec_miss = (spec_miss_cnt != 0);
 always_ff @(posedge clk) begin
-    if (rst) spec_miss_cnt <= 'h0;
-    else if (pe_c.spec_miss) spec_miss_cnt <= (spec_miss_cnt + '1);
-    else if (spec_miss_resolved) spec_miss_cnt <= (spec_miss_cnt - '1);
+    if (rst) has_spec_miss <= 'h0;
+    else if (pe_c.spec_miss) has_spec_miss <= 1'b1;
+    else if (spec_miss_resolved) has_spec_miss <= 1'b0;
 end
 
 assign pe_c.hit = hit;
