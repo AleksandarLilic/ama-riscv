@@ -77,28 +77,28 @@ typedef struct {
     int unsigned wb = 'h0;
 } hw_counters_t;
 
+// ==== PERF_EVENT AUTOGEN BEGIN ====
 typedef struct {
-    byte ret;
-    byte bad_spec = '0; // tda
-    byte stall_be = '0; // tda
-    byte stall_l1d = '0; // tda
+    byte ret_inst = '0;
+    byte bad_spec = '0;
+    byte stall_be = '0;
+    byte stall_l1d = '0;
     byte stall_l1d_r = '0;
-    byte stall_l1d_w = '0;
-    byte stall_fe = '0; // tda
-    byte stall_l1i = '0; // tda
-    byte stall_simd = '0;
+    byte stall_fe = '0;
+    byte stall_l1i = '0;
+    byte stall_load_use = '0;
+    byte stall_mul_simd_use = '0;
     byte stall_div = '0;
-    byte stall_load = '0;
     byte ret_ctrl_flow = '0;
-    byte ret_ctrl_flow_j = '0;
     byte ret_ctrl_flow_jr = '0;
     byte ret_ctrl_flow_br = '0;
     byte ret_mem = '0;
     byte ret_mem_load = '0;
-    byte ret_mem_store = '0;
-    byte ret_simd = '0; // tda
+    byte ret_mul = '0;
+    byte ret_div = '0;
+    byte ret_simd = '0;
     byte ret_simd_arith = '0;
-    byte ret_simd_data_fmt = '0;
+    byte ret_simd_arith_dot = '0;
     byte bp_miss = '0;
     byte l1i_ref = '0;
     byte l1i_miss = '0;
@@ -106,12 +106,11 @@ typedef struct {
     byte l1i_spec_miss_bad = '0;
     byte l1d_ref = '0;
     byte l1d_ref_r = '0;
-    byte l1d_ref_w = '0;
     byte l1d_miss = '0;
     byte l1d_miss_r = '0;
-    byte l1d_miss_w = '0;
     byte l1d_writeback = '0;
-} core_events_t;
+} perf_event_bytes_t;
+// ==== PERF_EVENT AUTOGEN END ====
 
 typedef struct {
     int unsigned cycles;

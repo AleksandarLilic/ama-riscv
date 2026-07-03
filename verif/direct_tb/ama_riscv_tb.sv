@@ -59,7 +59,7 @@ import "DPI-C" function void cosim_add_te(
 );
 
 import "DPI-C" function void cosim_log_stats(
-    core_events_t core,
+    perf_event_bytes_t core,
     hw_events_t icache,
     hw_events_t dcache,
     hw_events_t bp
@@ -137,7 +137,7 @@ bit k_done [longint unsigned]; // assoc. array to track IDs that are odne
 
 // perf
 hw_counters_t ic_stats, dc_stats, bp_stats;
-core_events_t core_events;
+perf_event_bytes_t pe;
 tda_counters_t tda;
 mem_active_ports_counters_t mem_active_ports;
 hw_events_t e_ic, e_dc, e_bp; // so they are available for wave
@@ -805,7 +805,7 @@ task automatic single_step();
 
     `ifdef ENABLE_COSIM
     add_trace_entry((clk_cnt - `RST_PULSES), e_ic.hm, e_dc.hm, e_bp.hm);
-    cosim_log_stats(core_events, e_ic, e_dc, e_bp);
+    cosim_log_stats(pe, e_ic, e_dc, e_bp);
 
     `ifdef ENABLE_KONATA
     konata_log_events();
@@ -987,50 +987,51 @@ initial begin
     `LOG_I("All RF checkers active");
 end
 
-// perf counters
-always_comb begin
-    core_events.ret = `CORE.inst_retired;
-    core_events.bad_spec = `CORE.perf_events.bad_spec;
-    core_events.stall_be = `CORE.perf_events.stall_be;
-    core_events.stall_l1d = `CORE.perf_events.stall_l1d;
-    core_events.stall_l1d_r = `CORE.perf_events.stall_l1d_r;
-    core_events.stall_l1d_w = `CORE.perf_events.stall_l1d_w;
-    core_events.stall_fe = `CORE.perf_events.stall_fe;
-    core_events.stall_l1i = `CORE.perf_events.stall_l1i;
-    core_events.stall_simd = `CORE.perf_events.stall_simd;
-    core_events.stall_div = `CORE.perf_events.stall_div;
-    core_events.stall_load = `CORE.perf_events.stall_load;
-    core_events.ret_ctrl_flow = `CORE.perf_events.ret_ctrl_flow;
-    core_events.ret_ctrl_flow_j = `CORE.perf_events.ret_ctrl_flow_j;
-    core_events.ret_ctrl_flow_jr = `CORE.perf_events.ret_ctrl_flow_jr;
-    core_events.ret_ctrl_flow_br = `CORE.perf_events.ret_ctrl_flow_br;
-    core_events.ret_mem = `CORE.perf_events.ret_mem;
-    core_events.ret_mem_load = `CORE.perf_events.ret_mem_load;
-    core_events.ret_mem_store = `CORE.perf_events.ret_mem_store;
-    core_events.ret_simd = `CORE.perf_events.ret_simd;
-    core_events.ret_simd_arith = `CORE.perf_events.ret_simd_arith;
-    core_events.ret_simd_data_fmt = `CORE.perf_events.ret_simd_data_fmt;
-    core_events.bp_miss = `CORE.perf_events.bp_miss;
-    core_events.l1i_ref = `CORE.perf_events.l1i_ref;
-    core_events.l1i_miss = `CORE.perf_events.l1i_miss;
-    core_events.l1i_spec_miss = `CORE.perf_events.l1i_spec_miss;
-    core_events.l1i_spec_miss_bad = `CORE.perf_events.l1i_spec_miss_bad;
-    core_events.l1d_ref = `CORE.perf_events.l1d_ref;
-    core_events.l1d_ref_r = `CORE.perf_events.l1d_ref_r;
-    core_events.l1d_ref_w = `CORE.perf_events.l1d_ref_w;
-    core_events.l1d_miss = `CORE.perf_events.l1d_miss;
-    core_events.l1d_miss_r = `CORE.perf_events.l1d_miss_r;
-    core_events.l1d_miss_w = `CORE.perf_events.l1d_miss_w;
-    core_events.l1d_writeback = `CORE.perf_events.l1d_writeback;
-end
+// perf events
 
+// ==== PERF_EVENT AUTOGEN BEGIN ====
+always_comb begin
+    pe.ret_inst = `CORE.cpe.ret_inst;
+    pe.bad_spec = `CORE.cpe.bad_spec;
+    pe.stall_be = `CORE.cpe.stall_be;
+    pe.stall_l1d = `CORE.cpe.stall_l1d;
+    pe.stall_l1d_r = `CORE.cpe.stall_l1d_r;
+    pe.stall_fe = `CORE.cpe.stall_fe;
+    pe.stall_l1i = `CORE.cpe.stall_l1i;
+    pe.stall_load_use = `CORE.cpe.stall_load_use;
+    pe.stall_mul_simd_use = `CORE.cpe.stall_mul_simd_use;
+    pe.stall_div = `CORE.cpe.stall_div;
+    pe.ret_ctrl_flow = `CORE.cpe.ret_ctrl_flow;
+    pe.ret_ctrl_flow_jr = `CORE.cpe.ret_ctrl_flow_jr;
+    pe.ret_ctrl_flow_br = `CORE.cpe.ret_ctrl_flow_br;
+    pe.ret_mem = `CORE.cpe.ret_mem;
+    pe.ret_mem_load = `CORE.cpe.ret_mem_load;
+    pe.ret_mul = `CORE.cpe.ret_mul;
+    pe.ret_div = `CORE.cpe.ret_div;
+    pe.ret_simd = `CORE.cpe.ret_simd;
+    pe.ret_simd_arith = `CORE.cpe.ret_simd_arith;
+    pe.ret_simd_arith_dot = `CORE.cpe.ret_simd_arith_dot;
+    pe.bp_miss = `CORE.cpe.bp_miss;
+    pe.l1i_ref = `CORE.cpe.l1i_ref;
+    pe.l1i_miss = `CORE.cpe.l1i_miss;
+    pe.l1i_spec_miss = `CORE.cpe.l1i_spec_miss;
+    pe.l1i_spec_miss_bad = `CORE.cpe.l1i_spec_miss_bad;
+    pe.l1d_ref = `CORE.cpe.l1d_ref;
+    pe.l1d_ref_r = `CORE.cpe.l1d_ref_r;
+    pe.l1d_miss = `CORE.cpe.l1d_miss;
+    pe.l1d_miss_r = `CORE.cpe.l1d_miss_r;
+    pe.l1d_writeback = `CORE.cpe.l1d_writeback;
+end
+// ==== PERF_EVENT AUTOGEN END ====
+
+// perf counters
 always_ff @(posedge clk) begin
-    tda.bad_spec += core_events.bad_spec;
-    tda.stall_be += core_events.stall_be;
-    tda.stall_l1d += core_events.stall_l1d;
-    tda.stall_fe += core_events.stall_fe;
-    tda.stall_l1i += core_events.stall_l1i;
-    tda.ret_simd += core_events.ret_simd;
+    tda.bad_spec += pe.bad_spec;
+    tda.stall_be += pe.stall_be;
+    tda.stall_l1d += pe.stall_l1d;
+    tda.stall_fe += pe.stall_fe;
+    tda.stall_l1i += pe.stall_l1i;
+    tda.ret_simd += pe.ret_simd;
     tda.cycles += 1;
 end
 

@@ -96,27 +96,26 @@ DPI_LINKER_DECL DPI_DLLESPEC
 	char ct_dmem_mem_w);
 
 typedef struct {
-	char ret;
+	char ret_inst;
 	char bad_spec;
 	char stall_be;
 	char stall_l1d;
 	char stall_l1d_r;
-	char stall_l1d_w;
 	char stall_fe;
 	char stall_l1i;
-	char stall_simd;
+	char stall_load_use;
+	char stall_mul_simd_use;
 	char stall_div;
-	char stall_load;
 	char ret_ctrl_flow;
-	char ret_ctrl_flow_j;
 	char ret_ctrl_flow_jr;
 	char ret_ctrl_flow_br;
 	char ret_mem;
 	char ret_mem_load;
-	char ret_mem_store;
+	char ret_mul;
+	char ret_div;
 	char ret_simd;
 	char ret_simd_arith;
-	char ret_simd_data_fmt;
+	char ret_simd_arith_dot;
 	char bp_miss;
 	char l1i_ref;
 	char l1i_miss;
@@ -124,12 +123,10 @@ typedef struct {
 	char l1i_spec_miss_bad;
 	char l1d_ref;
 	char l1d_ref_r;
-	char l1d_ref_w;
 	char l1d_miss;
 	char l1d_miss_r;
-	char l1d_miss_w;
 	char l1d_writeback;
-} core_events_t;
+} perf_event_bytes_t;
 
 
 typedef struct {
@@ -147,7 +144,7 @@ typedef struct {
 /* Imported (by SV) function */
 DPI_LINKER_DECL DPI_DLLESPEC 
  void cosim_log_stats(
-	const core_events_t* core ,
+	const perf_event_bytes_t* core ,
 	const hw_events_t* icache ,
 	const hw_events_t* dcache ,
 	const hw_events_t* bp);

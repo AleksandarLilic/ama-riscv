@@ -43,7 +43,7 @@ void cosim_stats::show() {
     std::cout << "\n\n";
 }
 
-void cosim_stats::log_core_event(const core_events_t* ev) {
+void cosim_stats::log_core_event(const perf_event_bytes_t* ev) {
     core_stats.add_events(ev);
 }
 

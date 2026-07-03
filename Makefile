@@ -141,6 +141,9 @@ elab: .elab.touchfile
 dpi_header_gen: .compile.touchfile
 	xelab $(WLIB_TOP) $(ELAB_OPTS) -dpiheader $(DPI_FUNCS_H) -log /dev/null 2>&1
 
+autogen_perf_events:
+	@$(REPO_ROOT)/script/autogen_perf_events.py
+
 # example usage:
 # 'make sim TEST_PATH=sim/sw/baremetal/asm_rv32i/basic TIMEOUT_CLOCKS=1000'
 sim: .elab.touchfile
@@ -291,4 +294,4 @@ clean: cleanrtl
 
 cleanall: cleanrtl cleancosim cleanisa
 
-.PHONY: lint slang slang_pp hier watch_slang workdir coverage cleancov cleanrtl cleancosim cleanisa cleanall
+.PHONY: lint slang slang_pp hier watch_slang workdir autogen_perf_events coverage cleancov cleanrtl cleancosim cleanisa cleanall

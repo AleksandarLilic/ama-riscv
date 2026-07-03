@@ -23,51 +23,7 @@ module ama_riscv_csr (
 
 //------------------------------------------------------------------------------
 
-//localparam unsigned MHPMEVENT_PAD_WIDTH =
-//    ((ARCH_WIDTH - MHPMEVENTS) != 0) ? (ARCH_WIDTH - MHPMEVENTS) : ARCH_WIDTH;
-//localparam logic [MHPMEVENT_PAD_WIDTH-1:0] MHPMEVENT_PAD = 'h0;
 localparam unsigned MHPM_MASK_BITS = $clog2(MHPMCOUNTERS + MHPM_IDX_L);
-
-/* verilator lint_off UNUSEDSIGNAL */
-function automatic logic get_event(input perf_event_t pe, input mhpmevent_t ev);
-    // ret_inst not used from pe
-    case (ev)
-        MHPMEVENT_BAD_SPEC: get_event = pe.bad_spec;
-        MHPMEVENT_STALL_BE : get_event = pe.stall_be;
-        MHPMEVENT_STALL_L1D : get_event = pe.stall_l1d;
-        MHPMEVENT_STALL_L1D_R : get_event = pe.stall_l1d_r;
-        MHPMEVENT_STALL_L1D_W : get_event = pe.stall_l1d_w;
-        MHPMEVENT_STALL_FE : get_event = pe.stall_fe;
-        MHPMEVENT_STALL_L1I : get_event = pe.stall_l1i;
-        MHPMEVENT_STALL_SIMD : get_event = pe.stall_simd;
-        MHPMEVENT_STALL_DIV : get_event = pe.stall_div;
-        MHPMEVENT_STALL_LOAD : get_event = pe.stall_load;
-        MHPMEVENT_RET_CTRL_FLOW : get_event = pe.ret_ctrl_flow;
-        MHPMEVENT_RET_CTRL_FLOW_J : get_event = pe.ret_ctrl_flow_j;
-        MHPMEVENT_RET_CTRL_FLOW_JR : get_event = pe.ret_ctrl_flow_jr;
-        MHPMEVENT_RET_CTRL_FLOW_BR : get_event = pe.ret_ctrl_flow_br;
-        MHPMEVENT_RET_MEM : get_event = pe.ret_mem;
-        MHPMEVENT_RET_MEM_LOAD : get_event = pe.ret_mem_load;
-        MHPMEVENT_RET_MEM_STORE : get_event = pe.ret_mem_store;
-        MHPMEVENT_RET_SIMD : get_event = pe.ret_simd;
-        MHPMEVENT_RET_SIMD_ARITH : get_event = pe.ret_simd_arith;
-        MHPMEVENT_RET_SIMD_DATA_FMT : get_event = pe.ret_simd_data_fmt;
-        MHPMEVENT_BP_MISS: get_event = pe.bp_miss;
-        MHPMEVENT_L1I_REF : get_event = pe.l1i_ref;
-        MHPMEVENT_L1I_MISS : get_event = pe.l1i_miss;
-        MHPMEVENT_L1I_SPEC_MISS : get_event = pe.l1i_spec_miss;
-        MHPMEVENT_L1I_SPEC_MISS_BAD : get_event = pe.l1i_spec_miss_bad;
-        MHPMEVENT_L1D_REF : get_event = pe.l1d_ref;
-        MHPMEVENT_L1D_REF_R : get_event = pe.l1d_ref_r;
-        MHPMEVENT_L1D_REF_W : get_event = pe.l1d_ref_w;
-        MHPMEVENT_L1D_MISS : get_event = pe.l1d_miss;
-        MHPMEVENT_L1D_MISS_R : get_event = pe.l1d_miss_r;
-        MHPMEVENT_L1D_MISS_W : get_event = pe.l1d_miss_w;
-        MHPMEVENT_L1D_WRITEBACK : get_event = pe.l1d_writeback;
-        default: get_event = 1'b0;
-    endcase
-endfunction
-/* verilator lint_on UNUSEDSIGNAL */
 
 //------------------------------------------------------------------------------
 // implementation
@@ -147,8 +103,7 @@ always_comb begin
             CSR_MHPMEVENT6,
             CSR_MHPMEVENT7,
             CSR_MHPMEVENT8:
-                //out = {MHPMEVENT_PAD, csr.mhpmevent[mhpm_addr_e]};
-                out = csr.mhpmevent[mhpm_addr_e];
+                out[MHPMEVENTS-1:0] = csr.mhpmevent[mhpm_addr_e];
             // trap CSRs
             CSR_MSTATUS: out = csr.mstatus;
             CSR_MIE: out = csr.mie;
@@ -286,7 +241,8 @@ always_ff @(posedge clk) begin
     end else if (ctrl.we && (|am_minstret)) begin
         if (am_minstret[0]) csr.minstret.r[CSR_LOW] <= wr_data;
         else csr.minstret.r[CSR_HIGH] <= wr_data;
-    end else if (perf_events.ret_inst && !minstret_wr_skip) begin
+    end else if (get_event(perf_events,MHPMEVENT_RET_INST) && !minstret_wr_skip)
+    begin
         csr.minstret <= (csr.minstret + 64'h1);
     end
 end

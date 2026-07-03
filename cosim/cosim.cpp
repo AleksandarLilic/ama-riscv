@@ -26,7 +26,7 @@ void cosim_setup(
     char log_isa_sim,
     const char** cosim_out_dir
 ) {
-    cfg.perf_events = {perf_event_t::inst, perf_event_t::cycle};
+    cfg.perf_events = {perf_event_t::ret_inst, perf_event_t::cycle};
     cfg.prof_pc.start = prof_pc_start;
     cfg.prof_pc.stop = prof_pc_stop;
     cfg.prof_pc.single_match_num = prof_pc_single_match;
@@ -127,7 +127,7 @@ void cosim_add_te(
 
 DPI_LINKER_DECL DPI_DLLESPEC
 void cosim_log_stats(
-    const core_events_t* core,
+    const perf_event_bytes_t* core,
     const hw_events_t* icache,
     const hw_events_t* dcache,
     const hw_events_t* bp)

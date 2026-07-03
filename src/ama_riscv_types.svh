@@ -475,8 +475,9 @@ typedef struct packed {
 } csr_ctrl_t;
 
 typedef struct packed {
-    logic mult;
+    logic mul;
     logic div;
+    logic simd;
     logic simd_arith;
     logic simd_data_fmt;
     logic simd_shift;
@@ -567,57 +568,6 @@ typedef struct packed {
     logic b4;
     logic b2;
 } simd_arith_el_width_t;
-
-typedef struct packed {
-    logic ret_inst;
-    logic bad_spec; // tda
-    logic stall_be; // tda
-    logic stall_l1d; // tda
-    logic stall_l1d_r;
-    logic stall_l1d_w;
-    logic stall_fe; // tda
-    logic stall_l1i; // tda
-    logic stall_simd;
-    logic stall_div;
-    logic stall_load;
-    logic ret_ctrl_flow;
-    logic ret_ctrl_flow_j;
-    logic ret_ctrl_flow_jr;
-    logic ret_ctrl_flow_br;
-    logic ret_mem;
-    logic ret_mem_load;
-    logic ret_mem_store;
-    logic ret_simd; // tda
-    logic ret_simd_arith;
-    logic ret_simd_data_fmt;
-    logic bp_miss;
-    logic l1i_ref;
-    logic l1i_miss;
-    logic l1i_spec_miss;
-    logic l1i_spec_miss_bad;
-    //logic l1i_line_fill;
-    logic l1d_ref;
-    logic l1d_ref_r;
-    logic l1d_ref_w;
-    logic l1d_miss;
-    logic l1d_miss_r;
-    logic l1d_miss_w;
-    //logic l1d_line_fill; // same as miss in current uarch
-    logic l1d_writeback;
-} perf_event_t;
-
-typedef struct packed {
-    logic bad_spec;
-    logic stall_be_core;
-    logic stall_l1d;
-    logic stall_l1d_r;
-    logic stall_l1d_w;
-    logic stall_fe_core;
-    logic stall_l1i;
-    logic stall_simd;
-    logic stall_div;
-    logic stall_load;
-} cycle_tag_t;
 
 // branch predictor
 typedef enum logic [2:0] {
@@ -762,7 +712,6 @@ typedef union packed {
 
 parameter unsigned MHPM_IDX_L = 3; // index low, starts at idx 3
 parameter unsigned MHPMCOUNTERS = 6;
-parameter unsigned MHPMEVENTS = 32;
 parameter unsigned MHPMCOUNTER_WIDTH = 48; // min 32 bits
 
 parameter unsigned MHPMCOUNTER_PAD_WIDTH = (ARCH_WIDTH_D - MHPMCOUNTER_WIDTH);
@@ -770,29 +719,76 @@ parameter logic [MHPMCOUNTER_PAD_WIDTH-1:0] MHPMCOUNTER_PAD = 'h0;
 
 `define MHPM_RANGE MHPM_IDX_L:(MHPMCOUNTERS + MHPM_IDX_L - 1)
 
-// Machine Hardware Performance Monitor (MHPM) counters & events
+typedef struct packed {
+    logic bad_spec;
+    logic stall_l1d;
+    logic stall_l1d_r;
+    logic stall_fe_core;
+    logic stall_l1i;
+    logic stall_load_use; // stall_be_core 0
+    logic stall_mul_simd_use; // stall_be_core 1
+    logic stall_div; // stall_be_core 2
+} cycle_pe_tag_t;
+
+// ==== PERF_EVENT AUTOGEN BEGIN ====
+
+typedef struct packed {
+    logic ret_inst;
+    logic bad_spec;
+    logic stall_be;
+    logic stall_l1d;
+    logic stall_l1d_r;
+    logic stall_fe;
+    logic stall_l1i;
+    logic stall_load_use;
+    logic stall_mul_simd_use;
+    logic stall_div;
+    logic ret_ctrl_flow;
+    logic ret_ctrl_flow_jr;
+    logic ret_ctrl_flow_br;
+    logic ret_mem;
+    logic ret_mem_load;
+    logic ret_mul;
+    logic ret_div;
+    logic ret_simd;
+    logic ret_simd_arith;
+    logic ret_simd_arith_dot;
+    logic bp_miss;
+    logic l1i_ref;
+    logic l1i_miss;
+    logic l1i_spec_miss;
+    logic l1i_spec_miss_bad;
+    logic l1d_ref;
+    logic l1d_ref_r;
+    logic l1d_miss;
+    logic l1d_miss_r;
+    logic l1d_writeback;
+} perf_event_t;
+
+parameter unsigned MHPMEVENTS = 30;
+
 typedef enum logic [MHPMEVENTS-1:0] {
     MHPMEVENT_NONE = 0,
-    MHPMEVENT_BAD_SPEC = (1 << 0), // tda
-    MHPMEVENT_STALL_BE = (1 << 1), // tda
-    MHPMEVENT_STALL_L1D = (1 << 2), // tda
-    MHPMEVENT_STALL_L1D_R = (1 << 3),
-    MHPMEVENT_STALL_L1D_W = (1 << 4),
-    MHPMEVENT_STALL_FE = (1 << 5), // tda
-    MHPMEVENT_STALL_L1I = (1 << 6), // tda
-    MHPMEVENT_STALL_SIMD = (1 << 7),
-    MHPMEVENT_STALL_DIV = (1 << 8),
-    MHPMEVENT_STALL_LOAD = (1 << 9),
+    MHPMEVENT_RET_INST = (1 << 0),
+    MHPMEVENT_BAD_SPEC = (1 << 1),
+    MHPMEVENT_STALL_BE = (1 << 2),
+    MHPMEVENT_STALL_L1D = (1 << 3),
+    MHPMEVENT_STALL_L1D_R = (1 << 4),
+    MHPMEVENT_STALL_FE = (1 << 5),
+    MHPMEVENT_STALL_L1I = (1 << 6),
+    MHPMEVENT_STALL_LOAD_USE = (1 << 7),
+    MHPMEVENT_STALL_MUL_SIMD_USE = (1 << 8),
+    MHPMEVENT_STALL_DIV = (1 << 9),
     MHPMEVENT_RET_CTRL_FLOW = (1 << 10),
-    MHPMEVENT_RET_CTRL_FLOW_J = (1 << 11),
-    MHPMEVENT_RET_CTRL_FLOW_JR = (1 << 12),
-    MHPMEVENT_RET_CTRL_FLOW_BR = (1 << 13),
-    MHPMEVENT_RET_MEM = (1 << 14),
-    MHPMEVENT_RET_MEM_LOAD = (1 << 15),
-    MHPMEVENT_RET_MEM_STORE = (1 << 16),
-    MHPMEVENT_RET_SIMD = (1 << 17), // tda
+    MHPMEVENT_RET_CTRL_FLOW_JR = (1 << 11),
+    MHPMEVENT_RET_CTRL_FLOW_BR = (1 << 12),
+    MHPMEVENT_RET_MEM = (1 << 13),
+    MHPMEVENT_RET_MEM_LOAD = (1 << 14),
+    MHPMEVENT_RET_MUL = (1 << 15),
+    MHPMEVENT_RET_DIV = (1 << 16),
+    MHPMEVENT_RET_SIMD = (1 << 17),
     MHPMEVENT_RET_SIMD_ARITH = (1 << 18),
-    MHPMEVENT_RET_SIMD_DATA_FMT = (1 << 19),
+    MHPMEVENT_RET_SIMD_ARITH_DOT = (1 << 19),
     MHPMEVENT_BP_MISS = (1 << 20),
     MHPMEVENT_L1I_REF = (1 << 21),
     MHPMEVENT_L1I_MISS = (1 << 22),
@@ -800,12 +796,48 @@ typedef enum logic [MHPMEVENTS-1:0] {
     MHPMEVENT_L1I_SPEC_MISS_BAD = (1 << 24),
     MHPMEVENT_L1D_REF = (1 << 25),
     MHPMEVENT_L1D_REF_R = (1 << 26),
-    MHPMEVENT_L1D_REF_W = (1 << 27),
-    MHPMEVENT_L1D_MISS = (1 << 28),
-    MHPMEVENT_L1D_MISS_R = (1 << 29),
-    MHPMEVENT_L1D_MISS_W = (1 << 30),
-    MHPMEVENT_L1D_WRITEBACK = (1 << 31)
+    MHPMEVENT_L1D_MISS = (1 << 27),
+    MHPMEVENT_L1D_MISS_R = (1 << 28),
+    MHPMEVENT_L1D_WRITEBACK = (1 << 29)
 } mhpmevent_t;
+
+function automatic logic get_event(input perf_event_t pe, input mhpmevent_t ev);
+    case (ev)
+        MHPMEVENT_RET_INST: get_event = pe.ret_inst;
+        MHPMEVENT_BAD_SPEC: get_event = pe.bad_spec;
+        MHPMEVENT_STALL_BE: get_event = pe.stall_be;
+        MHPMEVENT_STALL_L1D: get_event = pe.stall_l1d;
+        MHPMEVENT_STALL_L1D_R: get_event = pe.stall_l1d_r;
+        MHPMEVENT_STALL_FE: get_event = pe.stall_fe;
+        MHPMEVENT_STALL_L1I: get_event = pe.stall_l1i;
+        MHPMEVENT_STALL_LOAD_USE: get_event = pe.stall_load_use;
+        MHPMEVENT_STALL_MUL_SIMD_USE: get_event = pe.stall_mul_simd_use;
+        MHPMEVENT_STALL_DIV: get_event = pe.stall_div;
+        MHPMEVENT_RET_CTRL_FLOW: get_event = pe.ret_ctrl_flow;
+        MHPMEVENT_RET_CTRL_FLOW_JR: get_event = pe.ret_ctrl_flow_jr;
+        MHPMEVENT_RET_CTRL_FLOW_BR: get_event = pe.ret_ctrl_flow_br;
+        MHPMEVENT_RET_MEM: get_event = pe.ret_mem;
+        MHPMEVENT_RET_MEM_LOAD: get_event = pe.ret_mem_load;
+        MHPMEVENT_RET_MUL: get_event = pe.ret_mul;
+        MHPMEVENT_RET_DIV: get_event = pe.ret_div;
+        MHPMEVENT_RET_SIMD: get_event = pe.ret_simd;
+        MHPMEVENT_RET_SIMD_ARITH: get_event = pe.ret_simd_arith;
+        MHPMEVENT_RET_SIMD_ARITH_DOT: get_event = pe.ret_simd_arith_dot;
+        MHPMEVENT_BP_MISS: get_event = pe.bp_miss;
+        MHPMEVENT_L1I_REF: get_event = pe.l1i_ref;
+        MHPMEVENT_L1I_MISS: get_event = pe.l1i_miss;
+        MHPMEVENT_L1I_SPEC_MISS: get_event = pe.l1i_spec_miss;
+        MHPMEVENT_L1I_SPEC_MISS_BAD: get_event = pe.l1i_spec_miss_bad;
+        MHPMEVENT_L1D_REF: get_event = pe.l1d_ref;
+        MHPMEVENT_L1D_REF_R: get_event = pe.l1d_ref_r;
+        MHPMEVENT_L1D_MISS: get_event = pe.l1d_miss;
+        MHPMEVENT_L1D_MISS_R: get_event = pe.l1d_miss_r;
+        MHPMEVENT_L1D_WRITEBACK: get_event = pe.l1d_writeback;
+        default: get_event = 1'b0;
+    endcase
+endfunction
+
+// ==== PERF_EVENT AUTOGEN END ====
 
 typedef struct packed {
     logic [MHPMCOUNTER_WIDTH-1:32] hi;

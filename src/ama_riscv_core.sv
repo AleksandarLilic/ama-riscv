@@ -30,8 +30,9 @@ pipeline_if_s pc_nz ();
 pipeline_if_typed #(.T(trap_tag_t)) trap_tag ();
 pipeline_if_typed #(.T(wb_sel_t)) wb_sel ();
 pipeline_if_typed #(.T(mem_region_t)) mem_region ();
-pipeline_if_typed #(.T(cycle_tag_t)) ct ();
-pipeline_if_typed #(.T(cycle_tag_t)) ct_gen ();
+pipeline_if_typed #(.T(inst_type_t)) itype ();
+pipeline_if_typed #(.T(cycle_pe_tag_t)) ct ();
+pipeline_if_typed #(.T(cycle_pe_tag_t)) ct_gen ();
 pipeline_if_s csr_minstret_wr ();
 
 //------------------------------------------------------------------------------
@@ -157,7 +158,6 @@ decoder_t decoded_exe; // some bits are not always used
 /* verilator lint_on UNUSEDSIGNAL */
 logic dc_stalled, div_stalled;
 logic csr_inst_exe, csr_drain_done, csr_stalled;
-logic branch_inst_mem, jalr_inst_mem;
 branch_t branch_resolution_mem;
 hazard_t hazard;
 
@@ -177,10 +177,10 @@ ama_riscv_fe_ctrl fe_ctrl_i (
     .pc_dec (pc.dec),
     .pc_mem (pc.mem),
     .branch_in_dec (decoded.itype.branch),
-    .branch_in_mem (branch_inst_mem),
+    .branch_in_mem (itype.mem.branch),
     .jalr_in_dec (decoded.itype.jalr),
     .jalr_in_exe (decoded_exe.itype.jalr),
-    .jalr_in_mem (jalr_inst_mem),
+    .jalr_in_mem (itype.mem.jalr),
     `ifdef USE_BP
     .bp_pred,
     `endif
@@ -327,8 +327,6 @@ end // gen_bp_dyn_single/gen_bp_dyn_comb
 end // gen_bp_sttc/gen_bp_dyn
 `endif // USE_BP
 
-// instructions that can cause a hazard
-logic load_inst_mem, load_inst_wbk, simd_arith_exe, simd_arith_mem;
 // decoded reg src addresses
 rf_addr_t rs1_addr_exe, rs2_addr_exe, rs3_addr_exe, rs3_addr_mem;
 // forwarding sources
@@ -345,11 +343,11 @@ ama_riscv_operand_forwarding #(
     .SIMD_EN (SIMD_EN)
 ) operand_forwarding_i (
     // inputs
-    .load_inst_mem (load_inst_mem),
-    .load_inst_wbk (load_inst_wbk),
+    .load_inst_mem (itype.mem.load),
+    .load_inst_wbk (itype.wbk.load),
     .dc_stalled (dc_stalled),
-    .simd_arith_exe (simd_arith_exe),
-    .simd_arith_mem (simd_arith_mem),
+    .mul_simd_arith_exe (itype.exe.mul || itype.exe.simd_arith),
+    .mul_simd_arith_mem (itype.mem.mul || itype.mem.simd_arith),
     .rs1_dec (rs1_addr_dec),
     .rs2_dec (rs2_addr_dec),
     .rs3_dec (rs3_addr_dec),
@@ -600,10 +598,6 @@ end else begin: gen_no_data_fmt
     assign data_fmt_out_p_exe = '0;
 end
 
-assign simd_arith_exe = (
-    decoded_exe.itype.mult || decoded_exe.itype.simd_arith
-);
-
 /* verilator lint_off UNUSEDSIGNAL */
 arch_width_t op_c_r_mem; // no late_c without SIMD
 /* verilator lint_on UNUSEDSIGNAL */
@@ -615,7 +609,7 @@ ama_riscv_simd #(
 ) simd_i (
     .clk,
     .rst,
-    .en (simd_arith_exe),
+    .en (itype.exe.mul || itype.exe.simd_arith),
     .ctrl_exe_mem,
     .ctrl_mem_wbk,
     .op (decoded_exe.simd_arith_op),
@@ -630,7 +624,7 @@ arch_width_t mult_p;
 ama_riscv_mult mult_i (
     .clk,
     .rst,
-    .en (simd_arith_exe),
+    .en (itype.exe.mul),
     .ctrl_exe_mem,
     .ctrl_mem_wbk,
     .op (decoded_exe.simd_arith_op[1:0]),
@@ -771,9 +765,7 @@ assign clint_ch_exe.wdata = op_b_r;
 // Pipeline FF EXE/MEM
 logic data_fmt_en_exe, data_fmt_en_mem;
 assign data_fmt_en_exe = decoded_exe.itype.simd_data_fmt;
-logic simd_inst_exe, simd_inst_mem;
-assign simd_inst_exe = (data_fmt_en_exe || decoded_exe.itype.simd_arith);
-
+assign itype.exe = decoded_exe.itype;
 assign pc_nz.exe = (pc.exe != 'h0);
 assign wb_sel.exe = decoded_exe.wb_sel;
 assign rf_we.exe = '{
@@ -800,11 +792,7 @@ arch_width_t rs3_mem;
 `STAGE_E_M(1'b1, pc_new_exe, pc_new_mem, 'h0)
 `STAGE_E_M(1'b1, op_c_r_exe, rs3_mem, 'h0)
 `STAGE_E_M(1'b1, branch_resolution_exe, branch_resolution_mem, B_NT)
-`STAGE_E_M(1'b1, decoded_exe.itype.branch, branch_inst_mem, 'h0)
-`STAGE_E_M(1'b1, decoded_exe.itype.jalr, jalr_inst_mem, 'h0)
-`STAGE_E_M(1'b1, decoded_exe.itype.load, load_inst_mem, 'h0)
-`STAGE_E_M(1'b1, simd_arith_exe, simd_arith_mem, 'h0)
-`STAGE_E_M(1'b1, simd_inst_exe, simd_inst_mem, 'b0)
+`STAGE_E_M(1'b1, itype.exe, itype.mem, '0)
 `STAGE_E_M(1'b1, dmem_req_exe, dmem_req_mem, 'h0)
 `STAGE_E_M(1'b1, uart_ch_exe, uart_ch_mem, 'h0)
 `STAGE_E_M(1'b1, mem_region.exe, mem_region.mem, 'h0)
@@ -819,12 +807,13 @@ arch_width_t rs3_mem;
 always_comb begin
     ct_gen.exe = ct.exe;
     ct_gen.exe.bad_spec |= spec.wrong; // DEC can also generate bad_spec
-    ct_gen.exe.stall_simd = (hazard.from_mem && simd_arith_mem);
-    ct_gen.exe.stall_div = div_stalled;
-    ct_gen.exe.stall_load = ((hazard.from_mem && load_inst_mem && !dc_stalled));
-    ct_gen.exe.stall_be_core = (
-        ct_gen.exe.stall_simd || ct_gen.exe.stall_div || ct_gen.exe.stall_load
+    ct_gen.exe.stall_load_use = (
+        (hazard.from_mem && itype.mem.load && !dc_stalled)
     );
+    ct_gen.exe.stall_mul_simd_use = (
+        hazard.from_mem && (itype.mem.mul || itype.mem.simd_arith)
+    );
+    ct_gen.exe.stall_div = div_stalled;
 end
 
 `DFF_CI_RI_RVI(ct_gen.exe, ct.mem)
@@ -869,7 +858,6 @@ assign clint_ch.wdata = clint_ch_mem.wdata;
 //------------------------------------------------------------------------------
 // Pipeline FF MEM/WBK
 
-logic simd_inst_wbk;
 arch_width_t e_writeback_wbk, e_writeback_p_wbk;
 
 `ifndef SYNT
@@ -883,14 +871,13 @@ arch_width_t e_writeback_wbk, e_writeback_p_wbk;
 `STAGE_M_W(rf_we.mem.rd, wb_sel.mem, wb_sel.wbk, WB_SEL_EWB)
 `STAGE_M_W(1'b1, rd_addr.mem, rd_addr.wbk, RF_X0_ZERO)
 `STAGE_M_W(1'b1, rf_we.mem, rf_we.wbk, 'h0)
-`STAGE_M_W(1'b1, load_inst_mem, load_inst_wbk, 'h0)
-`STAGE_M_W(1'b1, simd_inst_mem, simd_inst_wbk, 'h0)
+`STAGE_M_W(1'b1, itype.mem, itype.wbk, 'h0)
 `STAGE_M_W(1'b1, mem_region.mem, mem_region.wbk, 'h0)
 `STAGE_M_W(1'b1, csr_minstret_wr.mem, csr_minstret_wr.wbk, 1'b0)
 
 always_comb begin
     ct_gen.mem = ct.mem;
-    ct_gen.mem.stall_load &= !dc_stalled; // squash load stall if dcache stalls
+    ct_gen.mem.stall_load_use &= !dc_stalled; // squashed if dcache stalls
 end
 
 `DFF_CI_RI_RVI(ct_gen.mem, ct.wbk)
@@ -899,7 +886,7 @@ end
 // WBK stage
 
 arch_width_t dmem_rsp_data_v, dmem_out_wbk;
-assign dmem_rsp_data_v = (load_inst_wbk && dmem_rsp.valid) ? dmem_rsp.data :'h0;
+assign dmem_rsp_data_v = (itype.wbk.load && dmem_rsp.valid) ? dmem_rsp.data :'h0;
 always_comb begin
     unique case (1'b1)
         mem_region.wbk.dmem: dmem_out_wbk = dmem_rsp_data_v;
@@ -926,23 +913,21 @@ end
 //------------------------------------------------------------------------------
 // retire
 
-logic inst_retired_simd;
-
 // a trapped inst is not retired: kill pc/inst/pc_nz into RET on trapped.wbk
 `ifndef SYNT
-`STAGE_W_R(1'b1, (pc.wbk & {ARCH_WIDTH{!trap_tag.wbk.trapped}}), pc.ret, 'h0)
+`STAGE_W_R_CLR(1'b1, pc.wbk, pc.ret, 'h0)
 `STAGE_W_R(1'b1, trap_tag.wbk, trap_tag.ret, 'h0)
 `endif
-`STAGE_W_R(1'b1, (inst.wbk & {INST_WIDTH{!trap_tag.wbk.trapped}}), inst.ret, 'h0)
-`STAGE_W_R(1'b1, (pc_nz.wbk && !trap_tag.wbk.trapped), pc_nz.ret, 1'b0)
-`STAGE_W_R(1'b1, (simd_inst_wbk && !trap_tag.wbk.trapped), inst_retired_simd, 'h0)
-`STAGE_W_R(1'b1, (csr_minstret_wr.wbk && !trap_tag.wbk.trapped), csr_minstret_wr.ret, 1'b0)
+`STAGE_W_R_CLR(1'b1, inst.wbk, inst.ret, 'h0)
+`STAGE_W_R_CLR(1'b1, pc_nz.wbk, pc_nz.ret, 1'b0)
+`STAGE_W_R_CLR(1'b1, itype.wbk, itype.ret, 'h0)
+`STAGE_W_R_CLR(1'b1, csr_minstret_wr.wbk, csr_minstret_wr.ret, 1'b0)
+`STAGE_W_R_CLR(1'b1, mem_region.wbk.dmem, mem_region.ret.dmem, 1'b0)
 
 always_comb begin
     ct_gen.wbk = ct.wbk;
     ct_gen.wbk.stall_l1d = dc_stalled;
     ct_gen.wbk.stall_l1d_r = (dc_stalled && pe_dc.rd_pend);
-    ct_gen.wbk.stall_l1d_w = (dc_stalled && !pe_dc.rd_pend);
 end
 
 `DFF_CI_RI_RVI(ct_gen.wbk, ct.ret)
@@ -963,13 +948,19 @@ always_comb begin
         // be
         be_unblocked = (!cpe.bad_spec);
         if (be_unblocked) begin
-            cpe.stall_be = (ct.ret.stall_l1d || ct.ret.stall_be_core);
+            cpe.stall_be = (
+                // dcache
+                ct.ret.stall_l1d ||
+                // or core
+                ct.ret.stall_load_use ||
+                ct.ret.stall_mul_simd_use ||
+                ct.ret.stall_div
+            );
             cpe.stall_l1d = ct.ret.stall_l1d;
             cpe.stall_l1d_r = ct.ret.stall_l1d_r;
-            cpe.stall_l1d_w = ct.ret.stall_l1d_w;
-            cpe.stall_simd = ct.ret.stall_simd;
+            cpe.stall_load_use = ct.ret.stall_load_use;
+            cpe.stall_mul_simd_use = ct.ret.stall_mul_simd_use;
             cpe.stall_div = ct.ret.stall_div;
-            cpe.stall_load = ct.ret.stall_load;
         end
         // fe
         fe_unblocked = (!cpe.bad_spec && !cpe.stall_be);
@@ -979,19 +970,24 @@ always_comb begin
         end
     end
     // core
-    cpe.ret_ctrl_flow_j = (get_opc7(inst.ret) == OPC7_JAL);
     cpe.ret_ctrl_flow_jr = (get_opc7(inst.ret) == OPC7_JALR);
     cpe.ret_ctrl_flow_br = (get_opc7(inst.ret) == OPC7_BRANCH);
     cpe.ret_ctrl_flow = (
-        cpe.ret_ctrl_flow_j || cpe.ret_ctrl_flow_jr || cpe.ret_ctrl_flow_br);
-    cpe.ret_mem_load = (get_opc7(inst.ret) == OPC7_LOAD);
-    cpe.ret_mem_store = (get_opc7(inst.ret) == OPC7_STORE);
-    cpe.ret_mem = (cpe.ret_mem_load || cpe.ret_mem_store);
-    cpe.ret_simd = (inst_retired && inst_retired_simd);
-    cpe.ret_simd_arith = (
-        cpe.ret_simd && (get_fn7(inst.ret) == CUSTOM_ISA_FN7_SIMD_DOT));
-    cpe.ret_simd_data_fmt = (
-        cpe.ret_simd && (get_fn7(inst.ret) == CUSTOM_ISA_FN7_SIMD_WIDEN));
+       (get_opc7(inst.ret) == OPC7_JAL) ||
+       cpe.ret_ctrl_flow_jr ||
+       cpe.ret_ctrl_flow_br
+    );
+    if (mem_region.ret.dmem) begin
+        cpe.ret_mem_load = (get_opc7(inst.ret) == OPC7_LOAD);
+        cpe.ret_mem = (cpe.ret_mem_load || (get_opc7(inst.ret) == OPC7_STORE));
+    end
+    cpe.ret_mul = itype.ret.mul;
+    cpe.ret_div = itype.ret.div;
+    cpe.ret_simd = itype.ret.simd;
+    cpe.ret_simd_arith_dot = (
+        itype.ret.simd && (get_fn7(inst.ret) == CUSTOM_ISA_FN7_SIMD_DOT)
+    );
+    cpe.ret_simd_arith = (itype.ret.simd && (!get_fn7_b5(inst.ret)));
     // bp
     cpe.bp_miss = spec.wrong;
     // icache
@@ -1002,10 +998,8 @@ always_comb begin
     // dcache
     cpe.l1d_ref = (pe_dc.hit || pe_dc.miss);
     cpe.l1d_ref_r = (cpe.l1d_ref && pe_dc.rd);
-    cpe.l1d_ref_w = (cpe.l1d_ref && !pe_dc.rd);
     cpe.l1d_miss = pe_dc.miss;
     cpe.l1d_miss_r = (cpe.l1d_miss && pe_dc.rd);
-    cpe.l1d_miss_w = (cpe.l1d_miss && !pe_dc.rd);
     cpe.l1d_writeback = pe_dc.writeback;
 end
 
@@ -1060,6 +1054,7 @@ assign ctrl_wbk_ret = '{
 // asserts
 
 `ifndef SYNT
+
 logic valid_dmem_access_exe;
 assign valid_dmem_access_exe = (
     (decoded_exe.itype.load || decoded_exe.itype.store) &&
@@ -1099,32 +1094,43 @@ always @(posedge clk) begin
 end
 
 // perf checks
-int ct_be_core, ct_be, ct_fe_core;
-assign ct_be_core = $countones(
-    {ct.ret.stall_simd, ct.ret.stall_div, ct.ret.stall_load}
+int cpe_ret;
+assign cpe_ret = $countones({cpe.ret_simd, cpe.ret_mul, cpe.ret_div});
+
+int ct_stall_be_core, ct_stall_be, ct_stall_fe_core;
+assign ct_stall_be_core = $countones(
+    {ct.ret.stall_mul_simd_use, ct.ret.stall_div, ct.ret.stall_load_use}
 );
-assign ct_be = $countones({ct.ret.stall_l1d, ct.ret.stall_be_core});
-assign ct_fe_core = $countones({ct.ret.stall_l1i, ct.ret.stall_fe_core});
+assign ct_stall_be = $countones({ct.ret.stall_l1d, ct_stall_be_core});
+assign ct_stall_fe_core = $countones({ct.ret.stall_l1i, ct.ret.stall_fe_core});
 
 always @(posedge clk) begin
-    if (ct_be_core) begin
-        assert(ct_be_core == 1)
+    if (cpe_ret) begin
+        assert(cpe_ret == 1)
         else $warning(
-            "CORE CYCLE TAG DOUBLE COUNTED: stall_be_core - simd=%0b div=%0b load=%0b",
-            ct.ret.stall_simd, ct.ret.stall_div, ct.ret.stall_load
+            "CORE RETIRED INST DOUBLE COUNTED: cpe_ret - mul=%0b, div=%0b, simd=%0b" ,
+            cpe.ret_simd, cpe.ret_mul, cpe.ret_div
         );
     end
 
-    if (ct_be) begin
-        assert(ct_be == 1)
+    if (ct_stall_be_core) begin
+        assert(ct_stall_be_core == 1)
+        else $warning(
+            "CORE CYCLE TAG DOUBLE COUNTED: stall_be_core - mul/simd=%0b div=%0b load=%0b",
+            ct.ret.stall_mul_simd_use, ct.ret.stall_div, ct.ret.stall_load_use
+        );
+    end
+
+    if (ct_stall_be) begin
+        assert(ct_stall_be == 1)
         else $warning(
             "CORE CYCLE TAG DOUBLE COUNTED: stall_be - stall_l1d=%0b stall_be_core=%0b",
-            ct.ret.stall_l1d, ct.ret.stall_be_core
+            ct.ret.stall_l1d, ct_stall_be_core
         );
     end
 
-    if (ct_fe_core) begin
-        assert(ct_fe_core == 1)
+    if (ct_stall_fe_core) begin
+        assert(ct_stall_fe_core == 1)
         else $warning(
             "CORE CYCLE TAG DOUBLE COUNTED: stall_fe - stall_l1i=%0b stall_fe_core=%0b",
             ct.ret.stall_l1i, ct.ret.stall_fe_core

@@ -19,7 +19,7 @@ class cosim_stats {
     public:
         cosim_stats() : bp_stats("rtl_defines") {};
         void profiling(bool enable);
-        void log_core_event(const core_events_t* ev);
+        void log_core_event(const perf_event_bytes_t* ev);
         void log_icache_event(const hw_events_t* ev);
         void log_dcache_event(const hw_events_t* ev);
         void log_bp_event(const hw_events_t* ev);

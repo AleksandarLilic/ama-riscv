@@ -56,8 +56,9 @@
 
 `define INST_TYPE_INIT_VAL \
     '{ \
-        mult: 1'b0, \
+        mul: 1'b0, \
         div: 1'b0, \
+        simd: 1'b0, \
         simd_arith: 1'b0, \
         simd_data_fmt: 1'b0, \
         simd_shift: 1'b0, \
@@ -133,6 +134,10 @@
 `define STAGE_W_R(_en, _d, _q, _rstv) \
     `DFF_CI_RI_RV_CLR_CLRVI_EN_CLR2_CLR2VI( \
         _rstv, ctrl_wbk_ret.flush, (ctrl_wbk_ret.en && _en), ctrl_wbk_ret.bubble, _d, _q)
+
+`define STAGE_W_R_CLR(_en, _d, _q, _rstv) \
+    `DFF_CI_RI_RV_CLR_CLRVI_EN_CLR2_CLR2VI( \
+        _rstv, ctrl_wbk_ret.flush, (ctrl_wbk_ret.en && _en), (ctrl_wbk_ret.bubble || trap_tag.wbk.trapped), _d, _q)
 
 // DFF macros
 `define DFF_CI_RI_RV(_rstv, _d, _q) \

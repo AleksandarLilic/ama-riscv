@@ -1,0 +1,38 @@
+
+perf_event_t:
+    ret_inst: [rtl, isa_sim]
+    bad_spec: [rtl]
+    stall_be: [rtl]
+    stall_l1d: [rtl]
+    stall_l1d_r: [rtl]
+    stall_fe: [rtl]
+    stall_l1i: [rtl]
+    stall_load_use: [rtl]
+    stall_mul_simd_use: [rtl]
+    stall_div: [rtl]
+    ret_ctrl_flow: [rtl, isa_sim]
+    ret_ctrl_flow_jr: [rtl, isa_sim]
+    ret_ctrl_flow_br: [rtl, isa_sim]
+    ret_mem: [rtl, isa_sim]
+    ret_mem_load: [rtl, isa_sim]
+    ret_mul: [rtl, isa_sim]
+    ret_div: [rtl, isa_sim]
+    ret_simd: [rtl, isa_sim]
+    ret_simd_arith: [rtl, isa_sim]
+    ret_simd_arith_dot: [rtl, isa_sim]
+    bp_miss: [rtl, isa_sim_hw_model]
+    l1i_ref: [rtl, isa_sim_hw_model]
+    l1i_miss: [rtl, isa_sim_hw_model]
+    l1i_spec_miss: [rtl, isa_sim_hw_model]
+    l1i_spec_miss_bad: [rtl, isa_sim_hw_model]
+    l1d_ref: [rtl, isa_sim_hw_model]
+    l1d_ref_r: [rtl, isa_sim_hw_model]
+    l1d_miss: [rtl, isa_sim_hw_model]
+    l1d_miss_r: [rtl, isa_sim_hw_model]
+    l1d_writeback: [rtl, isa_sim_hw_model]
+    # same as miss in current uarch
+    #l1i_line_fill
+    #l1d_line_fill
+    # only applicable for multi-level caches
+    #cache_reference
+    #cache_miss
