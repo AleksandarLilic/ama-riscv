@@ -556,7 +556,7 @@ def main():
         status_str = "PASSED" if t_passed else "FAILED"
         status = f"Test '{test_name}' {status_str}"
         if t_msg:
-            status += f" {t_msg}"
+            status += f" {t_msg}. Log at {p['test_log']}"
         print(color_code_string(status, cc))
 
     print(f"\nTest suite DONE. Pass rate: {tests_passed}/{tests_num} passed;",
