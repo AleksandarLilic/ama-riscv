@@ -76,6 +76,7 @@ def gen_types_svh(events):
 def gen_tb_types_svh(events):
     events = filter_events(events, KEYS.rtl)
     lines = ["typedef struct {"]
+    lines.append(f"{INDENT}byte ret_inst = '0;")
     for pe in events:
         lines.append(f"{INDENT}byte {pe} = '0;")
     lines.append("} perf_event_bytes_t;")
@@ -85,35 +86,36 @@ def gen_tb_types_svh(events):
 def gen_tb_sv(events):
     events = filter_events(events, KEYS.rtl)
     lines = ["always_comb begin"]
+    # ret_inst count from the dedicated core output
+    lines.append(f"{INDENT}pe.ret_inst = `CORE.inst_retired;")
     for pe in events:
         lines.append(f"{INDENT}pe.{pe} = `CORE.cpe.{pe};")
     lines.append("end")
     return lines
 
 # cosim/core_stats.h - pair 1:
-# CORE_STATS_JSON_ENTRY_AUTOGEN macro body ret_inst is skipped here
-# (emitted later, next to derived metrics, via the separate un-tagged
-# CORE_STATS_JSON_ENTRY_MANUAL macro, for readable JSON key ordering)
+# ret_inst added via CORE_STATS_JSON_ENTRY_MANUAL macro
+# (for readable JSON key ordering)
+# so the custom event gen here doesn't include it
 def gen_core_stats_json_macro(events):
     events = filter_events(events, KEYS.rtl)
-    body = [pe for pe in events if pe != "ret_inst"]
     lines = ["#define CORE_STATS_JSON_ENTRY_AUTOGEN \\"]
-    for i, pe in enumerate(body):
-        cont = " \\" if i != len(body) - 1 else ""
+    for i, pe in enumerate(events):
+        cont = " \\" if i != len(events) - 1 else ""
         lines.append(f"{INDENT}CORE_STATS_JSON_LINE({pe}){cont}")
     return lines + [""]
 
 # cosim/core_stats.h - pair 2: uint64_t counter field declarations
 def gen_core_stats_fields(events):
     events = filter_events(events, KEYS.rtl)
-    return [f"{INDENT * 2}uint64_t {pe} = 0;" for pe in events]
+    lines = [f"{INDENT * 2}uint64_t ret_inst = 0;"]
+    return lines + [f"{INDENT * 2}uint64_t {pe} = 0;" for pe in events]
 
 # cosim/core_stats.h - pair 3: add_events() accumulation
 def gen_core_stats_acc(events):
     events = filter_events(events, KEYS.rtl)
-    return [f"{INDENT * 3}{pe} += ev->{pe};" for pe in events]
-
-# cosim/dpi_functions.h is autogen on its own with `make dpi_header_gen`
+    lines = [f"{INDENT * 3}ret_inst += ev->ret_inst;"]
+    return lines + [f"{INDENT * 3}{pe} += ev->{pe};" for pe in events]
 
 # sim/src/types.h
 def gen_types_cpp(events, map=False):
@@ -146,6 +148,7 @@ def gen_types_cpp(events, map=False):
                 for pe in events:
                     lines.append(map_line(pe))
 
+        add_lines(["ret_inst"])
         add_lines(events_sim)
         if map:
             lines.append(f"{INDENT}#ifdef HW_MODELS_EN")

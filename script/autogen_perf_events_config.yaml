@@ -1,6 +1,5 @@
 
 perf_event_t:
-    ret_inst: [rtl, isa_sim]
     bad_spec: [rtl]
     stall_be: [rtl]
     stall_l1d: [rtl]

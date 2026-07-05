@@ -664,6 +664,9 @@ end
 perf_event_t perf_events;
 arch_width_t csr_out_exe;
 logic csr_minstret_wr_skip;
+logic inst_retired_d;
+logic csr_minstret_inc;
+assign csr_minstret_inc = (inst_retired_d && !csr_minstret_wr_skip);
 ama_riscv_csr csr_i (
     .clk,
     .rst,
@@ -672,7 +675,7 @@ ama_riscv_csr csr_i (
     .imm5 (csr_imm5_exe),
     .addr (csr_addr_exe),
     .perf_events,
-    .minstret_wr_skip (csr_minstret_wr_skip),
+    .minstret_inc (csr_minstret_inc),
     .mtime (clint_ch.mtime),
     .out (csr_out_exe),
     // trap interface
@@ -687,7 +690,7 @@ ama_riscv_csr csr_i (
 // CSR access serialization
 assign csr_inst_exe = (decoded_exe.csr_ctrl.en && !spec.wrong);
 assign csr_drain_done = (
-    !pc_nz.mem && !pc_nz.wbk && !pc_nz.ret && !perf_events.ret_inst
+    !pc_nz.mem && !pc_nz.wbk && !pc_nz.ret && !inst_retired_d
 );
 assign csr_stalled = (csr_inst_exe && !csr_drain_done);
 
@@ -940,10 +943,9 @@ always_comb begin
     cpe = '0;
     fe_unblocked = '0;
     be_unblocked = '0;
-    cpe.ret_inst = pc_nz.ret;
-    inst_retired = cpe.ret_inst; // core output
+    inst_retired = pc_nz.ret; // core output
     // stalls
-    if (!cpe.ret_inst) begin
+    if (!inst_retired) begin
         cpe.bad_spec = ct.ret.bad_spec;
         // be
         be_unblocked = (!cpe.bad_spec);
@@ -1004,6 +1006,7 @@ always_comb begin
 end
 
 `DFF_CI_RI_RVI(cpe, perf_events)
+`DFF_CI_RI_RVI(inst_retired, inst_retired_d) // align w/ perf_events
 `DFF_CI_RI_RVI(csr_minstret_wr.ret, csr_minstret_wr_skip) //align w/ perf_events
 
 //------------------------------------------------------------------------------
@@ -1088,7 +1091,7 @@ always @(posedge clk) begin
         assert(csr_drain_done)
         else $error(
             "CSR READ COMMIT WITHOUT DRAIN: mem=%0b wbk=%0b ret=%0b perf_ret=%0b",
-            pc_nz.mem, pc_nz.wbk, pc_nz.ret, perf_events.ret_inst
+            pc_nz.mem, pc_nz.wbk, pc_nz.ret, inst_retired_d
         );
     end
 end

@@ -733,7 +733,6 @@ typedef struct packed {
 // ==== PERF_EVENT AUTOGEN BEGIN ====
 
 typedef struct packed {
-    logic ret_inst;
     logic bad_spec;
     logic stall_be;
     logic stall_l1d;
@@ -765,45 +764,43 @@ typedef struct packed {
     logic l1d_writeback;
 } perf_event_t;
 
-parameter unsigned MHPMEVENTS = 30;
+parameter unsigned MHPMEVENTS = 29;
 
 typedef enum logic [MHPMEVENTS-1:0] {
     MHPMEVENT_NONE = 0,
-    MHPMEVENT_RET_INST = (1 << 0),
-    MHPMEVENT_BAD_SPEC = (1 << 1),
-    MHPMEVENT_STALL_BE = (1 << 2),
-    MHPMEVENT_STALL_L1D = (1 << 3),
-    MHPMEVENT_STALL_L1D_R = (1 << 4),
-    MHPMEVENT_STALL_FE = (1 << 5),
-    MHPMEVENT_STALL_L1I = (1 << 6),
-    MHPMEVENT_STALL_LOAD_USE = (1 << 7),
-    MHPMEVENT_STALL_MUL_SIMD_USE = (1 << 8),
-    MHPMEVENT_STALL_DIV = (1 << 9),
-    MHPMEVENT_RET_CTRL_FLOW = (1 << 10),
-    MHPMEVENT_RET_CTRL_FLOW_JR = (1 << 11),
-    MHPMEVENT_RET_CTRL_FLOW_BR = (1 << 12),
-    MHPMEVENT_RET_MEM = (1 << 13),
-    MHPMEVENT_RET_MEM_LOAD = (1 << 14),
-    MHPMEVENT_RET_MUL = (1 << 15),
-    MHPMEVENT_RET_DIV = (1 << 16),
-    MHPMEVENT_RET_SIMD = (1 << 17),
-    MHPMEVENT_RET_SIMD_ARITH = (1 << 18),
-    MHPMEVENT_RET_SIMD_ARITH_DOT = (1 << 19),
-    MHPMEVENT_BP_MISS = (1 << 20),
-    MHPMEVENT_L1I_REF = (1 << 21),
-    MHPMEVENT_L1I_MISS = (1 << 22),
-    MHPMEVENT_L1I_SPEC_MISS = (1 << 23),
-    MHPMEVENT_L1I_SPEC_MISS_BAD = (1 << 24),
-    MHPMEVENT_L1D_REF = (1 << 25),
-    MHPMEVENT_L1D_REF_R = (1 << 26),
-    MHPMEVENT_L1D_MISS = (1 << 27),
-    MHPMEVENT_L1D_MISS_R = (1 << 28),
-    MHPMEVENT_L1D_WRITEBACK = (1 << 29)
+    MHPMEVENT_BAD_SPEC = (1 << 0),
+    MHPMEVENT_STALL_BE = (1 << 1),
+    MHPMEVENT_STALL_L1D = (1 << 2),
+    MHPMEVENT_STALL_L1D_R = (1 << 3),
+    MHPMEVENT_STALL_FE = (1 << 4),
+    MHPMEVENT_STALL_L1I = (1 << 5),
+    MHPMEVENT_STALL_LOAD_USE = (1 << 6),
+    MHPMEVENT_STALL_MUL_SIMD_USE = (1 << 7),
+    MHPMEVENT_STALL_DIV = (1 << 8),
+    MHPMEVENT_RET_CTRL_FLOW = (1 << 9),
+    MHPMEVENT_RET_CTRL_FLOW_JR = (1 << 10),
+    MHPMEVENT_RET_CTRL_FLOW_BR = (1 << 11),
+    MHPMEVENT_RET_MEM = (1 << 12),
+    MHPMEVENT_RET_MEM_LOAD = (1 << 13),
+    MHPMEVENT_RET_MUL = (1 << 14),
+    MHPMEVENT_RET_DIV = (1 << 15),
+    MHPMEVENT_RET_SIMD = (1 << 16),
+    MHPMEVENT_RET_SIMD_ARITH = (1 << 17),
+    MHPMEVENT_RET_SIMD_ARITH_DOT = (1 << 18),
+    MHPMEVENT_BP_MISS = (1 << 19),
+    MHPMEVENT_L1I_REF = (1 << 20),
+    MHPMEVENT_L1I_MISS = (1 << 21),
+    MHPMEVENT_L1I_SPEC_MISS = (1 << 22),
+    MHPMEVENT_L1I_SPEC_MISS_BAD = (1 << 23),
+    MHPMEVENT_L1D_REF = (1 << 24),
+    MHPMEVENT_L1D_REF_R = (1 << 25),
+    MHPMEVENT_L1D_MISS = (1 << 26),
+    MHPMEVENT_L1D_MISS_R = (1 << 27),
+    MHPMEVENT_L1D_WRITEBACK = (1 << 28)
 } mhpmevent_t;
 
 function automatic logic get_event(input perf_event_t pe, input mhpmevent_t ev);
     case (ev)
-        MHPMEVENT_RET_INST: get_event = pe.ret_inst;
         MHPMEVENT_BAD_SPEC: get_event = pe.bad_spec;
         MHPMEVENT_STALL_BE: get_event = pe.stall_be;
         MHPMEVENT_STALL_L1D: get_event = pe.stall_l1d;

@@ -991,7 +991,7 @@ end
 
 // ==== PERF_EVENT AUTOGEN BEGIN ====
 always_comb begin
-    pe.ret_inst = `CORE.cpe.ret_inst;
+    pe.ret_inst = `CORE.inst_retired;
     pe.bad_spec = `CORE.cpe.bad_spec;
     pe.stall_be = `CORE.cpe.stall_be;
     pe.stall_l1d = `CORE.cpe.stall_l1d;
