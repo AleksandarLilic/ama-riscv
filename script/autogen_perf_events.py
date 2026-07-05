@@ -117,6 +117,21 @@ def gen_core_stats_acc(events):
     lines = [f"{INDENT * 3}ret_inst += ev->ret_inst;"]
     return lines + [f"{INDENT * 3}{pe} += ev->{pe};" for pe in events]
 
+# cosim/cosim.cpp
+def gen_cosim_cpp(events):
+    events = filter_events(events, KEYS.rtl)
+    lines = []
+    lines.append(f"{INDENT}#define SET_FLAG(ev) \\")
+    lines.append(
+        f"{INDENT*2}rv32->set_perf_event_flag(perf_event_t::ev, core->ev);\n"
+    )
+    lines.append(f"{INDENT}SET_FLAG(ret_inst)")
+    for pe in events:
+        lines.append(f"{INDENT}SET_FLAG({pe})")
+    lines.append(f"\n{INDENT}#undef SET_FLAG\n")
+
+    return lines
+
 # sim/src/types.h
 def gen_types_cpp(events, map=False):
     events_rtl = filter_events(events, KEYS.rtl)
@@ -227,6 +242,8 @@ FILES = {
     "tb.sv": (REPO_ROOT / "verif/direct_tb/ama_riscv_tb.sv"),
     # cosim
     "core_stats.h": (REPO_ROOT / "cosim/core_stats.h"),
+    "cosim.cpp": (REPO_ROOT / "cosim/cosim.cpp"),
+    # cosim/dpi_functions.h is autogen on its own with `make dpi_header_gen`
     # isa sim
     "types.h": (REPO_ROOT / "sim/src/types.h"),
     "main.cpp": (REPO_ROOT / "sim/src/main.cpp"),
@@ -244,6 +261,7 @@ TARGETS = {
         gen_core_stats_fields,
         gen_core_stats_acc,
     ],
+    FILES["cosim.cpp"]: [gen_cosim_cpp],
     FILES["types.h"]: [gen_types_h],
     FILES["main.cpp"]: [gen_main_cpp],
     FILES["common.h"]: [gen_common_h],

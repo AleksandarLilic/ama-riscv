@@ -23,6 +23,7 @@ typedef struct {
     bit konata_en;
     bit prof_trace;
     bit log_isa_sim;
+    string perf_events;
     int unsigned prof_pc_start;
     int unsigned prof_pc_stop;
     int unsigned prof_pc_single_match;

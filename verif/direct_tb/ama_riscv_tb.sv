@@ -15,6 +15,7 @@ import "DPI-C" function void cosim_setup(
     input int unsigned prof_pc_single_match,
     input byte unsigned prof_trace,
     input byte unsigned log_isa_sim,
+    input string perf_events,
     output string cosim_out_dir
 );
 
@@ -106,7 +107,16 @@ import "DPI-C" function void konata_close();
 
 //------------------------------------------------------------------------------
 // Testbench variables
-plusargs_t args;
+plusargs_t args, args_def;
+assign args_def.perf_events = "ret_inst,cycle";
+assign args_def.prof_pc_start = 0;
+assign args_def.prof_pc_stop = 0;
+assign args_def.prof_pc_single_match = 0;
+assign args_def.timeout_clocks = 5_000_000;
+assign args_def.heartbeat_clocks = 100_000;
+assign args_def.log_level = LOG_INFO;
+assign args_def.uart_in = "";
+
 int unsigned errors = 0;
 int unsigned warnings = 0;
 bit errors_for_wave = 1'b0;
@@ -458,29 +468,33 @@ function void get_plusargs();
         args.prof_trace = $test$plusargs("prof_trace");
         args.log_isa_sim = $test$plusargs("log_isa_sim");
 
+        if (!$value$plusargs("perf_events=%s", args.perf_events)) begin
+            args.perf_events = args_def.perf_events;
+        end
+
         if (!$value$plusargs("prof_pc_start=%h", args.prof_pc_start)) begin
-            args.prof_pc_start = 0;
+            args.prof_pc_start = args_def.prof_pc_start;
         end
         if (!$value$plusargs("prof_pc_stop=%h", args.prof_pc_stop)) begin
-            args.prof_pc_stop = 0;
+            args.prof_pc_stop = args_def.prof_pc_stop;
         end
         if (!$value$plusargs(
             "prof_pc_single_match=%h", args.prof_pc_single_match)) begin
-            args.prof_pc_single_match = 0;
+            args.prof_pc_single_match = args_def.prof_pc_single_match;
         end
 
         `endif
 
         if (!$value$plusargs("timeout_clocks=%d", args.timeout_clocks)) begin
-            args.timeout_clocks = `DEFAULT_TIMEOUT_CLOCKS;
+            args.timeout_clocks = args_def.timeout_clocks;
         end
 
         if (!$value$plusargs("heartbeat_clocks=%d", args.heartbeat_clocks)) begin
-            args.heartbeat_clocks = `DEFAULT_HEARTBEAT_CLOCKS;
+            args.heartbeat_clocks = args_def.heartbeat_clocks;
         end
 
         if (!$value$plusargs("uart_in=%s", args.uart_in)) begin
-            args.uart_in = "";
+            args.uart_in = args_def.uart_in;
         end
         `ifdef UART_SHORTCUT
         else begin
@@ -492,7 +506,7 @@ function void get_plusargs();
         `endif
 
         if (!$value$plusargs("log_level=%s", log_str)) begin
-            args.log_level = LOG_INFO;
+            args.log_level = args_def.log_level;
         end else begin
             if      (log_str == "NONE")     args.log_level = LOG_NONE;
             else if (log_str == "ERROR")    args.log_level = LOG_ERROR;
@@ -1061,6 +1075,7 @@ initial begin
         args.prof_pc_single_match,
         args.prof_trace,
         args.log_isa_sim,
+        args.perf_events,
         cosim_outdir
     );
     `ifdef ENABLE_KONATA

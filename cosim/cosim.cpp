@@ -1,5 +1,8 @@
 #include "cosim.h"
 
+#include "arg_parse.h"
+#include "str_utils.h"
+
 memory* mem;
 core* rv32;
 cfg_t cfg;
@@ -24,9 +27,15 @@ void cosim_setup(
     unsigned int prof_pc_single_match,
     char prof_trace,
     char log_isa_sim,
+    const char* perf_events,
     const char** cosim_out_dir
 ) {
-    cfg.perf_events = {perf_event_t::ret_inst, perf_event_t::cycle};
+    // reuse the same resolver as the isa sim cli
+    ordered_map<perf_event_t> pe_map;
+    for (uint32_t i = 0; i < perf_event_names.size(); i++)
+        pe_map.push_back({perf_event_names[i], static_cast<perf_event_t>(i)});
+    cfg.perf_events = resolve_arg_list(
+        "perf_events", str_utils::split(perf_events, ','), pe_map);
     cfg.prof_pc.start = prof_pc_start;
     cfg.prof_pc.stop = prof_pc_stop;
     cfg.prof_pc.single_match_num = prof_pc_single_match;
@@ -136,4 +145,43 @@ void cosim_log_stats(
     stats.log_icache_event(icache);
     stats.log_dcache_event(dcache);
     stats.log_bp_event(bp);
+
+    // ==== PERF_EVENT AUTOGEN BEGIN ====
+    #define SET_FLAG(ev) \
+        rv32->set_perf_event_flag(perf_event_t::ev, core->ev);
+
+    SET_FLAG(ret_inst)
+    SET_FLAG(bad_spec)
+    SET_FLAG(stall_be)
+    SET_FLAG(stall_l1d)
+    SET_FLAG(stall_l1d_r)
+    SET_FLAG(stall_fe)
+    SET_FLAG(stall_l1i)
+    SET_FLAG(stall_load_use)
+    SET_FLAG(stall_mul_simd_use)
+    SET_FLAG(stall_div)
+    SET_FLAG(ret_ctrl_flow)
+    SET_FLAG(ret_ctrl_flow_jr)
+    SET_FLAG(ret_ctrl_flow_br)
+    SET_FLAG(ret_mem)
+    SET_FLAG(ret_mem_load)
+    SET_FLAG(ret_mul)
+    SET_FLAG(ret_div)
+    SET_FLAG(ret_simd)
+    SET_FLAG(ret_simd_arith)
+    SET_FLAG(ret_simd_arith_dot)
+    SET_FLAG(bp_miss)
+    SET_FLAG(l1i_ref)
+    SET_FLAG(l1i_miss)
+    SET_FLAG(l1i_spec_miss)
+    SET_FLAG(l1i_spec_miss_bad)
+    SET_FLAG(l1d_ref)
+    SET_FLAG(l1d_ref_r)
+    SET_FLAG(l1d_miss)
+    SET_FLAG(l1d_miss_r)
+    SET_FLAG(l1d_writeback)
+
+    #undef SET_FLAG
+
+    // ==== PERF_EVENT AUTOGEN END ====
 }

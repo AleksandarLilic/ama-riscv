@@ -82,16 +82,26 @@ LOG_LEVEL ?= WARN
 
 # TODO: run_test should set these up for testlist runs
 COSIM_ARGS :=
+
+# checkers
 COSIM_ARGS += -testplusarg enable_tohost_checker
 COSIM_ARGS += -testplusarg enable_cosim_checkers
 COSIM_ARGS += -testplusarg stop_on_cosim_error
+
+# profiling
 COSIM_ARGS += -testplusarg prof_trace
-#COSIM_ARGS += -testplusarg log_isa_sim
 COSIM_ARGS += -testplusarg prof_pc_start=80000000
 #COSIM_ARGS += -testplusarg prof_pc_start=80001238
 #COSIM_ARGS += -testplusarg prof_pc_stop=80001300
 #COSIM_ARGS += -testplusarg prof_pc_single_match=2
+# all events available under 'script/autogen_perf_events_config.yaml'
+#COSIM_ARGS += -testplusarg perf_events=ret_inst,cycle,l1d_ref,l1d_miss,bp_miss
+
+# konata, separate isa sim's "exec.log"
 #COSIM_ARGS += -testplusarg enable_konata
+#COSIM_ARGS += -testplusarg log_isa_sim
+
+# others
 #COSIM_ARGS += -testplusarg uart_in=A # FIXME: drop UART_SHORTCUT define first
 
 USER_COSIM_ARGS ?=
