@@ -24,17 +24,11 @@ if (!T4) begin: gen_comp
     assign taps = '0;
 
 end else begin: gen_tree_4
-    simd_d_t [1:0] o_top_l, o_top_r;
-
-    csa_tree_4 #(.W(W)) csa_tree_4_top_l_i (.a(a[7:4]), .o(o_top_l));
-    csa_tree_4 #(.W(W)) csa_tree_4_top_r_i (.a(a[3:0]), .o(o_top_r));
-    csa_tree_4 #(.W(W)) csa_tree_4_bot_i (.a({o_top_l[1], o_top_l[0], o_top_r[1], o_top_r[0]}), .o(o));
-
-    assign taps[3] = o_top_l[1];
-    assign taps[2] = o_top_l[0];
-    assign taps[1] = o_top_r[1];
-    assign taps[0] = o_top_r[0];
-
+    simd_d_t [3:0] m; // mid-res
+    csa_tree_4 #(.W(W)) csa_tree_4_top_l_i (.a(a[7:4]), .o(m[3:2]));
+    csa_tree_4 #(.W(W)) csa_tree_4_top_r_i (.a(a[3:0]), .o(m[1:0]));
+    csa_tree_4 #(.W(W)) csa_tree_4_bot_i (.a(m), .o(o));
+    assign taps = m;
 end
 
 endmodule

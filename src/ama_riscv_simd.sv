@@ -50,6 +50,8 @@ assign ew.b32 = op_rv32_mul;
 assign op_unsigned = ((op == SIMD_ARITH_OP_MULHU) || (op_simd && op[0]));
 
 end
+logic [3:0] aenc; // element alignment, one-hot encoded
+assign aenc = {ew.b16, ew.b8, ew.b4, ew.b2};
 
 //------------------------------------------------------------------------------
 // get pp matrix and correction value
@@ -62,16 +64,37 @@ ama_riscv_simd_ppgen #(.RV32M_ONLY(RV32M_ONLY)) ppgen_i (
 
 //------------------------------------------------------------------------------
 // first four trees in parallel
+logic s1a_e2, s2a_e4;
+assign s1a_e2 = (|aenc && (aenc == 4'h1));
+assign s2a_e4 = (|aenc && (aenc <= 4'h2));
+
 simd_d_t [1:0] o_tree_0, o_tree_1, o_tree_2, o_tree_3;
 /* verilator lint_off PINCONNECTEMPTY */
-csa_tree_8 #(.W(64)) csa_tree_8_i0 (.a (ppv[7:0]), .o (o_tree_0), .taps ());
-csa_tree_8 #(.W(64)) csa_tree_8_i1 (.a (ppv[15:8]), .o (o_tree_1), .taps ());
-csa_tree_8 #(.W(64)) csa_tree_8_i2 (.a (ppv[23:16]), .o (o_tree_2), .taps ());
-csa_tree_8 #(.W(64)) csa_tree_8_i3 (.a (ppv[31:24]), .o (o_tree_3), .taps ());
+ama_riscv_simd_csa_tree_8 #(.W(64), .S1A(2*2), .S2A(4*2))
+csa_tree_8_i0 (
+    .a(ppv[7:0]), .s1a(s1a_e2), .s2a(s2a_e4), .o(o_tree_0), .taps()
+);
+ama_riscv_simd_csa_tree_8 #(.W(64), .S1A(2*2), .S2A(4*2))
+csa_tree_8_i1 (
+    .a(ppv[15:8]), .s1a(s1a_e2), .s2a(s2a_e4), .o(o_tree_1), .taps()
+);
+ama_riscv_simd_csa_tree_8 #(.W(64), .S1A(2*2), .S2A(4*2))
+csa_tree_8_i2 (
+    .a(ppv[23:16]), .s1a(s1a_e2), .s2a(s2a_e4), .o(o_tree_2), .taps()
+);
+ama_riscv_simd_csa_tree_8 #(.W(64), .S1A(2*2), .S2A(4*2))
+csa_tree_8_i3 (
+    .a(ppv[31:24]), .s1a(s1a_e2), .s2a(s2a_e4), .o(o_tree_3), .taps()
+);
 /* verilator lint_on PINCONNECTEMPTY */
 
 //------------------------------------------------------------------------------
 // pipeline: EXE_MEM
+
+logic s1a_e8, s2a_e16;
+assign s1a_e8 = (|aenc && (aenc <= 4'h4));
+assign s2a_e16 = (|aenc && (aenc <= 4'h8));
+logic s1a_e8_d, s2a_e16_d;
 
 simd_t a_d;
 logic en_d;
@@ -88,6 +111,7 @@ assign b_sign_bit = b[ARCH_WIDTH-1]; // b MSB
 
 // but, in CPU, make sure it's aligned with stage its using
 `STAGE_E_M(1'b1, en, en_d, 'h0)
+`STAGE_E_M(en, {s1a_e8, s2a_e16}, {s1a_e8_d, s2a_e16_d}, 'h0)
 `STAGE_E_M(en, o_tree_0, o_tree_0_d, 'h0)
 `STAGE_E_M(en, o_tree_1, o_tree_1_d, 'h0)
 `STAGE_E_M(en, o_tree_2, o_tree_2_d, 'h0)
@@ -105,8 +129,10 @@ simd_d_t [1:0] o_tree_f;
 simd_d_t [3:0] mul16_taps; // unused on RV32M mode
 /* verilator lint_on UNUSEDSIGNAL */
 assign i_tree_f = {o_tree_3_d, o_tree_2_d, o_tree_1_d, o_tree_0_d};
-csa_tree_8 #(.W(64), .T4(1)) csa_tree_8_f_i (
-    .a (i_tree_f), .o(o_tree_f), .taps (mul16_taps)
+ama_riscv_simd_csa_tree_8 #(.W(64), .S1A(8*2), .S2A(16*2))
+csa_tree_8_f_i (
+    .a(i_tree_f), .s1a(s1a_e8_d), .s2a(s2a_e16_d),
+    .o(o_tree_f), .taps(mul16_taps)
 );
 
 //------------------------------------------------------------------------------
@@ -237,8 +263,11 @@ logic [1:0][31:0] lane_h_y; // half-lane outputs (2W = 32b each)
 for (genvar k = 0; k < 4; k++) begin: gen_lane_b
     ama_riscv_simd_lane_wrapup #(.W(8)) lane_b_i (
         .op_d(op_d),
-        .a_lane(a_d.b[k]), .b_lane(b_d.b[k]),
-        .t0(i_tree_f[2*k].h[0]), .t1(i_tree_f[2*k+1].h[0]),
+        .a_lane(a_d.b[k]),
+        .b_lane(b_d.b[k]),
+        // instead of '>> (8*2*k)', just take the .h on the k index
+        .t0(i_tree_f[2*k].h[k]),
+        .t1(i_tree_f[2*k+1].h[k]),
         .corr(corr_d.h[0]),
         .y(lane_b_y[k])
     );
@@ -247,8 +276,11 @@ end
 for (genvar k = 0; k < 2; k++) begin: gen_lane_h
     ama_riscv_simd_lane_wrapup #(.W(16)) lane_h_i (
         .op_d(op_d),
-        .a_lane(a_d.h[k]), .b_lane(b_d.h[k]),
-        .t0(mul16_taps[2*k].w[0]), .t1(mul16_taps[2*k+1].w[0]),
+        .a_lane(a_d.h[k]),
+        .b_lane(b_d.h[k]),
+        // instead of '>> (16*2*k)', just take the .w on the k index
+        .t0(mul16_taps[2*k].w[k]),
+        .t1(mul16_taps[2*k+1].w[k]),
         .corr(corr_d.w[0]),
         .y(lane_h_y[k])
     );
@@ -257,7 +289,8 @@ end
 // assemble packed results (narrow ops take [W-1:0] per lane, wmul full 2W)
 arch_width_t res_narrow_b, res_narrow_h;
 assign res_narrow_b = {
-    lane_b_y[3][7:0], lane_b_y[2][7:0], lane_b_y[1][7:0], lane_b_y[0][7:0]};
+    lane_b_y[3][7:0], lane_b_y[2][7:0], lane_b_y[1][7:0], lane_b_y[0][7:0]
+};
 assign res_narrow_h = {lane_h_y[1][15:0], lane_h_y[0][15:0]};
 
 simd_d_t res_wmul8, res_wmul16;

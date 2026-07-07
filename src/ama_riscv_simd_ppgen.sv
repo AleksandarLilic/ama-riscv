@@ -94,32 +94,15 @@ end
 always_comb begin
     `IT_P(i, W) begin
         simd_d_t x;
-        ppv[i] = '0;
         unique case (1'b1)
-            ew.b32: begin // MULT 32x32
-                x = {32'h0, pp[i]};
-                ppv[i] = (x << i);
-            end
-            ew.b16: begin
-                // every 16 rows (one lane) shifted left per the algorithm
-                // but every lane is shifted right to start at idx 0 for dotp
-                x = {32'h0, (pp[i] & mask_16[i])};
-                ppv[i] = ((x << (i % 16)) >> ((i / 16) * 16));
-            end
-            ew.b8: begin
-                x = {32'h0, (pp[i] & mask_8[i])};
-                ppv[i] = ((x << (i % 8)) >> ((i / 8) * 8));
-            end
-            ew.b4: begin
-                x = {32'h0, (pp[i] & mask_4[i])};
-                ppv[i] = ((x << (i % 4)) >> ((i / 4) * 4));
-            end
-            ew.b2: begin
-                x = {32'h0, (pp[i] & mask_2[i])};
-                ppv[i] = ((x << (i % 2)) >> ((i / 2) * 2));
-            end
-            default: ppv[i] = '0;
+            ew.b32: x = {32'h0, pp[i]};
+            ew.b16: x = {32'h0, (pp[i] & mask_16[i])};
+            ew.b8: x = {32'h0, (pp[i] & mask_8[i])};
+            ew.b4: x = {32'h0, (pp[i] & mask_4[i])};
+            ew.b2: x = {32'h0, (pp[i] & mask_2[i])};
+            default: x = '0;
         endcase
+        ppv[i] = (x << i);
     end
 end
 
