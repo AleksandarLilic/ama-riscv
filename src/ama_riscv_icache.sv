@@ -357,7 +357,7 @@ always_ff @(posedge clk) begin
         // on the last transfer, update valid and tag
         a_valid[cr_pend.cr.way_idx][set_idx_pend] <= 1'b1;
         a_tag[cr_pend.cr.way_idx][set_idx_pend] <= tag_pend;
-    end else if (miss) begin
+    end else if (miss_d) begin
         // invalidate line right away
         a_valid[way_victim_idx][set_idx_cr] <= 1'b0;
     end

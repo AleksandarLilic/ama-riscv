@@ -130,6 +130,10 @@ ama_riscv_decoder #(.SIMD_EN (SIMD_EN)) decoder_i (
     .inst_dec (inst.dec), .decoded (decoded), .fe_ctrl (decoded_fe_ctrl)
 );
 
+// short paths to avoid full decoder delay just for inst detection
+assign branch_in_dec = (get_opc7(inst.dec) == OPC7_BRANCH);
+assign jalr_in_dec = (get_opc7(inst.dec) == OPC7_JALR);
+
 csr_trap_status_t csr_status;
 csr_trap_wr_t csr_trap_wr;
 ama_riscv_trap_ctrl trap_ctrl_i (
@@ -176,9 +180,9 @@ ama_riscv_fe_ctrl fe_ctrl_i (
     // inputs
     .pc_dec (pc.dec),
     .pc_mem (pc.mem),
-    .branch_in_dec (decoded.itype.branch),
+    .branch_in_dec (branch_in_dec),
     .branch_in_mem (itype.mem.branch),
-    .jalr_in_dec (decoded.itype.jalr),
+    .jalr_in_dec (jalr_in_dec),
     .jalr_in_exe (decoded_exe.itype.jalr),
     .jalr_in_mem (itype.mem.jalr),
     `ifdef USE_BP
@@ -249,7 +253,7 @@ ama_riscv_imm_gen imm_gen_i(
 );
 
 arch_width_t imm_branch_jal;
-assign imm_branch_jal = decoded.itype.branch ? imm_b : imm_jal;
+assign imm_branch_jal = branch_in_dec ? imm_b : imm_jal;
 
 /* verilator lint_off PINCONNECTEMPTY */
 add #(.W(ARCH_WIDTH)) pc_branch_jal_add_i (
@@ -267,7 +271,7 @@ assign bp_pred = B_T;
 end else if (BP_STATIC_TYPE == BP_STATIC_ANT) begin: gen_bp_sttc_ant
 assign bp_pred = B_NT;
 end else if (BP_STATIC_TYPE == BP_STATIC_BTFN) begin: gen_bp_sttc_btfn
-assign bp_pred = branch_t'(decoded.itype.branch && (pc_branch_jal < pc.dec));
+assign bp_pred = branch_t'(branch_in_dec && (pc_branch_jal < pc.dec));
 end
 
 end else begin: gen_bp_dyn
@@ -459,8 +463,8 @@ assign pc_nz.dec = (pc.dec != 'h0);
 `STAGE_D_E(1'b1, rs1_addr_dec, rs1_addr_exe, RF_X0_ZERO)
 `STAGE_D_E(1'b1, rs2_addr_dec, rs2_addr_exe, RF_X0_ZERO)
 `STAGE_D_E(1'b1, rs3_addr_dec, rs3_addr_exe, RF_X0_ZERO)
-`STAGE_D_E(decoded.itype.branch, pc_branch_jal, pc_branch_exe, 'h0)
-`STAGE_D_E(decoded.itype.branch, branch_sel_dec, branch_sel_exe, BRANCH_SEL_BEQ)
+`STAGE_D_E(branch_in_dec, pc_branch_jal, pc_branch_exe, 'h0)
+`STAGE_D_E(branch_in_dec, branch_sel_dec, branch_sel_exe, BRANCH_SEL_BEQ)
 `STAGE_D_E(decoded_itype_dmem, dmem_offset_dec, dmem_offset_exe, 'h0)
 `STAGE_D_E(decoded_itype_dmem, dmem_dtype_dec, dmem_dtype_exe, DMEM_DTYPE_BYTE)
 `STAGE_D_E(decoded.csr_ctrl.en, csr_imm5_dec, csr_imm5_exe, 'h0)
