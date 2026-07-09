@@ -28,7 +28,7 @@ now=$(date +%Y-%m-%d_%H-%M-%S)
 tag="testrun"
 run_name="updatemem_${now}_${tag}"
 
-PROC=ama_riscv_top_i/ama_riscv_mem_i/u_mem/xpm_memory_base_inst
+PROC=top_i/mem_i/u_mem/xpm_memory_base_inst
 BIT_NAME=ama_riscv_fpga
 MMI=$BIT_NAME.mmi
 
