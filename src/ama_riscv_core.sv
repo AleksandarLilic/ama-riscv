@@ -27,6 +27,8 @@ pipeline_if #(.W(INST_WIDTH)) inst ();
 pipeline_if #(.W(ARCH_WIDTH)) pc ();
 pipeline_if_s flush ();
 pipeline_if_s pc_nz ();
+pipeline_if_typed #(.T(rf_addr_t)) rd_addr ();
+pipeline_if_typed #(.T(rf_we_t)) rf_we ();
 pipeline_if_typed #(.T(trap_tag_t)) trap_tag ();
 pipeline_if_typed #(.T(wb_sel_t)) wb_sel ();
 pipeline_if_typed #(.T(mem_region_t)) mem_region ();
@@ -131,6 +133,7 @@ ama_riscv_decoder #(.SIMD_EN (SIMD_EN)) decoder_i (
 );
 
 // short paths to avoid full decoder delay just for inst detection
+logic branch_in_dec, jalr_in_dec;
 assign branch_in_dec = (get_opc7(inst.dec) == OPC7_BRANCH);
 assign jalr_in_dec = (get_opc7(inst.dec) == OPC7_JALR);
 
@@ -180,9 +183,9 @@ ama_riscv_fe_ctrl fe_ctrl_i (
     // inputs
     .pc_dec (pc.dec),
     .pc_mem (pc.mem),
-    .branch_in_dec (branch_in_dec),
+    .branch_in_dec,
     .branch_in_mem (itype.mem.branch),
-    .jalr_in_dec (jalr_in_dec),
+    .jalr_in_dec,
     .jalr_in_exe (decoded_exe.itype.jalr),
     .jalr_in_mem (itype.mem.jalr),
     `ifdef USE_BP
@@ -208,8 +211,6 @@ arch_width_t e_writeback_mem, e_writeback_p_mem; // from MEM stage
 arch_width_t writeback, writeback_p; // from WBK stage
 
 // reg file
-pipeline_if_typed #(.T(rf_addr_t)) rd_addr ();
-pipeline_if_typed #(.T(rf_we_t)) rf_we ();
 rf_addr_t rs1_addr_dec, rs2_addr_dec, rs3_addr_dec;
 arch_width_t rs1_data_dec, rs2_data_dec, rs3_data_dec;
 

@@ -27,7 +27,7 @@ always_comb begin
         SIMD_SHIFT_EL_WIDTH_8:  shamt_m = (shamt & 5'd7);
         SIMD_SHIFT_EL_WIDTH_16: shamt_m = (shamt & 5'd15);
         SIMD_SHIFT_EL_WIDTH_32: shamt_m = shamt;
-        default:                shamt_m = shamt;
+        default: shamt_m = shamt; // not required, but xsim spams warnings
     endcase
 end
 
@@ -72,7 +72,7 @@ for (genvar si = 0; si < SHAMT; si++) begin : g_stage
                     SIMD_SHIFT_EL_WIDTH_8:  lane_boundary = ((idx % 8)  < SV);
                     SIMD_SHIFT_EL_WIDTH_16: lane_boundary = ((idx % 16) < SV);
                     SIMD_SHIFT_EL_WIDTH_32: lane_boundary = ((idx % 32) < SV);
-                    default:     lane_boundary = 1'b0;
+                    default: lane_boundary = 1'b0; // silence xsim pre-rest spam
                 endcase
             end
             logic shift_val;
