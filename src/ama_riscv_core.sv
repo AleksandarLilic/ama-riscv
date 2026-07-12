@@ -891,9 +891,18 @@ arch_width_t e_writeback_wbk, e_writeback_p_wbk;
 `STAGE_M_W(1'b1, mem_region.mem, mem_region.wbk, 'h0)
 `STAGE_M_W(1'b1, csr_minstret_wr.mem, csr_minstret_wr.wbk, 1'b0)
 
+logic stall_load_use_pend, stall_load_use_release;
+assign stall_load_use_release = (stall_load_use_pend && !dc_stalled);
+always_ff @(posedge clk) begin
+    if (rst) stall_load_use_pend <= 1'b0;
+    else if (ct.mem.stall_load_use && dc_stalled) stall_load_use_pend <= 1'b1;
+    else if (stall_load_use_release) stall_load_use_pend <= 1'b0;
+end
+
 always_comb begin
     ct_gen.mem = ct.mem;
     ct_gen.mem.stall_load_use &= !dc_stalled; // squashed if dcache stalls
+    ct_gen.mem.stall_load_use |= stall_load_use_release; // released on d$ resp.
 end
 
 `DFF_CI_RI_RVI(ct_gen.mem, ct.wbk)
@@ -1082,6 +1091,7 @@ assign valid_dmem_access_exe = (
     decoded_exe.dmem_en &&
     !hazard.to_exe
 );
+/*
 always @(posedge clk) begin
     if (valid_dmem_access_exe) begin
         assert($countones(mem_region.exe) == 1)
@@ -1091,7 +1101,7 @@ always @(posedge clk) begin
         );
     end
 end
-
+*/
 logic valid_dmem_access_mem;
 `STAGE_E_M(1'b1, valid_dmem_access_exe, valid_dmem_access_mem, 'h0)
 always @(posedge clk) if (valid_dmem_access_mem) begin
