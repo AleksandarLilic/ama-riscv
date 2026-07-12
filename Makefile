@@ -95,7 +95,9 @@ COSIM_ARGS += -testplusarg prof_pc_start=80000000
 #COSIM_ARGS += -testplusarg prof_pc_stop=80001300
 #COSIM_ARGS += -testplusarg prof_pc_single_match=2
 # all events available under 'script/autogen_perf_events_config.yaml'
-#COSIM_ARGS += -testplusarg perf_events=ret_inst,cycle,l1d_ref,l1d_miss,bp_miss
+#PE_TDA = cycle,ret_inst,ret_simd,stall_be,stall_fe,bad_spec,stall_l1i,stall_l1d
+#PE_HR = l1i_ref,l1i_miss,l1d_ref,l1d_miss,ret_ctrl_flow_br,bp_miss
+#COSIM_ARGS += -testplusarg perf_events=$(PE_TDA),$(PE_HR)
 
 # konata, separate isa sim's "exec.log"
 #COSIM_ARGS += -testplusarg enable_konata

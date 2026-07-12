@@ -66,10 +66,10 @@ TDA:
  */
 struct core_stats_t {
     private:
-        uint64_t cycles_all;
-        uint64_t ret_all;
+        uint64_t cycles_all = 0;
+        uint64_t ret_all = 0;
         // profiler active
-        uint64_t cycles;
+        uint64_t cycles = 0;
         // ==== PERF_EVENT AUTOGEN BEGIN ====
         uint64_t ret_inst = 0;
         uint64_t bad_spec = 0;
@@ -103,13 +103,13 @@ struct core_stats_t {
         uint64_t l1d_writeback = 0;
         // ==== PERF_EVENT AUTOGEN END ====
         // derived
-        uint64_t empty;
-        uint64_t stalls;
-        uint64_t lost;
-        uint64_t lost_other;
-        uint64_t stall_fe_core;
-        uint64_t stall_be_core;
-        uint64_t ret_int;
+        uint64_t empty = 0;
+        uint64_t stalls = 0;
+        uint64_t lost = 0;
+        uint64_t lost_other = 0;
+        uint64_t stall_fe_core = 0;
+        uint64_t stall_be_core = 0;
+        uint64_t ret_int = 0;
         float_t ipc = -1.0;
         float_t cpi = -1.0;
         // misc
@@ -174,9 +174,7 @@ struct core_stats_t {
                       << ", Retired: " << ret_inst
                       << ", Empty: " << empty
                       << std::fixed << std::setprecision(3)
-                      << ", CPI: " << cpi
-                      << " (IPC: " << ipc << ")"
-                      << "\n"
+                      << ", IPC: " << ipc << "\n"
                       << INDENT << "TDA:\n"
                       << INDENT << INDENT << "L1: "
                       << "Retired: " << ret_inst
