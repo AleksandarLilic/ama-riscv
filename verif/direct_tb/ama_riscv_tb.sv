@@ -427,8 +427,8 @@ function void cosim_check_inst_cnt;
     core_i = core_stats::get_inst_cnt(core_cnt_main);
     if (cosim_i != core_i) begin
         `LOGNT($sformatf("Instruction count mismatch"));
-        `LOGNT($sformatf("Cosim instruction count: %0d", cosim_i));
-        `LOGNT($sformatf("DUT instruction count: %0d", core_i));
+        `LOGNT($sformatf("cosim instruction count: %0d", cosim_i));
+        `LOGNT($sformatf("core instruction count: %0d", core_i));
     end
 endfunction
 `endif
@@ -567,10 +567,21 @@ function automatic [8*SLEN-1:0] pack_string(input string str);
 endfunction
 
 function automatic string classify_empty_cycle();
-    if (`CORE.cpe.bad_spec) return "lost: bad spec";
-    if (`CORE.cpe.stall_be) return "stall: backend";
-    if (`CORE.cpe.stall_fe) return "stall: frontend";
-    return "lost: other";
+    string s;
+    if (`CORE.cpe.bad_spec) begin
+        s = "lost:bad_spec";
+    end else if (`CORE.cpe.stall_be) begin
+        s = "stall_backend:";
+        if (`CORE.cpe.stall_l1d) s = {s, "dcache"};
+        else s = {s, "core"};
+    end else if (`CORE.cpe.stall_fe) begin
+        s = "stall_frontend:";
+        if (`CORE.cpe.stall_l1i) s = {s, "icache"};
+        else s = {s, "core"};
+    end else begin
+        s = "lost:other";
+    end
+    return s;
 endfunction
 
 function automatic hw_events_t
@@ -833,27 +844,26 @@ task automatic single_step();
     // isa sim's own mstatus state is used to decide wake-vs-trap
     // tb only delivers the raw bit
     if (`TRAP_CTRL.ctrl.wfi_resume) begin
-        `LOG_I("Core wfi wakeup (no trap). Forcing Cosim wakeup.");
+        `LOG_I("core wfi wakeup (no trap). Forcing cosim wakeup.");
         cosim_force_irq(8'(`TRAP_CTRL.irq.mtip), 8'(`TRAP_CTRL.irq.meip));
     end
     `endif
 
     // cosim advances only if rtl retires an instruction
     if (!inst_retired && !`CORE.trap_tag.ret.trapped) begin
-        `LOG_V($sformatf(
-            "Core empty cycle (%0s)", classify_empty_cycle()));
+        `LOG_V($sformatf("core [E] %0s", classify_empty_cycle()));
         return;
     end
 
     `ifndef SYNT
-    core_ret = $sformatf("Core [R] %5h: %8h", `CORE.pc.ret, `CORE.inst.ret);
+    core_ret = $sformatf("core [R] %5h: %8h", `CORE.pc.ret, `CORE.inst.ret);
     `else
-    core_ret = $sformatf("Core [R] %8h", `CORE.inst.ret);
+    core_ret = $sformatf("core [R] %8h", `CORE.inst.ret);
     `endif
 
     core_trapped = `CORE.trap_tag.ret.trapped;
     if (core_trapped) core_ret = $sformatf(
-        "Core trapped (mcause %0h)", `TRAP_CTRL.trap_info.mcause
+        "core trapped (mcause %0h)", `TRAP_CTRL.trap_info.mcause
     );
 
     `LOG_V(core_ret);
@@ -864,7 +874,7 @@ task automatic single_step();
     // mcause[31] = interrupt (vs exception, which the ISS self-takes).
     if (core_trapped && `TRAP_CTRL.trap_info.mcause[31]) begin
         `LOG_I($sformatf(
-            "Core trapped on interrupt (mcause %0h). Forcing Cosim trap." ,
+            "core trapped on interrupt (mcause %0h). Forcing cosim trap." ,
             `TRAP_CTRL.trap_info.mcause
         ));
         case (`TRAP_CTRL.trap_info.mcause[30:0])
@@ -882,12 +892,12 @@ task automatic single_step();
         cosim_str.inst_asm, cosim_str.stack_top, cosim.rf
     );
 
-    isa_ret = $sformatf(
-        "COSIM    %5h: %8h %0s", cosim.pc, cosim.inst, cosim_str.inst_asm);
-    `LOG_V(isa_ret);
+    /*  */isa_ret = $sformatf(
+    /*  */    "cosim    %5h: %8h %0s", cosim.pc, cosim.inst, cosim_str.inst_asm);
+    /*  */`LOG_V(isa_ret);
 
-    cosim.stack_top_str_wave = pack_string(cosim_str.stack_top);
-    cosim.inst_asm_str_wave = pack_string(trim_ws(cosim_str.inst_asm));
+    /*  */cosim.stack_top_str_wave = pack_string(cosim_str.stack_top);
+    /*  */cosim.inst_asm_str_wave = pack_string(trim_ws(cosim_str.inst_asm));
 
     // trap handled differently, match on the next retired inst
     if (core_trapped) return;
@@ -992,7 +1002,7 @@ initial begin
 
         if (!is_unknown && !rf_chk_act[dut_rf_addr] && `RF.we) begin
             #1;
-            `LOG_V($sformatf(
+            `LOG_I($sformatf(
                 "First write to x%0d. Checker activated", dut_rf_addr));
             rf_chk_act[dut_rf_addr] = 1'b1;
         end
