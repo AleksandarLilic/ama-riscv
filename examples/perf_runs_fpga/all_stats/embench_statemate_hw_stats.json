@@ -1,43 +1,45 @@
 {
     "core": {
-        "cycles": 73159335,
-        "empty": 4222878,
-        "stalls": 3830006,
-        "lost": 392872,
-        "lost_other": 58,
-        "bad_spec": 392814,
-        "stall_be": 1669410,
+        "cycles": 70115237,
+        "empty": 3830180,
+        "stalls": 3240894,
+        "lost": 589286,
+        "lost_other": 72,
+        "bad_spec": 589214,
+        "stall_be": 1669537,
         "stall_l1d": 0,
-        "stall_be_core": 1669410,
-        "stall_fe": 2160596,
-        "stall_l1i": 178,
-        "stall_fe_core": 2160418,
-        "ret": 68936457,
+        "stall_be_core": 1669537,
+        "stall_fe": 1571357,
+        "stall_l1i": 139,
+        "stall_fe_core": 1571218,
+        "ret_inst": 66285057,
         "ret_simd": 0,
-        "ret_int": 68936457,
+        "ret_int": 66285057,
         "ret_ctrl_flow_br": 5302804,
-        "bp_miss": 196415,
-        "l1i_ref": 69329293,
-        "l1i_miss": 38,
-        "l1d_ref": 43208022,
+        "bp_miss": 294615,
+        "l1i_ref": 66874334,
+        "l1i_miss": 30,
+        "l1d_ref": 42029623,
         "l1d_miss": 0,
-        "ipc": 0.942
+        "l1i_hit": 66874304,
+        "l1d_hit": 42029623,
+        "ipc": 0.945
     },
     "icache": {
-        "references": 69329293,
+        "references": 66874334,
         "hits": {
-            "all": 69329255
+            "all": 66874304
         },
         "misses": {
-            "all": 38
+            "all": 30
         },
         "hr": 100.0,
         "mpki": 0.0
     },
     "dcache": {
-        "references": 43208022,
+        "references": 42029623,
         "hits": {
-            "all": 43208022
+            "all": 42029623
         },
         "misses": {
             "all": 0
@@ -46,9 +48,9 @@
         "mpki": 0
     },
     "bpred": {
-        "predicted": 5106389,
-        "mispredicted": 196415,
-        "accuracy": 96.3,
-        "mpki": 2.85
+        "predicted": 5008189,
+        "mispredicted": 294615,
+        "accuracy": 94.44,
+        "mpki": 4.44
     }
 }

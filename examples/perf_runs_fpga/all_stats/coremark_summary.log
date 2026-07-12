@@ -1,43 +1,45 @@
 coremark
-IPC: 0.892
+IPC: 0.893
          L1        L2     cycles cycles_e
-0      lost  bad_spec   16954998    17.0M
-1      lost     other         60     60.0
-2  frontend    icache     182706   182.7k
-3  frontend      core    6980479     7.0M
+0      lost  bad_spec   16737514    16.7M
+1      lost     other         77     77.0
+2  frontend    icache     185890   185.9k
+3  frontend      core    6985288     7.0M
 4   backend    dcache         54     54.0
-5   backend      core   38249806    38.2M
-6  retiring   integer  516643431   516.6M
+5   backend      core   38251527    38.3M
+6  retiring   integer  516643429   516.6M
 7  retiring      simd          0      0.0
 
 Performance Counters for 'coremark'
    class          counter     count count_e
-  cycles           cycles 579011534  579.0M
-     ret              ret 516643431  516.6M
-   stall           stalls  45413045   45.4M
-    lost             lost  16955058   17.0M
-   ret_*          ret_int 516643431  516.6M
+  cycles           cycles 578803779  578.8M
+     ret         ret_inst 516643429  516.6M
+   stall           stalls  45422759   45.4M
+    lost             lost  16737591   16.7M
+   ret_*          ret_int 516643429  516.6M
    ret_* ret_ctrl_flow_br  92541716   92.5M
    ret_*         ret_simd         0     0.0
- stall_*         stall_be  38249860   38.2M
- stall_*    stall_be_core  38249806   38.2M
- stall_*         stall_fe   7163185    7.2M
- stall_*    stall_fe_core   6980479    7.0M
+ stall_*         stall_be  38251581   38.3M
+ stall_*    stall_be_core  38251527   38.3M
+ stall_*         stall_fe   7171178    7.2M
+ stall_*    stall_fe_core   6985288    7.0M
  stall_*        stall_l1d        54    54.0
- stall_*        stall_l1i    182706  182.7k
-bad_spec         bad_spec  16954998   17.0M
-   l1i_*          l1i_ref 533556980  533.6M
-   l1i_*         l1i_miss     37552   37.6k
-   l1d_*          l1d_ref 109847579  109.8M
+ stall_*        stall_l1i    185890  185.9k
+bad_spec         bad_spec  16737514   16.7M
+   l1i_*          l1i_ref 533347311  533.3M
+   l1i_*        l1i_hit # 533315254  533.3M
+   l1i_*         l1i_miss     32057   32.1k
+   l1d_*          l1d_ref 109847580  109.8M
+   l1d_*        l1d_hit # 109847571  109.8M
    l1d_*         l1d_miss         9     9.0
-    bp_*          bp_miss   8477489    8.5M
+    bp_*          bp_miss   8368786    8.4M
 
 
 core:
-    Cycles: 579.0M, Retired: 516.6M, Empty: 62.4M, IPC: 0.892 
+    Cycles: 578.8M, Retired: 516.6M, Empty: 62.2M, IPC: 0.893 
 icache:
-    Ref: 533.6M, H: 533.5M, M: 37.6k, HR: 99.99%, MPKI: 0.07 
+    Ref: 533.3M, H: 533.3M, M: 32.1k, HR: 99.99%, MPKI: 0.06 
 dcache:
     Ref: 109.8M, H: 109.8M, M: 9.0, HR: 100.00%, MPKI: 0.00 
 bpred:
-    P: 84.1M, M: 8.5M, ACC: 90.84%, MPKI: 16.41 
+    P: 84.2M, M: 8.4M, ACC: 90.96%, MPKI: 16.20 

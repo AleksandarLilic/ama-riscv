@@ -1,53 +1,55 @@
 {
     "core": {
-        "cycles": 52483139,
-        "empty": 241115,
-        "stalls": 80968,
-        "lost": 160147,
-        "lost_other": 65,
-        "bad_spec": 160082,
-        "stall_be": 616,
-        "stall_l1d": 592,
-        "stall_be_core": 24,
-        "stall_fe": 80352,
-        "stall_l1i": 307,
-        "stall_fe_core": 80045,
-        "ret": 52242024,
+        "cycles": 52483320,
+        "empty": 241278,
+        "stalls": 81121,
+        "lost": 160157,
+        "lost_other": 77,
+        "bad_spec": 160080,
+        "stall_be": 731,
+        "stall_l1d": 586,
+        "stall_be_core": 145,
+        "stall_fe": 80390,
+        "stall_l1i": 333,
+        "stall_fe_core": 80057,
+        "ret_inst": 52242042,
         "ret_simd": 0,
-        "ret_int": 52242024,
-        "ret_ctrl_flow_br": 2840315,
-        "bp_miss": 80047,
-        "l1i_ref": 52402107,
-        "l1i_miss": 82,
-        "l1d_ref": 41001179,
-        "l1d_miss": 79,
+        "ret_int": 52242042,
+        "ret_ctrl_flow_br": 2840321,
+        "bp_miss": 80044,
+        "l1i_ref": 52402177,
+        "l1i_miss": 64,
+        "l1d_ref": 41001183,
+        "l1d_miss": 78,
+        "l1i_hit": 52402113,
+        "l1d_hit": 41001105,
         "ipc": 0.995
     },
     "icache": {
-        "references": 52402107,
+        "references": 52402177,
         "hits": {
-            "all": 52402025
+            "all": 52402113
         },
         "misses": {
-            "all": 82
+            "all": 64
         },
         "hr": 100.0,
         "mpki": 0.0
     },
     "dcache": {
-        "references": 41001179,
+        "references": 41001183,
         "hits": {
-            "all": 41001100
+            "all": 41001105
         },
         "misses": {
-            "all": 79
+            "all": 78
         },
         "hr": 100.0,
         "mpki": 0.0
     },
     "bpred": {
-        "predicted": 2760268,
-        "mispredicted": 80047,
+        "predicted": 2760277,
+        "mispredicted": 80044,
         "accuracy": 97.18,
         "mpki": 1.53
     }

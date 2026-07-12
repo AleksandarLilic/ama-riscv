@@ -1,43 +1,45 @@
 {
     "core": {
-        "cycles": 138231866,
-        "empty": 16692806,
-        "stalls": 7892738,
-        "lost": 8800068,
-        "lost_other": 57,
-        "bad_spec": 8800011,
-        "stall_be": 3564010,
+        "cycles": 136681028,
+        "empty": 15141970,
+        "stalls": 8453875,
+        "lost": 6688095,
+        "lost_other": 75,
+        "bad_spec": 6688020,
+        "stall_be": 3564135,
         "stall_l1d": 0,
-        "stall_be_core": 3564010,
-        "stall_fe": 4328728,
-        "stall_l1i": 1028707,
-        "stall_fe_core": 3300021,
-        "ret": 121539060,
+        "stall_be_core": 3564135,
+        "stall_fe": 4889740,
+        "stall_l1i": 1567720,
+        "stall_fe_core": 3322020,
+        "ret_inst": 121539058,
         "ret_simd": 0,
-        "ret_int": 121539060,
+        "ret_int": 121539058,
         "ret_ctrl_flow_br": 25817004,
-        "bp_miss": 4397258,
-        "l1i_ref": 130262083,
-        "l1i_miss": 302537,
-        "l1d_ref": 36410027,
+        "bp_miss": 3344013,
+        "l1i_ref": 128216129,
+        "l1i_miss": 214547,
+        "l1d_ref": 36410028,
         "l1d_miss": 0,
-        "ipc": 0.879
+        "l1i_hit": 128001582,
+        "l1d_hit": 36410028,
+        "ipc": 0.889
     },
     "icache": {
-        "references": 130262083,
+        "references": 128216129,
         "hits": {
-            "all": 129959546
+            "all": 128001582
         },
         "misses": {
-            "all": 302537
+            "all": 214547
         },
-        "hr": 99.77,
-        "mpki": 2.49
+        "hr": 99.83,
+        "mpki": 1.77
     },
     "dcache": {
-        "references": 36410027,
+        "references": 36410028,
         "hits": {
-            "all": 36410027
+            "all": 36410028
         },
         "misses": {
             "all": 0
@@ -46,9 +48,9 @@
         "mpki": 0
     },
     "bpred": {
-        "predicted": 21419746,
-        "mispredicted": 4397258,
-        "accuracy": 82.97,
-        "mpki": 36.18
+        "predicted": 22472991,
+        "mispredicted": 3344013,
+        "accuracy": 87.05,
+        "mpki": 27.51
     }
 }

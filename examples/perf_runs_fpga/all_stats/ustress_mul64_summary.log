@@ -1,43 +1,45 @@
 ustress_mul64
 IPC: 0.929
          L1        L2    cycles cycles_e
-0      lost  bad_spec         7      7.0
-1      lost     other        59     59.0
-2  frontend    icache        33     33.0
-3  frontend      core        21     21.0
+0      lost  bad_spec         8      8.0
+1      lost     other        77     77.0
+2  frontend    icache        27     27.0
+3  frontend      core         9      9.0
 4   backend    dcache         0      0.0
-5   backend      core   4000012     4.0M
+5   backend      core   4000137     4.0M
 6  retiring   integer  52000047    52.0M
 7  retiring      simd         0      0.0
 
 Performance Counters for 'ustress_mul64'
    class          counter    count count_e
-  cycles           cycles 56000179   56.0M
-     ret              ret 52000047   52.0M
-   stall           stalls  4000066    4.0M
-    lost             lost       66    66.0
+  cycles           cycles 56000305   56.0M
+     ret         ret_inst 52000047   52.0M
+   stall           stalls  4000173    4.0M
+    lost             lost       85    85.0
    ret_*          ret_int 52000047   52.0M
    ret_* ret_ctrl_flow_br  2000004    2.0M
    ret_*         ret_simd        0     0.0
- stall_*         stall_be  4000012    4.0M
- stall_*    stall_be_core  4000012    4.0M
- stall_*         stall_fe       54    54.0
- stall_*    stall_fe_core       21    21.0
+ stall_*         stall_be  4000137    4.0M
+ stall_*    stall_be_core  4000137    4.0M
+ stall_*         stall_fe       36    36.0
+ stall_*    stall_fe_core        9     9.0
  stall_*        stall_l1d        0     0.0
- stall_*        stall_l1i       33    33.0
-bad_spec         bad_spec        7     7.0
-   l1i_*          l1i_ref 52000076   52.0M
-   l1i_*         l1i_miss       12    12.0
-   l1d_*          l1d_ref       20    20.0
+ stall_*        stall_l1i       27    27.0
+bad_spec         bad_spec        8     8.0
+   l1i_*          l1i_ref 52000120   52.0M
+   l1i_*        l1i_hit # 52000113   52.0M
+   l1i_*         l1i_miss        7     7.0
+   l1d_*          l1d_ref       21    21.0
+   l1d_*        l1d_hit #       21    21.0
    l1d_*         l1d_miss        0     0.0
-    bp_*          bp_miss        8     8.0
+    bp_*          bp_miss        7     7.0
 
 
 core:
     Cycles: 56.0M, Retired: 52.0M, Empty: 4.0M, IPC: 0.929 
 icache:
-    Ref: 52.0M, H: 52.0M, M: 12.0, HR: 100.00%, MPKI: 0.00 
+    Ref: 52.0M, H: 52.0M, M: 7.0, HR: 100.00%, MPKI: 0.00 
 dcache:
-    Ref: 20.0, H: 20.0, M: 0.0, HR: 100.00%, MPKI: 0.00 
+    Ref: 21.0, H: 21.0, M: 0.0, HR: 100.00%, MPKI: 0.00 
 bpred:
-    P: 2.0M, M: 8.0, ACC: 100.00%, MPKI: 0.00 
+    P: 2.0M, M: 7.0, ACC: 100.00%, MPKI: 0.00 

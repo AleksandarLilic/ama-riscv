@@ -1,43 +1,45 @@
 embench_statemate
-IPC: 0.942
+IPC: 0.945
          L1        L2    cycles cycles_e
-0      lost  bad_spec    392814   392.8k
-1      lost     other        58     58.0
-2  frontend    icache       178    178.0
-3  frontend      core   2160418     2.2M
+0      lost  bad_spec    589214   589.2k
+1      lost     other        72     72.0
+2  frontend    icache       139    139.0
+3  frontend      core   1571218     1.6M
 4   backend    dcache         0      0.0
-5   backend      core   1669410     1.7M
-6  retiring   integer  68936457    68.9M
+5   backend      core   1669537     1.7M
+6  retiring   integer  66285057    66.3M
 7  retiring      simd         0      0.0
 
 Performance Counters for 'embench_statemate'
    class          counter    count count_e
-  cycles           cycles 73159335   73.2M
-     ret              ret 68936457   68.9M
-   stall           stalls  3830006    3.8M
-    lost             lost   392872  392.9k
-   ret_*          ret_int 68936457   68.9M
+  cycles           cycles 70115237   70.1M
+     ret         ret_inst 66285057   66.3M
+   stall           stalls  3240894    3.2M
+    lost             lost   589286  589.3k
+   ret_*          ret_int 66285057   66.3M
    ret_* ret_ctrl_flow_br  5302804    5.3M
    ret_*         ret_simd        0     0.0
- stall_*         stall_be  1669410    1.7M
- stall_*    stall_be_core  1669410    1.7M
- stall_*         stall_fe  2160596    2.2M
- stall_*    stall_fe_core  2160418    2.2M
+ stall_*         stall_be  1669537    1.7M
+ stall_*    stall_be_core  1669537    1.7M
+ stall_*         stall_fe  1571357    1.6M
+ stall_*    stall_fe_core  1571218    1.6M
  stall_*        stall_l1d        0     0.0
- stall_*        stall_l1i      178   178.0
-bad_spec         bad_spec   392814  392.8k
-   l1i_*          l1i_ref 69329293   69.3M
-   l1i_*         l1i_miss       38    38.0
-   l1d_*          l1d_ref 43208022   43.2M
+ stall_*        stall_l1i      139   139.0
+bad_spec         bad_spec   589214  589.2k
+   l1i_*          l1i_ref 66874334   66.9M
+   l1i_*        l1i_hit # 66874304   66.9M
+   l1i_*         l1i_miss       30    30.0
+   l1d_*          l1d_ref 42029623   42.0M
+   l1d_*        l1d_hit # 42029623   42.0M
    l1d_*         l1d_miss        0     0.0
-    bp_*          bp_miss   196415  196.4k
+    bp_*          bp_miss   294615  294.6k
 
 
 core:
-    Cycles: 73.2M, Retired: 68.9M, Empty: 4.2M, IPC: 0.942 
+    Cycles: 70.1M, Retired: 66.3M, Empty: 3.8M, IPC: 0.945 
 icache:
-    Ref: 69.3M, H: 69.3M, M: 38.0, HR: 100.00%, MPKI: 0.00 
+    Ref: 66.9M, H: 66.9M, M: 30.0, HR: 100.00%, MPKI: 0.00 
 dcache:
-    Ref: 43.2M, H: 43.2M, M: 0.0, HR: 100.00%, MPKI: 0.00 
+    Ref: 42.0M, H: 42.0M, M: 0.0, HR: 100.00%, MPKI: 0.00 
 bpred:
-    P: 5.1M, M: 196.4k, ACC: 96.30%, MPKI: 2.85 
+    P: 5.0M, M: 294.6k, ACC: 94.44%, MPKI: 4.44 

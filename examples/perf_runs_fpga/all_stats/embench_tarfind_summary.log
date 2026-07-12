@@ -1,43 +1,45 @@
 embench_tarfind
 IPC: 0.83
          L1        L2    cycles cycles_e
-0      lost  bad_spec   1138510     1.1M
-1      lost     other     14153    14.2k
-2  frontend    icache        37     37.0
-3  frontend      core   4244121     4.2M
-4   backend    dcache   4770528     4.8M
-5   backend      core   2102760     2.1M
-6  retiring   integer  59867514    59.9M
+0      lost  bad_spec   1142056     1.1M
+1      lost     other      2427     2.4k
+2  frontend    icache        33     33.0
+3  frontend      core   4258211     4.3M
+4   backend    dcache   4747028     4.7M
+5   backend      core   2112285     2.1M
+6  retiring   integer  59919214    59.9M
 7  retiring      simd         0      0.0
 
 Performance Counters for 'embench_tarfind'
    class          counter    count count_e
-  cycles           cycles 72137623   72.1M
-     ret              ret 59867514   59.9M
-   stall           stalls 11117446   11.1M
-    lost             lost  1152663    1.2M
-   ret_*          ret_int 59867514   59.9M
+  cycles           cycles 72181254   72.2M
+     ret         ret_inst 59919214   59.9M
+   stall           stalls 11117557   11.1M
+    lost             lost  1144483    1.1M
+   ret_*          ret_int 59919214   59.9M
    ret_* ret_ctrl_flow_br  5354148    5.4M
    ret_*         ret_simd        0     0.0
- stall_*         stall_be  6873288    6.9M
- stall_*    stall_be_core  2102760    2.1M
- stall_*         stall_fe  4244158    4.2M
- stall_*    stall_fe_core  4244121    4.2M
- stall_*        stall_l1d  4770528    4.8M
- stall_*        stall_l1i       37    37.0
-bad_spec         bad_spec  1138510    1.1M
-   l1i_*          l1i_ref 61006048   61.0M
-   l1i_*         l1i_miss       12    12.0
-   l1d_*          l1d_ref 12855886   12.9M
-   l1d_*         l1d_miss   571053  571.1k
-    bp_*          bp_miss   569260  569.3k
+ stall_*         stall_be  6859313    6.9M
+ stall_*    stall_be_core  2112285    2.1M
+ stall_*         stall_fe  4258244    4.3M
+ stall_*    stall_fe_core  4258211    4.3M
+ stall_*        stall_l1d  4747028    4.7M
+ stall_*        stall_l1i       33    33.0
+bad_spec         bad_spec  1142056    1.1M
+   l1i_*          l1i_ref 61061337   61.1M
+   l1i_*        l1i_hit # 61061328   61.1M
+   l1i_*         l1i_miss        9     9.0
+   l1d_*          l1d_ref 12884087   12.9M
+   l1d_*        l1d_hit # 12315384   12.3M
+   l1d_*         l1d_miss   568703  568.7k
+    bp_*          bp_miss   571032  571.0k
 
 
 core:
-    Cycles: 72.1M, Retired: 59.9M, Empty: 12.3M, IPC: 0.830 
+    Cycles: 72.2M, Retired: 59.9M, Empty: 12.3M, IPC: 0.830 
 icache:
-    Ref: 61.0M, H: 61.0M, M: 12.0, HR: 100.00%, MPKI: 0.00 
+    Ref: 61.1M, H: 61.1M, M: 9.0, HR: 100.00%, MPKI: 0.00 
 dcache:
-    Ref: 12.9M, H: 12.3M, M: 571.1k, HR: 95.56%, MPKI: 9.54 
+    Ref: 12.9M, H: 12.3M, M: 568.7k, HR: 95.59%, MPKI: 9.49 
 bpred:
-    P: 4.8M, M: 569.3k, ACC: 89.37%, MPKI: 9.51 
+    P: 4.8M, M: 571.0k, ACC: 89.33%, MPKI: 9.53 

@@ -1,36 +1,38 @@
 embench_ud
 IPC: 0.887
          L1        L2     cycles cycles_e
-0      lost  bad_spec    7537821     7.5M
-1      lost     other         56     56.0
-2  frontend    icache        130    130.0
-3  frontend      core    3695023     3.7M
+0      lost  bad_spec    7537836     7.5M
+1      lost     other         81     81.0
+2  frontend    icache        158    158.0
+3  frontend      core    3695014     3.7M
 4   backend    dcache          0      0.0
-5   backend      core   10419912    10.4M
+5   backend      core   10420029    10.4M
 6  retiring   integer  169822271   169.8M
 7  retiring      simd          0      0.0
 
 Performance Counters for 'embench_ud'
    class          counter     count count_e
-  cycles           cycles 191475213  191.5M
-     ret              ret 169822271  169.8M
-   stall           stalls  14115065   14.1M
-    lost             lost   7537877    7.5M
+  cycles           cycles 191475389  191.5M
+     ret         ret_inst 169822271  169.8M
+   stall           stalls  14115201   14.1M
+    lost             lost   7537917    7.5M
    ret_*          ret_int 169822271  169.8M
    ret_* ret_ctrl_flow_br  23574104   23.6M
    ret_*         ret_simd         0     0.0
- stall_*         stall_be  10419912   10.4M
- stall_*    stall_be_core  10419912   10.4M
- stall_*         stall_fe   3695153    3.7M
- stall_*    stall_fe_core   3695023    3.7M
+ stall_*         stall_be  10420029   10.4M
+ stall_*    stall_be_core  10420029   10.4M
+ stall_*         stall_fe   3695172    3.7M
+ stall_*    stall_fe_core   3695014    3.7M
  stall_*        stall_l1d         0     0.0
- stall_*        stall_l1i       130   130.0
-bad_spec         bad_spec   7537821    7.5M
-   l1i_*          l1i_ref 177360114  177.4M
+ stall_*        stall_l1i       158   158.0
+bad_spec         bad_spec   7537836    7.5M
+   l1i_*          l1i_ref 177360170  177.4M
+   l1i_*        l1i_hit # 177360141  177.4M
    l1i_*         l1i_miss        29    29.0
-   l1d_*          l1d_ref  35915437   35.9M
+   l1d_*          l1d_ref  35915438   35.9M
+   l1d_*        l1d_hit #  35915438   35.9M
    l1d_*         l1d_miss         0     0.0
-    bp_*          bp_miss   3768914    3.8M
+    bp_*          bp_miss   3768921    3.8M
 
 
 core:

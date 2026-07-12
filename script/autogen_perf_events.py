@@ -272,7 +272,7 @@ TARGETS_NOTES = {
     FILES["core_stats.h"]:
         "'show_tda()' and 'show_all()' functions might need manual updates; "
         "'cosim/dpi_functions.h' likely needs to be re-generated as well; "
-        "'sim/script/{tda.py, perf_est_v2.py}' read hw_stats.json's 'core' "
+        "'sim/script/{tda.py, hw_perf_est.py}' read hw_stats.json's 'core' "
         "fields directly (hardcoded key names) - might need manual updates",
     FILES["main.cpp"]:
         "'perf' aliases might need manual updates",

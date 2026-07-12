@@ -237,9 +237,9 @@ Emulation is ran at 50MHz on Arty A7-100T board. Since design uses single clock 
   - Add: 64 MB/s
   - Triad: 57 MB/s
 - Embench_1.0 compiled for speed (with [detailed breakdown](examples/perf_runs_fpga/benchmark_results/embench_results.md)): 
-  - Size: 9.47 (4.32 - 20.76)
-  - Speed: 51.55 (34.02 - 78.11)
-  - Speed/MHz: 1.03 (0.68 - 1.56)
+  - Size: 9.75 (4.44 - 21.40)
+  - Speed: 51.52 (33.67 - 78.84)
+  - Speed/MHz: 1.03 (0.67 - 1.58)
 
 SIMD ISA improvements on MLP, measured in inferences per second
 
@@ -312,24 +312,25 @@ Utilization overview:
 
 First three logic levels, with percentage contribution compared to part's total resource availability  
 ```
-+--------------------------+------------------------+---------------+---------------+------------+-------------+------------+----------+------------+
-|         Instance         |         Module         |   Total LUTs  |   Logic LUTs  |   LUTRAMs  |     FFs     |   RAMB36   |  RAMB18  | DSP Blocks |
-+--------------------------+------------------------+---------------+---------------+------------+-------------+------------+----------+------------+
-| ama_riscv_fpga           |                  (top) | 12756(20.12%) | 12624(19.91%) | 132(0.69%) | 5013(3.95%) | 44(32.59%) | 0(0.00%) |   0(0.00%) |
-|   (ama_riscv_fpga)       |                  (top) |      7(0.01%) |      7(0.01%) |   0(0.00%) |   28(0.02%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
-|   ama_riscv_top_i        |          ama_riscv_top | 12748(20.11%) | 12616(19.90%) | 132(0.69%) | 4985(3.93%) | 44(32.59%) | 0(0.00%) |   0(0.00%) |
-|     ama_riscv_core_top_i |     ama_riscv_core_top | 12646(19.95%) | 12514(19.74%) | 132(0.69%) | 4891(3.86%) |  12(8.89%) | 0(0.00%) |   0(0.00%) |
-|       ama_riscv_core_i   |         ama_riscv_core | 10380(16.37%) | 10248(16.16%) | 132(0.69%) | 3558(2.81%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
-|       ama_riscv_dcache_i |       ama_riscv_dcache |   1775(2.80%) |   1775(2.80%) |   0(0.00%) |  789(0.62%) |   8(5.93%) | 0(0.00%) |   0(0.00%) |
-|       ama_riscv_icache_i |       ama_riscv_icache |    491(0.77%) |    491(0.77%) |   0(0.00%) |  544(0.43%) |   4(2.96%) | 0(0.00%) |   0(0.00%) |
-|     ama_riscv_mem_i      |          ama_riscv_mem |     31(0.05%) |     31(0.05%) |   0(0.00%) |    2(0.01%) | 32(23.70%) | 0(0.00%) |   0(0.00%) |
-|       (ama_riscv_mem_i)  |          ama_riscv_mem |      8(0.01%) |      8(0.01%) |   0(0.00%) |    2(0.01%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
-|       u_mem              |      xpm_memory_tdpram |     24(0.04%) |     24(0.04%) |   0(0.00%) |    0(0.00%) | 32(23.70%) | 0(0.00%) |   0(0.00%) |
-|     ama_riscv_uart_i     |         ama_riscv_uart |     74(0.12%) |     74(0.12%) |   0(0.00%) |   92(0.07%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
-|       (ama_riscv_uart_i) |         ama_riscv_uart |     20(0.03%) |     20(0.03%) |   0(0.00%) |   44(0.03%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
-|       uart_i             |                   uart |     54(0.09%) |     54(0.09%) |   0(0.00%) |   48(0.04%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
-|   fpga_clk_gen_i         | ama_riscv_fpga_clk_gen |      1(0.01%) |      1(0.01%) |   0(0.00%) |    0(0.00%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
-+--------------------------+------------------------+---------------+---------------+------------+-------------+------------+----------+------------+
++--------------------+------------------------+---------------+---------------+------------+----------+-------------+------------+----------+------------+
+|      Instance      |         Module         |   Total LUTs  |   Logic LUTs  |   LUTRAMs  |   SRLs   |     FFs     |   RAMB36   |  RAMB18  | DSP Blocks |
++--------------------+------------------------+---------------+---------------+------------+----------+-------------+------------+----------+------------+
+| ama_riscv_fpga     |                  (top) | 13334(21.03%) | 13202(20.82%) | 132(0.69%) | 0(0.00%) | 5315(4.19%) | 44(32.59%) | 0(0.00%) |   0(0.00%) |
+|   (ama_riscv_fpga) |                  (top) |      7(0.01%) |      7(0.01%) |   0(0.00%) | 0(0.00%) |   28(0.02%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
+|   fpga_clk_gen_i   | ama_riscv_fpga_clk_gen |      1(0.01%) |      1(0.01%) |   0(0.00%) | 0(0.00%) |    0(0.00%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
+|   top_i            |          ama_riscv_top | 13326(21.02%) | 13194(20.81%) | 132(0.69%) | 0(0.00%) | 5287(4.17%) | 44(32.59%) | 0(0.00%) |   0(0.00%) |
+|     core_top_i     |     ama_riscv_core_top | 13224(20.86%) | 13092(20.65%) | 132(0.69%) | 0(0.00%) | 5183(4.09%) |  12(8.89%) | 0(0.00%) |   0(0.00%) |
+|       clint_i      |        ama_riscv_clint |    172(0.27%) |    172(0.27%) |   0(0.00%) | 0(0.00%) |  166(0.13%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
+|       core_i       |         ama_riscv_core | 10801(17.04%) | 10669(16.83%) | 132(0.69%) | 0(0.00%) | 3685(2.91%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
+|       dcache_i     |       ama_riscv_dcache |   1777(2.80%) |   1777(2.80%) |   0(0.00%) | 0(0.00%) |  789(0.62%) |   8(5.93%) | 0(0.00%) |   0(0.00%) |
+|       icache_i     |       ama_riscv_icache |    475(0.75%) |    475(0.75%) |   0(0.00%) | 0(0.00%) |  543(0.43%) |   4(2.96%) | 0(0.00%) |   0(0.00%) |
+|     mem_i          |          ama_riscv_mem |     29(0.05%) |     29(0.05%) |   0(0.00%) | 0(0.00%) |    2(0.01%) | 32(23.70%) | 0(0.00%) |   0(0.00%) |
+|       (mem_i)      |          ama_riscv_mem |      8(0.01%) |      8(0.01%) |   0(0.00%) | 0(0.00%) |    2(0.01%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
+|       u_mem        |      xpm_memory_tdpram |     22(0.03%) |     22(0.03%) |   0(0.00%) | 0(0.00%) |    0(0.00%) | 32(23.70%) | 0(0.00%) |   0(0.00%) |
+|     uart_i         |         ama_riscv_uart |     76(0.12%) |     76(0.12%) |   0(0.00%) | 0(0.00%) |  102(0.08%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
+|       (uart_i)     |         ama_riscv_uart |     20(0.03%) |     20(0.03%) |   0(0.00%) | 0(0.00%) |   44(0.03%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
+|       uart_i       |                   uart |     56(0.09%) |     56(0.09%) |   0(0.00%) | 0(0.00%) |   58(0.05%) |   0(0.00%) | 0(0.00%) |   0(0.00%) |
++--------------------+------------------------+---------------+---------------+------------+----------+-------------+------------+----------+------------+
 ```
 
 Detailed utilization reports are available under [examples/perf_runs_fpga/fpga_synt_reports](examples/perf_runs_fpga/fpga_synt_reports)
@@ -891,7 +892,7 @@ It also backannotates the disassembly and saves it as `dhrystone.prof.dasm`
 Same as with ISA sim, except now `-c/--corr` can be passed in to get correlation against the estimates  
 Run with positional arguments as
 ```sh
-./sim/script/perf_est_v2.py \
+./sim/script/hw_perf_est.py \
     sim/examples/dhrystone_dhrystone_out/inst_profile.json \
     sim/examples/dhrystone_dhrystone_out/hw_stats.json \
     sim/examples/dhrystone_dhrystone_out/rf_trace.bin \
@@ -902,7 +903,7 @@ Run with positional arguments as
 Performance estimate breakdown for: 
     sim/examples/dhrystone_dhrystone_out/inst_profile.json
     sim/examples/dhrystone_dhrystone_out/hw_stats.json
-    <home_path>/sim/script/hw_perf_metrics_v2.yaml
+    <home_path>/sim/script/hw_perf_est_uarch.yaml
     sim/examples/dhrystone_dhrystone_out/rf_trace.bin
 
 Peak Stack usage: 352 bytes
@@ -956,19 +957,19 @@ ret_ctrl_flow_br  50487  50487     0    0.000
 
 # Overall hardware performance estimates correlation
 
-A useful check for the confidence that can be put in the functional models. Since the estimation flow offers much faster turnaround time, it's a tempting target for rapid exploration of either workload changes, or the microarchitectural tweaks.  
+Wider workload correlations is a useful check for the confidence that can be put in the functional models. Since the estimation flow offers much faster turnaround time, it's a tempting target for rapid exploration of either workload changes, or the microarchitectural tweaks.  
 Cycle estimates were compared against RTL cycle counts using only the timed workload regions, that is, excluding benchmark harness overhead like setup, warmup, UART printing, and others.
 
 ## Benchmarks
 
 | Metric | Value |
 |---|---:|
-| Mean signed error | -0.33% |
-| Std dev signed error | 1.32% |
-| Mean absolute error | 0.61% |
-| Median absolute error | 0.17% |
+| Mean signed error | -0.42% |
+| Std dev signed error | 1.26% |
+| Mean absolute error | 0.59% |
+| Median absolute error | 0.21% |
 | Worst absolute error | 6.13% |
-| ≤ 1% | 22/28 (79%) |
+| ≤ 1% | 23/28 (82%) |
 | ≤ 3% | 27/28 (96%) |
 | ≤ 5% | 27/28 (96%) |
 | ≤ 10% | 28/28 (100%) |
@@ -982,11 +983,11 @@ Cycle estimates were compared against RTL cycle counts using only the timed work
 
 | Metric | Value |
 |---|---:|
-| Mean signed error | -0.13% |
+| Mean signed error | -0.14% |
 | Std dev signed error | 0.28% |
 | Mean absolute error | 0.15% |
 | Median absolute error | 0.01% |
-| Worst absolute error | 0.69% |
+| Worst absolute error | 0.71% |
 | ≤ 1% | 13/13 (100%) |
 | ≤ 3% | 13/13 (100%) |
 | ≤ 5% | 13/13 (100%) |

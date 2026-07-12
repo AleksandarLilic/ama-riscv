@@ -1,43 +1,45 @@
 ustress_l1d_cache
 IPC: 0.405
          L1        L2    cycles cycles_e
-0      lost  bad_spec    320045   320.0k
-1      lost     other        62     62.0
-2  frontend    icache       195    195.0
-3  frontend      core        39     39.0
-4   backend    dcache  30720378    30.7M
-5   backend      core        18     18.0
-6  retiring   integer  21120690    21.1M
+0      lost  bad_spec    320060   320.1k
+1      lost     other        77     77.0
+2  frontend    icache       220    220.0
+3  frontend      core        33     33.0
+4   backend    dcache  30720366    30.7M
+5   backend      core       137    137.0
+6  retiring   integer  21120708    21.1M
 7  retiring      simd         0      0.0
 
 Performance Counters for 'ustress_l1d_cache'
    class          counter    count count_e
-  cycles           cycles 52161427   52.2M
-     ret              ret 21120690   21.1M
-   stall           stalls 30720630   30.7M
-    lost             lost   320107  320.1k
-   ret_*          ret_int 21120690   21.1M
-   ret_* ret_ctrl_flow_br  5280082    5.3M
+  cycles           cycles 52161601   52.2M
+     ret         ret_inst 21120708   21.1M
+   stall           stalls 30720756   30.7M
+    lost             lost   320137  320.1k
+   ret_*          ret_int 21120708   21.1M
+   ret_* ret_ctrl_flow_br  5280088    5.3M
    ret_*         ret_simd        0     0.0
- stall_*         stall_be 30720396   30.7M
- stall_*    stall_be_core       18    18.0
- stall_*         stall_fe      234   234.0
- stall_*    stall_fe_core       39    39.0
- stall_*        stall_l1d 30720378   30.7M
- stall_*        stall_l1i      195   195.0
-bad_spec         bad_spec   320045  320.0k
-   l1i_*          l1i_ref 21440752   21.4M
-   l1i_*         l1i_miss       47    47.0
-   l1d_*          l1d_ref  5120125    5.1M
-   l1d_*         l1d_miss  5120039    5.1M
-    bp_*          bp_miss   160027  160.0k
+ stall_*         stall_be 30720503   30.7M
+ stall_*    stall_be_core      137   137.0
+ stall_*         stall_fe      253   253.0
+ stall_*    stall_fe_core       33    33.0
+ stall_*        stall_l1d 30720366   30.7M
+ stall_*        stall_l1i      220   220.0
+bad_spec         bad_spec   320060  320.1k
+   l1i_*          l1i_ref 21440828   21.4M
+   l1i_*        l1i_hit # 21440786   21.4M
+   l1i_*         l1i_miss       42    42.0
+   l1d_*          l1d_ref  5120129    5.1M
+   l1d_*        l1d_hit #       91    91.0
+   l1d_*         l1d_miss  5120038    5.1M
+    bp_*          bp_miss   160033  160.0k
 
 
 core:
     Cycles: 52.2M, Retired: 21.1M, Empty: 31.0M, IPC: 0.405 
 icache:
-    Ref: 21.4M, H: 21.4M, M: 47.0, HR: 100.00%, MPKI: 0.00 
+    Ref: 21.4M, H: 21.4M, M: 42.0, HR: 100.00%, MPKI: 0.00 
 dcache:
-    Ref: 5.1M, H: 86.0, M: 5.1M, HR: 0.00%, MPKI: 242.42 
+    Ref: 5.1M, H: 91.0, M: 5.1M, HR: 0.00%, MPKI: 242.42 
 bpred:
     P: 5.1M, M: 160.0k, ACC: 96.97%, MPKI: 7.58 

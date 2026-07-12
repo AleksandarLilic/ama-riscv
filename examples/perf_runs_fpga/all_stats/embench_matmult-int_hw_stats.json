@@ -1,53 +1,55 @@
 {
     "core": {
-        "cycles": 181746288,
-        "empty": 22968031,
-        "stalls": 21012958,
-        "lost": 1955073,
-        "lost_other": 63,
-        "bad_spec": 1955010,
-        "stall_be": 20999104,
-        "stall_l1d": 2599092,
-        "stall_be_core": 18400012,
-        "stall_fe": 13854,
-        "stall_l1i": 37,
-        "stall_fe_core": 13817,
-        "ret": 158778257,
+        "cycles": 181746424,
+        "empty": 22968166,
+        "stalls": 21013074,
+        "lost": 1955092,
+        "lost_other": 76,
+        "bad_spec": 1955016,
+        "stall_be": 20999208,
+        "stall_l1d": 2599074,
+        "stall_be_core": 18400134,
+        "stall_fe": 13866,
+        "stall_l1i": 43,
+        "stall_fe_core": 13823,
+        "ret_inst": 158778258,
         "ret_simd": 0,
-        "ret_int": 158778257,
+        "ret_int": 158778258,
         "ret_ctrl_flow_br": 19616704,
-        "bp_miss": 977511,
-        "l1i_ref": 160733288,
-        "l1i_miss": 12,
-        "l1d_ref": 59800022,
-        "l1d_miss": 319713,
+        "bp_miss": 977512,
+        "l1i_ref": 160733337,
+        "l1i_miss": 15,
+        "l1d_ref": 59800023,
+        "l1d_miss": 319708,
+        "l1i_hit": 160733322,
+        "l1d_hit": 59480315,
         "ipc": 0.874
     },
     "icache": {
-        "references": 160733288,
+        "references": 160733337,
         "hits": {
-            "all": 160733276
+            "all": 160733322
         },
         "misses": {
-            "all": 12
+            "all": 15
         },
         "hr": 100.0,
         "mpki": 0.0
     },
     "dcache": {
-        "references": 59800022,
+        "references": 59800023,
         "hits": {
-            "all": 59480309
+            "all": 59480315
         },
         "misses": {
-            "all": 319713
+            "all": 319708
         },
         "hr": 99.47,
         "mpki": 2.01
     },
     "bpred": {
-        "predicted": 18639193,
-        "mispredicted": 977511,
+        "predicted": 18639192,
+        "mispredicted": 977512,
         "accuracy": 95.02,
         "mpki": 6.16
     }

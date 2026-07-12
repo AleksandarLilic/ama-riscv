@@ -1,54 +1,56 @@
 {
     "core": {
-        "cycles": 83665852,
-        "empty": 20098513,
-        "stalls": 19384360,
-        "lost": 714153,
-        "lost_other": 905,
-        "bad_spec": 713248,
-        "stall_be": 4983324,
-        "stall_l1d": 406862,
-        "stall_be_core": 4576462,
-        "stall_fe": 14401036,
-        "stall_l1i": 8610664,
-        "stall_fe_core": 5790372,
-        "ret": 63567339,
+        "cycles": 84755406,
+        "empty": 21188070,
+        "stalls": 20372340,
+        "lost": 815730,
+        "lost_other": 828,
+        "bad_spec": 814902,
+        "stall_be": 5086223,
+        "stall_l1d": 505394,
+        "stall_be_core": 4580829,
+        "stall_fe": 15286117,
+        "stall_l1i": 9465247,
+        "stall_fe_core": 5820870,
+        "ret_inst": 63567336,
         "ret_simd": 0,
-        "ret_int": 63567339,
+        "ret_int": 63567336,
         "ret_ctrl_flow_br": 6559204,
-        "bp_miss": 356630,
-        "l1i_ref": 64269748,
-        "l1i_miss": 1454645,
-        "l1d_ref": 16472450,
-        "l1d_miss": 43619,
-        "ipc": 0.76
+        "bp_miss": 407453,
+        "l1i_ref": 64350351,
+        "l1i_miss": 1589437,
+        "l1d_ref": 16472451,
+        "l1d_miss": 53572,
+        "l1i_hit": 62760914,
+        "l1d_hit": 16418879,
+        "ipc": 0.75
     },
     "icache": {
-        "references": 64269748,
+        "references": 64350351,
         "hits": {
-            "all": 62815103
+            "all": 62760914
         },
         "misses": {
-            "all": 1454645
+            "all": 1589437
         },
-        "hr": 97.74,
-        "mpki": 22.88
+        "hr": 97.53,
+        "mpki": 25.0
     },
     "dcache": {
-        "references": 16472450,
+        "references": 16472451,
         "hits": {
-            "all": 16428831
+            "all": 16418879
         },
         "misses": {
-            "all": 43619
+            "all": 53572
         },
-        "hr": 99.74,
-        "mpki": 0.69
+        "hr": 99.67,
+        "mpki": 0.84
     },
     "bpred": {
-        "predicted": 6202574,
-        "mispredicted": 356630,
-        "accuracy": 94.56,
-        "mpki": 5.61
+        "predicted": 6151751,
+        "mispredicted": 407453,
+        "accuracy": 93.79,
+        "mpki": 6.41
     }
 }

@@ -1,42 +1,44 @@
 embench_primecount
 IPC: 0.744
          L1        L2     cycles cycles_e
-0      lost  bad_spec   14938623    14.9M
-1      lost     other         62     62.0
-2  frontend    icache         30     30.0
-3  frontend      core        119    119.0
+0      lost  bad_spec   14938622    14.9M
+1      lost     other         79     79.0
+2  frontend    icache         20     20.0
+3  frontend      core        116    116.0
 4   backend    dcache          0      0.0
-5   backend      core   22065812    22.1M
+5   backend      core   22065929    22.1M
 6  retiring   integer  107424651   107.4M
 7  retiring      simd          0      0.0
 
 Performance Counters for 'embench_primecount'
    class          counter     count count_e
-  cycles           cycles 144429297  144.4M
-     ret              ret 107424651  107.4M
-   stall           stalls  22065961   22.1M
-    lost             lost  14938685   14.9M
+  cycles           cycles 144429417  144.4M
+     ret         ret_inst 107424651  107.4M
+   stall           stalls  22066065   22.1M
+    lost             lost  14938701   14.9M
    ret_*          ret_int 107424651  107.4M
    ret_* ret_ctrl_flow_br  42371804   42.4M
    ret_*         ret_simd         0     0.0
- stall_*         stall_be  22065812   22.1M
- stall_*    stall_be_core  22065812   22.1M
- stall_*         stall_fe       149   149.0
- stall_*    stall_fe_core       119   119.0
+ stall_*         stall_be  22065929   22.1M
+ stall_*    stall_be_core  22065929   22.1M
+ stall_*         stall_fe       136   136.0
+ stall_*    stall_fe_core       116   116.0
  stall_*        stall_l1d         0     0.0
- stall_*        stall_l1i        30    30.0
-bad_spec         bad_spec  14938623   14.9M
-   l1i_*          l1i_ref 122363298  122.4M
-   l1i_*         l1i_miss        11    11.0
-   l1d_*          l1d_ref  21772820   21.8M
+ stall_*        stall_l1i        20    20.0
+bad_spec         bad_spec  14938622   14.9M
+   l1i_*          l1i_ref 122363336  122.4M
+   l1i_*        l1i_hit # 122363329  122.4M
+   l1i_*         l1i_miss         7     7.0
+   l1d_*          l1d_ref  21772821   21.8M
+   l1d_*        l1d_hit #  21772821   21.8M
    l1d_*         l1d_miss         0     0.0
-    bp_*          bp_miss   7469317    7.5M
+    bp_*          bp_miss   7469313    7.5M
 
 
 core:
     Cycles: 144.4M, Retired: 107.4M, Empty: 37.0M, IPC: 0.744 
 icache:
-    Ref: 122.4M, H: 122.4M, M: 11.0, HR: 100.00%, MPKI: 0.00 
+    Ref: 122.4M, H: 122.4M, M: 7.0, HR: 100.00%, MPKI: 0.00 
 dcache:
     Ref: 21.8M, H: 21.8M, M: 0.0, HR: 100.00%, MPKI: 0.00 
 bpred:
