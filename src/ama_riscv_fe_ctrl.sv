@@ -29,6 +29,7 @@ module ama_riscv_fe_ctrl (
     output arch_width_t pc_cp,
     `endif
     output logic stall_act_flow,
+    output logic spec_ic_miss_sink,
     output spec_exec_t spec,
     output fe_ctrl_t fe_ctrl
 );
@@ -97,6 +98,7 @@ assign redirect_req = (
 );
 
 assign ignore_dec_flow_stall = (trap_ctrl.pending || stale_ic_miss);
+assign spec_ic_miss_sink = (stale_ic_miss && !stall_act.icache);
 assign branch_taken = (branch_in_mem && (branch_resolution == B_T));
 `ifdef USE_BP
 assign flow_update = jalr_in_mem;

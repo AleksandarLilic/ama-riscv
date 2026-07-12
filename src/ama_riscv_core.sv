@@ -93,7 +93,7 @@ assign pc_nz.fet = (pc.fet != 'h0);
 logic stall_act_flow;
 always_comb begin
     ct_gen.fet = '0;
-    ct_gen.fet.stall_fe_core = stall_act_flow;
+    ct_gen.fet.stall_act_flow = stall_act_flow;
 end
 
 `DFF_CI_RI_RVI(ct_gen.fet, ct.dec)
@@ -167,6 +167,7 @@ logic dc_stalled, div_stalled;
 logic csr_inst_exe, csr_drain_done, csr_stalled;
 branch_t branch_resolution_mem;
 hazard_t hazard;
+logic spec_ic_miss_sink;
 
 rv_ctrl_if imem_req_rv ();
 rv_ctrl_if imem_rsp_rv ();
@@ -203,6 +204,7 @@ ama_riscv_fe_ctrl fe_ctrl_i (
     .pc_cp (pc_fet_cp),
     `endif
     .stall_act_flow,
+    .spec_ic_miss_sink,
     .spec, // tied to 0 when BP is not used
     .fe_ctrl
 );
@@ -493,6 +495,7 @@ end
 always_comb begin
     ct_gen.dec = ct.dec;
     ct_gen.dec.stall_l1i = !imem_req.ready;
+    ct_gen.dec.spec_ic_miss_sink = spec_ic_miss_sink;
     ct_gen.dec.bad_spec = spec.wrong;
 end
 
@@ -822,6 +825,11 @@ always_comb begin
         hazard.from_mem && (itype.mem.mul || itype.mem.simd_arith)
     );
     ct_gen.exe.stall_div = div_stalled;
+    ct_gen.exe.stall_csr = (
+        csr_stalled &&
+        !ct_gen.exe.stall_load_use &&
+        !ct_gen.exe.stall_mul_simd_use
+    );
 end
 
 `DFF_CI_RI_RVI(ct_gen.exe, ct.mem)
@@ -961,7 +969,8 @@ always_comb begin
                 // or core
                 ct.ret.stall_load_use ||
                 ct.ret.stall_mul_simd_use ||
-                ct.ret.stall_div
+                ct.ret.stall_div ||
+                ct.ret.stall_csr
             );
             cpe.stall_l1d = ct.ret.stall_l1d;
             cpe.stall_l1d_r = ct.ret.stall_l1d_r;
@@ -972,7 +981,11 @@ always_comb begin
         // fe
         fe_unblocked = (!cpe.bad_spec && !cpe.stall_be);
         if (fe_unblocked) begin
-            cpe.stall_fe = (ct.ret.stall_l1i || ct.ret.stall_fe_core);
+            cpe.stall_fe = (
+                ct.ret.stall_l1i ||
+                ct.ret.stall_act_flow ||
+                ct.ret.spec_ic_miss_sink
+            );
             cpe.stall_l1i = ct.ret.stall_l1i;
         end
     end
@@ -1106,11 +1119,16 @@ int cpe_ret;
 assign cpe_ret = $countones({cpe.ret_simd, cpe.ret_mul, cpe.ret_div});
 
 int ct_stall_be_core, ct_stall_be, ct_stall_fe_core;
-assign ct_stall_be_core = $countones(
-    {ct.ret.stall_mul_simd_use, ct.ret.stall_div, ct.ret.stall_load_use}
-);
+assign ct_stall_be_core = $countones({
+    ct.ret.stall_mul_simd_use,
+    ct.ret.stall_div,
+    ct.ret.stall_load_use,
+    ct.ret.stall_csr
+});
 assign ct_stall_be = $countones({ct.ret.stall_l1d, ct_stall_be_core});
-assign ct_stall_fe_core = $countones({ct.ret.stall_l1i, ct.ret.stall_fe_core});
+assign ct_stall_fe_core = $countones(
+    {ct.ret.stall_l1i, ct.ret.stall_act_flow, ct.ret.spec_ic_miss_sink}
+);
 
 always @(posedge clk) begin
     if (cpe_ret) begin
@@ -1124,8 +1142,9 @@ always @(posedge clk) begin
     if (ct_stall_be_core) begin
         assert(ct_stall_be_core == 1)
         else $warning(
-            "CORE CYCLE TAG DOUBLE COUNTED: stall_be_core - mul/simd=%0b div=%0b load=%0b",
-            ct.ret.stall_mul_simd_use, ct.ret.stall_div, ct.ret.stall_load_use
+            "CORE CYCLE TAG DOUBLE COUNTED: stall_be_core - mul/simd=%0b div=%0b load=%0b csr=%0b",
+            ct.ret.stall_mul_simd_use, ct.ret.stall_div, ct.ret.stall_load_use,
+            ct.ret.stall_csr
         );
     end
 
@@ -1140,8 +1159,8 @@ always @(posedge clk) begin
     if (ct_stall_fe_core) begin
         assert(ct_stall_fe_core == 1)
         else $warning(
-            "CORE CYCLE TAG DOUBLE COUNTED: stall_fe - stall_l1i=%0b stall_fe_core=%0b",
-            ct.ret.stall_l1i, ct.ret.stall_fe_core
+            "CORE CYCLE TAG DOUBLE COUNTED: stall_fe - stall_l1i=%0b act_flow=%0b sink=%0b",
+            ct.ret.stall_l1i, ct.ret.stall_act_flow, ct.ret.spec_ic_miss_sink
         );
     end
 end

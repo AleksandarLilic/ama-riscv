@@ -723,11 +723,13 @@ typedef struct packed {
     logic bad_spec;
     logic stall_l1d;
     logic stall_l1d_r;
-    logic stall_fe_core;
+    logic stall_act_flow; // stall_fe_core 0
+    logic spec_ic_miss_sink; // stall_fe_core 1
     logic stall_l1i;
     logic stall_load_use; // stall_be_core 0
     logic stall_mul_simd_use; // stall_be_core 1
     logic stall_div; // stall_be_core 2
+    logic stall_csr; // stall_be_core 3
 } cycle_pe_tag_t;
 
 // ==== PERF_EVENT AUTOGEN BEGIN ====
