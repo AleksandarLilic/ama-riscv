@@ -148,6 +148,14 @@ run_job run_f ustress memcpy
 run_job run_f ustress mul32
 run_job run_f ustress mul64
 
+run_job run_g uart_direct_send hello_world
+run_job run_g uart_printf_nano hello_world
+run_job run_g uart_direct_loopback test
+
+run_job run_g interrupt_uart_wfi test_interrupt_idling
+run_job run_g interrupt_uart_wfi test_interrupt_wfi
+run_job run_g interrupt_uart_wfi test_wakeup_wfi
+
 wait # for all remaining jobs
 
 if [ -f "$fail_file" ]; then
