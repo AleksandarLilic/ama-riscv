@@ -23,7 +23,7 @@ defines:
   CPU_TARGET_FREQ_MHZ: 50
 
 synt:
-  flatten_hierarchy: rebuilt # full, none
+  flatten_hierarchy: rebuilt # full, rebuilt, none
   directive: PerformanceOptimized
   options:
     fsm_extraction: one_hot
@@ -40,7 +40,7 @@ impl: # directive options per step in directives.options.txt, run in flow order
   post_place_power_opt_design: { enabled: false } # no -directive; enable-only
   phys_opt_design:             [Explore] # list: 0..N passes, one per directive
   route_design:                { directive: NoTimingRelaxation }
-  post_route_phys_opt_design:  [Explore] # list: 0..N passes, one per directive
+  post_route_phys_opt_design:  [AggressiveExplore] # list: 0..N passes, one per directive
 
 bitstream: true
 mmi: true
