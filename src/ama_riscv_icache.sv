@@ -135,9 +135,8 @@ generate
 end
 endgenerate
 
-// tag & valid arrays
+// valid array
 logic a_valid [WAYS-1:0][SETS-1:0];
-logic [TAG_W-1:0] a_tag [WAYS-1:0][SETS-1:0];
 
 // state, tag matching, lru logic
 icache_state_t state, nx_state;
@@ -157,6 +156,23 @@ logic load_req_hit, load_req_pend;
 //------------------------------------------------------------------------------
 // lookup and tag matching
 
+// per-way tag memories: sync write, async read
+logic tag_w_en;
+logic [WAY_BITS-1:0] tag_w_way;
+logic [IDX_RANGE_TOP-1:0] tag_r_set, tag_w_set;
+logic [TAG_W-1:0] tag_w_val;
+logic [TAG_W-1:0] tags_cr_set_val [WAYS-1:0];
+
+assign tag_r_set = get_idx(req_core.data);
+genvar tw;
+`IT_P_NT(tw, WAYS) begin: gen_tag_mem
+    logic [TAG_W-1:0] m [SETS-1:0];
+    always_ff @(posedge clk) begin
+        if (tag_w_en && (tag_w_way == WAY_BITS'(tw))) m[tag_w_set] <= tag_w_val;
+    end
+    assign tags_cr_set_val[tw] = m[tag_r_set];
+end
+
 if (WAYS == 1) begin: gen_dmap_lookup
 
 // wrap in always_comb to force functions to evaluate first
@@ -169,8 +185,8 @@ always_comb begin
     way_victim_idx = '0;
     way_victim_idx_d = '0;
     // tag search
-    tag_match = (a_tag[cr.way_idx][set_idx_cr] == tag_cr);
-    hit = &{tag_match, new_core_req, a_valid[cr.way_idx][set_idx_cr]};
+    tag_match = (tags_cr_set_val[0] == tag_cr);
+    hit = (a_valid[cr.way_idx][set_idx_cr]) ? &{tag_match, new_core_req} : 1'b0;
     miss = (new_core_req && !hit);
 end
 
@@ -186,14 +202,14 @@ always_comb begin
     tag_match = 1'b0;
     way_victim_idx = '0;
     `IT_P(w, WAYS) begin
-        if (a_valid[w][set_idx_cr] && (a_tag[w][set_idx_cr] == tag_cr)) begin
+        if (a_valid[w][set_idx_cr] && (tags_cr_set_val[w] == tag_cr)) begin
             tag_match = 1'b1;
             cr.way_idx = w[WAY_BITS-1:0];
         end else if (a_lru[w][set_idx_cr] == LRU_MAX_CNT) begin
             way_victim_idx = w[WAY_BITS-1:0];
         end
     end
-    hit = &{tag_match, new_core_req, a_valid[cr.way_idx][set_idx_cr]};
+    hit = (a_valid[cr.way_idx][set_idx_cr]) ? &{tag_match, new_core_req} : 0;
     miss = (new_core_req && !hit);
 end
 `DFF_CI_RI_RVI(way_victim_idx, way_victim_idx_d)
@@ -345,18 +361,21 @@ logic [WORD_IN_BANK_LINE_ADDR-1:0] word_in_bank_line_addr;
 
 //------------------------------------------------------------------------------
 // tag and valid updates
+assign tag_w_en = (!rst && mem_to_cache_wr && mem_transfer_done);
+assign tag_w_way = cr_pend.cr.way_idx;
+assign tag_w_set = set_idx_pend;
+assign tag_w_val = tag_pend;
+
 always_ff @(posedge clk) begin
     if (rst) begin
         `IT_P(w, WAYS) begin
             `IT_P(s, SETS) begin
                 a_valid[w][s] <= 1'b0;
-                a_tag[w][s] <= 'h0;
             end
         end
     end else if (mem_to_cache_wr && mem_transfer_done) begin
-        // on the last transfer, update valid and tag
+        // on the last transfer, update valid; tag memory is written same cycle
         a_valid[cr_pend.cr.way_idx][set_idx_pend] <= 1'b1;
-        a_tag[cr_pend.cr.way_idx][set_idx_pend] <= tag_pend;
     end else if (miss_d) begin
         // invalidate line right away
         a_valid[way_victim_idx][set_idx_cr] <= 1'b0;
@@ -495,6 +514,7 @@ typedef struct {
 
 // proxy for convenience, but not for wave
 cache_line_data_t d [WAYS-1:0][SETS-1:0];
+logic [TAG_W-1:0] t [WAYS-1:0][SETS-1:0];
 genvar gw, gs;
 `IT_P_NT(gw, WAYS) begin: gen_bank
     `IT_P_NT(gs, SETS) begin
@@ -503,6 +523,7 @@ genvar gw, gs;
             d[gw][gs].q[1] = `ICACHE.gen_bank[gw].bank_i.m[(gs*4) + 1];
             d[gw][gs].q[2] = `ICACHE.gen_bank[gw].bank_i.m[(gs*4) + 2];
             d[gw][gs].q[3] = `ICACHE.gen_bank[gw].bank_i.m[(gs*4) + 3];
+            t[gw][gs] = gen_tag_mem[gw].m[gs];
         end
     end
 end
@@ -512,7 +533,7 @@ always_comb begin
     `IT_P(w, WAYS) begin
         `IT_P(s, SETS) begin
             data_view[w][s].valid = a_valid[w][s];
-            data_view[w][s].tag = a_tag[w][s];
+            data_view[w][s].tag = t[w][s];
             data_view[w][s].lru = `ICACHE.gen_assoc_lookup.a_lru[w][s];
             data_view[w][s].data = d[w][s];
         end
@@ -576,7 +597,7 @@ cache_line_t data_view [SETS-1:0];
 always_comb @(posedge clk) begin
     `IT_P(s, SETS) begin
         data_view[s].valid = a_valid[0][s];
-        data_view[s].tag = a_tag[0][s];
+        data_view[s].tag = gen_tag_mem[0].m[s];
         data_view[s].data = d[s];
     end
 end

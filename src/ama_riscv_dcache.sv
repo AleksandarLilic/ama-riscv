@@ -193,10 +193,9 @@ generate
 end
 endgenerate
 
-// tag & valid arrays
+// valid & dirty arrays
 logic a_valid [WAYS-1:0][SETS-1:0];
 logic a_dirty [WAYS-1:0][SETS-1:0];
-logic [TAG_W-1:0] a_tag [WAYS-1:0][SETS-1:0];
 
 // state, tag matching, lru logic
 core_request_t cr;
@@ -215,6 +214,26 @@ logic load_req_hit, store_req_hit, load_req_pending, store_req_pending;
 //------------------------------------------------------------------------------
 // lookup and tag matching
 
+// per-way tag memories: sync write, async read
+logic tag_w_en;
+logic [WAY_BITS-1:0] tag_w_way;
+logic [IDX_RANGE_TOP-1:0] tag_r_set, tag_w_set;
+logic [IDX_RANGE_TOP-1:0] tag_victim_set;
+logic [TAG_W-1:0] tag_w_val;
+logic [TAG_W-1:0] tags_cr_set_val [WAYS-1:0];
+logic [TAG_W-1:0] tags_victim_set_val [WAYS-1:0];
+
+assign tag_r_set = get_idx(req_core.addr);
+genvar tw;
+`IT_P_NT(tw, WAYS) begin: gen_tag_mem
+    logic [TAG_W-1:0] m [SETS-1:0];
+    always_ff @(posedge clk) begin
+        if (tag_w_en && (tag_w_way == WAY_BITS'(tw))) m[tag_w_set] <= tag_w_val;
+    end
+    assign tags_cr_set_val[tw] = m[tag_r_set];
+    assign tags_victim_set_val[tw] = m[tag_victim_set];
+end
+
 if (WAYS == 1) begin: gen_dmap_lookup
 
 // wrap in always_comb to force functions to evaluate first
@@ -225,8 +244,8 @@ always_comb begin
     // hardwired values for direct-mapped
     way_victim_idx = '0;
     // tag search
-    tag_match = (a_tag[cr.way_idx][set_idx_cr] == tag_cr);
-    hit = &{tag_match, new_core_req, a_valid[cr.way_idx][set_idx_cr]};
+    tag_match = (tags_cr_set_val[0] == tag_cr);
+    hit = (a_valid[cr.way_idx][set_idx_cr]) ? &{tag_match, new_core_req} : 1'b0;
     miss = (new_core_req && !hit);
     cr_victim_dirty = a_dirty[cr.way_idx][set_idx_cr];
 end
@@ -242,14 +261,14 @@ always_comb begin
     tag_match = 1'b0;
     way_victim_idx = '0;
     `IT_P(w, WAYS) begin
-        if (a_valid[w][set_idx_cr] && (a_tag[w][set_idx_cr] == tag_cr)) begin
+        if (a_valid[w][set_idx_cr] && (tags_cr_set_val[w] == tag_cr)) begin
             tag_match = 1'b1;
             cr.way_idx = w[WAY_BITS-1:0];
         end else if (a_lru[w][set_idx_cr] == LRU_MAX_CNT) begin
             way_victim_idx = w[WAY_BITS-1:0];
         end
     end
-    hit = &{tag_match, new_core_req, a_valid[cr.way_idx][set_idx_cr]};
+    hit = (a_valid[cr.way_idx][set_idx_cr]) ? &{tag_match, new_core_req} : 0;
     miss = (new_core_req && !hit);
     cr_victim_dirty = a_dirty[way_victim_idx][set_idx_cr];
 end
@@ -457,11 +476,18 @@ end
 
 `DFF_CI_RI_RVI(lfc, lfc_d)
 
+assign tag_victim_set = lfc.set_idx;
+
 //------------------------------------------------------------------------------
 // metadata updates
 
 logic [TAG_W-1:0] tag_pend;
-assign tag_pend = cr_pend.mem_start_addr[MEM_ADDR_BUS-1 -: TAG_W];;
+assign tag_pend = cr_pend.mem_start_addr[MEM_ADDR_BUS-1 -: TAG_W];
+
+assign tag_w_en = (!rst && cache_store && mem_r_transfer_done);
+assign tag_w_way = stc.way_idx;
+assign tag_w_set = stc.set_idx;
+assign tag_w_val = tag_pend;
 
 always_ff @(posedge clk) begin
     if (rst) begin
@@ -469,14 +495,13 @@ always_ff @(posedge clk) begin
             `IT_P(s, SETS) begin
                 a_valid[w][s] <= 1'b0;
                 a_dirty[w][s] <= 1'b0;
-                a_tag[w][s] <= 'h0;
             end
         end
     end else if (cache_store) begin
         if (mem_r_transfer_done) begin
+            // tag memory is written same cycle
             a_valid[stc.way_idx][stc.set_idx] <= 1'b1;
             a_dirty[stc.way_idx][stc.set_idx] <= 1'b0;
-            a_tag[stc.way_idx][stc.set_idx] <= tag_pend;
         end
         if (store_req_pending || store_req_hit) begin
             a_dirty[stc.way_idx][stc.set_idx] <= 1'b1;
@@ -601,10 +626,10 @@ end
 
 if (SETS == 1) begin: gen_victim_addr_dm
     assign victim_wb_start_addr =
-        {a_tag[lfc.way_idx][lfc.set_idx], 2'b00};
+        {tags_victim_set_val[lfc.way_idx], 2'b00};
 end else begin: gen_victim_addr_assoc
     assign victim_wb_start_addr =
-        {a_tag[lfc.way_idx][lfc.set_idx], lfc.set_idx, 2'b00};
+        {tags_victim_set_val[lfc.way_idx], lfc.set_idx, 2'b00};
 end
 
 logic [ARCH_WIDTH-1:0] rd_data;
@@ -705,6 +730,7 @@ typedef struct {
 
 // proxy for convenience, but not for wave
 cache_line_data_t d [WAYS-1:0][SETS-1:0];
+logic [TAG_W-1:0] t [WAYS-1:0][SETS-1:0];
 genvar gw, gs;
 `IT_P_NT(gw, WAYS) begin: gen_bank
     `IT_P_NT(gs, SETS) begin
@@ -713,6 +739,7 @@ genvar gw, gs;
             d[gw][gs].q[1] = `DCACHE.gen_bank[gw].bank_i.m[(gs*4) + 1];
             d[gw][gs].q[2] = `DCACHE.gen_bank[gw].bank_i.m[(gs*4) + 2];
             d[gw][gs].q[3] = `DCACHE.gen_bank[gw].bank_i.m[(gs*4) + 3];
+            t[gw][gs] = gen_tag_mem[gw].m[gs];
         end
     end
 end
@@ -723,7 +750,7 @@ always_comb begin
         `IT_P(s, SETS) begin
             data_view[w][s].valid <= a_valid[w][s];
             data_view[w][s].dirty <= a_dirty[w][s];
-            data_view[w][s].tag <= a_tag[w][s];
+            data_view[w][s].tag <= t[w][s];
             data_view[w][s].lru <= `DCACHE.gen_assoc_lookup.a_lru[w][s];
             data_view[w][s].data <= d[w][s];
         end
@@ -789,7 +816,7 @@ always_comb begin
     `IT_P(s, SETS) begin
         data_view[s].valid <= a_valid[0][s];
         data_view[s].dirty <= a_dirty[0][s];
-        data_view[s].tag <= a_tag[0][s];
+        data_view[s].tag <= gen_tag_mem[0].m[s];
         data_view[s].data = d[s];
     end
 end
