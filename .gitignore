@@ -46,7 +46,7 @@ cosim/build*
 *_profiler.*
 *_trace.*
 *_exec.*
-src/rtl_scratchpad.ipynb
+*.ipynb
 
 # make touchfiles
 *touchfile
