@@ -6,9 +6,11 @@ CXXFLAGS := -Wall -Wextra
 CXXFLAGS += -Wcast-qual -Wold-style-cast
 CXXFLAGS += -Wunreachable-code -Wnull-dereference
 CXXFLAGS += -Wnon-virtual-dtor -Woverloaded-virtual
+CXXFLAGS += -Werror=conversion
 CXXFLAGS += -Werror -pedantic -std=gnu++17
 CXXFLAGS += -Wno-error=null-dereference # may be required for ELFIO only
-CXXFLAGS += -Ofast -s -flto=auto -march=native -mtune=native
+CXXFLAGS += -O3 -flto=auto
+CXXFLAGS += -march=native -mtune=native
 CXXFLAGS += -m64 -fPIC -shared
 CXXFLAGS += -Wno-unused-parameter
 #CXXFLAGS += -pg

@@ -29,7 +29,7 @@ import "DPI-C" function void cosim_exec(
     output int unsigned rf[32]
 );
 
-import "DPI-C" function int unsigned cosim_get_inst_cnt();
+import "DPI-C" function longint unsigned cosim_get_inst_cnt();
 import "DPI-C" function void cosim_finish();
 
 import "DPI-C" function void cosim_force_irq(
@@ -422,7 +422,7 @@ function bit cosim_run_checkers;
 endfunction
 
 function void cosim_check_inst_cnt;
-    int unsigned cosim_i, core_i;
+    longint unsigned cosim_i, core_i;
     cosim_i = cosim_get_inst_cnt();
     core_i = core_stats::get_inst_cnt(core_cnt_main);
     if (cosim_i != core_i) begin
@@ -921,8 +921,8 @@ task automatic single_step();
 
 endtask
 
-function automatic void heartbeat(ref int unsigned inst_ret_prev);
-    int unsigned inst_ret, diff;
+function automatic void heartbeat(ref longint unsigned inst_ret_prev);
+    longint unsigned inst_ret, diff;
     if ((clk_cnt % args.heartbeat_clocks) != 0) return;
 
     inst_ret = core_stats::get_inst_cnt(core_cnt_main);
@@ -935,8 +935,8 @@ function automatic void heartbeat(ref int unsigned inst_ret_prev);
 endfunction
 
 task run_test();
-    automatic int unsigned clks_to_retire_last_inst = 2;
-    automatic int unsigned inst_ret_prev = 0;
+    automatic longint unsigned clks_to_retire_last_inst = 2;
+    automatic longint unsigned inst_ret_prev = 0;
     while (tohost_source !== 1'b1) begin
         @(posedge clk); #0.1;
         single_step();

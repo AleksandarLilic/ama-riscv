@@ -194,10 +194,10 @@ struct core_stats_t {
         }
         void show_all() {
             float_t amat_l1i, amat_l1d, hits;
-            hits = (l1i_ref - l1i_miss);
-            amat_l1i = ((hits + stall_l1i) / hits);
-            hits = (l1d_ref - l1d_miss);
-            amat_l1d = ((hits + stall_l1d) / hits);
+            hits = TO_F32(l1i_ref - l1i_miss);
+            amat_l1i = ((hits + TO_F32(stall_l1i)) / hits);
+            hits = TO_F32(l1d_ref - l1d_miss);
+            amat_l1d = ((hits + TO_F32(stall_l1d)) / hits);
             std::cout
                 << "Control Flow: " << ret_ctrl_flow
                 << " - J: " <<

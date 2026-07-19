@@ -52,7 +52,7 @@ DPI_LINKER_DECL DPI_DLLESPEC
 
 /* Imported (by SV) function */
 DPI_LINKER_DECL DPI_DLLESPEC 
- unsigned int cosim_get_inst_cnt(
+ uint64_t cosim_get_inst_cnt(
 );
 
 

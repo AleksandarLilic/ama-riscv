@@ -1,9 +1,9 @@
 `include "ama_riscv_defines.svh"
 
 typedef struct {
-    int unsigned cycle;
-    int unsigned inst;
-    int unsigned empty;
+    longint unsigned cycle;
+    longint unsigned inst;
+    longint unsigned empty;
 } core_counters_t;
 
 virtual class core_stats;
@@ -39,11 +39,11 @@ virtual class core_stats;
         return s;
     endfunction
 
-    static function int unsigned get_inst_cnt(ref core_counters_t cnt);
+    static function longint unsigned get_inst_cnt(ref core_counters_t cnt);
         return cnt.inst;
     endfunction
 
-    static function int unsigned get_cycle_cnt(ref core_counters_t cnt);
+    static function longint unsigned get_cycle_cnt(ref core_counters_t cnt);
         return cnt.cycle;
     endfunction
 
