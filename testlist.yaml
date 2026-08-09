@@ -11,18 +11,26 @@ _bundles:
     - timer
     - uart
     - mlp
+    - ukr_m_dotv
+    - ukr_m_dotf
+    - ukr_m_gemv
+    - ukr_m_gemm
     - aapg_short
     - riscv_isa_rv32i
     - riscv_isa_rv32i_zicsr
     - riscv_isa_rv32m
     - ustress
+  math:
+    - ukr_
+    - matmul$
+    - mlp
   full:
     - ".*"
     - ~embench
     - ~trap
     - ~act
     - ~vector
-    - ~matmul
+    - ~matmul_generic
 
 simple:
   - ["sim/sw/baremetal/asm_rv32i", "test.mem"]
@@ -75,30 +83,36 @@ dcache:
   - ["sim/sw/baremetal/memcpy", "int64*.mem"]
   - ["sim/sw/baremetal/memcpy", "int8*.mem"]
 
-vector:
-  - ["sim/sw/baremetal/vector_ew_basic", "add*.mem"]
-  - ["sim/sw/baremetal/vector_ew_basic", "sub*.mem"]
-  - ["sim/sw/baremetal/vector_ew_basic", "mul*.mem"]
-  - ["sim/sw/baremetal/vector_ew_basic", "div*.mem"]
+vector_dot8_peak:
+  - ["sim/sw/baremetal/vector_dot8_peak", "single_acc_int8.mem"]
+  - ["sim/sw/baremetal/vector_dot8_peak", "multiple_acc_int8.mem"]
 
-dot_product:
-  - ["sim/sw/baremetal/dot_product", "int16.mem"]
-  - ["sim/sw/baremetal/dot_product", "int8.mem"]
-  - ["sim/sw/baremetal/dot_product", "int16_int8.mem"]
-  - ["sim/sw/baremetal/dot_product", "int16_int4.mem"]
-  - ["sim/sw/baremetal/dot_product", "int8_int4.mem"]
-  - ["sim/sw/baremetal/dot_product", "int8_int2.mem"]
-  - ["sim/sw/baremetal/dot_product_peak", "single_acc_int8.mem"]
-  - ["sim/sw/baremetal/dot_product_peak", "multiple_acc_int8.mem"]
+ukr_m_arithv:
+  - ["sim/sw/baremetal/ukr_m_arithv", "add*.mem"]
+  - ["sim/sw/baremetal/ukr_m_arithv", "sub*.mem"]
+  - ["sim/sw/baremetal/ukr_m_arithv", "mul*.mem"]
+  #- ["sim/sw/baremetal/ukr_m_arithv", "div*.mem"]
 
-conv:
-  - ["sim/sw/baremetal/conv1d", "int16*.mem"]
+ukr_m_dotv:
+  - ["sim/sw/baremetal/ukr_m_dotv", "*.mem"]
 
-matmul_base:
+ukr_m_dotf:
+  - ["sim/sw/baremetal/ukr_m_dotf", "*.mem"]
+
+ukr_m_gemv:
+  - ["sim/sw/baremetal/ukr_m_gemv", "*.mem"]
+
+ukr_m_gemm:
+  - ["sim/sw/baremetal/ukr_m_gemm", "*.mem"]
+
+ukr_conv1d:
+  - ["sim/sw/baremetal/ukr_conv1d", "int16*.mem"]
+
+matmul_generic:
+  - ["sim/sw/baremetal/matmul_generic", "*.mem"]
+
+matmul:
   - ["sim/sw/baremetal/matmul", "*.mem"]
-
-matmul_opt:
-  - ["sim/sw/baremetal/matmul_opt", "*.mem"]
 
 uart:
   - ["sim/sw/baremetal/uart_direct_send", "hello_world.mem"]
