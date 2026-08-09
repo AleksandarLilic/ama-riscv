@@ -241,13 +241,13 @@ Emulation is ran at 50MHz on Arty A7-100T board. Since design uses single clock 
   - Speed: 51.52 (33.67 - 78.84)
   - Speed/MHz: 1.03 (0.67 - 1.58)
 
-SIMD ISA improvements on MLP, measured in inferences per second
+SIMD ISA improvements on MLP, measured in inferences per second, batch=8
 
-| Flavor | `RV32IM`<br>[inf/s] | `RV32IM_Xsimd`<br>[inf/s] | Improvement |
-| ---- | --- | ---- | ---- |
-| w8a8 | 238 | 1968 | 8.3x |
-| w4a8 | 228 | 1984 | 8.7x |
-| w2a8 | 293 | 2083 | 7.1x |
+| Flavor | `RV32IM`<br>[inf/s] | `RV32IM_Xsimd`<br>[inf/s] | Improvement<br>in inf/s |  `RV32IM`<br>IPC | `RV32IM_Xsimd`<br>IPC |
+| ---- | ---- | ---- | ---- | ----- | ----- |
+| w8a8 | 1277 | 6861 | 5.4x | 0.989 | 0.942 |
+| w4a8 | 1100 | 6902 | 6.3x | 0.993 | 0.957 |
+| w2a8 | 982  | 6589 | 6.7x | 0.964 | 0.919 |
 
 ## Plots and data
 
@@ -964,8 +964,8 @@ Cycle estimates were compared against RTL cycle counts using only the timed work
 
 | Metric | Value |
 |---|---:|
-| Mean signed error | -0.42% |
-| Std dev signed error | 1.26% |
+| Mean signed error | -0.44% |
+| Std dev signed error | 1.25% |
 | Mean absolute error | 0.59% |
 | Median absolute error | 0.21% |
 | Worst absolute error | 6.13% |

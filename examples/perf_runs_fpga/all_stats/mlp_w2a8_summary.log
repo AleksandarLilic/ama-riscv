@@ -1,45 +1,45 @@
 mlp_w2a8
-IPC: 0.918
+IPC: 0.917
          L1        L2  cycles cycles_e
-0      lost  bad_spec      66     66.0
-1      lost     other      69     69.0
-2  frontend    icache     137    137.0
-3  frontend      core      13     13.0
-4   backend    dcache     692    692.0
-5   backend      core    1017     1.0k
-6  retiring   integer   11194    11.2k
-7  retiring      simd   11032    11.0k
+0      lost  bad_spec     492    492.0
+1      lost     other      67     67.0
+2  frontend    icache     235    235.0
+3  frontend      core     112    112.0
+4   backend    dcache    2260     2.3k
+5   backend      core    6876     6.9k
+6  retiring   integer   40531    40.5k
+7  retiring      simd   70976    71.0k
 
 Performance Counters for 'mlp_w2a8'
    class          counter  count count_e
-  cycles           cycles  24220   24.2k
-     ret         ret_inst  22226   22.2k
-   stall           stalls   1859    1.9k
-    lost             lost    135   135.0
-   ret_*          ret_int  11194   11.2k
-   ret_* ret_ctrl_flow_br    893   893.0
-   ret_*         ret_simd  11032   11.0k
- stall_*         stall_be   1709    1.7k
- stall_*    stall_be_core   1017    1.0k
- stall_*         stall_fe    150   150.0
- stall_*    stall_fe_core     13    13.0
- stall_*        stall_l1d    692   692.0
- stall_*        stall_l1i    137   137.0
-bad_spec         bad_spec     66    66.0
-   l1i_*          l1i_ref  22362   22.4k
-   l1i_*        l1i_hit #  22335   22.3k
-   l1i_*         l1i_miss     27    27.0
-   l1d_*          l1d_ref   6598    6.6k
-   l1d_*        l1d_hit #   6484    6.5k
-   l1d_*         l1d_miss    114   114.0
-    bp_*          bp_miss     36    36.0
+  cycles           cycles 121549  121.5k
+     ret         ret_inst 111507  111.5k
+   stall           stalls   9483    9.5k
+    lost             lost    559   559.0
+   ret_*          ret_int  40531   40.5k
+   ret_* ret_ctrl_flow_br   3186    3.2k
+   ret_*         ret_simd  70976   71.0k
+ stall_*         stall_be   9136    9.1k
+ stall_*    stall_be_core   6876    6.9k
+ stall_*         stall_fe    347   347.0
+ stall_*    stall_fe_core    112   112.0
+ stall_*        stall_l1d   2260    2.3k
+ stall_*        stall_l1i    235   235.0
+bad_spec         bad_spec    492   492.0
+   l1i_*          l1i_ref 112064  112.1k
+   l1i_*        l1i_hit # 112014  112.0k
+   l1i_*         l1i_miss     50    50.0
+   l1d_*          l1d_ref  25426   25.4k
+   l1d_*        l1d_hit #  25105   25.1k
+   l1d_*         l1d_miss    321   321.0
+    bp_*          bp_miss    248   248.0
 
 
 core:
-    Cycles: 24.2k, Retired: 22.2k, Empty: 2.0k, IPC: 0.918 
+    Cycles: 121.5k, Retired: 111.5k, Empty: 10.0k, IPC: 0.917 
 icache:
-    Ref: 22.4k, H: 22.3k, M: 27.0, HR: 99.88%, MPKI: 1.21 
+    Ref: 112.1k, H: 112.0k, M: 50.0, HR: 99.96%, MPKI: 0.45 
 dcache:
-    Ref: 6.6k, H: 6.5k, M: 114.0, HR: 98.27%, MPKI: 5.13 
+    Ref: 25.4k, H: 25.1k, M: 321.0, HR: 98.74%, MPKI: 2.88 
 bpred:
-    P: 857.0, M: 36.0, ACC: 95.97%, MPKI: 1.62 
+    P: 2.9k, M: 248.0, ACC: 92.22%, MPKI: 2.22 
