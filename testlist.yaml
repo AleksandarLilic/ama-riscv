@@ -15,6 +15,7 @@ _bundles:
     - ukr_m_dotf
     - ukr_m_gemv
     - ukr_m_gemm
+    - ukr_m_txp
     - aapg_short
     - riscv_isa_rv32i
     - riscv_isa_rv32i_zicsr
@@ -104,6 +105,9 @@ ukr_m_gemv:
 
 ukr_m_gemm:
   - ["sim/sw/baremetal/ukr_m_gemm", "*.mem"]
+
+ukr_m_txp:
+  - ["sim/sw/baremetal/ukr_m_txp", "*.mem"]
 
 ukr_conv1d:
   - ["sim/sw/baremetal/ukr_conv1d", "int16*.mem"]
