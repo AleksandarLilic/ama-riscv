@@ -28,7 +28,7 @@ RUN_CFG = os.path.join(REPO_ROOT, "run_cfg_suite.tcl")
 MAX_WORKERS = int(os.cpu_count())
 TEST_STATUS = "test.status"
 TOUCHFILE_COV = ".cov.touchfile"
-BUILD_LINKS = ["Makefile", "Makefile.sources.mk", "cosim"]
+BUILD_LINKS = ["Makefile", "Makefile.sources.mk"]
 
 yaml = YAML()
 yaml.preserve_quotes = True

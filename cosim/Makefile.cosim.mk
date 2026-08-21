@@ -51,13 +51,13 @@ endif
 include $(ISA_SIM_SRC_MK)
 
 # COSIM
-COSIM_ROOT := cosim
-COSIM_ROOT_ABS := $(REPO_ROOT)/$(COSIM_ROOT)
+COSIM_ROOT := $(REPO_ROOT)/cosim
 DPI_FUNCS_H := $(COSIM_ROOT)/dpi_functions.h # auto-generated, needs exact path
 COSIM_H := $(wildcard $(COSIM_ROOT)/*.h) # all cosim headers
 COSIM_BDIR := build
 COSIM_BDIR_FULL := $(COSIM_ROOT)/$(COSIM_BDIR)
-COSIM_SO := ama-riscv-cosim.so
+COSIM_SO_NAME := ama-riscv-cosim
+COSIM_SO := $(COSIM_SO_NAME).so
 COSIM_TARGET := $(COSIM_BDIR_FULL)/$(COSIM_SO)
 
 COSIM_SRCS := $(wildcard $(COSIM_ROOT)/*.cpp)
@@ -68,7 +68,7 @@ COSIM_INC := -I$(VIVADO_ROOT)/data/xsim/include
 COSIM_INC += -I$(COSIM_ROOT)
 DPI_LINK_LIB := -L$(VIVADO_ROOT)/tps/lnx64/gcc-9.3.0/lib64/
 
-ISA_SIM_INC_EXTRA := -I$(COSIM_ROOT_ABS)
+ISA_SIM_INC_EXTRA := -I$(COSIM_ROOT)
 ISA_SIM_INC_EXTRA += -I$(VIVADO_ROOT)/data/xsim/include
 
 # log stdout
@@ -103,11 +103,11 @@ isa_sim_obj: .isa_sim_obj.touchfile
 $(COSIM_ROOT)/$(COSIM_BDIR)/%.o: $(COSIM_ROOT)/%.cpp $(COSIM_H) $(ISA_SIM_H)
 	@echo "Building COSIM OBJ $@" $(COSIM_LOG_ARG)
 	@mkdir -p $(dir $@)
-	@$(CXX) $(CXXFLAGS) -MMD -c $< -o $@ $(COSIM_INC) $(ISA_SIM_INC) $(DEFINES) \
-		$(COSIM_LOG_ARG)
+	@$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@ $(COSIM_INC) $(ISA_SIM_INC) \
+		$(DEFINES) $(COSIM_LOG_ARG)
 	@echo "Building COSIM OBJ $@ done" $(COSIM_LOG_ARG)
 
--include $(DEPS)
+-include $(COSIM_DEPS)
 
 cleancosim:
 	rm -rf $(COSIM_BDIR_FULL)

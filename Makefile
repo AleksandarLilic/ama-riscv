@@ -1,5 +1,9 @@
 SHELL := /bin/bash
 
+ifeq ($(strip $(REPO_ROOT)),)
+$(error REPO_ROOT not set. Source setup.sh first.)
+endif
+
 NPROCS_DEF := 8
 NPROCS := $(shell nproc 2>/dev/null || echo $(NPROCS_DEF))
 # only add -j if MAKEFLAGS doesn't already contain a job limit
@@ -118,7 +122,7 @@ all: sim
 
 # if SIM_ONLY, ignore getting sources so it doesn't trigger rebuilds
 ifeq ($(strip $(SIM_ONLY)), 0)
-include cosim/Makefile.cosim.mk
+include $(REPO_ROOT)/cosim/Makefile.cosim.mk
 endif
 
 # used to limit the number of delta cycles during simulation, default is 10000
@@ -128,7 +132,8 @@ MAX_DELTA = -maxdeltaid 100
 WLIB_TOP := $(WORKLIB).$(TOP)
 
 CMD_COMP := xvlog $(COMP_OPTS) -prj $(SOURCE_FILES) $(LOG_ARG)
-CMD_ELAB := xelab $(WLIB_TOP) $(ELAB_OPTS) -sv_lib $(COSIM_TARGET) $(LOG_ARG)
+CMD_ELAB := xelab $(WLIB_TOP) $(ELAB_OPTS) \
+    -sv_root $(COSIM_BDIR_FULL) -sv_lib $(COSIM_SO_NAME) $(LOG_ARG)
 CMD_SIM := xsim $(WLIB_TOP) $(TCLBATCH_SWITCH) $(WDB_SWITCH) -stats \
     -onerror quit $(TB_ARGS) $(COSIM_ARGS) $(MAX_DELTA) $(LOG_ARG)
 
@@ -270,8 +275,7 @@ workdir:
 	@mkdir $(REPO_ROOT)/$(WORKDIR)
 	@cd $(REPO_ROOT)/$(WORKDIR) && \
 	ln -s $(REPO_ROOT)/Makefile && \
-	ln -s $(REPO_ROOT)/Makefile.sources.mk && \
-	ln -s $(REPO_ROOT)/cosim
+	ln -s $(REPO_ROOT)/Makefile.sources.mk
 	@echo "Workdir created at: $(REPO_ROOT)/$(WORKDIR)"
 
 #-------------------------------------------------------------------------------
