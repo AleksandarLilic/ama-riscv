@@ -25,4 +25,10 @@ class cosim_stats {
         void log_bp_event(const hw_events_t* ev);
         void show();
         void log_hw_stats(std::string out_dir);
+        uint64_t get_inst_all() const {
+            return core_stats.get_inst_all();
+        }
+        uint64_t get_cycles_all() const {
+            return core_stats.get_cycles_all();
+        }
 };

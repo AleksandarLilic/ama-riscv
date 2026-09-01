@@ -88,6 +88,7 @@ uint64_t cosim_get_inst_cnt() {
 
 DPI_LINKER_DECL DPI_DLLESPEC
 void cosim_finish() {
+    rv32->set_exec_cnt(stats.get_inst_all(), stats.get_cycles_all());
     rv32->finish(false);
     stats.show();
     stats.log_hw_stats(out_dir);
