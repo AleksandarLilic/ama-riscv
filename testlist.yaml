@@ -3,6 +3,7 @@ _bundles:
     - simple
     - simd_isa
     - csr
+
   gate:
     - simple
     - simd_isa
@@ -21,17 +22,41 @@ _bundles:
     - riscv_isa_rv32i_zicsr
     - riscv_isa_rv32m
     - ustress
+
   math:
     - ukr_
     - matmul$
     - mlp
+
   full:
-    - ".*"
-    - ~embench
-    - ~trap
-    - ~act
-    - ~vector
-    - ~matmul_generic
+    - simple
+    - simd_isa
+    - csr
+    - perf_cnts
+    - dcache
+    # math
+    - ukr_m_arithv
+    - ukr_m_dotv
+    - ukr_m_dotf
+    - ukr_m_gemv
+    - ukr_m_gemm
+    - ukr_m_txp
+    - ukr_conv1d
+    - matmul
+    - mlp
+    # misc
+    - uart
+    - timer
+    # bench
+    - benchmark
+    - ustress
+    # isa
+    - aapg_short
+    - aapg
+    - imperas_riscv
+    - riscv_isa_rv32i
+    - riscv_isa_rv32i_zicsr
+    - riscv_isa_rv32m
 
 simple:
   - ["sim/sw/baremetal/asm_rv32i", "test.mem"]
@@ -91,7 +116,7 @@ vector_dot8_peak:
 ukr_m_arithv:
   - ["sim/sw/baremetal/ukr_m_arithv", "add*.mem"]
   - ["sim/sw/baremetal/ukr_m_arithv", "sub*.mem"]
-  - ["sim/sw/baremetal/ukr_m_arithv", "mul*.mem"]
+  - ["sim/sw/baremetal/ukr_m_arithv", "wmul*.mem"]
   #- ["sim/sw/baremetal/ukr_m_arithv", "div*.mem"]
 
 ukr_m_dotv:

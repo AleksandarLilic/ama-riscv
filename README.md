@@ -87,14 +87,28 @@ ls testrun_<run_date>/asm_rv32i_test/asm_rv32i_test_out_cosim/
 asm_rv32i_test.kanata.log  callstack_folded_cycle_cosim.txt callstack_folded_inst_cosim.txt hw_stats.json  inst_profile_clk.json  trace_clk.bin  uart.log
 ```
 
-Second option is to use testlist instead of manually specifying each test. Optionally, testlist can be filtered e.g. using "simple" group filter, adding rundir, and timeout in number of clock cycles
+Second option is to use testlist instead of manually specifying each test. `--testlist` defaults to `testlist.yaml` in the repo root, so it only needs to be given when running a different one. Optionally, testlist can be filtered e.g. using "simple" group filter, adding rundir, and timeout in number of clock cycles
 ```sh
-run --testlist ../testlist.yaml -r testrun_demo -c 1000000 -f "simple"
+run -r testrun_demo -c 1000000 -g "simple"
 ```
 
 Add `-k` to keep the build and `-p` to keep already passed tests (together with the same `--rundir`), reduce expected runtime/timeout, and run official RISC-V ISA tests
 ```sh
-run --testlist ../testlist.yaml -r testrun_demo -c 5000 -f "riscv_isa_rv32i" -kp
+run -r testrun_demo -c 5000 -g "riscv_isa_rv32i" -kp
+```
+
+Filtering happens in two stages: `-g|--group` selects testlist groups (top level keys, plus the bundle aliases from `_bundles`), and `-f|--filter` selects individual tests within them, matching the repo-relative test path with the extension stripped. Both take regexes, and `~` excludes
+```sh
+run -g "ukr_" -f "_al" # aligned ukr tests only
+run -g "riscv_isa" "~rv32m"
+```
+
+Running without any filters and relying on the default `testlist.yaml` will start every test, which will take (many) hours to complete, depending on the host machine resources and C test build parameters.
+
+Since testlist entries may use wildcards, `--list` expands them and shows what is available to filter on, without building or simulating. `--list groups` prints one line per group, with its test count and bundle membership
+```sh
+run --list groups
+run -g "ukr_" --list
 ```
 
 Running `-v VERBOSE` should be done with care since it will slow down execution. For short tests, the difference is insignificant, while for longer ones it can add minutes to the simulation time, and create a large log.  

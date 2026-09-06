@@ -25,6 +25,7 @@ TEST_LOG = "test.log"
 REPO_ROOT = os.getenv("REPO_ROOT") \
     or sys.exit("Error: REPO_ROOT not set. Source setup.sh first.")
 RUN_CFG = os.path.join(REPO_ROOT, "run_cfg_suite.tcl")
+DEFAULT_TESTLIST = os.path.join(REPO_ROOT, "testlist.yaml")
 MAX_WORKERS = int(os.cpu_count())
 TEST_STATUS = "test.status"
 TOUCHFILE_COV = ".cov.touchfile"
@@ -72,58 +73,57 @@ def create_run_cfg(log_wave, log_vcd):
     with open(RUN_CFG, 'w') as file:
         file.writelines(line + '\n' for line in tcl_content)
 
-def find_all_tests(test_list, filters=None):
-    # if filtering is used, apply on top level keys, and put only those entires
-    # otherwise, just flatten the entire test_list
+def apply_filters(items, filters, key_of=lambda x: x):
+    # tokens are regexes, '~' prefix turns one into an exclusion;
+    # with no positive token, the base set is everything, minus the exclusions
+    inc = [f for f in filters if not f.startswith('~')]
+    exc = [f[1:] for f in filters if f.startswith('~')]
 
-    if filters is None:
-        filters = []
+    def keep(item):
+        key = key_of(item)
+        if inc and not any(re.search(p, key) for p in inc):
+            return False
+        return not any(re.search(p, key) for p in exc)
 
+    return [item for item in items if keep(item)]
+
+def expand_bundles(filters, bundles):
+    # bundle names are matched exactly, everything else passes through as regex;
+    # '~' is stripped before the lookup and re-applied to each expanded token,
+    # so '~<bundle>' excludes every group the bundle names
+    expanded = []
+    for f in filters:
+        neg = f.startswith('~')
+        name = f[1:] if neg else f
+        tokens = bundles.get(name)
+        if tokens is None:
+            expanded.append(f)
+            continue
+        if neg and any(str(t).startswith('~') for t in tokens):
+            raise ValueError(
+                f"Cannot negate bundle '{name}': it contains exclusions. " +
+                "Negate the groups it names individually instead.")
+        expanded.extend(f"~{t}" if neg else str(t) for t in tokens)
+    return expanded
+
+def get_groups(test_list, group_filters=None):
+    # top level keys, minus the internal ones, narrowed by -g|--group
     bundles = test_list.get(BUNDLES_KEY, {}) or {}
-    test_list = {
+    groups = {
         key: val for key, val in test_list.items()
         if not str(key).startswith('_')
     }
-    filters = [
-        bundled_filter
-        for f in filters
-        for bundled_filter in bundles.get(f, [f])
-    ]
+    if group_filters:
+        keys = apply_filters(
+            list(groups), expand_bundles(group_filters, bundles))
+        groups = {key: groups[key] for key in keys}
+    return groups
 
-    tl_flat = [item for sublist in test_list.values() for item in sublist]
-    tl_filt = tl_flat
-    if filters:
-        tl_filt = [] # reset, filled after filtering
-        mode = "neg" if all(f.startswith('~') for f in filters) else "pos"
-
-        tl = {"inc" : [], "exc" : []}
-        for key in test_list:
-            for f in filters:
-                idx = "inc"
-                if f.startswith('~'):
-                    f = f[1:]
-                    idx = "exc"
-                if re.search(f, key):
-                    tl[idx].extend(test_list[key])
-
-        if mode == "pos":
-            # include all from inc, and remove items from exc
-            if len(tl["inc"]) > 0:
-                tl_filt_all = [
-                    item for item in tl_flat
-                    if (item in tl["inc"]) and (item not in tl["exc"])
-                ]
-                # go through list and add only unique items to tl_filt
-                for item in tl_filt_all:
-                    if item not in tl_filt:
-                        tl_filt.append(item)
-        else:
-            # exclude from all those in exc, no inc list
-            tl_filt = [item for item in tl_flat if item not in tl["exc"]]
-
+def glob_entries(entries):
+    # each entry is a [path, test name pattern] pair, relative to REPO_ROOT
     valid_tests = []
     some_mismatched = False
-    for path, test_name_pattern in tl_filt:
+    for path, test_name_pattern in entries:
         full_pattern = os.path.join(REPO_ROOT, path, test_name_pattern)
         matched_files = glob.glob(full_pattern)
         if matched_files:
@@ -133,6 +133,18 @@ def find_all_tests(test_list, filters=None):
             some_mismatched = True
             print(f"Warning: No files match the pattern " + \
                   f"'{test_name_pattern}' in '{path}'.")
+    return valid_tests, some_mismatched
+
+def test_key(test_path):
+    # what -f|--filter matches against: repo-relative path, extension stripped
+    return os.path.splitext(os.path.relpath(test_path, REPO_ROOT))[0]
+
+def find_all_tests(test_list, group_filters=None, test_filters=None):
+    # groups are selected first, then their entries globbed into concrete tests,
+    # and only then narrowed down to individual tests
+    groups = get_groups(test_list, group_filters)
+    entries = [item for sublist in groups.values() for item in sublist]
+    valid_tests, some_mismatched = glob_entries(entries)
 
     if some_mismatched:
         print("Some test names are invalid. Check the test name/testlist")
@@ -142,9 +154,40 @@ def find_all_tests(test_list, filters=None):
             print("Proceeding with the valid tests")
             time.sleep(3)
 
-    dedup = list(set(valid_tests)) # deduplicate after globbing
-    dedup.sort()
-    return dedup
+    tests = list(set(valid_tests)) # deduplicate after globbing
+    tests.sort()
+    if test_filters:
+        tests = apply_filters(tests, test_filters, key_of=test_key)
+    return tests
+
+def list_tests(test_list, group_filters=None, test_filters=None, what="tests"):
+    # same selection as find_all_tests, but keeps the group each test came from
+    bundles = test_list.get(BUNDLES_KEY, {}) or {}
+    groups = get_groups(test_list, group_filters)
+
+    listing = {}
+    for name, entries in groups.items():
+        paths, _ = glob_entries(entries)
+        keys = sorted(set(test_key(p) for p in paths))
+        if test_filters:
+            keys = apply_filters(keys, test_filters)
+        if keys:
+            # bundle tokens are regexes, so membership goes through the same
+            # matching as -g does, rather than a plain name lookup
+            in_bundles = [
+                b for b in bundles
+                if apply_filters([name], expand_bundles([b], bundles))
+            ]
+            listing[name] = (keys, in_bundles)
+
+    total = sum(len(keys) for keys, _ in listing.values())
+    print(f"\nGroups: {len(listing)}, tests: {total}")
+    width = max((len(name) for name in listing), default=0)
+    for name, (keys, in_bundles) in listing.items():
+        bundle_str = f"  [{' '.join(in_bundles)}]" if in_bundles else ""
+        print(f"{INDENT}{name:{width}}  {len(keys):4}{bundle_str}")
+        if what == "tests":
+            print("".join(f"{INDENT*2}{key}\n" for key in keys), end="")
 
 def format_test_name(test_path):
     return f"{os.path.basename(os.path.dirname(test_path))}_" + \
@@ -429,8 +472,10 @@ def run_coverage(all_tests, run_dir):
 def parse_args():
     parser = argparse.ArgumentParser(description="Run RTL simulation.")
     parser.add_argument('-t', '--test', nargs='+', help="Specify one or more tests to run (space-separated)")
-    parser.add_argument('--testlist', help="Path to a YAML file containing a list of tests")
-    parser.add_argument('-f', '--filter', nargs='+', help="Apply filtering to the testlist. Tokens regex-match group names and exact-match bundle aliases from _bundles. Pass as space-separated values. Use ~ to exclude. E.g., '-f riscv_isa ~rv32m' includes all groups matching 'riscv_isa', except those matching 'rv32m'. Quote tokens with shell-special regex chars (e.g. '[', '*'). If not specified, all tests in the testlist are run")
+    parser.add_argument('--testlist', help=f"Path to a YAML file containing a list of tests. Defaults to '{DEFAULT_TESTLIST}' unless -t|--test is used")
+    parser.add_argument('-g', '--group', nargs='+', help="Select test groups (top level keys) from the testlist. Tokens regex-match group names and exact-match bundle aliases from _bundles. Pass as space-separated values. Use ~ to exclude. E.g., '-g riscv_isa \"~rv32m\"' includes all groups matching 'riscv_isa', except those matching 'rv32m'. Quote tokens with shell-special chars (e.g. '~', '[', '*') to avoid shell expansion. If not specified, all groups are selected")
+    parser.add_argument('-f', '--filter', nargs='+', help="Select individual tests from the selected groups. Tokens regex-match the repo-relative test path with the extension stripped (e.g. 'sim/sw/baremetal/ukr_m_dotv/int16_al'), so a token can name a directory, a file, or any substring of either. Use ~ to exclude. E.g., '-f ukr_m_dotv \"~ual\"'. Same quoting rules as --group arg above. Applied after -g|--group. Use --list to see the available test names. If not specified, all tests in the selected group(s) are run")
+    parser.add_argument('--list', nargs='?', const='tests', choices=['tests', 'groups'], help="List the testlist contents and exit, without building or simulating. 'tests' (default) prints each group with its expanded test names, exactly as -f|--filter matches them; 'groups' prints one line per group. Honors -g|--group and -f|--filter")
     parser.add_argument('-r', '--rundir', help="Optional custom run directory name")
     parser.add_argument('-o', '--build_only', action='store_true', help="Only build the testbench")
     parser.add_argument('-k', '--keep_build', action='store_true', default=False, help="Reuse existing build if available")
@@ -447,7 +492,13 @@ def parse_args():
     parser.add_argument('--log_wave', action='store_true', help="Collect .wdb waveform, all modules from the top down")
     parser.add_argument('--log_vcd', action='store_true', help="Collect .vcd waveform, all modules from the top down")
     parser.add_argument('--log_kanata', action='store_true', help="Collect kanata log")
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    # provide default if nothing is given through cli
+    if not (args.test or args.testlist):
+        args.testlist = DEFAULT_TESTLIST
+
+    return args
 
 def main():
     start_time_suite = datetime.datetime.now()
@@ -457,10 +508,12 @@ def main():
     # check arguments
     if args.test and args.testlist:
         raise ValueError("Cannot use both -t|--test and --testlist. Choose one")
-    if args.test and args.filter:
+    if args.test and (args.filter or args.group):
         raise ValueError(
-            "Cannot use -f|--filter with -t|--test. " +
-            "Filter can only be applied to testlist.")
+            "Cannot use -f|--filter or -g|--group with -t|--test. " +
+            "Filters can only be applied to testlist.")
+    if args.list and not args.testlist:
+        raise ValueError("--list needs a --testlist to list.")
     if args.coverage and args.coverage_only:
         raise ValueError(
             "Cannot use both --coverage and --coverage_only. Choose one.")
@@ -469,7 +522,7 @@ def main():
             "--coverage_only needs -r|--rundir pointing at an " +
             "existing instrumented run directory.")
 
-    if not args.dry_run:
+    if not (args.dry_run or args.list):
         create_run_cfg(args.log_wave, args.log_vcd)
 
     if args.test:
@@ -484,11 +537,15 @@ def main():
         print("   " + "\n   ".join(all_tests))
         print(f"Running {len(all_tests)} test(s) total")
     elif args.testlist:
-        filters = []
+        test_list = read_from_yaml(args.testlist)
+        if args.list:
+            list_tests(test_list, args.group, args.filter, args.list)
+            sys.exit(0)
+        if args.group:
+            print(f"Applying group filter(s): {args.group}")
         if args.filter:
-            filters = args.filter
-            print(f"Applying filter(s): {filters}")
-        all_tests = find_all_tests(read_from_yaml(args.testlist), filters)
+            print(f"Applying test filter(s): {args.filter}")
+        all_tests = find_all_tests(test_list, args.group, args.filter)
         if not all_tests:
             raise ValueError("Error: No tests found after filtering.")
         print(f"\nTestlist:")

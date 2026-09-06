@@ -1,5 +1,6 @@
 usage: run_test.py [-h] [-t TEST [TEST ...]] [--testlist TESTLIST]
-                   [-f FILTER [FILTER ...]] [-r RUNDIR] [-o] [-k] [-b] [-p]
+                   [-g GROUP [GROUP ...]] [-f FILTER [FILTER ...]]
+                   [--list [{tests,groups}]] [-r RUNDIR] [-o] [-k] [-b] [-p]
                    [-s] [-j JOBS] [-c TIMEOUT_CLOCKS] [-v LOG_LEVEL]
                    [--coverage] [--coverage_only] [--dry_run] [--log_wave]
                    [--log_vcd] [--log_kanata]
@@ -10,16 +11,35 @@ options:
   -h, --help            show this help message and exit
   -t TEST [TEST ...], --test TEST [TEST ...]
                         Specify one or more tests to run (space-separated)
-  --testlist TESTLIST   Path to a YAML file containing a list of tests
+  --testlist TESTLIST   Path to a YAML file containing a list of tests.
+                        Defaults to '<repo_root>/testlist.yaml'
+                        unless -t|--test is used
+  -g GROUP [GROUP ...], --group GROUP [GROUP ...]
+                        Select test groups (top level keys) from the testlist.
+                        Tokens regex-match group names and exact-match bundle
+                        aliases from _bundles. Pass as space-separated values.
+                        Use ~ to exclude. E.g., '-g riscv_isa "~rv32m"'
+                        includes all groups matching 'riscv_isa', except those
+                        matching 'rv32m'. Quote tokens with shell-special
+                        chars (e.g. '~', '[', '*') to avoid shell expansion.
+                        If not specified, all groups are selected
   -f FILTER [FILTER ...], --filter FILTER [FILTER ...]
-                        Apply filtering to the testlist. Tokens regex-match
-                        group names and exact-match bundle aliases from
-                        _bundles. Pass as space-separated values. Use ~ to
-                        exclude. E.g., '-f riscv_isa ~rv32m' includes all
-                        groups matching 'riscv_isa', except those matching
-                        'rv32m'. Quote tokens with shell-special regex chars
-                        (e.g. '[', '*'). If not specified, all tests in the
-                        testlist are run
+                        Select individual tests from the selected groups.
+                        Tokens regex-match the repo-relative test path with
+                        the extension stripped (e.g.
+                        'sim/sw/baremetal/ukr_m_dotv/int16_al'), so a token
+                        can name a directory, a file, or any substring of
+                        either. Use ~ to exclude. E.g., '-f ukr_m_dotv
+                        "~ual"'. Same quoting rules as --group arg above.
+                        Applied after -g|--group. Use --list to see the
+                        available test names. If not specified, all tests in
+                        the selected group(s) are run
+  --list [{tests,groups}]
+                        List the testlist contents and exit, without building
+                        or simulating. 'tests' (default) prints each group
+                        with its expanded test names, exactly as -f|--filter
+                        matches them; 'groups' prints one line per group.
+                        Honors -g|--group and -f|--filter
   -r RUNDIR, --rundir RUNDIR
                         Optional custom run directory name
   -o, --build_only      Only build the testbench

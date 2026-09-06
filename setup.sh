@@ -15,7 +15,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 export REPO_ROOT
 
 # utils
-alias run='${REPO_ROOT}/run_test.py'
+run() { "${REPO_ROOT}/run_test.py" "$@"; }
 
 # generic run_cfg.tcl
 tcl_cfg="run_cfg.tcl"
