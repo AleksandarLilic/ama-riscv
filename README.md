@@ -48,13 +48,12 @@ git clone --recurse-submodules git@github.com:AleksandarLilic/ama-riscv.git
 ```
 
 ## Prerequisites
-Submodules are pulled automatically with `--recurse-submodules`
 
 - **Vivado** (tested on 2023.2)
 - **GCC** >= 10 (C++17, `gnu++17`)
 - **Make**
-- **Python**
-- Prerequisites of [./sim](./sim) submodule
+- **Python** (python env from the `./sim` submodule can be used)
+- Prerequisites of the [`./sim`](https://github.com/AleksandarLilic/ama-riscv-sim#prerequisites) submodule
 
 ## Quick start
 
