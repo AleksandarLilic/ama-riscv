@@ -301,13 +301,13 @@ cleancov:
 		coverage_dashboard.html
 
 cleanlogs:
-	rm -rf *.log *.jou *.pb vivado_pid*.str out_* *.wdb *.vcd
+	rm -rf *.log *_out_cosim *.wdb *.vcd *.jou *.pb vivado_pid*.str
 
-cleanrtl: cleanlogs cleancov
+cleanrtl:
 	rm -rf .compile.touchfile .elab.touchfile .sim.touchfile .cov.touchfile xsim.dir xsim.codeCov $(SLANG_PP_OUT)
 
-clean: cleanrtl
+clean: cleanrtl cleanlogs cleancov
 
-cleanall: cleanrtl cleancosim cleanisa
+cleanall: clean cleancosim cleanisa
 
 .PHONY: lint slang slang_pp hier watch_slang workdir autogen_perf_events coverage cleancov cleanrtl cleancosim cleanisa cleanall
