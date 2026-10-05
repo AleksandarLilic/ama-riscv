@@ -115,17 +115,20 @@ always_comb begin
 end
 
 end else begin: gen_corr_simd
+logic dot;
+assign dot = op_simd_dot;
+
 always_comb begin
     corr = '0;
     if (!op_unsigned) begin
         unique case (1'b1)
             ew.b32: begin corr[32] = 1'b1; corr[63] = 1'b1; end
-            (ew.b16 && op_simd_dot): begin corr[17] = 1'b1; end
-            (ew.b16 && !op_simd_dot): begin corr[16] = 1'b1; corr[31] = 1'b1;end
-            (ew.b8 && op_simd_dot): begin corr[10] = 1'b1; end
-            (ew.b8 && !op_simd_dot): begin corr[8] = 1'b1; corr[15] = 1'b1;end
-            ew.b4: begin corr[7] = 1'b1; end // idx [4] set 8 times
-            ew.b2: begin corr[6] = 1'b1; end // idx [2] set 16 times
+            (ew.b16 && dot): begin corr[17] = 1'b1; end
+            (ew.b16 && !dot): begin corr[16] = 1'b1; corr[31] = 1'b1; end
+            (ew.b8 && dot): begin corr[31:0] = 32'hFFFE0400; end
+            (ew.b8 && !dot): begin corr[8] = 1'b1; corr[15] = 1'b1; end
+            ew.b4: begin corr[31:0] = 32'hFFFFFC80; end
+            ew.b2: begin corr[31:0] = 32'hFFFFFFC0; end
         endcase
     end
 end

@@ -204,53 +204,12 @@ simd_t b_d;
 
 //------------------------------------------------------------------------------
 // wrap up simd dot
-localparam unsigned DOT8_W = 17; // dot8 result width
-localparam unsigned DOT8_SIGN_EXT = (ARCH_WIDTH - DOT8_W);
-localparam unsigned DOT4_W = 10; // dot4 result width
-localparam unsigned DOT4_SIGN_EXT = (ARCH_WIDTH - DOT4_W);
-localparam unsigned DOT2_W = 7; // dot2 result width
-localparam unsigned DOT2_SIGN_EXT = (ARCH_WIDTH - DOT2_W);
-
-// signed
-arch_width_t dot_r, dot16_r, dot8_r, dot4_r, dot2_r;
+arch_width_t dot_r, dot_out;
 assign dot_r = tree_sum.w[0];
-assign dot16_r = dot_r[ARCH_WIDTH-1:0];
-
-logic dot8_msb;
-assign dot8_msb = (&dot_r[DOT8_W:DOT8_W-1]) ? 1'b0 : dot_r[DOT8_W-1];
-assign dot8_r = {{DOT8_SIGN_EXT{dot8_msb}}, dot_r[DOT8_W-1:0]};
-
-logic dot4_msb;
-assign dot4_msb = (&dot_r[DOT4_W:DOT4_W-1]) ? 1'b0 : dot_r[DOT4_W-1];
-assign dot4_r = {{DOT4_SIGN_EXT{dot4_msb}}, dot_r[DOT4_W-1:0]};
-
-logic dot2_msb;
-assign dot2_msb = (&dot_r[DOT2_W:DOT2_W-1]) ? 1'b0 : dot_r[DOT2_W-1];
-assign dot2_r = {{DOT2_SIGN_EXT{dot2_msb}}, dot_r[DOT2_W-1:0]};
-
-// unsigned: no BW bias, tree gives exact result
-arch_width_t dotu_r;
-assign dotu_r = tree_sum.w[0];
-
-// accumulator common
-arch_width_t dot_acc_in, dot_out;
-always_comb begin
-    case (op_d[2:0])
-        SIMD_ARITH_OP_DOT16[2:0]: dot_acc_in = dot16_r;
-        SIMD_ARITH_OP_DOT8[2:0]: dot_acc_in = dot8_r;
-        SIMD_ARITH_OP_DOT4[2:0]: dot_acc_in = dot4_r;
-        SIMD_ARITH_OP_DOT2[2:0]: dot_acc_in = dot2_r;
-        SIMD_ARITH_OP_DOT16U[2:0],
-        SIMD_ARITH_OP_DOT8U[2:0],
-        SIMD_ARITH_OP_DOT4U[2:0],
-        SIMD_ARITH_OP_DOT2U[2:0]: dot_acc_in = dotu_r;
-        default: dot_acc_in = 'h0;
-    endcase
-end
 
 /* verilator lint_off PINCONNECTEMPTY */
 add #(.W(ARCH_WIDTH)) add_dot_out_i (
-    .a(dot_acc_in), .b(c_late), .ci(1'b0), .s(dot_out), .co()
+    .a(dot_r), .b(c_late), .ci(1'b0), .s(dot_out), .co()
 );
 /* verilator lint_on PINCONNECTEMPTY */
 
