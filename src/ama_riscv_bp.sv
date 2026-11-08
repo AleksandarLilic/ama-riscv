@@ -31,8 +31,9 @@ assign taken = (pipe_in.br_res == B_T);
 logic [PC_BITS-1:0] pc_dec_part, pc_mem_part;
 logic [GHR_BITS-1:0] ghr;
 
-assign pc_dec_part = pipe_in.pc_dec[PC_BITS-1+2:0+2]; // 2 LSBs not used
-assign pc_mem_part = pipe_in.pc_mem[PC_BITS-1+2:0+2]; // 2 LSBs not used
+// 2 LSBs unused for RV32I (1 LSB for RV32C, but unsupported by the core)
+assign pc_dec_part = pipe_in.pc_dec[2 +: PC_BITS];
+assign pc_mem_part = pipe_in.pc_mem[2 +: PC_BITS];
 
 always_ff @(posedge clk) begin
     if (rst) ghr <= 'h0;
@@ -68,9 +69,14 @@ assign pht_idx_up = {pc_mem_part, ghr};
 end
 
 if (BP_TYPE_SEL == BP_GSHARE) begin: gen_gshare_idx
-localparam GHR_OFF = (PC_BITS > GHR_BITS) ? (PC_BITS - GHR_BITS) : 0;
-assign pht_idx = (pc_dec_part ^ (ghr << GHR_OFF));
-assign pht_idx_up = (pc_mem_part ^ (ghr << GHR_OFF));
+// both sides IDX_BITS wide: ghr aligned to MSBs, pc to LSBs, zero padded
+localparam unsigned GHR_OFF = (IDX_BITS - GHR_BITS);
+logic [IDX_BITS-1:0] ghr_idx, pc_dec_idx, pc_mem_idx;
+assign ghr_idx = (IDX_BITS'(ghr) << GHR_OFF);
+assign pc_dec_idx = IDX_BITS'(pc_dec_part);
+assign pc_mem_idx = IDX_BITS'(pc_mem_part);
+assign pht_idx = (pc_dec_idx ^ ghr_idx);
+assign pht_idx_up = (pc_mem_idx ^ ghr_idx);
 end
 
 //------------------------------------------------------------------------------
