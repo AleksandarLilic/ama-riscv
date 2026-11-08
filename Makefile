@@ -224,10 +224,15 @@ hier:
 		--ast-json - | $(REPO_ROOT)/script/slang_hier.py $(HIER_ARGS)
 
 # slang has poor linting capabilities, use verilator instead
-LINT_OPTS := -sv -Wall -Wpedantic
+LINT_WAIVERS ?= $(REPO_ROOT)/lint/waivers.vlt
+LINT_OPTS := -sv -Wall -Wpedantic -Wwarn-style $(LINT_WAIVERS)
 lint:
 	@verilator --lint-only $(LINT_OPTS) --top $(DESIGN_TOP) -DSYNT \
-		$(COMMON_RTL_SRC) > lint.log 2>&1
+		$(COMMON_RTL_SRC) > lint.log 2>&1; \
+	status=$$?; \
+	if [ $$status -eq 0 ]; then echo "lint: PASS"; \
+	else echo "lint: FAIL (see lint.log)"; fi; \
+	exit $$status
 
 FILE ?=
 lint_file:

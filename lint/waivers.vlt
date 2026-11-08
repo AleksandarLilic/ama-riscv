@@ -1,0 +1,122 @@
+
+`verilator_config
+
+// types
+lint_off -rule DECLFILENAME -file "*/src/ama_riscv_types.svh" -match "Filename 'ama_riscv_types' does not match IFACE name: 'rv_if'*"
+lint_off -rule UNUSEDPARAM -file "*/src/ama_riscv_types.svh" -match "Parameter is not used: 'CORE_DATA_BUS_B'*"
+// helper functions: not all input bits are used
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_types.svh" -match "Bits of signal are not used: 'pc'[1:0]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_types.svh" -match "Bits of signal are not used: 'inst'[31:7]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_types.svh" -match "Bits of signal are not used: 'inst'[31:15,11:0]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_types.svh" -match "Bits of signal are not used: 'inst'[31:15,13,11:0]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_types.svh" -match "Bits of signal are not used: 'inst'[19:0]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_types.svh" -match "Bits of signal are not used: 'inst'[24:0]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_types.svh" -match "Bits of signal are not used: 'inst'[31:26,24:0]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_types.svh" -match "Bits of signal are not used: 'inst'[31:28,26:0]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_types.svh" -match "Bits of signal are not used: 'inst'[31,29:0]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_types.svh" -match "Bits of signal are not used: 'inst'[30:0]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_types.svh" -match "Bits of signal are not used: 'inst'[31:20,14:0]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_types.svh" -match "Bits of signal are not used: 'inst'[31:25,19:0]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_types.svh" -match "Bits of signal are not used: 'inst'[31:12,6:0]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_types.svh" -match "Bits of signal are not used: 'a'[31:16]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_types.svh" -match "Bits of signal are not used: 'a'[15:8]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_types.svh" -match "Bits of signal are not used: 'a'[7:4]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_types.svh" -match "Bits of signal are not used: 'a'[3:2]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_types.svh" -match "Bits of signal are not used: 'ret'[7:0]*"
+// rv_if/rv_if_da: some modules are always ready and don't use the signal
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_types.svh" -match "Signal is not used: 'ready'*"
+// pipeline_if*: not all stages will be used by every instantiation
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_types.svh" -match "Signal is not used: 'fet'*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_types.svh" -match "Signal is not driven, nor used: 'fet'*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_types.svh" -match "Signal is not driven, nor used: 'dec'*"
+
+// core
+// decoded_exe: some bits are not always used
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_core.sv" -match "Bits of signal are not used: 'decoded_exe'[49:43,34:0]*"
+lint_off -rule PINCONNECTEMPTY -file "*/src/ama_riscv_core.sv" -match "Instance pin connected by name with empty reference: 'co'*"
+
+// simd
+lint_off -rule PINCONNECTEMPTY -file "*/src/ama_riscv_simd.sv" -match "Instance pin connected by name with empty reference: 'taps'*"
+lint_off -rule PINCONNECTEMPTY -file "*/src/ama_riscv_simd.sv" -match "Instance pin connected by name with empty reference: 'co'*"
+lint_off -rule PINCONNECTEMPTY -file "*/src/ama_riscv_simd_shift.sv" -match "Instance pin connected by name with empty reference: 'kind'*"
+lint_off -rule PINCONNECTEMPTY -file "*/src/ama_riscv_simd_lane_wrapup.sv" -match "Instance pin connected by name with empty reference: 'co'*"
+// op_d: op[1] (width bit) not used
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_simd_lane_wrapup.sv" -match "Bits of signal are not used: 'op_d'[1]*"
+
+// div
+// setup: a_neg & b_neg not used atm
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_div.sv" -match "Bits of signal are not used: 'setup'[5:4]*"
+
+// icache
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_icache.sv" -match "Bits of signal are not used: 'spec'[4,0]*"
+// helper functions: not all address bits are used
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_icache.sv" -match "Bits of signal are not used: 'addr'[8:0]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_icache.sv" -match "Bits of signal are not used: 'masked'[14:5]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_icache.sv" -match "Bits of signal are not used: 'addr'[14:4]*"
+
+// dcache
+// helper functions: not all address bits are used
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_dcache.sv" -match "Bits of signal are not used: 'addr'[9:0]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_dcache.sv" -match "Bits of signal are not used: 'masked'[16:4]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_dcache.sv" -match "Bits of signal are not used: 'masked'[16:6]*"
+// lfc_d: may have some bits unused
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_dcache.sv" -match "Bits of signal are not used: 'lfc_d'[7:4]*"
+
+// fe ctrl
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_fe_ctrl.sv" -match "Bits of signal are not used: 'hazard'[1:0]*"
+// decoded_fe_ctrl_d: bubble_dec, use_cp unused
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_fe_ctrl.sv" -match "Bits of signal are not used: 'decoded_fe_ctrl_d'[2:0]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_trap_ctrl.sv" -match "Bits of signal are not used: 'spec'[4:2]*"
+
+// bp
+// bp_comp_pred: component predictors, only used by BP_COMBINED
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_bp.sv" -match "Signal is not used: 'bp_comp_pred'*"
+// due to parametrization, pc or ghr might not be used for a given config
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_bp.sv" -match "Bits of signal are not used: 'ghr'[4]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_bp.sv" -match "Signal is not used: 'pc_dec_part'*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_bp.sv" -match "Signal is not used: 'pc_mem_part'*"
+
+// operand forwarding
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_operand_forwarding.sv" -match "Bits of signal are not used: 'd_rs1_dec'[5]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_operand_forwarding.sv" -match "Bits of signal are not used: 'd_rs2_dec'[5]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_operand_forwarding.sv" -match "Bits of signal are not used: 'd_rs3_dec'[5]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_operand_forwarding.sv" -match "Bits of signal are not used: 'd_rs3_mem'[5,3:2]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_operand_forwarding.sv" -match "Bits of signal are not used: 'd_rs1_exe'[6]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_operand_forwarding.sv" -match "Bits of signal are not used: 'd_rs2_exe'[6]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_operand_forwarding.sv" -match "Bits of signal are not used: 'd_rs3_exe'[6]*"
+
+// common
+// kind: unused on R=0
+lint_off -rule UNUSEDSIGNAL -file "*/src/common/barrel_shift_seg.sv" -match "Signal is not used: 'kind'*"
+// ckl: only used with CKL=1
+lint_off -rule UNUSEDSIGNAL -file "*/src/common/csa.sv" -match "Signal is not used: 'ckl'*"
+
+// common uart
+// rx_shift: LSB never read
+lint_off -rule UNUSEDSIGNAL -file "*/src/common/uart_rx.sv" -match "Bits of signal are not used: 'rx_shift'[0]*"
+
+//------------------------------------------------------------------------------
+// non-default configs: not hit by `make lint`, kept for config sweeps
+
+// CPU_SIMD_EN=0 (both mult flavors): no SIMD fields in decoded_exe
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_core.sv" -match "Bits of signal are not used: 'decoded_exe'[63:52,49:43,34:0]*"
+
+// CPU_SIMD_EN=0, CPU_MULT_USE_BW=0: plain mult
+// op_c_r_mem: no late_c without SIMD
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_core.sv" -match "Signal is not used: 'op_c_r_mem'*"
+// [33:32] of pp0 and pp3 unused
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_mult.sv" -match "Bits of signal are not used: 'pp0_d'[33:32]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_mult.sv" -match "Bits of signal are not used: 'pp3_d'[33:32]*"
+
+// CPU_SIMD_EN=0, CPU_MULT_USE_BW=1: simd in RV32M_ONLY mode
+// c_late, mul16_taps unused, op_d only partially used on RV32M mode
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_simd.sv" -match "Signal is not used: 'c_late'*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_simd.sv" -match "Bits of signal are not used: 'op_d'[6:3]*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_simd.sv" -match "Signal is not used: 'mul16_taps'*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_simd_ppgen.sv" -match "Signal is not used: 'op_simd_dot'*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_simd_ppgen.sv" -match "Signal is not used: 'ew'*"
+
+// ICACHE_WAYS=1 / DCACHE_WAYS=1: some may be unused for dmapped cache
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_icache.sv" -match "Signal is not used: 'load_req_hit'*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_icache.sv" -match "Signal is not used: 'load_req_pend'*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/ama_riscv_dcache.sv" -match "Signal is not used: 'load_req_hit'*"

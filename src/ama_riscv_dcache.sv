@@ -128,7 +128,6 @@ typedef logic [MEM_CNT_WIDTH-1:0] mem_cnt_t;
 localparam mem_cnt_t MEM_TRANSFER_MATCH = mem_cnt_t'(MEM_TRANSFERS_PER_CL - 1);
 
 // helper functions
-/* verilator lint_off UNUSEDSIGNAL */
 function automatic [TAG_W-1:0]
 get_tag(input logic [CORE_BYTE_ADDR_BUS-1:0] addr);
     get_tag = addr[CORE_BYTE_ADDR_BUS-1 -: TAG_W]; // get top TAG_W bits
@@ -154,7 +153,6 @@ get_cl_byte_idx(input logic [CORE_BYTE_ADDR_BUS-1:0] addr);
     masked = addr & CACHE_LINE_B_MASK[CORE_BYTE_ADDR_BUS-1:0];
     get_cl_byte_idx = masked[CACHE_LINE_BYTE_ADDR-1:0];
 endfunction
-/* verilator lint_on UNUSEDSIGNAL */
 
 function automatic [(ARCH_WIDTH/8)-1:0]
 get_store_mask(input logic [1:0] dw);
@@ -208,9 +206,7 @@ logic [WAY_BITS-1:0] way_victim_idx;
 logic new_core_req, new_core_req_d;
 logic hit, hit_d, miss, miss_d;
 logic cr_victim_dirty, cr_victim_dirty_d;
-/* verilator lint_off UNUSEDSIGNAL */ // some may be unused for dmapped cache
 logic load_req_hit, store_req_hit, load_req_pending, store_req_pending;
-/* verilator lint_on UNUSEDSIGNAL */
 
 //------------------------------------------------------------------------------
 // lookup and tag matching
@@ -427,9 +423,7 @@ always_ff @(posedge clk) begin
     else if (miss || req_mem_w.valid) bank_evict_cnt <= (bank_evict_cnt + 'h1);
 end
 
-/* verilator lint_off UNUSEDSIGNAL */
-load_from_cache_t lfc, lfc_d; // lfc_d may have some bits unused
-/* verilator lint_on UNUSEDSIGNAL */
+load_from_cache_t lfc, lfc_d;
 logic [BANK_LINE_ADDR-1:0] bl_addr_load, bl_addr_load_l, bl_addr_load_e;
 always_comb begin
     lfc.set_idx = get_idx(cr.addr);

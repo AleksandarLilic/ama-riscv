@@ -58,11 +58,9 @@ branch_t bp_pred;
 assign pc_inc4_in = pc_fet_last;
 `endif
 
-/* verilator lint_off PINCONNECTEMPTY */
 add #(.W(ARCH_WIDTH)) pc_fet_inc4_i (
     .a(pc_inc4_in), .b('d4), .ci(1'b0), .s(pc_inc4), .co()
 );
-/* verilator lint_on PINCONNECTEMPTY */
 
 // PC_SEL_PC front mux
 trap_ctrl_t trap_ctrl;
@@ -160,9 +158,7 @@ ama_riscv_trap_ctrl trap_ctrl_i (
     .ctrl (trap_ctrl)
 );
 
-/* verilator lint_off UNUSEDSIGNAL */
-decoder_t decoded_exe; // some bits are not always used
-/* verilator lint_on UNUSEDSIGNAL */
+decoder_t decoded_exe;
 logic dc_stalled, div_stalled;
 logic csr_inst_exe, csr_drain_done, csr_stalled;
 branch_t branch_resolution_mem;
@@ -258,11 +254,9 @@ ama_riscv_imm_gen imm_gen_i(
 arch_width_t imm_branch_jal;
 assign imm_branch_jal = branch_in_dec ? imm_b : imm_jal;
 
-/* verilator lint_off PINCONNECTEMPTY */
 add #(.W(ARCH_WIDTH)) pc_branch_jal_add_i (
     .a(pc.dec), .b(imm_branch_jal), .ci(1'b0), .s(pc_branch_jal), .co()
 );
-/* verilator lint_on PINCONNECTEMPTY */
 
 `ifdef USE_BP
 // all predictors use imm_b right away, no BTB
@@ -606,9 +600,7 @@ end else begin: gen_no_data_fmt
     assign data_fmt_out_p_exe = '0;
 end
 
-/* verilator lint_off UNUSEDSIGNAL */
-arch_width_t op_c_r_mem; // no late_c without SIMD
-/* verilator lint_on UNUSEDSIGNAL */
+arch_width_t op_c_r_mem;
 simd_d_t simd_out_wbk;
 
 if (SIMD_EN || MULT_USE_BW) begin: gen_mult_simd
@@ -709,11 +701,9 @@ assign csr_minstret_wr.exe = (
 );
 
 arch_width_t pc_exe_inc4;
-/* verilator lint_off PINCONNECTEMPTY */
 add #(.W(ARCH_WIDTH)) pc_exe_inc4_i (
     .a(pc.exe), .b('d4), .ci(1'b0), .s(pc_exe_inc4), .co()
 );
-/* verilator lint_on PINCONNECTEMPTY */
 
 // execute stage instruction result mux
 arch_width_t e_writeback_exe;
@@ -733,11 +723,9 @@ end
 arch_width_t mem_addr;
 arch_width_t mem_addr_imm;
 assign mem_addr_imm = {{20{dmem_offset_exe[11]}}, dmem_offset_exe};
-/* verilator lint_off PINCONNECTEMPTY */
 add #(.W(ARCH_WIDTH)) dmem_agu_exe_i (
     .a(op_a_r), .b(mem_addr_imm), .ci(1'b0), .s(mem_addr), .co()
 );
-/* verilator lint_on PINCONNECTEMPTY */
 
 // memory map
 assign mem_region.exe = '{

@@ -8,14 +8,10 @@ module ama_riscv_reg_file #(
     input  rf_we_t we,
     input  rf_addr_t addr_a,
     input  rf_addr_t addr_b,
-    /* verilator lint_off UNUSEDSIGNAL */
     input  rf_addr_t addr_c, // rs3, unused when SIMD_EN=0
-    /* verilator lint_on UNUSEDSIGNAL */
     input  rf_addr_t addr_d,
     input  arch_width_t data_d,
-    /* verilator lint_off UNUSEDSIGNAL */
     input  arch_width_t data_dp, // rdp, unused when SIMD_EN=0
-    /* verilator lint_on UNUSEDSIGNAL */
     output arch_width_t data_a,
     output arch_width_t data_b,
     output arch_width_t data_c

@@ -24,9 +24,7 @@ logic sample;
 logic start;
 logic rx_running;
 logic has_byte;
-/* verilator lint_off UNUSEDSIGNAL */
-logic [9:0] rx_shift; // LSB never read
-/* verilator lint_off UNUSEDSIGNAL */
+logic [9:0] rx_shift;
 logic [3:0] bit_counter;
 cnt_t clock_counter;
 

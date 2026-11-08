@@ -12,9 +12,7 @@ module ama_riscv_trap_ctrl (
     input  arch_width_t pc_dec, // pc -> mepc
     input  arch_width_t pc_inc4, // pc+4 -> mepc on wfi wake
     input  arch_width_t inst_dec, // inst -> mtval on illegal
-    /* verilator lint_off UNUSEDSIGNAL */
     input  spec_exec_t spec,
-    /* verilator lint_on UNUSEDSIGNAL */
     input  trap_tag_t trap_tag_wbk, // tagged inst reaching WBK
     input  csr_trap_status_t csr_status,
     // outputs

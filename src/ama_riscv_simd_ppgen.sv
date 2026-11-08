@@ -4,10 +4,8 @@ module ama_riscv_simd_ppgen #(
     parameter bit RV32M_ONLY = 0
 )(
     input  logic op_unsigned,
-    /* verilator lint_off UNUSEDSIGNAL */
     input  logic op_simd_dot,
     input  simd_arith_el_width_t ew,
-    /* verilator lint_on UNUSEDSIGNAL */
     input  simd_t a,
     input  simd_t b,
     output simd_d_t [31:0] ppv, // double-wide pp view

@@ -39,9 +39,7 @@ end else begin: gen_trail
 end
 
 // cur[L] holds the live (WIDTH>>L)-bit window in its low bits
-/* verilator lint_off UNUSEDSIGNAL */
 logic [WIDTH-1:0] cur [CNT_WIDTH+1]; // high bits unused
-/* verilator lint_on UNUSEDSIGNAL */
 
 assign cur[0] = in_aligned;
 for (genvar level = 0; level < CNT_WIDTH; level++) begin: gen_level

@@ -78,9 +78,7 @@ parameter logic [19:0] MM_CLINT_RANGE = 20'h02000; // addr[31:12]
 // caches
 parameter unsigned MEM_DATA_BUS = 128;
 parameter unsigned MEM_DATA_BUS_B = (MEM_DATA_BUS >> 3); // 16
-/* verilator lint_off UNUSEDPARAM */
 parameter unsigned CORE_DATA_BUS_B = 4;
-/* verilator lint_on UNUSEDPARAM */
 parameter unsigned CACHE_LINE_SIZE_B = 64;
 parameter unsigned CACHE_LINE_B_MASK = (CACHE_LINE_SIZE_B - 1); // 63 aka 0x3F
 parameter unsigned CACHE_LINE_SIZE = (CACHE_LINE_SIZE_B << 3); // 512
@@ -985,15 +983,10 @@ typedef enum int unsigned {
 } uart_baud_rate_t;
 
 // interfaces
-/* verilator lint_off DECLFILENAME */
-
 // generic rv interface
 interface rv_if #(parameter DW = ARCH_WIDTH) (/* input logic clk */);
     logic valid;
-    // some modules are always ready and don't use the signal
-    /* verilator lint_off UNUSEDSIGNAL */
     logic ready;
-    /* verilator lint_on UNUSEDSIGNAL */
     logic [DW-1:0] data;
     modport TX (output valid, output data, input  ready); // producer
     modport RX (input  valid, input  data, output ready); // consumer
@@ -1004,9 +997,7 @@ endinterface
 // rv interface with data and address (da) bus
 interface rv_if_da #(parameter AW = ARCH_WIDTH, parameter DW = ARCH_WIDTH) ();
     logic valid;
-    /* verilator lint_off UNUSEDSIGNAL */
     logic ready;
-    /* verilator lint_on UNUSEDSIGNAL */
     logic [AW-1:0] addr;
     logic [DW-1:0] wdata;
     modport TX (output valid, output addr, output wdata, input  ready); // prod
@@ -1064,9 +1055,6 @@ interface clint_if ();
     modport RX (input ctrl, input wdata, output rdata, output mtime); // clint
 endinterface
 
-// not all stages will be used by every instatiation
-/* verilator lint_off UNUSEDSIGNAL */
-
 interface pipeline_if #(parameter unsigned W = ARCH_WIDTH);
     logic [W-1:0] fet, dec, exe, mem, wbk, ret;
     modport IN (input fet, dec, exe, mem, wbk, ret);
@@ -1084,11 +1072,6 @@ interface pipeline_if_typed #(parameter type T = arch_width_t);
     modport IN  (input  fet, dec, exe, mem, wbk, ret);
     modport OUT (output fet, dec, exe, mem, wbk, ret);
 endinterface
-
-/* verilator lint_on UNUSEDSIGNAL */
-/* verilator lint_on DECLFILENAME */
-
-/* verilator lint_off UNUSEDSIGNAL */
 
 // helper build-time functions
 function automatic bit is_pow2 (int x);
@@ -1198,7 +1181,5 @@ endfunction
 function automatic logic[1:0] t_4_2(input logic [3:0] a);
     t_4_2 = a[1:0];
 endfunction
-
-/* verilator lint_on UNUSEDPARAM */
 
 `endif // AMA_RISCV_TYPES

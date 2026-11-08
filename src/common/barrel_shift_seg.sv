@@ -6,9 +6,7 @@ module barrel_shift_seg #(
     input logic [31:0] a,
     input logic [4:0] shamt,
     input simd_shift_el_width_t ew,
-    /* verilator lint_off UNUSEDSIGNAL */
-    input simd_shift_kind_t kind, // unused on R=0
-    /* verilator lint_on UNUSEDSIGNAL */
+    input simd_shift_kind_t kind,
     output logic [31:0] s
 );
 

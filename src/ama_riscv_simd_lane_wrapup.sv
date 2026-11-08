@@ -3,9 +3,7 @@
 module ama_riscv_simd_lane_wrapup #(
     parameter unsigned W = 8 // bits
 )(
-    /* verilator lint_off UNUSEDSIGNAL */
-    input  simd_arith_op_t op_d, // op[1] (width bit) not used
-    /* verilator lint_on UNUSEDSIGNAL */
+    input  simd_arith_op_t op_d,
     input  logic [W-1:0] a_lane,
     input  logic [W-1:0] b_lane,
     input  logic [2*W-1:0] t0,
@@ -69,9 +67,7 @@ assign add_y = use_operands ? b_adder : csa_out[1];
 assign add_cin = (use_operands && adder_sub_mode);
 
 logic [2*W-1:0] sum; // mul: the 2W product; add/sub/compare: a +/- b
-/* verilator lint_off PINCONNECTEMPTY */
 add #(.W(2*W)) add_i (.a(add_x), .b(add_y), .ci(add_cin), .s(sum), .co());
-/* verilator lint_on PINCONNECTEMPTY */
 
 //------------------------------------------------------------------------------
 // saturating add/sub: feed result + 1 guard bit (sum[W:0])

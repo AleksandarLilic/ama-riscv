@@ -9,9 +9,7 @@ module ama_riscv_icache #(
 )(
     input  logic clk,
     input  logic rst,
-    /* verilator lint_off UNUSEDSIGNAL */
     input  spec_exec_t spec,
-    /* verilator lint_on UNUSEDSIGNAL */
     output perf_event_icache_t pe,
     rv_if.RX req_core,
     rv_if.TX rsp_core,
@@ -89,7 +87,6 @@ localparam mem_miss_cnt_t
 typedef logic [WAY_BITS-1:0] lru_cnt_t;
 
 // helper functions
-/* verilator lint_off UNUSEDSIGNAL */
 function automatic [TAG_W-1:0]
 get_tag(input logic [CORE_WORD_ADDR_BUS-1:0] addr);
     get_tag = addr[CORE_WORD_ADDR_BUS-1 -: TAG_W]; // get top TAG_W bits
@@ -106,7 +103,6 @@ function automatic [WORD_ADDR-1:0]
 get_cl_word(input logic [CORE_WORD_ADDR_BUS-1:0] addr);
     get_cl_word = addr[WORD_ADDR-1:0];
 endfunction
-/* verilator lint_on UNUSEDSIGNAL */
 
 //------------------------------------------------------------------------------
 // implementation
@@ -150,9 +146,7 @@ logic [IDX_RANGE_TOP-1:0] set_idx_cr;
 logic [WAY_BITS-1:0] way_victim_idx, way_victim_idx_d;
 logic new_core_req, new_core_req_d;
 logic hit, hit_d, miss, miss_d;
-/* verilator lint_off UNUSEDSIGNAL */ // some may be unused for dmapped cache
 logic load_req_hit, load_req_pend;
-/* verilator lint_on UNUSEDSIGNAL */
 
 //------------------------------------------------------------------------------
 // lookup and tag matching

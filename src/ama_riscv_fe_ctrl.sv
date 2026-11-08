@@ -19,9 +19,7 @@ module ama_riscv_fe_ctrl (
     input  logic dc_stalled,
     input  logic div_stalled,
     input  logic csr_stalled,
-    /* verilator lint_off UNUSEDSIGNAL */
     input  hazard_t hazard,
-    /* verilator lint_on UNUSEDSIGNAL */
     input  fe_ctrl_t decoded_fe_ctrl,
     // trap controller
     input  trap_ctrl_t trap_ctrl,
@@ -243,9 +241,7 @@ function automatic void spec_fetch_wrong_spec();
 endfunction
 
 // outputs
-/* verilator lint_off UNUSEDSIGNAL */
-fe_ctrl_t decoded_fe_ctrl_d; // bubble_dec, use_cp unused
-/* verilator lint_on UNUSEDSIGNAL */
+fe_ctrl_t decoded_fe_ctrl_d;
 always_comb begin
     fe_ctrl.pc_sel = decoded_fe_ctrl_d.pc_sel;
     fe_ctrl.pc_we = decoded_fe_ctrl_d.pc_we;

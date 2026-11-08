@@ -89,9 +89,7 @@ partials_t pp_d;
 // stage 2 (MEM)
 // recombine b-side bytes, accumulate, output select
 
-/* verilator lint_off UNUSEDSIGNAL */
-logic signed [33:0] pp0_d, pp1_d, pp2_d, pp3_d; // [33:32] of pp0 and pp3 unused
-/* verilator lint_on UNUSEDSIGNAL */
+logic signed [33:0] pp0_d, pp1_d, pp2_d, pp3_d;
 assign pp0_d = ({{8{pp_d.e0_l[25]}}, pp_d.e0_l} + {pp_d.e0_h, 8'b0});
 assign pp1_d = ({{8{pp_d.e1_l[25]}}, pp_d.e1_l} + {pp_d.e1_h, 8'b0});
 assign pp2_d = ({{8{pp_d.e2_l[25]}}, pp_d.e2_l} + {pp_d.e2_h, 8'b0});

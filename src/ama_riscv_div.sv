@@ -83,9 +83,7 @@ assign in.overflow = (!in.op_uns && (a == 32'h8000_0000) && (b == {W{1'b1}}));
 
 //------------------------------------------------------------------------------
 // setup
-/* verilator lint_off UNUSEDSIGNAL */
-data_in_t setup; // a_neg & b_neg not used atm
-/* verilator lint_on UNUSEDSIGNAL */
+data_in_t setup;
 setup_clz_t setup_clz;
 
 // count leading zeros

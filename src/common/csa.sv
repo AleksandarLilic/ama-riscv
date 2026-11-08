@@ -8,9 +8,7 @@ module csa #(
     input logic [W-1:0] x,
     input logic [W-1:0] y,
     input logic [W-1:0] z,
-    /* verilator lint_off UNUSEDSIGNAL */
     input logic ckl, // carry kill, active high
-    /* verilator lint_on UNUSEDSIGNAL */
     output logic [W-1:0] s,
     output logic [W-1:0] c
 );

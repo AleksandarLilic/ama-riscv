@@ -91,10 +91,8 @@ assign rs2_exe_nz = (rs2_exe != RF_X0_ZERO);
 assign rs3_exe_nz = (rs3_exe != RF_X0_ZERO);
 assign rs3_mem_nz = (rs3_mem != RF_X0_ZERO);
 
-/* verilator lint_off UNUSEDSIGNAL */
 dep_t d_rs1_dec, d_rs2_dec, d_rs3_dec, d_rs3_mem;
 dep_t d_rs1_exe, d_rs2_exe, d_rs3_exe;
-/* verilator lint_on UNUSEDSIGNAL */
 
 // has any source reg anywhere in the machine?
 // anywhere in the mem stage?

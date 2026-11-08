@@ -11,9 +11,7 @@ module ama_riscv_simd #(
     input  simd_arith_op_t op,
     input  simd_t a,
     input  simd_t b,
-    /* verilator lint_off UNUSEDSIGNAL */
-    input  arch_width_t c_late, // unused on RV32M mode
-    /* verilator lint_on UNUSEDSIGNAL */
+    input  arch_width_t c_late,
     output simd_d_t p
 );
 
@@ -69,7 +67,6 @@ assign s1a_e2 = (|aenc && (aenc == 4'h1));
 assign s2a_e4 = (|aenc && (aenc <= 4'h2));
 
 simd_d_t [1:0] o_tree_0, o_tree_1, o_tree_2, o_tree_3;
-/* verilator lint_off PINCONNECTEMPTY */
 ama_riscv_simd_csa_tree_8 #(.W(64), .S1A(2*2), .S2A(4*2))
 csa_tree_8_i0 (
     .a(ppv[7:0]), .s1a(s1a_e2), .s2a(s2a_e4), .o(o_tree_0), .taps()
@@ -86,7 +83,6 @@ ama_riscv_simd_csa_tree_8 #(.W(64), .S1A(2*2), .S2A(4*2))
 csa_tree_8_i3 (
     .a(ppv[31:24]), .s1a(s1a_e2), .s2a(s2a_e4), .o(o_tree_3), .taps()
 );
-/* verilator lint_on PINCONNECTEMPTY */
 
 //------------------------------------------------------------------------------
 // pipeline: EXE_MEM
@@ -98,9 +94,7 @@ logic s1a_e8_d, s2a_e16_d;
 
 simd_t a_d;
 logic en_d;
-/* verilator lint_off UNUSEDSIGNAL */
-simd_arith_op_t op_d; // some bits unused on RV32M mode
-/* verilator lint_on UNUSEDSIGNAL */
+simd_arith_op_t op_d;
 simd_d_t corr_d;
 simd_d_t [1:0] o_tree_3_d, o_tree_2_d, o_tree_1_d, o_tree_0_d;
 logic b_sign_bit, b_sign_bit_d;
@@ -125,9 +119,7 @@ assign b_sign_bit = b[ARCH_WIDTH-1]; // b MSB
 // final tree rv32m mul & simd dot
 simd_d_t [7:0] i_tree_f;
 simd_d_t [1:0] o_tree_f;
-/* verilator lint_off UNUSEDSIGNAL */
-simd_d_t [3:0] mul16_taps; // unused on RV32M mode
-/* verilator lint_on UNUSEDSIGNAL */
+simd_d_t [3:0] mul16_taps;
 assign i_tree_f = {o_tree_3_d, o_tree_2_d, o_tree_1_d, o_tree_0_d};
 ama_riscv_simd_csa_tree_8 #(.W(64), .S1A(8*2), .S2A(16*2))
 csa_tree_8_f_i (
@@ -150,11 +142,9 @@ csa #(.W(64), .A(1)) csa_sum_mbw_i (
 );
 
 simd_d_t tree_sum;
-/* verilator lint_off PINCONNECTEMPTY */
 add #(.W(ARCH_WIDTH_D)) add_tree_sum_i (
     .a(sum_mbw[0]), .b(sum_mbw[1]), .ci(1'b0), .s(tree_sum), .co()
 );
-/* verilator lint_on PINCONNECTEMPTY */
 
 // multiply high signed x unsigned
 simd_d_t [1:0] sum_mul_hsu;
@@ -168,11 +158,9 @@ csa #(.W(64), .A(1)) csa_mul_hsu_i (
 );
 
 simd_d_t mul_hsu_signed;
-/* verilator lint_off PINCONNECTEMPTY */
 add #(.W(ARCH_WIDTH_D)) add_mul_hsu_i (
     .a(sum_mul_hsu[0]), .b(sum_mul_hsu[1]), .ci(1'b0), .s(mul_hsu_signed), .co()
 );
-/* verilator lint_on PINCONNECTEMPTY */
 
 arch_width_t mul_hsu;
 assign mul_hsu = b_sign_bit_d ? mul_hsu_signed.w[1] : tree_sum.w[1];
@@ -248,11 +236,9 @@ always_comb begin
     endcase
 end
 
-/* verilator lint_off PINCONNECTEMPTY */
 add #(.W(ARCH_WIDTH)) add_dot_out_i (
     .a(dot_acc_in), .b(c_late), .ci(1'b0), .s(dot_out), .co()
 );
-/* verilator lint_on PINCONNECTEMPTY */
 
 //------------------------------------------------------------------------------
 // per-lane wrap-up: (w)mul + add/sub + qadd/qsub + min/max

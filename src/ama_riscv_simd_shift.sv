@@ -22,8 +22,6 @@ assign kind = is_widen ? SIMD_SHIFT_KIND_SLL : all_shifts_kind;
 barrel_shift_seg #(.R(1)) shifter_rev (.a, .shamt, .ew, .kind, .s(s.w[0]));
 
 // second shifter for widen
-/* verilator lint_off PINCONNECTEMPTY */
 barrel_shift_seg #(.R(0)) shifter_left (.a(b), .shamt, .ew, .kind(), .s(s.w[1]));
-/* verilator lint_on PINCONNECTEMPTY */
 
 endmodule
