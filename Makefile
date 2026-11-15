@@ -252,7 +252,8 @@ print_defs_vivado:
 UT_F ?=
 # unit_test testbench top name
 UT_TOP ?=
-# extra xsim arguments, e.g. UT_XSIM_ARGS="-testplusarg vec_file=/abs/path.csv"
+# extra xsim arguments,
+# e.g. UT_XSIM_ARGS="-testplusarg simd_vectors_file=/abs/path.csv"
 UT_XSIM_ARGS ?=
 
 # unit_test work library name, should match the one in the first line of $(UT_F)

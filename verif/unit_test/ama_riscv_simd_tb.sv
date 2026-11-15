@@ -50,6 +50,86 @@ always_comb begin
     ctrl_mem_wbk = '{flush: 1'b0, en: 1'b1, bubble: 1'b0};
 end
 
+//------------------------------------------------------------------------------
+// SIMD arith unit reference vectors, from the ISA sim's 'simd_vectors.csv'
+localparam string SIMD_VECTORS_HEADER = "pc,op,rs1,rs2,rs3,rd,rdp";
+// elements expected
+localparam int unsigned SIMD_VECTORS_LINE_EL = 7;
+// fixed-width hex, no '\n'
+localparam int unsigned SIMD_VECTORS_LINE_LEN = (SIMD_VECTORS_LINE_EL * 8);
+
+typedef struct {
+    logic [31:0] pc; // metadata only
+    simd_arith_op_t op;
+    arch_width_t rs1;
+    arch_width_t rs2;
+    arch_width_t rs3; // old rd for dot, 0 otherwise
+    arch_width_t rd;
+    arch_width_t rdp; // wmul result high side, 0 otherwise
+} simd_vectors_entry_t;
+
+// appends the file's vectors to 'entries';
+// returns 0 and prints file:line on error
+function automatic bit read_simd_vectors(
+    input string path,
+    ref simd_vectors_entry_t entries[$]
+);
+    int fd;
+    int line_num = 1;
+    string line;
+    logic [31:0] pc, rs1, rs2, rs3, rd, rdp;
+    logic [7:0] op;
+    simd_arith_op_t op_e;
+    bit line_len_mismatch, line_vals_mismatch, line_bits_unknown;
+
+    fd = $fopen(path, "r");
+    if (fd == 0) begin
+        $display("Error: can't open SIMD vectors file '%s'", path);
+        return 1'b0;
+    end
+
+    if (($fgets(line, fd) == 0) ||
+        (line.substr(0, line.len() - 2) != SIMD_VECTORS_HEADER)
+    ) begin
+        $display(
+            "Error: %s:1: expected header '%s'", path, SIMD_VECTORS_HEADER
+        );
+        $fclose(fd);
+        return 1'b0;
+    end
+
+    while ($fgets(line, fd)) begin
+        line_num = (line_num + 1);
+        line = line.substr(0, line.len() - 2); // drop '\n'
+        // fixed width catches extra/short fields that %h would silently take
+        line_len_mismatch = (line.len() != SIMD_VECTORS_LINE_LEN);
+        line_vals_mismatch = (
+            $sscanf(
+                line, "%h,%h,%h,%h,%h,%h,%h", pc, op, rs1, rs2, rs3, rd, rdp
+            ) != SIMD_VECTORS_LINE_EL
+        );
+        line_bits_unknown = $isunknown({pc, op, rs1, rs2, rs3, rd, rdp});
+        if (line_len_mismatch || line_vals_mismatch || line_bits_unknown) begin
+            $display(
+                "Error: %s:%0d: malformed vector '%s'", path, line_num, line
+            );
+            $fclose(fd);
+            return 1'b0;
+        end
+        if (!$cast(op_e, op)) begin
+            $display("Error: %s:%0d: unknown op '%h'", path, line_num, op);
+            $fclose(fd);
+            return 1'b0;
+        end
+        entries.push_back('{pc, op_e, rs1, rs2, rs3, rd, rdp});
+    end
+
+    $fclose(fd);
+    return 1'b1;
+endfunction
+
+//------------------------------------------------------------------------------
+// test driver
 task automatic run_test(
     input string name,
     input simd_arith_op_t test_op,
@@ -93,28 +173,9 @@ task automatic run_test(
 
 endtask
 
-initial begin
-    $timeformat(-9, 0, " ns", 20);
-
-    rst = 1'b0;
-    en = 1'b0;
-    op = SIMD_ARITH_OP_MUL;
-    a = '0;
-    b = '0;
-    c_late = '0;
-
-    repeat (4) @(posedge clk);
-    #1;
-
-    rst = 1'b1;
-    @(posedge clk);
-    #1;
-    rst = 1'b0;
-
-    repeat (2) @(posedge clk);
-    #1;
-
-    fork: run_f
+//------------------------------------------------------------------------------
+// smoke or vectors test
+task automatic smoke_test();
     begin
         // name, op, a, b, ref (double width), c_late (dot only)
 
@@ -406,17 +467,86 @@ initial begin
                  {8'd200, 8'd1, 8'd128, 8'd1}, {8'd10, 8'd200, 8'd127, 8'd255},
                  {32'd0, 8'd200, 8'd200, 8'd128, 8'd255}
         );
+    end
+endtask
 
-        done = 1'b1;
+task automatic vectors_test(ref simd_vectors_entry_t entries[$]);
+    string op_name;
+    foreach (entries[i]) begin
+        op_name = entries[i].op.name();
+        run_test(
+            // name: op without the 'SIMD_ARITH_OP_' prefix, and pc
+            $sformatf(
+                "%s @%h",
+                op_name.substr(14, op_name.len() - 1).tolower(),
+                entries[i].pc
+            ),
+            entries[i].op,
+            entries[i].rs1,
+            entries[i].rs2,
+            {entries[i].rdp, entries[i].rd},
+            entries[i].rs3
+        );
+    end
+endtask
+
+//------------------------------------------------------------------------------
+// run
+
+string vectors_file = "";
+simd_vectors_entry_t vectors[$];
+int unsigned timeout_clks = TIMEOUT_CLKS;
+
+initial begin
+    $timeformat(-9, 0, " ns", 20);
+
+    if ($value$plusargs("simd_vectors_file=%s", vectors_file)) begin
+        if (!read_simd_vectors(vectors_file, vectors)) begin
+            `FAILED;
+        end
+        if (vectors.size() == 0) begin
+            $display("Error: no vectors in '%s'", vectors_file);
+            `FAILED;
+        end
+        $display("SIMD vectors: %0d from '%s'", vectors.size(), vectors_file);
+        timeout_clks = (100 + (2 * vectors.size())); // 2 clks per test
     end
 
-    begin
-        repeat (TIMEOUT_CLKS) @(posedge clk);
+    rst = 1'b0;
+    en = 1'b0;
+    op = SIMD_ARITH_OP_MUL;
+    a = '0;
+    b = '0;
+    c_late = '0;
+
+    repeat (4) @(posedge clk);
+    #1;
+
+    rst = 1'b1;
+    @(posedge clk);
+    #1;
+    rst = 1'b0;
+
+    repeat (2) @(posedge clk);
+    #1;
+
+    fork: run_f
+
+    // if '-testplusarg simd_vectors_file=<path>': run vectors, else smoke
+    begin : run_test_suite
+        if (vectors_file == "") smoke_test();
+        else vectors_test(vectors);
+        done = 1'b1;
+    end : run_test_suite
+
+    begin : check_timeout
+        repeat (timeout_clks) @(posedge clk);
         if (!done) begin
             $display("Test timed out");
             `FAILED;
         end
-    end
+    end : check_timeout
+
     join_any;
     disable run_f;
 
