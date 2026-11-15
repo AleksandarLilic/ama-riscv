@@ -39,11 +39,13 @@ include Makefile.sources.mk
 RUN_CFG ?= $(REPO_ROOT)/run_cfg.tcl
 TCLBATCH_SWITCH := -tclbatch $(RUN_CFG)
 
+RUN_DATE := run_$(shell date +%Y-%m-%d_%H-%M-%S)
+
 GENERIC_RUN :=
 TEST_PATH ?=
 # if TEST_PATH is not set, use a default unique name with timestamp
 ifeq ($(strip $(TEST_PATH)),)
-    TEST_WDB := run_$(shell date +%Y-%m-%d_%H-%M-%S)
+    TEST_WDB := $(RUN_DATE)
     GENERIC_RUN := 1
 else
     TEST_WDB := $(shell path='$(TEST_PATH)'; echo "$$(basename "$$(dirname "$$path")")_$$(basename "$$path")")
@@ -56,10 +58,8 @@ ifeq ($(strip $(UNIQUE_WDB)),1)
     WDB_SWITCH := -wdb $(CURDIR)/$(TEST_WDB)
 endif
 
-#LOG_ARG :=
-#LOG_ARG := -log test.log
-#LOG_ARG := -log /dev/null > test.log 2>&1
-LOG_ARG := -log /dev/null
+# x-tools native logging, always disabled, using redirected stdout instead
+NATIVE_LOG_VOID := -log /dev/null 2>&1
 
 LOG_NAME ?= $(TEST_WDB).make.log
 TO_LOG ?= 1
@@ -67,9 +67,9 @@ ifeq ($(strip $(TO_LOG)),1)
     ifneq ($(strip $(GENERIC_RUN)),1)
         $(shell echo "" > $(LOG_NAME)) # flush old log if it exists
     endif
-    LOG_ARG := $(LOG_ARG) >> $(LOG_NAME) 2>&1
+    LOG_ARG := -log /dev/null >> $(LOG_NAME) 2>&1
 else
-    LOG_ARG := $(LOG_ARG) 2>&1
+    LOG_ARG := $(NATIVE_LOG_VOID)
 endif
 
 # silence make output if logging to file
@@ -156,7 +156,7 @@ elab: .elab.touchfile
 	@touch .elab.touchfile
 
 dpi_header_gen: .compile.touchfile
-	xelab $(WLIB_TOP) $(ELAB_OPTS) -dpiheader $(DPI_FUNCS_H) -log /dev/null 2>&1
+	xelab $(WLIB_TOP) $(ELAB_OPTS) -dpiheader $(DPI_FUNCS_H) $(NATIVE_LOG_VOID)
 
 autogen_perf_events:
 	@$(REPO_ROOT)/script/autogen_perf_events.py
@@ -182,8 +182,8 @@ sim: .elab.touchfile
 	@rm xsim.jou
 	@touch .sim.touchfile
 	@if [ "$(TO_LOG)" -eq 1 ]; then \
-		tail -n 50 $(LOG_NAME) | grep "^Simulation cycles:" | tee >(grep --color=always "===="); \
-		tail -n 5 $(LOG_NAME) | grep "^Simulation runtime:" | tee >(grep --color=always "===="); \
+		tail -n 50 $(LOG_NAME) | grep "^Simulation cycles:"; \
+		tail -n 5 $(LOG_NAME) | grep "^Simulation runtime:"; \
 		echo "Log available under '$(LOG_NAME)'"; \
 	fi
 #	@if [ "$(TO_LOG)" -eq 1 ]; then \
@@ -252,28 +252,53 @@ print_defs_vivado:
 UT_F ?=
 # unit_test testbench top name
 UT_TOP ?=
+# extra xsim arguments, e.g. UT_XSIM_ARGS="-testplusarg vec_file=/abs/path.csv"
+UT_XSIM_ARGS ?=
 
 # unit_test work library name, should match the one in the first line of $(UT_F)
 # not really meant to be changed even for multiple tops
 # as each top will have its own dir under xsim.dir
 UT_WORKLIB := unit_test
 
+# optional job tag, e.g. for parallel runs of the same bench in the same workdir
+# each job is fully independent - compile, elab, and sim all done separately
+UT_JOB ?=
+
+ifeq ($(strip $(UT_JOB)),)
+    UT_LIB_MAP_COMP :=
+    UT_LIB_MAP_ELAB :=
+    UT_SNAPSHOT := $(UT_WORKLIB).$(UT_TOP)
+else
+    UT_LIB_MAP := $(UT_WORKLIB)=xsim.dir/$(UT_WORKLIB)_$(UT_JOB)
+    UT_LIB_MAP_COMP := --work $(UT_LIB_MAP)
+    UT_SNAPSHOT := $(UT_TOP)_$(UT_JOB)
+    UT_LIB_MAP_ELAB := -L $(UT_LIB_MAP) -s $(UT_SNAPSHOT)
+endif
+
 # example usage: 'make unit_test UT_F=../filelist/sources_uart.f UT_TOP=uart_tb'
+# parallel, same workdir: add 'UT_JOB=<unique tag>' to each invocation
 unit_test:
 	@if [ -z "$(UT_F)" ]; then \
-		echo "Error: Please provide UT_F variable (unit_test testbench sources file path)"; \
+		echo "Error: Set UT_F to testbench sources file path"; \
 		exit 1; \
 	fi
 	@if [ -z "$(UT_TOP)" ]; then \
-		echo "Error: Please provide UT_TOP variable (unit_test testbench top name)"; \
+		echo "Error: Set UT_TOP to testbench top name"; \
 		exit 1; \
 	fi
-	xvlog $(COMP_OPTS) -prj $(UT_F) -log /dev/null 2>&1
-	@rm xvlog.pb
-	xelab $(UT_WORKLIB).$(UT_TOP) $(ELAB_OPTS) -log /dev/null 2>&1
-	@rm xelab.pb
-	xsim $(UT_WORKLIB).$(UT_TOP) $(TCLBATCH_SWITCH) -log /dev/null 2>&1
-	@rm xsim.jou
+	@if [ "$(TO_LOG)" -eq 1 ]; then \
+		echo "" > $(LOG_NAME); \
+	fi
+	xvlog $(COMP_OPTS) $(UT_LIB_MAP_COMP) -prj $(UT_F) $(LOG_ARG)
+	@rm -f xvlog.pb
+	xelab $(UT_WORKLIB).$(UT_TOP) $(UT_LIB_MAP_ELAB) $(ELAB_OPTS) $(LOG_ARG)
+	@rm -f xelab.pb
+	xsim $(UT_SNAPSHOT) $(TCLBATCH_SWITCH) $(UT_XSIM_ARGS) $(LOG_ARG)
+	@rm -f xsim.jou
+	@if [ "$(TO_LOG)" -eq 1 ]; then \
+		grep --color=always "====" $(LOG_NAME); \
+		echo "Log available under '$(LOG_NAME)'"; \
+	fi
 
 WORKDIR ?= workdir_test
 workdir:
