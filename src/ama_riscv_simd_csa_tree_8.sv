@@ -4,8 +4,8 @@
 module ama_riscv_simd_csa_tree_8 #(
     parameter unsigned W = 8,
     // stage 1 & 2 align (right shift) amounts
-    parameter unsigned S1A,
-    parameter unsigned S2A
+    parameter unsigned S1A = 0,
+    parameter unsigned S2A = 0
 )(
     input simd_d_t [7:0] a,
     input logic s1a,
